@@ -28,6 +28,9 @@ pub mod include;
 /// 3.5 Element edmx:IncludeAnnotations
 pub mod include_annotations;
 
+/// 5 Schema
+pub mod schema;
+
 use quick_xml::DeError;
 use serde::Deserialize;
 
@@ -40,28 +43,8 @@ pub enum ValidateError {
     WrongDataServicesNumber,
 }
 
+/// Rexport of Edmx type to root.
 pub type Edmx = edmx_root::Edmx;
-
-#[derive(Debug, Deserialize)]
-pub struct Schema {
-    #[serde(rename = "@Namespace")]
-    pub namespace: String,
-    #[serde(rename = "@Alias")]
-    pub alias: Option<String>,
-    #[serde(rename = "$value", default)]
-    pub items: Vec<SchemaItem>,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum SchemaItem {
-    EntityType(EntityType),
-    ComplexType(ComplexType),
-    EnumType(EnumType),
-    TypeDefinition(TypeDefinition),
-    EntityContainer(EntityContainer),
-    Term(Term),
-    Annotation(Annotation),
-}
 
 #[derive(Debug, Deserialize)]
 pub struct EntityType {

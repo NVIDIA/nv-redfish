@@ -13,8 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::edmx::Schema;
 use crate::edmx::ValidateError;
+use crate::edmx::schema::DeSchema;
+use crate::edmx::schema::Schema;
 use serde::Deserialize;
 
 /// 3.2 Element edmx:DataServices
@@ -23,7 +24,7 @@ pub struct DeDataServices {
     /// edm:Schema elements which define the schemas exposed by the
     /// `OData` service
     #[serde(rename = "Schema", default)]
-    pub schemas: Vec<Schema>,
+    pub schemas: Vec<DeSchema>,
 }
 
 /// Validated `DataServices`.
@@ -36,7 +37,11 @@ impl DeDataServices {
     /// Validation error if any of Schemas is invalid.
     pub fn validate(self) -> Result<DataServices, ValidateError> {
         Ok(DataServices {
-            schemas: self.schemas,
+            schemas: self
+                .schemas
+                .into_iter()
+                .map(DeSchema::validate)
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 }

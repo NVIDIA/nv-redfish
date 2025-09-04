@@ -48,6 +48,7 @@ use std::io::Error as IoError;
 /// Errors defined by the CSDL compiler.
 #[derive(Debug)]
 pub enum Error {
+    /// Edmx document validation error.
     Validate(ValidateError),
     /// File read error.
     FileRead(IoError),
@@ -57,7 +58,7 @@ pub enum Error {
 mod test {
     use super::Error;
     use super::edmx::Edmx;
-    use super::edmx::SchemaItem;
+    use crate::edmx::schema::Type;
     use std::fs;
     use std::path::Path;
 
@@ -92,13 +93,12 @@ mod test {
            </edmx:Edmx>"#;
         let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         assert_eq!(edmx.data_services.schemas.len(), 1);
-        assert_eq!(edmx.data_services.schemas[0].items.len(), 1);
+        assert_eq!(edmx.data_services.schemas[0].types.len(), 1);
         assert!(matches!(
-            edmx.data_services.schemas[0].items[0],
-            SchemaItem::Term(..)
+            edmx.data_services.schemas[0].types.get("Computed"),
+            Some(Type::Term(..))
         ));
-        if let SchemaItem::Term(term) = &edmx.data_services.schemas[0].items[0] {
-            assert_eq!(term.name, "Computed");
+        if let Some(Type::Term(term)) = &edmx.data_services.schemas[0].types.get("Computed") {
             assert_eq!(term.ttype.as_ref().unwrap(), "Core.Tag");
             assert_eq!(term.default_value.as_ref().unwrap(), "true");
             assert_eq!(term.applies_to.as_ref().unwrap(), "Property");
@@ -124,7 +124,11 @@ mod test {
         .map_err(Error::FileRead)?;
         let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         assert_eq!(edmx.data_services.schemas.len(), 6);
-        assert_eq!(edmx.data_services.schemas.get(1).unwrap().items.len(), 7);
+        assert_eq!(edmx.data_services.schemas.get(1).unwrap().types.len(), 5);
+        assert_eq!(
+            edmx.data_services.schemas.get(1).unwrap().annotations.len(),
+            2
+        );
 
         Ok(())
     }

@@ -16,6 +16,7 @@
 use crate::edmx::ValidateError;
 use crate::edmx::data_services::DataServices;
 use crate::edmx::data_services::DeDataServices;
+use crate::edmx::reference::DeReference;
 use crate::edmx::reference::Reference;
 use serde::Deserialize;
 
@@ -32,7 +33,7 @@ struct DeEdmx {
     pub items: Vec<DeEdmxItem>,
 }
 
-/// Child item of `edmx::Edmx`
+/// Child item of edmx:Edmx
 #[derive(Debug, Deserialize)]
 enum DeEdmxItem {
     /// edmx:Edmx element MUST contain a single direct child
@@ -40,11 +41,14 @@ enum DeEdmxItem {
     DataServices(DeDataServices),
     /// edmx:Edmx element contains zero or more edmx:Reference
     /// elements.
-    Reference(Reference),
+    Reference(DeReference),
 }
 
+/// Validated Edmx document.
 pub struct Edmx {
+    /// Validated `DataServices`
     pub data_services: DataServices,
+    /// Validated references.
     pub references: Vec<Reference>,
 }
 
@@ -60,6 +64,7 @@ impl Edmx {
 }
 
 impl DeEdmx {
+    /// Validate deserialized data strucutre.
     pub fn validate(self) -> Result<Edmx, ValidateError> {
         let (dss, refs) =
             self.items
@@ -84,7 +89,10 @@ impl DeEdmx {
 
         Ok(Edmx {
             data_services: ds.validate()?,
-            references: refs,
+            references: refs
+                .into_iter()
+                .map(DeReference::validate)
+                .collect::<Result<Vec<_>, _>>()?,
         })
     }
 }

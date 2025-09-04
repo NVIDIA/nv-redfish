@@ -15,12 +15,13 @@
 
 use serde::Deserialize;
 
+use crate::ValidateError;
 use crate::edmx::include::Include;
 use crate::edmx::include_annotations::IncludeAnnotations;
 
 /// 3.3 Element edmx:Reference
 #[derive(Debug, Deserialize)]
-pub struct Reference {
+pub struct DeReference {
     #[serde(rename = "@Uri")]
     pub uri: String,
     /// Child elements of Edmx.
@@ -33,4 +34,35 @@ pub struct Reference {
 pub enum DeReferenceItem {
     Include(Include),
     IncludeAnnotations(IncludeAnnotations),
+}
+
+/// Validated reference stuct
+pub struct Reference {
+    pub uri: String,
+    pub includes: Vec<Include>,
+    pub include_annotations: Vec<IncludeAnnotations>,
+}
+
+impl DeReference {
+    /// # Errors
+    ///
+    /// Actually, never returns error today but keep validation consistent.
+    pub fn validate(self) -> Result<Reference, ValidateError> {
+        let (includes, include_annotations) =
+            self.items
+                .into_iter()
+                .fold((Vec::new(), Vec::new()), |(mut is, mut ias), v| {
+                    match v {
+                        DeReferenceItem::Include(v) => is.push(v),
+                        DeReferenceItem::IncludeAnnotations(v) => ias.push(v),
+                    }
+                    (is, ias)
+                });
+
+        Ok(Reference {
+            uri: self.uri,
+            includes,
+            include_annotations,
+        })
+    }
 }
