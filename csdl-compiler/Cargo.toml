@@ -1,0 +1,12 @@
+[package]
+name = "csdl-compiler"
+version.workspace = true
+license-file.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation.workspace = true
+
+[dependencies]
