@@ -13,16 +13,43 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//
+//! This crate defines compiler for [Common Schema Definition Language (CSDL)](https://docs.oasis-open.org/odata/odata/v4.0/odata-v4.0-part3-csdl.html)
 
+#![deny(
+    clippy::all,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::suspicious,
+    clippy::complexity,
+    clippy::perf
+)]
+#![deny(
+    clippy::absolute_paths,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::tests_outside_test_module,
+    clippy::std_instead_of_core,
+    clippy::std_instead_of_alloc,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::unwrap_in_result,
+    clippy::unused_trait_names,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
+//#![deny(missing_docs)]
+
+/// Entity Data Model XML definitions.
 pub mod edmx;
 
-use quick_xml::DeError;
+use edmx::ValidateError;
 use std::io::Error as IoError;
 
+/// Errors defined by the CSDL compiler.
 #[derive(Debug)]
 pub enum Error {
-    XmlDeserialize(DeError),
+    Validate(ValidateError),
+    /// File read error.
     FileRead(IoError),
 }
 
@@ -39,6 +66,19 @@ mod test {
     }
 
     #[test]
+    fn test_edmx_element() -> Result<(), Error> {
+        let data = r#"
+           <edmx:Edmx Version="4.0">
+             <edmx:Reference Uri="http://example.com/1.xml"></edmx:Reference>
+             <edmx:Reference Uri="http://example.com/2.xml"></edmx:Reference>
+             <edmx:DataServices></edmx:DataServices>
+           </edmx:Edmx>"#;
+        let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
+        assert!(edmx.data_services.schemas.is_empty());
+        Ok(())
+    }
+
+    #[test]
     fn test_trivial_data() -> Result<(), Error> {
         let data = r#"
            <edmx:Edmx Version="4.0">
@@ -50,7 +90,7 @@ mod test {
                </Schema>
              </edmx:DataServices>
            </edmx:Edmx>"#;
-        let edmx: Edmx = quick_xml::de::from_str(&data).map_err(Error::XmlDeserialize)?;
+        let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         assert_eq!(edmx.data_services.schemas.len(), 1);
         assert_eq!(edmx.data_services.schemas[0].items.len(), 1);
         assert!(matches!(
@@ -69,18 +109,20 @@ mod test {
     #[ignore]
     #[test]
     fn test_read_odata() -> Result<(), Error> {
-        let xml = fs::read_to_string(crate_root().join("test-data/edmx/odata-4.0.xml"))
+        let data = fs::read_to_string(crate_root().join("test-data/edmx/odata-4.0.xml"))
             .map_err(Error::FileRead)?;
-        let _edmx: Edmx = quick_xml::de::from_str(&xml).map_err(Error::XmlDeserialize)?;
+        let _edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         Ok(())
     }
 
     #[ignore]
     #[test]
     fn test_read_redfish() -> Result<(), Error> {
-        let xml = fs::read_to_string(crate_root().join("test-data/redfish-schema/CoolantConnector_v1.xml"))
-            .map_err(Error::FileRead)?;
-        let edmx: Edmx = quick_xml::de::from_str(&xml).map_err(Error::XmlDeserialize)?;
+        let data = fs::read_to_string(
+            crate_root().join("test-data/redfish-schema/CoolantConnector_v1.xml"),
+        )
+        .map_err(Error::FileRead)?;
+        let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         assert_eq!(edmx.data_services.schemas.len(), 6);
         assert_eq!(edmx.data_services.schemas.get(1).unwrap().items.len(), 7);
 

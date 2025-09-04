@@ -13,52 +13,34 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// 3.1 Element edmx:Edmx
+pub mod edmx_root;
+
+/// 3.2 Element edmx:DataServicse
+pub mod data_services;
+
+/// 3.3 Element edmx:Reference
+pub mod reference;
+
+/// 3.4 Element edmx:Include
+pub mod include;
+
+/// 3.5 Element edmx:IncludeAnnotations
+pub mod include_annotations;
+
+use quick_xml::DeError;
 use serde::Deserialize;
 
-#[derive(Debug, Deserialize)]
-pub struct Edmx {
-    #[serde(rename = "@Version")]
-    pub version: Option<String>,
-    #[serde(rename = "DataServices")]
-    pub data_services: DataServices,
-    #[serde(rename = "Reference", default)]
-    pub references: Vec<Reference>,
+/// EDMX compilation errors.
+#[derive(Debug)]
+pub enum ValidateError {
+    /// XML deserialization error.
+    XmlDeserialize(DeError),
+    /// Invalid number of `DataServices`.
+    WrongDataServicesNumber,
 }
 
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Reference {
-    #[serde(rename = "@Uri")]
-    pub uri: String,
-    #[serde(rename = "Include", default)]
-    pub includes: Vec<Include>,
-    #[serde(rename = "IncludeAnnotations", default)]
-    pub include_annotations: Vec<IncludeAnnotations>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct Include {
-    #[serde(rename = "@Namespace")]
-    pub namespace: String,
-    #[serde(rename = "@Alias")]
-    pub alias: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct IncludeAnnotations {
-    #[serde(rename = "@TermNamespace")]
-    pub term_namespace: String,
-    #[serde(rename = "@TargetNamespace")]
-    pub target_namespace: Option<String>,
-    #[serde(rename = "@Qualifier")]
-    pub qualifier: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-pub struct DataServices {
-    #[serde(rename = "Schema", default)]
-    pub schemas: Vec<Schema>,
-}
+pub type Edmx = edmx_root::Edmx;
 
 #[derive(Debug, Deserialize)]
 pub struct Schema {
@@ -298,7 +280,6 @@ pub struct FunctionImport {
     pub name: String,
     #[serde(rename = "@Function")]
     pub function: String,
-
     #[serde(rename = "Annotation", default)]
     pub annotations: Vec<Annotation>,
 }
