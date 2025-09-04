@@ -9,4 +9,13 @@ keywords.workspace = true
 categories.workspace = true
 documentation.workspace = true
 
+[lib]
+path = "src/lib.rs"
+
+[[bin]]
+name = "csdl-compiler-bin"
+path = "src/main.rs"
+
 [dependencies]
+serde = { workspace = true, features = [ "derive" ]}
+quick-xml = { workspace = true, features = ["serialize"] }

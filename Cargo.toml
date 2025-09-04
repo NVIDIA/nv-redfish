@@ -2,7 +2,7 @@
 
 [workspace]
 members = [
-   "csdl-compiler"
+   "csdl-compiler",
 ]
 
 [workspace.package]
@@ -16,3 +16,5 @@ categories = ["hardware-support"]
 documentation = "TBD"
 
 [workspace.dependencies]
+serde = { version = "1.0" }
+quick-xml = { version = "0.38" }
