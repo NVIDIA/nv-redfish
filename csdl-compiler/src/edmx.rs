@@ -31,8 +31,20 @@ pub mod include_annotations;
 /// 5 Schema
 pub mod schema;
 
+/// 6 Structural Property / 7 Navigation Property
+pub mod property;
+
+/// 8 Entity Type
+pub mod entity_type;
+
+/// 9 Complex Type
+pub mod complex_type;
+
 use quick_xml::DeError;
 use serde::Deserialize;
+
+pub type TypeName = String;
+pub type SchemaNamespace = String;
 
 /// EDMX compilation errors.
 #[derive(Debug)]
@@ -41,36 +53,14 @@ pub enum ValidateError {
     XmlDeserialize(DeError),
     /// Invalid number of `DataServices`.
     WrongDataServicesNumber,
+    /// In the `EntityType` too many keys.
+    TooManyKeys(TypeName),
+    /// Schema validation error.
+    Schema(SchemaNamespace, Box<ValidateError>),
 }
 
-/// Rexport of Edmx type to root.
+/// Reexport of Edmx type to root.
 pub type Edmx = edmx_root::Edmx;
-
-#[derive(Debug, Deserialize)]
-pub struct EntityType {
-    #[serde(rename = "@Name")]
-    pub name: String,
-    #[serde(rename = "@BaseType")]
-    pub base_type: Option<String>,
-    #[serde(rename = "@Abstract")]
-    pub r#abstract: Option<bool>,
-    #[serde(rename = "@OpenType")]
-    pub open_type: Option<bool>,
-    #[serde(rename = "@HasStream")]
-    pub has_stream: Option<bool>,
-    #[serde(rename = "Key")]
-    pub key: Option<Key>,
-    #[serde(rename = "$value", default)]
-    pub items: Vec<EntityTypeItem>,
-    #[serde(rename = "Annotation", default)]
-    pub annotations: Vec<Annotation>,
-}
-
-#[derive(Debug, Deserialize)]
-pub enum EntityTypeItem {
-    Property(Property),
-    NavigationProperty(NavigationProperty),
-}
 
 #[derive(Debug, Deserialize)]
 pub struct Key {
@@ -84,50 +74,6 @@ pub struct PropertyRef {
     pub name: String,
     #[serde(rename = "@Alias")]
     pub alias: Option<String>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct Property {
-    #[serde(rename = "@Name")]
-    pub name: String,
-    #[serde(rename = "@Type")]
-    pub r#type: String,
-    #[serde(rename = "@Nullable")]
-    pub nullable: Option<bool>,
-    #[serde(rename = "@MaxLength")]
-    pub max_length: Option<String>,
-    #[serde(rename = "@Precision")]
-    pub precision: Option<i32>,
-    #[serde(rename = "@Scale")]
-    pub scale: Option<String>, // "variable" or number
-    #[serde(rename = "@Unicode")]
-    pub unicode: Option<bool>,
-    #[serde(rename = "@DefaultValue")]
-    pub default_value: Option<String>,
-    #[serde(rename = "Annotation", default)]
-    pub annotations: Vec<Annotation>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct NavigationProperty {
-    #[serde(rename = "@Name")]
-    pub name: String,
-    #[serde(rename = "@Type")]
-    pub r#type: String,
-    #[serde(rename = "@Nullable")]
-    pub nullable: Option<bool>,
-    #[serde(rename = "@Partner")]
-    pub partner: Option<String>,
-    #[serde(rename = "@ContainsTarget")]
-    pub contains_target: Option<bool>,
-    #[serde(rename = "ReferentialConstraint", default)]
-    pub referential_constraints: Vec<ReferentialConstraint>,
-    #[serde(rename = "OnDelete")]
-    pub on_delete: Option<OnDelete>,
-    #[serde(rename = "Annotation", default)]
-    pub annotations: Vec<Annotation>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -145,26 +91,6 @@ pub struct OnDelete {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct ComplexType {
-    #[serde(rename = "@Name")]
-    pub name: String,
-    #[serde(rename = "@BaseType")]
-    pub base_type: Option<String>,
-    #[serde(rename = "@Abstract")]
-    pub r#abstract: Option<bool>,
-    #[serde(rename = "@OpenType")]
-    pub open_type: Option<bool>,
-    #[serde(rename = "Property", default)]
-    pub properties: Vec<Property>,
-    #[serde(rename = "NavigationProperty", default)]
-    pub navigation_properties: Vec<NavigationProperty>,
-    #[serde(rename = "Annotation", default)]
-    pub annotations: Vec<Annotation>,
-}
-
-#[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
 pub struct EnumType {
     #[serde(rename = "@Name")]
     pub name: String,

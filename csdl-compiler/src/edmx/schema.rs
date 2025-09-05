@@ -15,12 +15,15 @@
 
 use crate::ValidateError;
 use crate::edmx::Annotation;
-use crate::edmx::ComplexType;
 use crate::edmx::EntityContainer;
-use crate::edmx::EntityType;
 use crate::edmx::EnumType;
+use crate::edmx::SchemaNamespace;
 use crate::edmx::Term;
 use crate::edmx::TypeDefinition;
+use crate::edmx::complex_type::ComplexType;
+use crate::edmx::complex_type::DeComplexType;
+use crate::edmx::entity_type::DeEntityType;
+use crate::edmx::entity_type::EntityType;
 use serde::Deserialize;
 use std::collections::HashMap;
 
@@ -36,8 +39,8 @@ pub struct DeSchema {
 
 #[derive(Debug, Deserialize)]
 pub enum DeSchemaItem {
-    EntityType(EntityType),
-    ComplexType(ComplexType),
+    EntityType(DeEntityType),
+    ComplexType(DeComplexType),
     EnumType(EnumType),
     TypeDefinition(TypeDefinition),
     EntityContainer(EntityContainer),
@@ -55,42 +58,53 @@ pub enum Type {
 }
 
 pub struct Schema {
+    pub namespace: SchemaNamespace,
     pub types: HashMap<String, Type>,
     pub annotations: Vec<Annotation>,
 }
 
 impl DeSchema {
     /// # Errors
-    /// Actually, doesn't return error but keep it consistent if it will.
+    ///
+    /// Returns error if any of items failed to validate.
     pub fn validate(self) -> Result<Schema, ValidateError> {
         let (types, annotations) =
             self.items
                 .into_iter()
-                .fold((HashMap::new(), Vec::new()), |(mut ts, mut anns), v| {
+                .fold((Vec::new(), Vec::new()), |(mut ts, mut anns), v| {
                     match v {
                         DeSchemaItem::EntityType(v) => {
-                            ts.insert(v.name.clone(), Type::EntityType(v));
+                            ts.push(v.validate().map(|v| (v.name.clone(), Type::EntityType(v))));
                         }
                         DeSchemaItem::ComplexType(v) => {
-                            ts.insert(v.name.clone(), Type::ComplexType(v));
+                            ts.push(v.validate().map(|v| (v.name.clone(), Type::ComplexType(v))));
                         }
                         DeSchemaItem::EnumType(v) => {
-                            ts.insert(v.name.clone(), Type::EnumType(v));
+                            ts.push(Ok((v.name.clone(), Type::EnumType(v))));
                         }
                         DeSchemaItem::TypeDefinition(v) => {
-                            ts.insert(v.name.clone(), Type::TypeDefinition(v));
+                            ts.push(Ok((v.name.clone(), Type::TypeDefinition(v))));
                         }
                         DeSchemaItem::EntityContainer(v) => {
-                            ts.insert(v.name.clone(), Type::EntityContainer(v));
+                            ts.push(Ok((v.name.clone(), Type::EntityContainer(v))));
                         }
                         DeSchemaItem::Term(v) => {
-                            ts.insert(v.name.clone(), Type::Term(v));
+                            ts.push(Ok((v.name.clone(), (Type::Term(v)))));
                         }
                         DeSchemaItem::Annotation(v) => anns.push(v),
                     }
                     (ts, anns)
                 });
+        let namespace = self.namespace;
+        let types = types
+            .into_iter()
+            .collect::<Result<HashMap<_, _>, _>>()
+            .map_err(|e| ValidateError::Schema(namespace.clone(), Box::new(e)))?;
 
-        Ok(Schema { types, annotations })
+        Ok(Schema {
+            namespace,
+            types,
+            annotations,
+        })
     }
 }
