@@ -45,6 +45,7 @@ use serde::Deserialize;
 
 pub type TypeName = String;
 pub type SchemaNamespace = String;
+pub type PropertyName = String;
 
 /// EDMX compilation errors.
 #[derive(Debug)]
@@ -54,9 +55,13 @@ pub enum ValidateError {
     /// Invalid number of `DataServices`.
     WrongDataServicesNumber,
     /// In the `EntityType` too many keys.
-    TooManyKeys(TypeName),
+    TooManyKeys,
     /// Schema validation error.
     Schema(SchemaNamespace, Box<ValidateError>),
+    /// `ComplexType` validation error.
+    ComplexType(TypeName, Box<ValidateError>),
+    /// `EntityType` validation error.
+    EntityType(TypeName, Box<ValidateError>),
 }
 
 /// Reexport of Edmx type to root.

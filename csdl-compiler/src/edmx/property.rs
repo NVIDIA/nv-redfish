@@ -13,17 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::ValidateError;
 use crate::edmx::Annotation;
 use crate::edmx::OnDelete;
+use crate::edmx::PropertyName;
 use crate::edmx::ReferentialConstraint;
+use crate::edmx::TypeName;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize)]
-pub struct Property {
+pub struct DeStructuralProperty {
     #[serde(rename = "@Name")]
-    pub name: String,
+    pub name: PropertyName,
     #[serde(rename = "@Type")]
-    pub ptype: String,
+    pub ptype: TypeName,
     #[serde(rename = "@Nullable")]
     pub nullable: Option<bool>,
     #[serde(rename = "@MaxLength")]
@@ -41,12 +44,11 @@ pub struct Property {
 }
 
 #[derive(Debug, Deserialize)]
-#[serde(rename_all = "PascalCase")]
-pub struct NavigationProperty {
+pub struct DeNavigationProperty {
     #[serde(rename = "@Name")]
-    pub name: String,
+    pub name: PropertyName,
     #[serde(rename = "@Type")]
-    pub ptype: String,
+    pub ptype: TypeName,
     #[serde(rename = "@Nullable")]
     pub nullable: Option<bool>,
     #[serde(rename = "@Partner")]
@@ -59,4 +61,40 @@ pub struct NavigationProperty {
     pub on_delete: Option<OnDelete>,
     #[serde(rename = "Annotation", default)]
     pub annotations: Vec<Annotation>,
+}
+
+#[derive(Debug)]
+pub struct Property {
+    pub name: PropertyName,
+    pub attrs: PropertyAttrs,
+}
+
+#[derive(Debug)]
+pub enum PropertyAttrs {
+    StructuralProperty(DeStructuralProperty),
+    NavigationProperty(DeNavigationProperty),
+}
+
+impl DeStructuralProperty {
+    /// # Errors
+    ///
+    /// Actually, doesn't return any errors. Keep it for consistency.
+    pub fn validate(self) -> Result<Property, ValidateError> {
+        Ok(Property {
+            name: self.name.clone(),
+            attrs: PropertyAttrs::StructuralProperty(self),
+        })
+    }
+}
+
+impl DeNavigationProperty {
+    /// # Errors
+    ///
+    /// Actually, doesn't return any errors. Keep it for consistency.
+    pub fn validate(self) -> Result<Property, ValidateError> {
+        Ok(Property {
+            name: self.name.clone(),
+            attrs: PropertyAttrs::NavigationProperty(self),
+        })
+    }
 }

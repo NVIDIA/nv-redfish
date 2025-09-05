@@ -16,7 +16,8 @@
 use crate::ValidateError;
 use crate::edmx::Annotation;
 use crate::edmx::TypeName;
-use crate::edmx::property::NavigationProperty;
+use crate::edmx::property::DeNavigationProperty;
+use crate::edmx::property::DeStructuralProperty;
 use crate::edmx::property::Property;
 use serde::Deserialize;
 
@@ -38,34 +39,43 @@ pub struct DeComplexType {
 
 #[derive(Debug, Deserialize)]
 pub enum DeComplexTypeItem {
-    Property(Property),
-    NavigationProperty(NavigationProperty),
+    #[serde(rename = "Property")]
+    StructuralProperty(DeStructuralProperty),
+    NavigationProperty(DeNavigationProperty),
     Annotation(Annotation),
 }
 
 #[derive(Debug)]
 pub struct ComplexType {
     pub name: TypeName,
+    pub properties: Vec<Property>,
     pub annotations: Vec<Annotation>,
 }
 
 impl DeComplexType {
     /// # Errors
     ///
-    /// Actually, it doesn't return any errors but it keep interface consistent.
+    /// - `ValidateError::ComplexType` if error occured. Internal `ValidateError` contains details.
     pub fn validate(self) -> Result<ComplexType, ValidateError> {
-        let (annotations,) = self
-            .items
+        let (annotations, properties) =
+            self.items
+                .into_iter()
+                .fold((Vec::new(), Vec::new()), |(mut anns, mut ps), v| {
+                    match v {
+                        DeComplexTypeItem::StructuralProperty(p) => ps.push(p.validate()),
+                        DeComplexTypeItem::NavigationProperty(p) => ps.push(p.validate()),
+                        DeComplexTypeItem::Annotation(a) => anns.push(a),
+                    }
+                    (anns, ps)
+                });
+        let name = self.name;
+        let properties = properties
             .into_iter()
-            .fold((Vec::new(),), |(mut anns,), v| {
-                match v {
-                    DeComplexTypeItem::Property(_) | DeComplexTypeItem::NavigationProperty(_) => {}
-                    DeComplexTypeItem::Annotation(a) => anns.push(a),
-                }
-                (anns,)
-            });
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ValidateError::ComplexType(name.clone(), Box::new(e)))?;
         Ok(ComplexType {
-            name: self.name,
+            name,
+            properties,
             annotations,
         })
     }

@@ -17,7 +17,8 @@ use crate::ValidateError;
 use crate::edmx::Annotation;
 use crate::edmx::Key;
 use crate::edmx::TypeName;
-use crate::edmx::property::NavigationProperty;
+use crate::edmx::property::DeNavigationProperty;
+use crate::edmx::property::DeStructuralProperty;
 use crate::edmx::property::Property;
 use serde::Deserialize;
 
@@ -40,8 +41,9 @@ pub struct DeEntityType {
 #[derive(Debug, Deserialize)]
 pub enum DeEntityTypeItem {
     Key(Key),
-    Property(Property),
-    NavigationProperty(NavigationProperty),
+    #[serde(rename = "Property")]
+    StructuralProperty(DeStructuralProperty),
+    NavigationProperty(DeNavigationProperty),
     Annotation(Annotation),
 }
 
@@ -49,35 +51,45 @@ pub enum DeEntityTypeItem {
 pub struct EntityType {
     pub name: TypeName,
     pub key: Option<Key>,
+    pub properties: Vec<Property>,
     pub annotations: Vec<Annotation>,
 }
 
 impl DeEntityType {
     /// # Errors
     ///
-    /// - `ValidateError::TooManyKeys` if more than one key is specified
+    /// - `ValidateError::EntityType` if error occured. Internal `ValidateError` contains details.
     pub fn validate(self) -> Result<EntityType, ValidateError> {
-        let (keys, annotations) =
-            self.items
-                .into_iter()
-                .fold((Vec::new(), Vec::new()), |(mut keys, mut anns), v| {
-                    match v {
-                        DeEntityTypeItem::Key(k) => {
-                            keys.push(k);
-                        }
-                        DeEntityTypeItem::Property(_) | DeEntityTypeItem::NavigationProperty(_) => {
-                        }
-                        DeEntityTypeItem::Annotation(a) => anns.push(a),
+        let (keys, properties, annotations) = self.items.into_iter().fold(
+            (Vec::new(), Vec::new(), Vec::new()),
+            |(mut keys, mut ps, mut anns), v| {
+                match v {
+                    DeEntityTypeItem::Key(k) => {
+                        keys.push(k);
                     }
-                    (keys, anns)
-                });
+                    DeEntityTypeItem::StructuralProperty(p) => ps.push(p.validate()),
+                    DeEntityTypeItem::NavigationProperty(p) => ps.push(p.validate()),
+                    DeEntityTypeItem::Annotation(a) => anns.push(a),
+                }
+                (keys, ps, anns)
+            },
+        );
         if keys.len() > 1 {
-            return Err(ValidateError::TooManyKeys(self.name));
+            return Err(ValidateError::EntityType(
+                self.name,
+                Box::new(ValidateError::TooManyKeys),
+            ));
         }
+        let name = self.name;
+        let properties = properties
+            .into_iter()
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(|e| ValidateError::EntityType(name.clone(), Box::new(e)))?;
         let key = keys.into_iter().next();
         Ok(EntityType {
-            name: self.name,
+            name,
             key,
+            properties,
             annotations,
         })
     }

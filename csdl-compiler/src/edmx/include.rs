@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::edmx::SchemaNamespace;
 use serde::Deserialize;
 
 /// 3.4 Element edmx:Include
@@ -20,7 +21,7 @@ use serde::Deserialize;
 pub struct Include {
     /// 3.4.1 Attribute Namespace
     #[serde(rename = "@Namespace")]
-    pub namespace: String,
+    pub namespace: SchemaNamespace,
     /// 3.4.2 Attribute Alias
     #[serde(rename = "@Alias")]
     pub alias: Option<String>,
