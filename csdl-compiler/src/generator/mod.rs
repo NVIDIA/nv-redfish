@@ -13,10 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::odata::annotations::{Description, LongDescription, ODataAnnotations};
 use alloc::rc::Rc;
+use tagged_types::TaggedType;
 
 pub mod converter;
-
 
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Version {
@@ -43,8 +44,18 @@ pub struct RedfishResource {
 #[derive(Debug)]
 pub struct ItemMetadata {
     pub name: String,
-    pub description: String,
-    pub long_description: Option<String>,
+    pub description: Description,
+    pub long_description: Option<LongDescription>,
+}
+
+impl ItemMetadata {
+    pub fn new(name: String, odata: &impl ODataAnnotations) -> Self {
+        Self {
+            name,
+            description: odata.odata_description_or_default(),
+            long_description: odata.odata_long_description().map(TaggedType::cloned),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -93,7 +104,7 @@ pub struct EnumData {
 #[derive(Debug)]
 pub struct EnumMember {
     pub name: String,
-    pub description: Option<String>,
+    pub description: Option<Description>,
 }
 
 #[derive(Debug)]
@@ -118,9 +129,9 @@ pub enum PropertyType {
     Decimal,
     Int32,
     Int64,
-    
+
     Collection(Rc<PropertyType>),
-    
+
     Reference(ResourceReference),
 }
 

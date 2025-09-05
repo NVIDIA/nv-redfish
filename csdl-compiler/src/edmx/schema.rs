@@ -19,6 +19,7 @@ use crate::edmx::EntityContainer;
 use crate::edmx::SchemaNamespace;
 use crate::edmx::Term;
 use crate::edmx::TypeDefinition;
+use crate::edmx::TypeName;
 use crate::edmx::complex_type::ComplexType;
 use crate::edmx::complex_type::DeComplexType;
 use crate::edmx::entity_type::DeEntityType;
@@ -62,7 +63,7 @@ pub enum Type {
 #[derive(Debug)]
 pub struct Schema {
     pub namespace: SchemaNamespace,
-    pub types: HashMap<String, Type>,
+    pub types: HashMap<TypeName, Type>,
     pub annotations: Vec<Annotation>,
 }
 

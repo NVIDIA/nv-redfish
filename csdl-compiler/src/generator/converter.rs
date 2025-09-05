@@ -23,10 +23,14 @@ use super::{
     ReferencedType, ResourceItem, ResourceReference, Version, VersionedField,
 };
 use crate::edmx::{
-    property::PropertyAttrs, schema::{Schema, Type}, Annotation, Edmx
+    Annotation, Edmx, TypeName,
+    property::PropertyAttrs,
+    schema::{Schema, Type},
 };
-use std::collections::HashMap;
+use crate::odata::annotations::{Description, LongDescription, ODataAnnotations as _};
 use alloc::rc::Rc;
+use std::collections::HashMap;
+use tagged_types::TaggedType;
 
 #[derive(Debug)]
 pub struct RedfishTypeRegistry {
@@ -81,6 +85,11 @@ impl RedfishTypeRegistry {
     }
 }
 
+type ItemsFromSchema = (
+    Vec<VersionedField<ResourceItem>>,
+    Vec<VersionedField<ReferencedType>>,
+);
+
 impl RedfishResource {
     /// # Errors
     /// TODO: Errors from generated code, proper error and code
@@ -89,34 +98,33 @@ impl RedfishResource {
         let mut type_registry = RedfishTypeRegistry::new();
 
         let mut base_metadata: HashMap<
-            String,
-            (String, Option<String>, Vec<String>, Capabilities),
+            TypeName,
+            (
+                Description,
+                Option<LongDescription>,
+                Vec<String>,
+                Capabilities,
+            ),
         > = HashMap::new();
 
         for schema in &edmx.data_services.schemas {
             if Self::parse_version_from_namespace(&schema.namespace)?.is_none() {
-                let resource_name = schema
-                    .namespace
-                    .split('.')
-                    .next()
-                    .unwrap_or(&schema.namespace)
-                    .to_string();
+                let resource_name = TypeName::new(
+                    schema
+                        .namespace
+                        .split('.')
+                        .next()
+                        .unwrap_or(&schema.namespace)
+                        .to_string(),
+                );
 
                 for schema_type in schema.types.values() {
                     if let Type::EntityType(entity_type) = schema_type {
                         if entity_type.name == resource_name {
-                            let description = entity_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.Description")
-                                .and_then(|a| a.string.clone())
-                                .unwrap_or_else(|| format!("Resource {resource_name}"));
+                            let description = entity_type.odata_description_or_default();
 
-                            let long_description = entity_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.LongDescription")
-                                .and_then(|a| a.string.clone());
+                            let long_description =
+                                entity_type.odata_long_description().map(TaggedType::cloned);
 
                             let mut uris = Vec::new();
                             for annotation in &entity_type.annotations {
@@ -141,24 +149,26 @@ impl RedfishResource {
             }
         }
 
-        let mut resource_map: HashMap<String, Self> = HashMap::new();
+        let mut resource_map: HashMap<TypeName, Self> = HashMap::new();
 
         for schema in &edmx.data_services.schemas {
             if let Some(version) = Self::parse_version_from_namespace(&schema.namespace)? {
-                let resource_name = schema
-                    .namespace
-                    .split('.')
-                    .next()
-                    .unwrap_or(&schema.namespace)
-                    .to_string();
+                let resource_name = TypeName::new(
+                    schema
+                        .namespace
+                        .split('.')
+                        .next()
+                        .unwrap_or(&schema.namespace)
+                        .to_string(),
+                );
 
                 let resource = resource_map
                     .entry(resource_name.clone())
                     .or_insert_with(|| {
                         let mut new_resource = Self {
                             metadata: ItemMetadata {
-                                name: resource_name.clone(),
-                                description: format!("Resource {resource_name}"),
+                                name: resource_name.inner().clone(),
+                                description: Description::new(format!("Resource {resource_name}")),
                                 long_description: None,
                             },
                             uris: Vec::new(),
@@ -174,7 +184,10 @@ impl RedfishResource {
                             base_metadata.get(&resource_name)
                         {
                             new_resource.metadata.description.clone_from(description);
-                            new_resource.metadata.long_description.clone_from(long_description);
+                            new_resource
+                                .metadata
+                                .long_description
+                                .clone_from(long_description);
                             new_resource.uris.clone_from(uris);
                             new_resource.capabilities.clone_from(capabilities);
                         }
@@ -308,20 +321,15 @@ impl RedfishResource {
             }
             ResourceReference::External(rc_resource) => {
                 Ok(ResourceReference::External(Rc::clone(rc_resource)))
-            },
+            }
         }
     }
 
+    #[allow(clippy::too_many_lines)]
     fn extract_items_from_schema(
         schema: &Schema,
         version: &Version,
-    ) -> Result<
-        (
-            Vec<VersionedField<ResourceItem>>,
-            Vec<VersionedField<ReferencedType>>,
-        ),
-        String,
-    > {
+    ) -> Result<ItemsFromSchema, String> {
         let mut resource_items = Vec::new();
         let mut referenced_types = Vec::new();
 
@@ -332,22 +340,10 @@ impl RedfishResource {
                         match &property.attrs {
                             PropertyAttrs::StructuralProperty(structural_prop) => {
                                 let item = ResourceItem::Property(PropertyData {
-                                    metadata: ItemMetadata {
-                                        name: property.name.clone(),
-                                        description: structural_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.Description")
-                                            .and_then(|a| a.string.clone())
-                                            .unwrap_or_else(|| {
-                                                format!("Property {}", property.name)
-                                            }),
-                                        long_description: structural_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.LongDescription")
-                                            .and_then(|a| a.string.clone()),
-                                    },
+                                    metadata: ItemMetadata::new(
+                                        property.name.clone(),
+                                        structural_prop,
+                                    ),
                                     property_type: Self::convert_property_type(
                                         &structural_prop.ptype,
                                     )?,
@@ -375,26 +371,17 @@ impl RedfishResource {
                             PropertyAttrs::NavigationProperty(nav_prop) => {
                                 let item =
                                     ResourceItem::NavigationProperty(NavigationPropertyData {
-                                        metadata: ItemMetadata {
-                                            name: property.name.clone(),
-                                            description: nav_prop
-                                                .annotations
-                                                .iter()
-                                                .find(|a| a.term == "OData.Description")
-                                                .and_then(|a| a.string.clone())
-                                                .unwrap_or_else(|| {
-                                                    format!("Navigation property {}", property.name)
-                                                }),
-                                            long_description: nav_prop
-                                                .annotations
-                                                .iter()
-                                                .find(|a| a.term == "OData.LongDescription")
-                                                .and_then(|a| a.string.clone()),
-                                        },
-                                        target_type: ResourceReference::TypeName(
-                                            nav_prop.ptype.clone(),
+                                        metadata: ItemMetadata::new(
+                                            property.name.clone(),
+                                            nav_prop,
                                         ),
-                                        is_collection: nav_prop.ptype.starts_with("Collection("),
+                                        target_type: ResourceReference::TypeName(
+                                            nav_prop.ptype.inner().clone(),
+                                        ),
+                                        is_collection: nav_prop
+                                            .ptype
+                                            .inner()
+                                            .starts_with("Collection("),
                                         nullable: nav_prop.nullable,
                                         permissions: Self::convert_permissions(
                                             &nav_prop.annotations,
@@ -422,22 +409,10 @@ impl RedfishResource {
                         match &property.attrs {
                             PropertyAttrs::StructuralProperty(structural_prop) => {
                                 properties.push(PropertyData {
-                                    metadata: ItemMetadata {
-                                        name: property.name.clone(),
-                                        description: structural_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.Description")
-                                            .and_then(|a| a.string.clone())
-                                            .unwrap_or_else(|| {
-                                                format!("Property {}", property.name)
-                                            }),
-                                        long_description: structural_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.LongDescription")
-                                            .and_then(|a| a.string.clone()),
-                                    },
+                                    metadata: ItemMetadata::new(
+                                        property.name.clone(),
+                                        structural_prop,
+                                    ),
                                     property_type: Self::convert_property_type(
                                         &structural_prop.ptype,
                                     )?,
@@ -459,26 +434,14 @@ impl RedfishResource {
                             }
                             PropertyAttrs::NavigationProperty(nav_prop) => {
                                 navigation_properties.push(NavigationPropertyData {
-                                    metadata: ItemMetadata {
-                                        name: property.name.clone(),
-                                        description: nav_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.Description")
-                                            .and_then(|a| a.string.clone())
-                                            .unwrap_or_else(|| {
-                                                format!("Navigation property {}", property.name)
-                                            }),
-                                        long_description: nav_prop
-                                            .annotations
-                                            .iter()
-                                            .find(|a| a.term == "OData.LongDescription")
-                                            .and_then(|a| a.string.clone()),
-                                    },
+                                    metadata: ItemMetadata::new(property.name.clone(), nav_prop),
                                     target_type: ResourceReference::TypeName(
-                                        nav_prop.ptype.clone(),
+                                        nav_prop.ptype.inner().clone(),
                                     ),
-                                    is_collection: nav_prop.ptype.starts_with("Collection("),
+                                    is_collection: nav_prop
+                                        .ptype
+                                        .inner()
+                                        .starts_with("Collection("),
                                     nullable: nav_prop.nullable,
                                     permissions: Self::convert_permissions(&nav_prop.annotations),
                                     auto_expand: nav_prop
@@ -492,20 +455,10 @@ impl RedfishResource {
                     }
 
                     let item = ReferencedType::ComplexType(ComplexTypeData {
-                        metadata: ItemMetadata {
-                            name: complex_type.name.clone(),
-                            description: complex_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.Description")
-                                .and_then(|a| a.string.clone())
-                                .unwrap_or_else(|| format!("Complex type {}", complex_type.name)),
-                            long_description: complex_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.LongDescription")
-                                .and_then(|a| a.string.clone()),
-                        },
+                        metadata: ItemMetadata::new(
+                            complex_type.name.inner().clone(),
+                            complex_type,
+                        ),
                         base_type: None, // TODO: Need full types support
                         properties,
                         navigation_properties,
@@ -524,30 +477,13 @@ impl RedfishResource {
                 }
                 Type::EnumType(enum_type) => {
                     let item = ReferencedType::Enum(EnumData {
-                        metadata: ItemMetadata {
-                            name: enum_type.name.clone(),
-                            description: enum_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.Description")
-                                .and_then(|a| a.string.clone())
-                                .unwrap_or_else(|| format!("Enum {}", enum_type.name)),
-                            long_description: enum_type
-                                .annotations
-                                .iter()
-                                .find(|a| a.term == "OData.LongDescription")
-                                .and_then(|a| a.string.clone()),
-                        },
+                        metadata: ItemMetadata::new(enum_type.name.inner().clone(), enum_type),
                         members: enum_type
                             .members
                             .iter()
                             .map(|member| EnumMember {
                                 name: member.name.clone(),
-                                description: member
-                                    .annotations
-                                    .iter()
-                                    .find(|a| a.term == "OData.Description")
-                                    .and_then(|a| a.string.clone()),
+                                description: member.odata_description().map(TaggedType::cloned),
                             })
                             .collect(),
                     });
@@ -572,7 +508,7 @@ impl RedfishResource {
         let version_part = namespace.split('.').nth(1);
 
         if let Some(version_str) = version_part {
-            if let Some(version_str) = version_str.strip_prefix('v'){
+            if let Some(version_str) = version_str.strip_prefix('v') {
                 let version_numbers: Vec<&str> = version_str.split('_').collect();
                 if version_numbers.len() >= 3 {
                     let major = version_numbers[0]
@@ -596,17 +532,17 @@ impl RedfishResource {
         Ok(None)
     }
 
-    fn convert_property_type(property_type: &str) -> Result<PropertyType, String> {
-        match property_type {
+    fn convert_property_type(property_type: &TypeName) -> Result<PropertyType, String> {
+        match property_type.inner().as_str() {
             "Edm.String" => Ok(PropertyType::String),
             "Edm.Boolean" => Ok(PropertyType::Boolean),
             "Edm.Decimal" => Ok(PropertyType::Decimal),
             "Edm.Int32" => Ok(PropertyType::Int32),
             "Edm.Int64" => Ok(PropertyType::Int64),
-            _ if property_type.starts_with("Collection(") => {
-                let inner_type = &property_type[11..property_type.len() - 1];
+            _ if property_type.inner().starts_with("Collection(") => {
+                let inner_type = &property_type.inner()[11..property_type.inner().len() - 1];
                 Ok(PropertyType::Collection(Rc::new(
-                    Self::convert_property_type(inner_type)?,
+                    Self::convert_property_type(&TypeName::new(inner_type.into()))?,
                 )))
             }
             _ => {
@@ -784,20 +720,25 @@ mod tests {
             "Should have schema items"
         );
 
-        assert!(coolant_connector
-            .metadata
-            .description
-            .contains("liquid coolant connector"));
+        assert!(
+            coolant_connector
+                .metadata
+                .description
+                .inner()
+                .contains("liquid coolant connector")
+        );
         assert!(coolant_connector.metadata.long_description.is_some());
 
         assert!(
             !coolant_connector.uris.is_empty(),
             "Should have URI patterns"
         );
-        assert!(coolant_connector
-            .uris
-            .iter()
-            .any(|uri| uri.contains("CoolantConnectors")));
+        assert!(
+            coolant_connector
+                .uris
+                .iter()
+                .any(|uri| uri.contains("CoolantConnectors"))
+        );
 
         let properties_count = coolant_connector
             .items

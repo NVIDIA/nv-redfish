@@ -41,7 +41,10 @@
 
 /// Entity Data Model XML definitions.
 pub mod edmx;
+/// Redfish code generator.
 pub mod generator;
+/// OData-related functions.
+pub mod odata;
 
 use edmx::ValidateError;
 use std::io::Error as IoError;
@@ -61,6 +64,7 @@ pub enum Error {
 mod test {
     use super::Error;
     use super::edmx::Edmx;
+    use super::edmx::TypeName;
     use crate::edmx::schema::Type;
     use std::fs;
     use std::path::Path;
@@ -94,14 +98,15 @@ mod test {
                </Schema>
              </edmx:DataServices>
            </edmx:Edmx>"#;
+        let computed = TypeName::new("Computed".into());
         let edmx: Edmx = Edmx::parse(&data).map_err(Error::Validate)?;
         assert_eq!(edmx.data_services.schemas.len(), 1);
         assert_eq!(edmx.data_services.schemas[0].types.len(), 1);
         assert!(matches!(
-            edmx.data_services.schemas[0].types.get("Computed"),
+            edmx.data_services.schemas[0].types.get(&computed),
             Some(Type::Term(..))
         ));
-        if let Some(Type::Term(term)) = &edmx.data_services.schemas[0].types.get("Computed") {
+        if let Some(Type::Term(term)) = &edmx.data_services.schemas[0].types.get(&computed) {
             assert_eq!(term.ttype.as_ref().unwrap(), "Core.Tag");
             assert_eq!(term.default_value.as_ref().unwrap(), "true");
             assert_eq!(term.applies_to.as_ref().unwrap(), "Property");

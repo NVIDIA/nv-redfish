@@ -45,8 +45,15 @@ pub mod enum_type;
 
 use quick_xml::DeError;
 use serde::Deserialize;
+use tagged_types::TaggedType;
 
-pub type TypeName = String;
+pub type TypeName = TaggedType<String, TypeNameTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Hash, PartialEq, Eq)]
+#[transparent(Debug, Display, Deserialize)]
+#[capability(inner_access)]
+pub enum TypeNameTag {}
+
 pub type SchemaNamespace = String;
 pub type PropertyName = String;
 
@@ -77,9 +84,9 @@ pub type Edmx = edmx_root::Edmx;
 #[derive(Debug, Deserialize)]
 pub struct TypeDefinition {
     #[serde(rename = "@Name")]
-    pub name: String,
+    pub name: TypeName,
     #[serde(rename = "@UnderlyingType")]
-    pub underlying_type: String,
+    pub underlying_type: TypeName,
     #[serde(rename = "Annotation", default)]
     pub annotations: Vec<Annotation>,
 }
@@ -87,7 +94,7 @@ pub struct TypeDefinition {
 #[derive(Debug, Deserialize)]
 pub struct EntityContainer {
     #[serde(rename = "@Name")]
-    pub name: String,
+    pub name: TypeName,
     #[serde(rename = "EntitySet", default)]
     pub entity_sets: Vec<EntitySet>,
     #[serde(rename = "Singleton", default)]
@@ -209,7 +216,7 @@ pub struct Annotations {
 #[derive(Debug, Deserialize)]
 pub struct Term {
     #[serde(rename = "@Name")]
-    pub name: String,
+    pub name: TypeName,
     #[serde(rename = "@Type")]
     pub ttype: Option<String>,
     #[serde(rename = "@AppliesTo")]
