@@ -54,8 +54,12 @@ pub struct EnumMember {
     /// 10.2.2 Attribute Value
     #[serde(rename = "@Value")]
     pub value: Option<String>,
+    /// Annotations can be in any type.
+    #[serde(rename = "Annotation", default)]
+    pub annotations: Vec<Annotation>,
 }
 
+/// Validated edm:EnumType.
 #[derive(Debug)]
 pub struct EnumType {
     pub name: TypeName,
