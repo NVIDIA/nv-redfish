@@ -96,7 +96,6 @@ pub struct EnumMember {
     pub description: Option<String>,
 }
 
-/// TODO: Actions are not yet parsed by the EDMX parser, so this is placeholder
 #[derive(Debug)]
 pub struct ActionData {
     pub metadata: ItemMetadata,
