@@ -20,6 +20,10 @@ path = "src/main.rs"
 name = "test-csdl-parser"
 path = "tests/test-csdl-parser.rs"
 
+[[bin]]
+name = "test-redfish-schema-parser"
+path = "tests/test-redfish-schema-parser.rs"
+
 [dependencies]
 serde = { workspace = true, features = [ "derive" ]}
 quick-xml = { workspace = true, features = ["serialize"] }
