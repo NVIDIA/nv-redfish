@@ -16,6 +16,7 @@
 use crate::ValidateError;
 use crate::edmx::LocalTypeName;
 use crate::edmx::QualifiedTypeName;
+use crate::edmx::SimpleIdentifier;
 use crate::edmx::annotation::Annotation;
 use crate::edmx::attribute_values::Error as QualifiedNameError;
 use serde::Deserialize;
@@ -26,8 +27,14 @@ use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
 use std::str::FromStr;
+use tagged_types::TaggedType;
 
-pub type EnumMemberName = String;
+pub type EnumMemberName = TaggedType<SimpleIdentifier, EnumMemberNameTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Eq, PartialEq)]
+#[transparent(Deserialize, FromStr, Debug, Display)]
+#[capability(inner_access)]
+pub enum EnumMemberNameTag {}
 
 /// 10.1 Element edm:EnumType
 #[derive(Debug, Deserialize)]
@@ -157,7 +164,7 @@ impl<'de> Deserialize<'de> for EnumUnderlyingType {
             fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
                 formatter.write_str("Enum UnderlyingType string")
             }
-            fn visit_str<E: DeError>(self, value: &str) -> Result<EnumUnderlyingType, E> {
+            fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
                 value.parse().map_err(DeError::custom)
             }
         }
