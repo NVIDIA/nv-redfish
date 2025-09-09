@@ -51,6 +51,9 @@ pub mod action;
 /// 14.3 Element edm:Annotation
 pub mod annotation;
 
+/// 17 Attribute Values
+pub mod attribute_values;
+
 use annotation::Annotation;
 use quick_xml::DeError;
 use serde::Deserialize;

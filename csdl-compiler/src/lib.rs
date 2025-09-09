@@ -28,8 +28,6 @@
     clippy::todo,
     clippy::unimplemented,
     clippy::tests_outside_test_module,
-    clippy::std_instead_of_core,
-    clippy::std_instead_of_alloc,
     clippy::panic,
     clippy::unwrap_used,
     clippy::unwrap_in_result,

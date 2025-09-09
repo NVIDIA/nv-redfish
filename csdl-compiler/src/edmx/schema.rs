@@ -34,7 +34,7 @@ use std::collections::HashMap;
 #[derive(Debug, Deserialize)]
 pub struct DeSchema {
     #[serde(rename = "@Namespace")]
-    pub namespace: String,
+    pub namespace: SchemaNamespace,
     #[serde(rename = "@Alias")]
     pub alias: Option<String>,
     #[serde(rename = "$value", default)]
