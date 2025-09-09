@@ -13,14 +13,19 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::edmx::IsNullable;
-use crate::odata::annotations::{Description, LongDescription, ODataAnnotations};
+use crate::edmx::{IsBound, IsNullable, PropertyName, SchemaNamespace, TypeName};
+use crate::odata::annotations::{Description, LongDescription};
 use alloc::rc::Rc;
 use tagged_types::TaggedType;
 
-pub mod converter;
+pub type PropertyUnits = TaggedType<String, PropertyUnitsTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Hash, PartialEq, Eq)]
+#[transparent(Debug, Display, Deserialize)]
+#[capability(inner_access)]
+pub enum PropertyUnitsTag {}
 
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct Version {
     pub major: u32,
     pub minor: u32,
@@ -28,59 +33,77 @@ pub struct Version {
 }
 
 #[derive(Debug)]
-pub struct VersionedField<T> {
-    pub field: T,
-    pub introduced_in: Version,
-    pub deprecated_in: Option<Version>,
+pub enum ResourceTypeKind {
+    String,
+    Boolean,
+    Decimal,
+    Int32,
+    Int64,
+
+    Collection(Rc<ResourceTypeKind>),
+
+    ComplexType(Rc<ComplexTypeData>),
+    EnumType(Vec<EnumMember>),
+}
+
+
+#[derive(Debug)]
+pub struct ResourceTypeName {
+    pub namespace: SchemaNamespace,
+    pub name: TypeName,
+}
+
+#[derive(Debug)]
+pub struct ResourceType {
+    pub name: ResourceTypeName,
+    pub metadata: ResourceMetadata,
+    pub kind: ResourceTypeKind,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct RedfishUri {
+    pub segments: Vec<UriSegment>,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub enum UriSegment {
+    Static(String),
+    Parameter(String),
 }
 
 #[derive(Debug)]
 pub struct RedfishResource {
-    pub metadata: ItemMetadata,
-    pub uris: Vec<String>,
-    pub items: Vec<VersionedField<ResourceItem>>,
+    pub base_type: ResourceType,
+    pub uris: Vec<RedfishUri>,
     pub capabilities: Capabilities,
+    pub actions: Vec<ResourceAction>,
+    pub properties: Vec<ResourceProperty>,
 }
 
 #[derive(Debug)]
-pub struct ItemMetadata {
-    pub name: String,
+pub struct ResourceMetadata {
     pub description: Description,
     pub long_description: Option<LongDescription>,
 }
 
-impl ItemMetadata {
-    pub fn new(name: String, odata: &impl ODataAnnotations) -> Self {
-        Self {
-            name,
-            description: odata.odata_description_or_default(),
-            long_description: odata.odata_long_description().map(TaggedType::cloned),
-        }
-    }
-}
-
 #[derive(Debug)]
-pub enum ResourceItem {
+pub enum ResourceProperty {
     Property(PropertyData),
     NavigationProperty(NavigationPropertyData),
-    Action(ActionData),
 }
 
 #[derive(Debug)]
 pub struct PropertyData {
-    pub metadata: ItemMetadata,
-    pub property_type: PropertyType,
+    pub name: PropertyName,
     pub nullable: Option<IsNullable>,
     pub permissions: Permission,
-    pub units: Option<String>,
+    pub units: Option<PropertyUnits>,
     pub constraints: Option<Constraints>,
 }
 
 #[derive(Debug)]
 pub struct NavigationPropertyData {
-    pub metadata: ItemMetadata,
-    pub target_type: ResourceReference,
-    pub is_collection: bool,
+    pub name: PropertyName,
     pub nullable: Option<IsNullable>,
     pub permissions: Permission,
     pub auto_expand: bool,
@@ -89,17 +112,9 @@ pub struct NavigationPropertyData {
 
 #[derive(Debug)]
 pub struct ComplexTypeData {
-    pub metadata: ItemMetadata,
-    pub base_type: Option<ResourceReference>,
-    pub properties: Vec<PropertyData>,
-    pub navigation_properties: Vec<NavigationPropertyData>,
+    pub base_type: Option<ResourceType>,
+    pub properties: Vec<ResourceProperty>,
     pub additional_properties: bool,
-}
-
-#[derive(Debug)]
-pub struct EnumData {
-    pub metadata: ItemMetadata,
-    pub members: Vec<EnumMember>,
 }
 
 #[derive(Debug)]
@@ -109,46 +124,10 @@ pub struct EnumMember {
 }
 
 #[derive(Debug)]
-pub struct ActionData {
-    pub metadata: ItemMetadata,
-    pub is_bound: bool,
-    pub parameters: Vec<ActionParameter>,
-}
-
-#[derive(Debug)]
-pub struct ActionParameter {
-    pub metadata: ItemMetadata,
-    pub parameter_type: PropertyType,
-    pub nullable: Option<bool>,
-}
-
-#[derive(Debug, Clone)]
-pub enum PropertyType {
-    // Edm types
-    String,
-    Boolean,
-    Decimal,
-    Int32,
-    Int64,
-
-    Collection(Rc<PropertyType>),
-
-    Reference(ResourceReference),
-}
-
-#[derive(Debug)]
-pub enum ReferencedType {
-    ComplexType(ComplexTypeData),
-    Enum(EnumData),
-}
-
-#[derive(Debug, Clone)]
-pub enum ResourceReference {
-    LocalType(Rc<VersionedField<ReferencedType>>),
-    External(Rc<RedfishResource>),
-
-    // TODO: This is temporary, just to be able to test without compiling all references for all external resources
-    TypeName(String),
+pub struct ResourceAction {
+    pub is_bound: IsBound,
+    pub metadata: ResourceMetadata,
+    pub properteies: Vec<ResourceProperty>,
 }
 
 #[derive(Debug, Clone, Eq, PartialEq)]
@@ -166,11 +145,11 @@ pub struct Constraints {
     pub pattern: Option<String>,
 }
 
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct Capabilities {
-    pub insertable: Option<CapabilityInfo>,
-    pub updatable: Option<CapabilityInfo>,
-    pub deletable: Option<CapabilityInfo>,
+    pub insertable: CapabilityInfo,
+    pub updatable: CapabilityInfo,
+    pub deletable: CapabilityInfo,
 }
 
 #[derive(Debug, Clone)]
