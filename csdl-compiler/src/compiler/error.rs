@@ -25,7 +25,6 @@ use std::fmt::Result as FmtResult;
 #[derive(Debug)]
 pub enum Error<'a> {
     Unimplemented,
-    AmbigousHeirarchy(QualifiedName<'a>, Vec<QualifiedName<'a>>),
     EntityTypeNotFound(QualifiedName<'a>),
     EntityType(QualifiedName<'a>, Box<Error<'a>>),
     TypeNotFound(QualifiedName<'a>),
@@ -41,13 +40,6 @@ impl Display for Error<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Unimplemented => writeln!(f, "unimplemented"),
-            Self::AmbigousHeirarchy(t, children) => {
-                writeln!(f, "unmbigouse heirarchy for type: {t}:")?;
-                for (idx, child) in children.iter().enumerate() {
-                    writeln!(f, "  candidate #{idx}: {child}")?;
-                }
-                Ok(())
-            }
             Self::EntityTypeNotFound(v) => writeln!(f, "entity type not found: {v}"),
             Self::EntityType(name, err) => {
                 write!(f, "while compiling entity type: {name}\n{err}")

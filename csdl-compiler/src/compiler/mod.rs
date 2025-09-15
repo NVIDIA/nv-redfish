@@ -392,6 +392,7 @@ impl<'a> Compiled<'a> {
     #[must_use]
     pub fn merge(mut self, other: Self) -> Self {
         self.complex_types.extend(other.complex_types);
+        self.types.extend(other.types);
         self.entity_types.extend(other.entity_types);
         self.root_singletons.extend(other.root_singletons);
         self

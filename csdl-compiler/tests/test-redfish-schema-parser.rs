@@ -54,5 +54,10 @@ fn main() -> Result<(), Error> {
         .inspect_err(|e| println!("{e}"))
         .map_err(|_| Error::Compile("compilation error".into()))?;
     println!("{compiled:#?}");
+    println!("statistics:");
+    println!(" complex types:   {}", compiled.complex_types.len());
+    println!(" entity types:    {}", compiled.entity_types.len());
+    println!(" other types:     {}", compiled.types.len());
+    println!(" root singletons: {}", compiled.root_singletons.len());
     Ok(())
 }

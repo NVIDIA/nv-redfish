@@ -78,7 +78,7 @@ impl<'a> SchemaIndex<'a> {
     ///
     /// # Errors
     ///
-    /// Returns error if entity type is ambigous (more than one child exist).
+    /// Returns error if entity type is not found.
     pub fn find_child_entity_type(
         &self,
         mut qtype: QualifiedName<'a>,
@@ -90,7 +90,7 @@ impl<'a> SchemaIndex<'a> {
                 .copied()
                 .collect::<Vec<_>>();
             if children.len() > 1 {
-                return Err(Error::AmbigousHeirarchy(qtype, children.clone()));
+                break;
             }
             if let Some(child) = children.first() {
                 qtype = *child;
