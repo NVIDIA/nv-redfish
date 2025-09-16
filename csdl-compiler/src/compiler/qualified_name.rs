@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::compiler::CompiledNamespace;
 use crate::edmx::QualifiedTypeName;
 use crate::edmx::attribute_values::Namespace;
 use crate::edmx::attribute_values::SimpleIdentifier;
@@ -23,21 +24,24 @@ use std::fmt::Result as FmtResult;
 /// Compiled qualified name
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct QualifiedName<'a> {
-    pub namespace: &'a Namespace,
+    pub namespace: CompiledNamespace<'a>,
     pub name: &'a SimpleIdentifier,
 }
 
 impl<'a> QualifiedName<'a> {
     #[must_use]
     pub const fn new(namespace: &'a Namespace, name: &'a SimpleIdentifier) -> Self {
-        Self { namespace, name }
+        Self {
+            namespace: CompiledNamespace::new(namespace),
+            name,
+        }
     }
 }
 
 impl<'a> From<&'a QualifiedTypeName> for QualifiedName<'a> {
     fn from(v: &'a QualifiedTypeName) -> Self {
         Self {
-            namespace: &v.inner().namespace,
+            namespace: CompiledNamespace::new(&v.inner().namespace),
             name: &v.inner().name,
         }
     }

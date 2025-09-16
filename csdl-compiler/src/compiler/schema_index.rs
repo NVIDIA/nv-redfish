@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::compiler::CompiledNamespace;
 use crate::compiler::Error;
 use crate::compiler::QualifiedName;
 use crate::edmx::Edmx;
 use crate::edmx::QualifiedTypeName;
-use crate::edmx::attribute_values::Namespace;
 use crate::edmx::entity_type::EntityType;
 use crate::edmx::schema::Schema;
 use crate::edmx::schema::Type;
@@ -25,7 +25,7 @@ use std::collections::HashMap;
 
 /// Indexing of schema across different documents
 pub struct SchemaIndex<'a> {
-    index: HashMap<&'a Namespace, &'a Schema>,
+    index: HashMap<CompiledNamespace<'a>, &'a Schema>,
     /// Mapping from base entity type to all inherited entity types.
     child_map: HashMap<QualifiedName<'a>, Vec<QualifiedName<'a>>>,
 }
@@ -37,7 +37,12 @@ impl<'a> SchemaIndex<'a> {
         Self {
             index: edmx_docs
                 .iter()
-                .flat_map(|v| v.data_services.schemas.iter().map(|s| (&s.namespace, s)))
+                .flat_map(|v| {
+                    v.data_services
+                        .schemas
+                        .iter()
+                        .map(|s| (CompiledNamespace::new(&s.namespace), s))
+                })
                 .collect(),
             child_map: edmx_docs.iter().fold(HashMap::new(), |map, doc| {
                 doc.data_services.schemas.iter().fold(map, |map, s| {
@@ -63,14 +68,14 @@ impl<'a> SchemaIndex<'a> {
 
     /// Find schema by namespace.
     #[must_use]
-    pub fn get(&self, ns: &Namespace) -> Option<&'a Schema> {
+    pub fn get(&self, ns: &CompiledNamespace<'_>) -> Option<&'a Schema> {
         self.index.get(ns).map(|v| &**v)
     }
 
     /// Find entity type by type name
     #[must_use]
     pub fn find_entity_type(&self, qtype: &QualifiedTypeName) -> Option<&'a EntityType> {
-        self.get(&qtype.inner().namespace)
+        self.get(&CompiledNamespace::new(&qtype.inner().namespace))
             .and_then(|ns| ns.entity_types.get(&qtype.inner().name))
     }
 
@@ -98,7 +103,7 @@ impl<'a> SchemaIndex<'a> {
                 break;
             }
         }
-        self.get(qtype.namespace)
+        self.get(&qtype.namespace)
             .and_then(|ns| ns.entity_types.get(qtype.name))
             .ok_or(Error::EntityTypeNotFound(qtype))
             .map(|v| (qtype, v))
@@ -107,13 +112,13 @@ impl<'a> SchemaIndex<'a> {
     /// Find entity type by type name
     #[must_use]
     pub fn find_type(&self, qtype: &QualifiedTypeName) -> Option<&'a Type> {
-        self.get(&qtype.inner().namespace)
+        self.get(&CompiledNamespace::new(&qtype.inner().namespace))
             .and_then(|ns| ns.types.get(&qtype.inner().name))
     }
 
     #[must_use]
     fn find_entity_type_by_qname(&self, qtype: &QualifiedName<'a>) -> Option<&'a EntityType> {
-        self.get(qtype.namespace)
+        self.get(&qtype.namespace)
             .and_then(|ns| ns.entity_types.get(qtype.name))
     }
 
@@ -154,9 +159,25 @@ mod test {
         .unwrap();
 
         let index = SchemaIndex::build(&schemas);
-        assert!(index.get(&"Schema.v1_1_0".parse().unwrap()).is_some());
-        assert!(index.get(&"Schema.v1_0_0".parse().unwrap()).is_some());
-        assert!(index.get(&"Schema.v1_2_0".parse().unwrap()).is_some());
-        assert!(index.get(&"Schema.v1_3_0".parse().unwrap()).is_none());
+        assert!(
+            index
+                .get(&CompiledNamespace::new(&"Schema.v1_1_0".parse().unwrap()))
+                .is_some()
+        );
+        assert!(
+            index
+                .get(&CompiledNamespace::new(&"Schema.v1_0_0".parse().unwrap()))
+                .is_some()
+        );
+        assert!(
+            index
+                .get(&CompiledNamespace::new(&"Schema.v1_2_0".parse().unwrap()))
+                .is_some()
+        );
+        assert!(
+            index
+                .get(&CompiledNamespace::new(&"Schema.v1_3_0".parse().unwrap()))
+                .is_none()
+        );
     }
 }

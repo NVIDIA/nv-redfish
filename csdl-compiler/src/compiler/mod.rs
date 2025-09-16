@@ -27,6 +27,9 @@ pub mod error;
 /// Qualified name
 pub mod qualified_name;
 
+/// Compiled namespace
+pub mod namespace;
+
 use crate::edmx::Edmx;
 use crate::edmx::PropertyName;
 use crate::edmx::QualifiedTypeName;
@@ -49,8 +52,10 @@ use std::collections::HashMap;
 
 /// Rexport `Error` to the level of compiler.
 pub type Error<'a> = error::Error<'a>;
-/// Rexport `QualifiedName` to the level of compiler.
+/// Rexport `QualifiedName` to the level of the compiler.
 pub type QualifiedName<'a> = qualified_name::QualifiedName<'a>;
+/// Rexport `CompiledNamespace` to the level of the compiler.
+pub type CompiledNamespace<'a> = namespace::CompiledNamespace<'a>;
 
 #[derive(Default)]
 pub struct SchemaBundle {

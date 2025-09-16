@@ -13,7 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Remove empty complex types optimization
+//! Remove empty complex types optimization.
+//!
+//! Compiler can remove complex types that doesn't have any properties
+//! and navigation properties. Redfish schema introduces plenty of
+//! such types. They are definitely not needed for code generation.
 
 use crate::compiler::Compiled;
 use crate::compiler::CompiledComplexType;
@@ -28,7 +32,7 @@ type Replacements<'a> = HashMap<QualifiedName<'a>, QualifiedName<'a>>;
 
 pub fn remove_empty_complex_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
     let ct_replacements = collect_ct_replacements(&input);
-    let map_prop = |p: CompiledProperty<'a>| p.map_type(|t| replace(&t, &ct_replacements));
+    let map_prop = |p: CompiledProperty<'a>| p.map_type(|t| super::replace(&t, &ct_replacements));
     Compiled {
         complex_types: input
             .complex_types
@@ -40,7 +44,7 @@ pub fn remove_empty_complex_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
                     Some((
                         name,
                         v.map_properties(map_prop)
-                            .map_base(|base| replace(&base, &ct_replacements)),
+                            .map_base(|base| super::replace(&base, &ct_replacements)),
                     ))
                 }
             })
@@ -57,10 +61,6 @@ pub fn remove_empty_complex_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
 
 const fn ct_is_empty(ct: &CompiledComplexType<'_>) -> bool {
     ct.properties.is_empty() && ct.nav_properties.is_empty()
-}
-
-fn replace<'a>(target: &QualifiedName<'a>, replacements: &Replacements<'a>) -> QualifiedName<'a> {
-    *replacements.get(target).unwrap_or(target)
 }
 
 fn collect_ct_replacements<'a>(input: &Compiled<'a>) -> Replacements<'a> {

@@ -14,6 +14,11 @@
 // limitations under the License.
 
 //! Remove empty entity types optimization
+//!
+//! Compiler can remove enity types that doesn't have any properties
+//! and navigation properties and key. Redfish schema introduces
+//! plenty of such types. They are definitely not needed for code
+//! generation.
 
 use crate::compiler::Compiled;
 use crate::compiler::CompiledEntityType;
