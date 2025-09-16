@@ -33,12 +33,9 @@ pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
             .map(|(name, mut ct)| {
                 let new_name = *replacements.get(&name).map_or(&name, |v| v);
                 ct.name = new_name;
-                (new_name, ct)
-            })
-            .map(|(name, v)| {
                 (
-                    name,
-                    v.map_nav_properties(map_nav_prop)
+                    new_name,
+                    ct.map_nav_properties(map_nav_prop)
                         .map_base(|base| replace(&base, &replacements)),
                 )
             })
