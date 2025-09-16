@@ -448,6 +448,32 @@ pub struct CompiledEnumType<'a> {
     pub underlying_type: EnumUnderlyingType,
 }
 
+pub trait PropertiesManipulation<'a> {
+    #[must_use]
+    fn map_properties<F>(self, f: F) -> Self
+    where
+        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>;
+
+    #[must_use]
+    fn map_nav_properties<F>(self, f: F) -> Self
+    where
+        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>;
+}
+
+pub trait MapType<'a> {
+    #[must_use]
+    fn map_type<F>(self, f: F) -> Self
+    where
+        F: Fn(QualifiedName<'a>) -> QualifiedName<'a>;
+}
+
+pub trait MapBase<'a> {
+    #[must_use]
+    fn map_base<F>(self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>;
+}
+
 #[derive(Debug)]
 pub struct CompiledEntityType<'a> {
     pub name: QualifiedName<'a>,
@@ -458,6 +484,34 @@ pub struct CompiledEntityType<'a> {
     pub long_description: Option<LongDescriptionRef<'a>>,
 }
 
+impl<'a> PropertiesManipulation<'a> for CompiledEntityType<'a> {
+    fn map_properties<F>(mut self, f: F) -> Self
+    where
+        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>,
+    {
+        self.properties = self.properties.into_iter().map(f).collect();
+        self
+    }
+
+    fn map_nav_properties<F>(mut self, f: F) -> Self
+    where
+        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>,
+    {
+        self.nav_properties = self.nav_properties.into_iter().map(f).collect();
+        self
+    }
+}
+
+impl<'a> MapBase<'a> for CompiledEntityType<'a> {
+    fn map_base<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
+    {
+        self.base = self.base.map(f);
+        self
+    }
+}
+
 #[derive(Debug)]
 pub struct CompiledComplexType<'a> {
     pub name: QualifiedName<'a>,
@@ -466,6 +520,34 @@ pub struct CompiledComplexType<'a> {
     pub nav_properties: Vec<CompiledNavProperty<'a>>,
     pub description: Option<DescriptionRef<'a>>,
     pub long_description: Option<LongDescriptionRef<'a>>,
+}
+
+impl<'a> PropertiesManipulation<'a> for CompiledComplexType<'a> {
+    fn map_properties<F>(mut self, f: F) -> Self
+    where
+        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>,
+    {
+        self.properties = self.properties.into_iter().map(f).collect();
+        self
+    }
+
+    fn map_nav_properties<F>(mut self, f: F) -> Self
+    where
+        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>,
+    {
+        self.nav_properties = self.nav_properties.into_iter().map(f).collect();
+        self
+    }
+}
+
+impl<'a> MapBase<'a> for CompiledComplexType<'a> {
+    fn map_base<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
+    {
+        self.base = self.base.map(f);
+        self
+    }
 }
 
 #[derive(Debug)]
@@ -504,6 +586,16 @@ pub struct CompiledProperty<'a> {
     pub long_description: Option<LongDescriptionRef<'a>>,
 }
 
+impl<'a> MapType<'a> for CompiledProperty<'a> {
+    fn map_type<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
+    {
+        self.ptype = self.ptype.map(f);
+        self
+    }
+}
+
 #[derive(Debug)]
 pub struct CompiledNavProperty<'a> {
     pub name: &'a PropertyName,
@@ -512,10 +604,30 @@ pub struct CompiledNavProperty<'a> {
     pub long_description: Option<LongDescriptionRef<'a>>,
 }
 
+impl<'a> MapType<'a> for CompiledNavProperty<'a> {
+    fn map_type<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
+    {
+        self.ptype = self.ptype.map(f);
+        self
+    }
+}
+
 #[derive(Debug)]
 pub struct CompiledSingleton<'a> {
     pub name: &'a SimpleIdentifier,
     pub stype: QualifiedName<'a>,
+}
+
+impl<'a> MapType<'a> for CompiledSingleton<'a> {
+    fn map_type<F>(mut self, f: F) -> Self
+    where
+        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
+    {
+        self.stype = f(self.stype);
+        self
+    }
 }
 
 #[cfg(test)]

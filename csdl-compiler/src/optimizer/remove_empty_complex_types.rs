@@ -17,15 +17,18 @@
 
 use crate::compiler::Compiled;
 use crate::compiler::CompiledComplexType;
-use crate::compiler::CompiledEntityType;
 use crate::compiler::CompiledProperty;
+use crate::compiler::MapBase as _;
+use crate::compiler::MapType as _;
+use crate::compiler::PropertiesManipulation as _;
 use crate::compiler::QualifiedName;
 use std::collections::HashMap;
 
 type Replacements<'a> = HashMap<QualifiedName<'a>, QualifiedName<'a>>;
 
-pub fn remove_empty_complex_types(input: Compiled<'_>) -> Compiled<'_> {
+pub fn remove_empty_complex_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
     let ct_replacements = collect_ct_replacements(&input);
+    let map_prop = |p: CompiledProperty<'a>| p.map_type(|t| replace(&t, &ct_replacements));
     Compiled {
         complex_types: input
             .complex_types
@@ -36,14 +39,8 @@ pub fn remove_empty_complex_types(input: Compiled<'_>) -> Compiled<'_> {
                 } else {
                     Some((
                         name,
-                        CompiledComplexType {
-                            name: v.name,
-                            base: v.base.as_ref().map(|base| replace(base, &ct_replacements)),
-                            properties: replace_properties(v.properties, &ct_replacements),
-                            nav_properties: v.nav_properties,
-                            description: v.description,
-                            long_description: v.long_description,
-                        },
+                        v.map_properties(map_prop)
+                            .map_base(|base| replace(&base, &ct_replacements)),
                     ))
                 }
             })
@@ -51,19 +48,7 @@ pub fn remove_empty_complex_types(input: Compiled<'_>) -> Compiled<'_> {
         entity_types: input
             .entity_types
             .into_iter()
-            .map(|(name, v)| {
-                (
-                    name,
-                    CompiledEntityType {
-                        name: v.name,
-                        base: v.base,
-                        properties: replace_properties(v.properties, &ct_replacements),
-                        nav_properties: v.nav_properties,
-                        description: v.description,
-                        long_description: v.long_description,
-                    },
-                )
-            })
+            .map(|(name, v)| (name, v.map_properties(map_prop)))
             .collect(),
         root_singletons: input.root_singletons,
         simple_types: input.simple_types,
@@ -74,31 +59,11 @@ const fn ct_is_empty(ct: &CompiledComplexType<'_>) -> bool {
     ct.properties.is_empty() && ct.nav_properties.is_empty()
 }
 
-fn replace_properties<'a>(
-    properties: Vec<CompiledProperty<'a>>,
-    ct_replacements: &Replacements<'a>,
-) -> Vec<CompiledProperty<'a>> {
-    properties
-        .into_iter()
-        .map(|p| CompiledProperty {
-            name: p.name,
-            ptype: p.ptype.map(|t| replace(&t, ct_replacements)),
-            description: p.description,
-            long_description: p.long_description,
-        })
-        .collect()
-}
-
-fn replace<'a>(
-    target: &QualifiedName<'a>,
-    replacements: &HashMap<QualifiedName<'a>, QualifiedName<'a>>,
-) -> QualifiedName<'a> {
+fn replace<'a>(target: &QualifiedName<'a>, replacements: &Replacements<'a>) -> QualifiedName<'a> {
     *replacements.get(target).unwrap_or(target)
 }
 
-fn collect_ct_replacements<'a>(
-    input: &Compiled<'a>,
-) -> HashMap<QualifiedName<'a>, QualifiedName<'a>> {
+fn collect_ct_replacements<'a>(input: &Compiled<'a>) -> Replacements<'a> {
     input
         .complex_types
         .values()
