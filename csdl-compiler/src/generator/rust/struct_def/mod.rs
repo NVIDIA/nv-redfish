@@ -113,6 +113,36 @@ impl<'a> StructDef<'a> {
                 }
             }
         }
+        for p in self.properties.nav_properties {
+            match p.ptype {
+                CompiledPropertyType::One(v) => {
+                    let rename = Literal::string(p.name.inner().inner());
+                    let name = PropertyName::new(p.name);
+                    let ptype = FullTypeName::new(v, config);
+                    // Because navigation properties can produce
+                    // cycles we use Option<Box<_>> here.
+                    content.extend([
+                        doc_format_and_generate(p.name, &p.odata),
+                        quote! {
+                            #[serde(rename=#rename)]
+                            pub #name: Option<Box<#ptype>>,
+                        },
+                    ]);
+                }
+                CompiledPropertyType::CollectionOf(v) => {
+                    let rename = Literal::string(p.name.inner().inner());
+                    let name = PropertyName::new(p.name);
+                    let ptype = FullTypeName::new(v, config);
+                    content.extend([
+                        doc_format_and_generate(p.name, &p.odata),
+                        quote! {
+                            #[serde(rename=#rename, default)]
+                            pub #name: Vec<#ptype>,
+                        },
+                    ]);
+                }
+            }
+        }
         let name = self.name;
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
