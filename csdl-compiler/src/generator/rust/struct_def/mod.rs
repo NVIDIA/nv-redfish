@@ -50,7 +50,7 @@ impl StructDef<'_> {
                         doc_format_and_generate(p.name, &p.odata),
                         quote! {
                             #[serde(rename=#rename)]
-                            #name: Option<#ptype>,
+                            pub #name: Option<#ptype>,
                         },
                     ]);
                 }
@@ -62,7 +62,7 @@ impl StructDef<'_> {
                         doc_format_and_generate(p.name, &p.odata),
                         quote! {
                             #[serde(rename=#rename, default)]
-                            #name: Vec<#ptype>,
+                            pub #name: Vec<#ptype>,
                         },
                     ]);
                 }

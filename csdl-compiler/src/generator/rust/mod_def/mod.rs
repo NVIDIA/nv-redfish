@@ -17,9 +17,11 @@ pub mod name;
 
 use crate::compiler::CompiledComplexType;
 use crate::compiler::CompiledEntityType;
+use crate::compiler::SimpleType;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
 use crate::generator::rust::ModName;
+use crate::generator::rust::SimpleDef;
 use crate::generator::rust::StructDef;
 use crate::generator::rust::TypeName;
 use proc_macro2::Delimiter;
@@ -38,6 +40,7 @@ use std::iter::repeat_n;
 #[derive(Default, Debug)]
 pub struct ModDef<'a> {
     name: Option<ModName<'a>>,
+    simples: HashMap<TypeName<'a>, SimpleDef<'a>>,
     structs: HashMap<TypeName<'a>, StructDef<'a>>,
     sub_mods: HashMap<ModName<'a>, ModDef<'a>>,
     depth: usize,
@@ -50,6 +53,7 @@ impl<'a> ModDef<'a> {
             name: Some(name),
             structs: HashMap::new(),
             sub_mods: HashMap::new(),
+            simples: HashMap::new(),
             depth,
         }
     }
@@ -91,6 +95,46 @@ impl<'a> ModDef<'a> {
                         properties: ct.properties,
                         odata: ct.odata,
                     });
+                    Ok(self)
+                }
+            }
+            .map_err(Box::new)
+            .map_err(|e| Error::CreateStruct(short_name, e))
+        }
+    }
+
+    /// Add simple type to the module.
+    ///
+    /// # Errors
+    ///
+    /// TODO
+    pub fn add_simple_type(self, ct: SimpleType<'a>) -> Result<Self, Error<'a>> {
+        self.inner_add_simple_type(ct, 0)
+    }
+
+    fn inner_add_simple_type(
+        mut self,
+        st: SimpleType<'a>,
+        depth: usize,
+    ) -> Result<Self, Error<'a>> {
+        let short_name = st.name.name;
+        if let Some(id) = st.name.namespace.get_id(depth) {
+            let mod_name = ModName::new(id);
+            self.sub_mods
+                .remove(&mod_name)
+                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .inner_add_simple_type(st, depth + 1)
+                .map(|submod| {
+                    self.sub_mods.insert(mod_name, submod);
+                    self
+                })
+        } else {
+            let name = TypeName::new(short_name);
+            let attrs = st.attrs;
+            match self.simples.entry(name) {
+                Entry::Occupied(_) => Err(Error::NameConflict(st.name)),
+                Entry::Vacant(v) => {
+                    v.insert(SimpleDef { name, attrs });
                     Ok(self)
                 }
             }
@@ -146,6 +190,9 @@ impl<'a> ModDef<'a> {
 
     /// Generate Rust code.
     pub fn generate(self, tokens: &mut TokenStream, config: &Config) {
+        let mut simples = self.simples.into_values().collect::<Vec<_>>();
+        simples.sort_by_key(|v| v.name);
+
         let mut sub_mods = self.sub_mods.into_values().collect::<Vec<_>>();
         sub_mods.sort_by_key(|v| v.name);
 
@@ -153,6 +200,10 @@ impl<'a> ModDef<'a> {
         structs.sort_by_key(|v| v.name);
 
         let generate = |ts: &mut TokenStream| {
+            for s in simples {
+                s.generate(ts, config);
+            }
+
             for s in structs {
                 s.generate(ts, config);
             }
@@ -167,6 +218,7 @@ impl<'a> ModDef<'a> {
             content.extend([
                 Self::generate_ref_to_top_module(self.depth, config),
                 quote! {
+                    #[allow(unused_imports)]
                     use serde::Deserialize;
                 },
             ]);
@@ -195,7 +247,10 @@ impl<'a> ModDef<'a> {
         .flatten()
         .collect::<Vec<_>>();
         let mut ts = TokenStream::new();
-        ts.extend(quote! { use super });
+        ts.extend(quote! {
+            #[allow(unused_imports)]
+            use super
+        });
         ts.extend(supers);
         ts.extend(quote! { ::#top  as #top ; });
         ts

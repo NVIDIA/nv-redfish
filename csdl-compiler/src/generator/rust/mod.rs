@@ -44,6 +44,9 @@ pub mod full_type_name;
 /// Property name for structs
 pub mod property_name;
 
+/// Simple types definitions
+pub mod simple_def;
+
 use crate::compiler::QualifiedName;
 use crate::edmx::attribute_values::SimpleIdentifier;
 use crate::generator::CodeGenerator;
@@ -61,6 +64,8 @@ pub type ModName<'a> = mod_def::name::ModName<'a>;
 pub type ModDef<'a> = mod_def::ModDef<'a>;
 /// Reexport of `StructDef`.
 pub type StructDef<'a> = struct_def::StructDef<'a>;
+/// Reexport of `SimpleDef`.
+pub type SimpleDef<'a> = simple_def::SimpleDef<'a>;
 /// Reexport of `Config`.
 pub type Config = config::Config;
 /// Reexport of `TypeName`.
@@ -107,6 +112,11 @@ impl<'a> CodeGenerator<'a> for RustGenerator<'a> {
             .entity_types
             .into_iter()
             .try_fold(root, |m, (_, et)| m.add_entity_type(et))
+            .map_err(convert_err)?;
+        let root = compiled
+            .simple_types
+            .into_iter()
+            .try_fold(root, |m, (_, st)| m.add_simple_type(st))
             .map_err(convert_err)?;
         Ok(Self { root })
     }
