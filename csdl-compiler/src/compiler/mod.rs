@@ -334,6 +334,8 @@ impl SchemaBundle {
                     Ok(Compiled::new_enum_type(CompiledEnumType {
                         name: qtype.into(),
                         underlying_type,
+                        members: et.members.iter().map(Into::into).collect(),
+                        odata: CompiledOData::new(et),
                     }))
                 }
                 Type::ComplexType(ct) => {

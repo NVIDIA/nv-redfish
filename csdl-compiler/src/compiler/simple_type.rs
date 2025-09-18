@@ -13,7 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::compiler::CompiledOData;
 use crate::compiler::QualifiedName;
+use crate::edmx::enum_type::EnumMember;
+use crate::edmx::enum_type::EnumMemberName;
 use crate::edmx::enum_type::EnumUnderlyingType;
 
 /// Compiled simple type (type definition or enumeration).
@@ -51,4 +54,26 @@ pub struct CompiledEnumType<'a> {
     pub name: QualifiedName<'a>,
     /// Underlying type. It is always Integer of some size.
     pub underlying_type: EnumUnderlyingType,
+    /// Members of the enum.
+    pub members: Vec<CompiledEnumMember<'a>>,
+    /// `OData` annotations associated with enum type.
+    pub odata: CompiledOData<'a>,
+}
+
+/// Compiled member of the enum type.
+#[derive(Debug)]
+pub struct CompiledEnumMember<'a> {
+    /// Name of the member.
+    pub name: &'a EnumMemberName,
+    /// Attached Odata annotations.
+    pub odata: CompiledOData<'a>,
+}
+
+impl<'a> From<&'a EnumMember> for CompiledEnumMember<'a> {
+    fn from(v: &'a EnumMember) -> Self {
+        Self {
+            name: &v.name,
+            odata: CompiledOData::new(v),
+        }
+    }
 }
