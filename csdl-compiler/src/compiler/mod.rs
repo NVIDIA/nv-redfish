@@ -36,14 +36,17 @@ pub mod namespace;
 /// Compiled odata
 pub mod odata;
 
+/// Compiled redfish attrs
+pub mod redfish;
+
 /// Compiled properties of `ComplexType` or `EntityType`
 pub mod compiled_properties;
 
 /// Simple type (type definition or enum)
 pub mod simple_type;
 
+use crate::compiler::redfish::RedfishProperty;
 use crate::edmx::Edmx;
-use crate::edmx::PropertyName;
 use crate::edmx::QualifiedTypeName;
 use crate::edmx::Singleton;
 use crate::edmx::attribute_values::SimpleIdentifier;
@@ -69,6 +72,12 @@ pub type CompiledNamespace<'a> = namespace::CompiledNamespace<'a>;
 pub type CompiledOData<'a> = odata::CompiledOData<'a>;
 /// Reexport `CompiledProperties` to the level of the compiler.
 pub type CompiledProperties<'a> = compiled_properties::CompiledProperties<'a>;
+/// Reexport `CompiledProperty` to the level of the compiler.
+pub type CompiledProperty<'a> = compiled_properties::CompiledProperty<'a>;
+/// Reexport `CompiledNavProperty` to the level of the compiler.
+pub type CompiledNavProperty<'a> = compiled_properties::CompiledNavProperty<'a>;
+/// Reexport `CompiledPropertyType` to the level of the compiler.
+pub type CompiledPropertyType<'a> = compiled_properties::CompiledPropertyType<'a>;
 /// Reexport `SimpleType` to the level of the compiler.
 pub type SimpleType<'a> = simple_type::SimpleType<'a>;
 /// Reexport `SimpleTypeAttrs` to the level of the compiler.
@@ -249,6 +258,7 @@ impl SchemaBundle {
                                 name: &v.name,
                                 ptype: (&v.ptype).into(),
                                 odata: CompiledOData::new(v),
+                                redfish: RedfishProperty::new(v),
                             });
                             stack.merge(compiled)
                         }
@@ -280,6 +290,7 @@ impl SchemaBundle {
                                     }
                                 },
                                 odata: CompiledOData::new(v),
+                                redfish: RedfishProperty::new(v),
                             });
                             stack.merge(compiled)
                         }
@@ -466,68 +477,6 @@ impl<'a> MapBase<'a> for CompiledComplexType<'a> {
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
     {
         self.base = self.base.map(f);
-        self
-    }
-}
-
-#[derive(Debug)]
-pub enum CompiledPropertyType<'a> {
-    One(QualifiedName<'a>),
-    CollectionOf(QualifiedName<'a>),
-}
-
-impl<'a> CompiledPropertyType<'a> {
-    #[must_use]
-    pub fn map<F>(self, f: F) -> Self
-    where
-        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
-    {
-        match self {
-            Self::One(v) => Self::One(f(v)),
-            Self::CollectionOf(v) => Self::CollectionOf(f(v)),
-        }
-    }
-}
-
-impl<'a> From<&'a TypeName> for CompiledPropertyType<'a> {
-    fn from(v: &'a TypeName) -> Self {
-        match v {
-            TypeName::One(v) => Self::One(v.into()),
-            TypeName::CollectionOf(v) => Self::CollectionOf(v.into()),
-        }
-    }
-}
-
-#[derive(Debug)]
-pub struct CompiledProperty<'a> {
-    pub name: &'a PropertyName,
-    pub ptype: CompiledPropertyType<'a>,
-    pub odata: CompiledOData<'a>,
-}
-
-impl<'a> MapType<'a> for CompiledProperty<'a> {
-    fn map_type<F>(mut self, f: F) -> Self
-    where
-        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
-    {
-        self.ptype = self.ptype.map(f);
-        self
-    }
-}
-
-#[derive(Debug)]
-pub struct CompiledNavProperty<'a> {
-    pub name: &'a PropertyName,
-    pub ptype: CompiledPropertyType<'a>,
-    pub odata: CompiledOData<'a>,
-}
-
-impl<'a> MapType<'a> for CompiledNavProperty<'a> {
-    fn map_type<F>(mut self, f: F) -> Self
-    where
-        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
-    {
-        self.ptype = self.ptype.map(f);
         self
     }
 }

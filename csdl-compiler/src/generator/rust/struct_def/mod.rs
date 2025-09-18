@@ -86,60 +86,58 @@ impl<'a> StructDef<'a> {
             });
         }
         for p in self.properties.properties {
+            content.extend(doc_format_and_generate(p.name, &p.odata));
             match p.ptype {
                 CompiledPropertyType::One(v) => {
                     let rename = Literal::string(p.name.inner().inner());
                     let name = PropertyName::new(p.name);
                     let ptype = FullTypeName::new(v, config);
-                    content.extend([
-                        doc_format_and_generate(p.name, &p.odata),
-                        quote! {
-                            #[serde(rename=#rename)]
-                            pub #name: Option<#ptype>,
-                        },
-                    ]);
+                    content.extend(quote! { #[serde(rename=#rename)] });
+                    if p.redfish.is_required.into_inner() {
+                        content.extend(quote! { pub #name: #ptype,  });
+                    } else {
+                        content.extend(quote! { pub #name: Option<#ptype>, });
+                    }
                 }
                 CompiledPropertyType::CollectionOf(v) => {
                     let rename = Literal::string(p.name.inner().inner());
                     let name = PropertyName::new(p.name);
                     let ptype = FullTypeName::new(v, config);
-                    content.extend([
-                        doc_format_and_generate(p.name, &p.odata),
-                        quote! {
-                            #[serde(rename=#rename, default)]
-                            pub #name: Vec<#ptype>,
-                        },
-                    ]);
+                    if p.redfish.is_required.into_inner() {
+                        content.extend(quote! { #[serde(rename=#rename)] });
+                    } else {
+                        content.extend(quote! { #[serde(rename=#rename, default)] });
+                    }
+                    content.extend(quote! { pub #name: Vec<#ptype>, });
                 }
             }
         }
         for p in self.properties.nav_properties {
+            content.extend(doc_format_and_generate(p.name, &p.odata));
             match p.ptype {
                 CompiledPropertyType::One(v) => {
                     let rename = Literal::string(p.name.inner().inner());
                     let name = PropertyName::new(p.name);
                     let ptype = FullTypeName::new(v, config);
-                    // Because navigation properties can produce
-                    // cycles we use Option<Box<_>> here.
-                    content.extend([
-                        doc_format_and_generate(p.name, &p.odata),
-                        quote! {
-                            #[serde(rename=#rename)]
-                            pub #name: Option<Box<#ptype>>,
-                        },
-                    ]);
+                    content.extend(quote! { #[serde(rename=#rename)] });
+                    if p.redfish.is_required.into_inner() {
+                        content.extend(quote! { pub #name: #ptype, });
+                    } else {
+                        // Because navigation properties can produce
+                        // cycles we use Option<Box<_>> here.
+                        content.extend(quote! { pub #name: Option<Box<#ptype>>, });
+                    }
                 }
                 CompiledPropertyType::CollectionOf(v) => {
                     let rename = Literal::string(p.name.inner().inner());
                     let name = PropertyName::new(p.name);
                     let ptype = FullTypeName::new(v, config);
-                    content.extend([
-                        doc_format_and_generate(p.name, &p.odata),
-                        quote! {
-                            #[serde(rename=#rename, default)]
-                            pub #name: Vec<#ptype>,
-                        },
-                    ]);
+                    if p.redfish.is_required.into_inner() {
+                        content.extend(quote! { #[serde(rename=#rename)] });
+                    } else {
+                        content.extend(quote! { #[serde(rename=#rename, default)] });
+                    }
+                    content.extend(quote! { pub #name: Vec<#ptype>, });
                 }
             }
         }

@@ -49,6 +49,8 @@ pub mod generator;
 pub mod odata;
 /// Optimizer of compiled data strcutres.
 pub mod optimizer;
+/// Redfish-related functions.
+pub mod redfish;
 
 use edmx::ValidateError;
 use std::io::Error as IoError;
