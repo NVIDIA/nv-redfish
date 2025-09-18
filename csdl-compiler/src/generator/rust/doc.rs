@@ -40,8 +40,17 @@ pub fn format(name: impl Display, odata: &CompiledOData<'_>) -> Option<Vec<Strin
     match (maybe_descr, maybe_long_descr) {
         (None, None) => None,
         (Some(d), None) => Some(vec![format!(" {d}")]),
-        (None, Some(ld)) => Some(vec![format!(" {}", name), String::new(), format!(" {ld}")]),
-        (Some(d), Some(ld)) => Some(vec![format!(" {d}"), String::new(), format!(" {ld}")]),
+        (None, Some(ld)) => {
+            let mut result = vec![format!(" {}", name), String::new()];
+            result.extend(split_by_lines(&ld));
+            Some(result)
+        }
+        (Some(d), Some(ld)) => {
+            let mut result = split_by_lines(&d);
+            result.push(String::new());
+            result.extend(split_by_lines(&ld));
+            Some(result)
+        }
     }
 }
 
@@ -61,4 +70,25 @@ pub fn generate(lines: &[impl ToString]) -> TokenStream {
         ]);
     }
     ts
+}
+
+fn split_by_lines(s: &str) -> Vec<String> {
+    s.split(' ')
+        .fold(
+            (Vec::<Vec<&str>>::new(), 0),
+            |(mut lines, last_len), word| {
+                if let Some(last) = lines.last_mut() {
+                    if last_len + word.len() < 100 {
+                        last.push(word);
+                        return (lines, last_len + word.len() + 1);
+                    }
+                }
+                lines.push(vec![word]);
+                (lines, word.len() + 1)
+            },
+        )
+        .0
+        .into_iter()
+        .map(|words| " ".to_owned() + &words.join(" "))
+        .collect()
 }
