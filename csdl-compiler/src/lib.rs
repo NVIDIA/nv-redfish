@@ -36,6 +36,7 @@
     clippy::print_stdout,
     clippy::print_stderr
 )]
+
 //#![deny(missing_docs)]
 
 /// Redfish schema compiler.

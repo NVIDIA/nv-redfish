@@ -24,11 +24,14 @@ use std::fmt::Result as FmtResult;
 /// Compiled qualified name
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct QualifiedName<'a> {
+    /// Namespace where name is located.
     pub namespace: CompiledNamespace<'a>,
+    /// Name.
     pub name: &'a SimpleIdentifier,
 }
 
 impl<'a> QualifiedName<'a> {
+    /// Create new qualified name.
     #[must_use]
     pub const fn new(namespace: &'a Namespace, name: &'a SimpleIdentifier) -> Self {
         Self {

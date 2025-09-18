@@ -18,6 +18,11 @@ use crate::compiler::QualifiedName;
 
 /// Compilation stack. Creates every time when we go inside recursion
 /// to compile inner type.
+///
+/// Note: you should never return Stack frames from the function that
+/// do part of job. This is anti-pattern. Function that compiles
+/// something should create stack frame (if needed) and return
+/// `Compiled` data using done method.
 #[derive(Default)]
 pub struct Stack<'a, 'stack> {
     parent: Option<&'stack Stack<'a, 'stack>>,
@@ -28,6 +33,10 @@ pub struct Stack<'a, 'stack> {
 }
 
 impl<'a, 'stack> Stack<'a, 'stack> {
+    /// Create new stack frame and sets it's parent to the `self`.
+    /// Stack frame is concept that provides possibility to have own
+    /// mutable `current` compiled data and still access upper frames
+    /// to lookup for already compiled data structures.
     #[must_use]
     pub fn new_frame(&'stack self) -> Self {
         Self {
@@ -37,12 +46,17 @@ impl<'a, 'stack> Stack<'a, 'stack> {
         }
     }
 
+    /// Entity types can refer to each other via navigation
+    /// properties. These references can produce cycles. Stack helps
+    /// avoiding infinite loops by possibility remember which entity
+    /// type is being compiled. This function enables this possiblity.
     #[must_use]
     pub const fn with_enitity_type(mut self, name: QualifiedName<'a>) -> Self {
         self.entity_type = Some(name);
         self
     }
 
+    /// Check that entity this has been compiled or is being compiled.
     #[must_use]
     pub fn contains_entity(&self, qtype: QualifiedName<'a>) -> bool {
         self.current.entity_types.contains_key(&qtype)
@@ -50,6 +64,7 @@ impl<'a, 'stack> Stack<'a, 'stack> {
             || self.parent.is_some_and(|p| p.contains_entity(qtype))
     }
 
+    /// Merge compiled data structure to the current stack frame.
     #[must_use]
     pub fn merge(self, c: Compiled<'a>) -> Self {
         Self {
@@ -59,6 +74,7 @@ impl<'a, 'stack> Stack<'a, 'stack> {
         }
     }
 
+    /// Complete stack frame and return collected compiled data structure.
     #[must_use]
     pub fn done(self) -> Compiled<'a> {
         self.current

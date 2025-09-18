@@ -30,7 +30,9 @@ pub struct CompiledNamespace<'a> {
     len: usize,
 }
 
+#[allow(clippy::len_without_is_empty)] // CompiledNamespace cannot be empty.
 impl<'a> CompiledNamespace<'a> {
+    /// Creates new compiled namespace.
     #[must_use]
     pub const fn new(edmx_ns: &'a Namespace) -> Self {
         Self {
@@ -39,16 +41,13 @@ impl<'a> CompiledNamespace<'a> {
         }
     }
 
+    /// Number of ids in the namespace.
     #[must_use]
     pub const fn len(&self) -> usize {
         self.len
     }
 
-    #[must_use]
-    pub const fn is_empty(&self) -> bool {
-        self.len == 0
-    }
-
+    /// Get identifier on the specified position.
     #[must_use]
     pub fn get_id(&self, depth: usize) -> Option<&'a SimpleIdentifier> {
         if self.len > depth {

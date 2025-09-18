@@ -68,15 +68,18 @@ pub type CompiledOData<'a> = odata::CompiledOData<'a>;
 /// Resolving `CompiledProperties` to the level of the compiler.
 pub type CompiledProperties<'a> = compiled_properties::CompiledProperties<'a>;
 
+/// Collection of EDMX documents that are compiled together to produce
+/// code.
 #[derive(Default)]
 pub struct SchemaBundle {
+    /// Parsed and validated Edmx documents.
     pub edmx_docs: Vec<Edmx>,
 }
 
 impl SchemaBundle {
     /// Compile multiple schema, resolving all type dependencies.
     ///
-    ///  # Errors
+    /// # Errors
     ///
     /// Returns compile error if any type cannot be resolved.
     pub fn compile(&self, singletons: &[SimpleIdentifier]) -> Result<Compiled<'_>, Error> {
@@ -354,27 +357,40 @@ impl SchemaBundle {
     }
 }
 
+/// Compiled simple type (type definition or enumeration).
 #[derive(Debug)]
 pub struct SimpleType<'a> {
+    /// Fully-qualified type name.
     pub name: QualifiedName<'a>,
+    /// Attributes of the type.
     pub attrs: SimpleTypeAttrs<'a>,
 }
 
+/// Attributes of the simple type.
 #[derive(Debug)]
 pub enum SimpleTypeAttrs<'a> {
+    /// Attributes of the type definition.
     TypeDefinition(CompiledTypeDefinition<'a>),
+    /// Attributes of the enumeration.
     EnumType(CompiledEnumType<'a>),
 }
 
+/// Compiled type definition.
 #[derive(Debug)]
 pub struct CompiledTypeDefinition<'a> {
+    /// Fully-qualified type name.
     pub name: QualifiedName<'a>,
+    /// Underlying type name. This is always primitive type in Edm
+    /// namespace.
     pub underlying_type: QualifiedName<'a>,
 }
 
+/// Compiled enum definition.
 #[derive(Debug)]
 pub struct CompiledEnumType<'a> {
+    /// Fully-qualified type name.
     pub name: QualifiedName<'a>,
+    /// Underlying type. It is always Integer of some size.
     pub underlying_type: EnumUnderlyingType,
 }
 
