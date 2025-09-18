@@ -45,6 +45,7 @@ pub mod compiled_properties;
 /// Simple type (type definition or enum)
 pub mod simple_type;
 
+use crate::compiler::odata::MustHaveId;
 use crate::compiler::redfish::RedfishProperty;
 use crate::edmx::Edmx;
 use crate::edmx::QualifiedTypeName;
@@ -234,7 +235,7 @@ impl SchemaBundle {
                 base,
                 key: schema_entity_type.key.as_ref(),
                 properties,
-                odata: CompiledOData::new(schema_entity_type),
+                odata: CompiledOData::new(MustHaveId::new(true), schema_entity_type),
             }))
             .done())
     }
@@ -257,7 +258,7 @@ impl SchemaBundle {
                             p.properties.push(CompiledProperty {
                                 name: &v.name,
                                 ptype: (&v.ptype).into(),
-                                odata: CompiledOData::new(v),
+                                odata: CompiledOData::new(MustHaveId::new(false), v),
                                 redfish: RedfishProperty::new(v),
                             });
                             stack.merge(compiled)
@@ -289,7 +290,7 @@ impl SchemaBundle {
                                         CompiledPropertyType::CollectionOf(ptype)
                                     }
                                 },
-                                odata: CompiledOData::new(v),
+                                odata: CompiledOData::new(MustHaveId::new(false), v),
                                 redfish: RedfishProperty::new(v),
                             });
                             stack.merge(compiled)
@@ -346,7 +347,7 @@ impl SchemaBundle {
                         name: qtype.into(),
                         underlying_type,
                         members: et.members.iter().map(Into::into).collect(),
-                        odata: CompiledOData::new(et),
+                        odata: CompiledOData::new(MustHaveId::new(false), et),
                     }))
                 }
                 Type::ComplexType(ct) => {
@@ -370,7 +371,7 @@ impl SchemaBundle {
                             name,
                             base,
                             properties,
-                            odata: CompiledOData::new(ct),
+                            odata: CompiledOData::new(MustHaveId::new(false), ct),
                         }))
                         .done())
                 }

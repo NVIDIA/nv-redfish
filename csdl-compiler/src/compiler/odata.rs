@@ -18,10 +18,19 @@
 use crate::odata::annotations::DescriptionRef;
 use crate::odata::annotations::LongDescriptionRef;
 use crate::odata::annotations::ODataAnnotations;
+use tagged_types::TaggedType;
+
+pub type MustHaveId = TaggedType<bool, MustHaveIdTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Debug)]
+#[capability(inner_access)]
+pub enum MustHaveIdTag {}
 
 /// `OData` attributes attached to different compiled enities.
 #[derive(Debug)]
 pub struct CompiledOData<'a> {
+    pub must_have_id: MustHaveId,
     pub description: Option<DescriptionRef<'a>>,
     pub long_description: Option<LongDescriptionRef<'a>>,
 }
@@ -29,8 +38,9 @@ pub struct CompiledOData<'a> {
 impl<'a> CompiledOData<'a> {
     /// Create new instance from reference to object that implements
     /// annotations.
-    pub fn new(src: &'a impl ODataAnnotations) -> Self {
+    pub fn new(must_have_id: MustHaveId, src: &'a impl ODataAnnotations) -> Self {
         Self {
+            must_have_id,
             description: src.odata_description(),
             long_description: src.odata_long_description(),
         }

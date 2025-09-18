@@ -15,6 +15,7 @@
 
 use crate::compiler::CompiledOData;
 use crate::compiler::QualifiedName;
+use crate::compiler::odata::MustHaveId;
 use crate::edmx::enum_type::EnumMember;
 use crate::edmx::enum_type::EnumMemberName;
 use crate::edmx::enum_type::EnumUnderlyingType;
@@ -73,7 +74,7 @@ impl<'a> From<&'a EnumMember> for CompiledEnumMember<'a> {
     fn from(v: &'a EnumMember) -> Self {
         Self {
             name: &v.name,
-            odata: CompiledOData::new(v),
+            odata: CompiledOData::new(MustHaveId::new(false), v),
         }
     }
 }

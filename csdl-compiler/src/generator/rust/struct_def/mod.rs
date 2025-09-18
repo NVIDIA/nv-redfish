@@ -13,8 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::compiler::CompiledNavProperty;
 use crate::compiler::CompiledOData;
 use crate::compiler::CompiledProperties;
+use crate::compiler::CompiledProperty;
 use crate::compiler::CompiledPropertyType;
 use crate::compiler::QualifiedName;
 use crate::generator::rust::Config;
@@ -25,7 +27,9 @@ use crate::generator::rust::TypeName;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
+use proc_macro2::Ident;
 use proc_macro2::Literal;
+use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
 use quote::quote;
@@ -73,10 +77,18 @@ impl<'a> StructDef<'a> {
             odata,
         })
     }
+
     /// Generate rust code for the structure.
     pub fn generate(self, tokens: &mut TokenStream, config: &Config) {
+        enum ImplOdataType {
+            Root,
+            Child,
+            None,
+        }
+
         let mut content = TokenStream::new();
-        if let Some(base) = self.base {
+        let odata_id = Ident::new("odata_id", Span::call_site());
+        let impl_odata_type = if let Some(base) = self.base {
             let base_pname = PropertyName::new(&config.base_type_prop_name);
             let typename = FullTypeName::new(base, config);
             content.extend(quote! {
@@ -84,63 +96,34 @@ impl<'a> StructDef<'a> {
                 #[serde(flatten)]
                 pub #base_pname: #typename,
             });
-        }
+            if *self.odata.must_have_id.inner() {
+                ImplOdataType::Child
+            } else {
+                ImplOdataType::None
+            }
+        } else if *self.odata.must_have_id.inner() {
+            // MustHaveId only for the root elements in type
+            // hierarchy. This requirements by code
+            // generation. Generator needs to add @odata.id field to
+            // the struct. If we will add odata.id on each level it ma
+            // break deserialization.
+            content.extend(quote! {
+                #[serde(rename="@odata.id")]
+                pub #odata_id: String,
+            });
+            ImplOdataType::Root
+        } else {
+            ImplOdataType::None
+        };
+
         for p in self.properties.properties {
-            content.extend(doc_format_and_generate(p.name, &p.odata));
-            match p.ptype {
-                CompiledPropertyType::One(v) => {
-                    let rename = Literal::string(p.name.inner().inner());
-                    let name = PropertyName::new(p.name);
-                    let ptype = FullTypeName::new(v, config);
-                    content.extend(quote! { #[serde(rename=#rename)] });
-                    if p.redfish.is_required.into_inner() {
-                        content.extend(quote! { pub #name: #ptype,  });
-                    } else {
-                        content.extend(quote! { pub #name: Option<#ptype>, });
-                    }
-                }
-                CompiledPropertyType::CollectionOf(v) => {
-                    let rename = Literal::string(p.name.inner().inner());
-                    let name = PropertyName::new(p.name);
-                    let ptype = FullTypeName::new(v, config);
-                    if p.redfish.is_required.into_inner() {
-                        content.extend(quote! { #[serde(rename=#rename)] });
-                    } else {
-                        content.extend(quote! { #[serde(rename=#rename, default)] });
-                    }
-                    content.extend(quote! { pub #name: Vec<#ptype>, });
-                }
-            }
+            Self::generate_property(&mut content, &p, config);
         }
+
         for p in self.properties.nav_properties {
-            content.extend(doc_format_and_generate(p.name, &p.odata));
-            match p.ptype {
-                CompiledPropertyType::One(v) => {
-                    let rename = Literal::string(p.name.inner().inner());
-                    let name = PropertyName::new(p.name);
-                    let ptype = FullTypeName::new(v, config);
-                    content.extend(quote! { #[serde(rename=#rename)] });
-                    if p.redfish.is_required.into_inner() {
-                        content.extend(quote! { pub #name: #ptype, });
-                    } else {
-                        // Because navigation properties can produce
-                        // cycles we use Option<Box<_>> here.
-                        content.extend(quote! { pub #name: Option<Box<#ptype>>, });
-                    }
-                }
-                CompiledPropertyType::CollectionOf(v) => {
-                    let rename = Literal::string(p.name.inner().inner());
-                    let name = PropertyName::new(p.name);
-                    let ptype = FullTypeName::new(v, config);
-                    if p.redfish.is_required.into_inner() {
-                        content.extend(quote! { #[serde(rename=#rename)] });
-                    } else {
-                        content.extend(quote! { #[serde(rename=#rename, default)] });
-                    }
-                    content.extend(quote! { pub #name: Vec<#ptype>, });
-                }
-            }
+            Self::generate_nav_property(&mut content, &p, config);
         }
+
         let name = self.name;
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
@@ -150,5 +133,91 @@ impl<'a> StructDef<'a> {
             },
             TokenTree::Group(Group::new(Delimiter::Brace, content)).into(),
         ]);
+
+        match impl_odata_type {
+            ImplOdataType::Root => {
+                tokens.extend(quote! {
+                    impl #name {
+                        #[inline]
+                        pub fn id(&self) -> &String {
+                            &self.#odata_id
+                        }
+                    }
+                });
+            }
+            ImplOdataType::Child => {
+                tokens.extend(quote! {
+                    impl #name {
+                        #[inline]
+                        pub fn id(&self) -> &String {
+                            self.base.id()
+                        }
+                    }
+                });
+            }
+            ImplOdataType::None => (),
+        }
+    }
+
+    fn generate_property(content: &mut TokenStream, p: &CompiledProperty<'_>, config: &Config) {
+        content.extend(doc_format_and_generate(p.name, &p.odata));
+        match p.ptype {
+            CompiledPropertyType::One(v) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = PropertyName::new(p.name);
+                let ptype = FullTypeName::new(v, config);
+                content.extend(quote! { #[serde(rename=#rename)] });
+                if p.redfish.is_required.into_inner() {
+                    content.extend(quote! { pub #name: #ptype,  });
+                } else {
+                    content.extend(quote! { pub #name: Option<#ptype>, });
+                }
+            }
+            CompiledPropertyType::CollectionOf(v) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = PropertyName::new(p.name);
+                let ptype = FullTypeName::new(v, config);
+                if p.redfish.is_required.into_inner() {
+                    content.extend(quote! { #[serde(rename=#rename)] });
+                } else {
+                    content.extend(quote! { #[serde(rename=#rename, default)] });
+                }
+                content.extend(quote! { pub #name: Vec<#ptype>, });
+            }
+        }
+    }
+
+    fn generate_nav_property(
+        content: &mut TokenStream,
+        p: &CompiledNavProperty<'_>,
+        config: &Config,
+    ) {
+        content.extend(doc_format_and_generate(p.name, &p.odata));
+        match p.ptype {
+            CompiledPropertyType::One(v) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = PropertyName::new(p.name);
+                let ptype = FullTypeName::new(v, config);
+                content.extend(quote! { #[serde(rename=#rename)] });
+                if p.redfish.is_required.into_inner() {
+                    content.extend(quote! { pub #name: #ptype, });
+                } else {
+                    // Because navigation properties can produce
+                    // cycles we use Option<Box<_>> here.
+                    content.extend(quote! { pub #name: Option<Box<#ptype>>, });
+                }
+            }
+            CompiledPropertyType::CollectionOf(v) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = PropertyName::new(p.name);
+                let ptype = FullTypeName::new(v, config);
+                if p.redfish.is_required.into_inner() {
+                    content.extend(quote! { #[serde(rename=#rename)] });
+                } else {
+                    content.extend(quote! { #[serde(rename=#rename, default)] });
+                }
+                content.extend(quote! { pub #name: Vec<#ptype>, });
+            }
+        }
     }
 }
