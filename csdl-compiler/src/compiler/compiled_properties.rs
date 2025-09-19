@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledProperty;
 use crate::compiler::CompiledOData;
 use crate::compiler::MapType;
 use crate::compiler::QualifiedName;

@@ -68,7 +68,7 @@ impl SimpleDef<'_> {
                 tokens.extend([
                     doc_format_and_generate(self.name, &et.odata),
                     quote! {
-                        #[derive(Deserialize)]
+                        #[derive(Deserialize, Debug)]
                         pub enum #name
                     },
                 ]);

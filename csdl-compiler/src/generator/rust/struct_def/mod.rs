@@ -128,7 +128,7 @@ impl<'a> StructDef<'a> {
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
             quote! {
-                #[derive(Deserialize)]
+                #[derive(Deserialize, Debug)]
                 pub struct #name
             },
             TokenTree::Group(Group::new(Delimiter::Brace, content)).into(),
@@ -136,20 +136,22 @@ impl<'a> StructDef<'a> {
 
         match impl_odata_type {
             ImplOdataType::Root => {
+                let top = &config.top_module_alias;
                 tokens.extend(quote! {
-                    impl #name {
+                    impl #top::EntityType for #name {
                         #[inline]
-                        pub fn id(&self) -> &String {
+                        fn id(&self) -> &String {
                             &self.#odata_id
                         }
                     }
                 });
             }
             ImplOdataType::Child => {
+                let top = &config.top_module_alias;
                 tokens.extend(quote! {
-                    impl #name {
+                    impl #top::EntityType for #name {
                         #[inline]
-                        pub fn id(&self) -> &String {
+                        fn id(&self) -> &String {
                             self.base.id()
                         }
                     }
@@ -200,11 +202,11 @@ impl<'a> StructDef<'a> {
                 let ptype = FullTypeName::new(v, config);
                 content.extend(quote! { #[serde(rename=#rename)] });
                 if p.redfish.is_required.into_inner() {
-                    content.extend(quote! { pub #name: #ptype, });
+                    content.extend(quote! { pub #name: NavProperty<#ptype>, });
                 } else {
                     // Because navigation properties can produce
                     // cycles we use Option<Box<_>> here.
-                    content.extend(quote! { pub #name: Option<Box<#ptype>>, });
+                    content.extend(quote! { pub #name: Option<Box<NavProperty<#ptype>>>, });
                 }
             }
             CompiledPropertyType::CollectionOf(v) => {

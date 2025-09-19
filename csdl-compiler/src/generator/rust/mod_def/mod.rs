@@ -227,12 +227,15 @@ impl<'a> ModDef<'a> {
         };
 
         if let Some(name) = self.name {
+            let top = &config.top_module_alias;
             let mut content = TokenStream::new();
             content.extend([
                 Self::generate_ref_to_top_module(self.depth, config),
                 quote! {
                     #[allow(unused_imports)]
                     use serde::Deserialize;
+                    #[allow(unused_imports)]
+                    use #top::NavProperty;
                 },
             ]);
             generate(&mut content);
