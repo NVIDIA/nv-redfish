@@ -144,6 +144,7 @@ impl<'a> StructDef<'a> {
                             &self.#odata_id
                         }
                     }
+                    impl #top::Expandable for #name {}
                 });
             }
             ImplOdataType::Child => {
@@ -155,6 +156,7 @@ impl<'a> StructDef<'a> {
                             self.base.id()
                         }
                     }
+                    impl #top::Expandable for #name {}
                 });
             }
             ImplOdataType::None => (),
@@ -218,7 +220,7 @@ impl<'a> StructDef<'a> {
                 } else {
                     content.extend(quote! { #[serde(rename=#rename, default)] });
                 }
-                content.extend(quote! { pub #name: Vec<#ptype>, });
+                content.extend(quote! { pub #name: Vec<NavProperty<#ptype>>, });
             }
         }
     }

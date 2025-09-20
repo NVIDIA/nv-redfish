@@ -14,13 +14,9 @@
 // limitations under the License.
 
 use crate::redfish::service_root::ServiceRoot;
+use redfish_std::redfish::service_root::ServiceRoot;
 use std::io::Error as IoError;
 use std::io::Read;
-
-#[allow(dead_code)]
-mod redfish {
-    include!(concat!(env!("OUT_DIR"), "/redfish.rs"));
-}
 
 #[allow(dead_code)]
 #[derive(Debug)]

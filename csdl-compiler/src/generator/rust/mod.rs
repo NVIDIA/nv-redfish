@@ -135,6 +135,7 @@ impl RustGenerator<'_> {
             const _COMMENT: &str = "";
 
             use nv_redfish::EntityType;
+            use nv_redfish::Expandable;
             type NavProperty<T> = nv_redfish::NavProperty<T>;
             type ODataId = nv_redfish::ODataId;
 

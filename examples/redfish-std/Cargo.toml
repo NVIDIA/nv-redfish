@@ -1,5 +1,5 @@
 [package]
-name = "service-root-parser"
+name = "redfish-std"
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -11,6 +11,8 @@ documentation.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-serde_json = { workspace = true }
-redfish-std = { path = "../redfish-std" }
+nv-redfish = { path = "../../lib" }
 
+[build-dependencies]
+glob = { workspace = true }
+csdl-compiler = { path = "../../csdl-compiler" }

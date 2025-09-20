@@ -13,25 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::fmt::Display;
-use core::fmt::Formatter;
-use core::fmt::Result as FmtResult;
-use serde::Deserialize;
-
-/// Type for `@odata.id` identifier.
-#[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct ODataId(String);
-
-impl ODataId {
-    /// Redfish service root id.
-    pub fn service_root() -> Self {
-        Self("/redfish/v1".into())
-    }
-}
-
-impl Display for ODataId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.0.fmt(f)
-    }
+pub mod redfish {
+    include!(concat!(env!("OUT_DIR"), "/redfish.rs"));
 }

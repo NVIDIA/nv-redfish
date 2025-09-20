@@ -13,11 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+/// Type for `@odata.id` identifier.
+pub mod bmc;
 /// Type for navigation property.
 pub mod nav_property;
 /// Type for `@odata.id` identifier.
 pub mod odata_id;
 
+use serde::Deserialize;
+use std::future::Future;
+
+/// Reexport `Bmc` trait to make it available through crate root.
+pub use bmc::Bmc;
 /// Reexport `ODataId` to make it available through crate root.
 pub type ODataId = odata_id::ODataId;
 /// Reexport `NavProperty` to make it available through crate root.
@@ -28,4 +35,11 @@ pub type NavProperty<T> = nav_property::NavProperty<T>;
 pub trait EntityType {
     /// Value of `@odata.id` field of the Entity.
     fn id(&self) -> &ODataId;
+}
+
+pub trait Expandable: EntityType + Sized + for<'a> Deserialize<'a> {
+    /// Expand entity type.
+    fn expand<B: Bmc>(&self, bmc: &B) -> impl Future<Output = Result<Self, B::Error>> + Send {
+        bmc.expand::<Self>(self.id())
+    }
 }

@@ -13,25 +13,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use core::fmt::Display;
-use core::fmt::Formatter;
-use core::fmt::Result as FmtResult;
-use serde::Deserialize;
+//! BMC trait definition
 
-/// Type for `@odata.id` identifier.
-#[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[repr(transparent)]
-pub struct ODataId(String);
+use crate::Expandable;
+use crate::ODataId;
+use std::future::Future;
 
-impl ODataId {
-    /// Redfish service root id.
-    pub fn service_root() -> Self {
-        Self("/redfish/v1".into())
-    }
-}
+/// BMC trait defined access to Board Management Controller using
+/// Redfish protocol.
+pub trait Bmc {
+    /// BMC Error
+    type Error;
 
-impl Display for ODataId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.0.fmt(f)
-    }
+    fn expand<T: Expandable>(
+        &self,
+        id: &ODataId,
+    ) -> impl Future<Output = Result<T, Self::Error>> + Send;
 }

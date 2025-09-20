@@ -13,7 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::Bmc;
 use crate::EntityType;
+use crate::Expandable;
 use crate::ODataId;
 use serde::Deserialize;
 
@@ -39,10 +41,27 @@ pub enum NavProperty<T: EntityType> {
 }
 
 impl<T: EntityType> NavProperty<T> {
+    pub fn new_reference(odata_id: ODataId) -> Self {
+        Self::Reference(Reference { odata_id })
+    }
+}
+
+impl<T: EntityType> NavProperty<T> {
+    /// Extract identifier from navigation property.
     pub fn id(&self) -> &ODataId {
         match self {
             Self::Reference(v) => &v.odata_id,
             Self::Expanded(v) => v.id(),
+        }
+    }
+}
+
+impl<T: Expandable> NavProperty<T> {
+    /// Expand property
+    pub async fn expand<B: Bmc>(self, bmc: &B) -> Result<T, B::Error> {
+        match self {
+            Self::Expanded(v) => Ok(v),
+            Self::Reference(_) => bmc.expand::<T>(self.id()).await,
         }
     }
 }
