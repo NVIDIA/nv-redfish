@@ -29,17 +29,25 @@ use std::fmt::Result as FmtResult;
 ///
 /// Example of representation: `protocol_features_supported`
 #[derive(PartialEq, Eq, Hash, Copy, Clone, Ord, PartialOrd)]
-pub struct PropertyName<'a>(&'a EdmxPropertyName);
+pub enum StructFieldName<'a> {
+    Property(&'a EdmxPropertyName),
+    Parameter(&'a EdmxParameterName),
+}
 
-impl<'a> PropertyName<'a> {
-    /// Create new property name.
+impl<'a> StructFieldName<'a> {
+    /// Create new by property name.
     #[must_use]
-    pub const fn new(v: &'a EdmxPropertyName) -> Self {
-        Self(v)
+    pub const fn new_property(v: &'a EdmxPropertyName) -> Self {
+        Self::Property(v)
+    }
+    /// Create new by parameter name.
+    #[must_use]
+    pub const fn new_parameter(v: &'a EdmxParameterName) -> Self {
+        Self::Parameter(v)
     }
 }
 
-impl ToTokens for PropertyName<'_> {
+impl ToTokens for StructFieldName<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self.to_string().as_str() {
             "type" => tokens.append(Ident::new_raw("type", Span::call_site())),
@@ -48,13 +56,16 @@ impl ToTokens for PropertyName<'_> {
     }
 }
 
-impl Display for PropertyName<'_> {
+impl Display for StructFieldName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        AsSnakeCase(self.0.inner()).fmt(f)
+        match self {
+            Self::Property(v) => AsSnakeCase(v.inner()).fmt(f),
+            Self::Parameter(v) => AsSnakeCase(v.inner()).fmt(f),
+        }
     }
 }
 
-impl Debug for PropertyName<'_> {
+impl Debug for StructFieldName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(self, f)
     }

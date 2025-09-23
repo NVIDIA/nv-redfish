@@ -18,6 +18,7 @@ use crate::compiler::ActionsMap;
 use crate::compiler::NavProperty;
 use crate::compiler::OData;
 use crate::compiler::Parameter;
+use crate::compiler::ParameterType;
 use crate::compiler::Properties;
 use crate::compiler::Property;
 use crate::compiler::PropertyType;
@@ -26,9 +27,10 @@ use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
 use crate::generator::rust::FullTypeName;
-use crate::generator::rust::PropertyName;
+use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::odata::annotations::Permissions;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -36,6 +38,7 @@ use proc_macro2::Literal;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
+use quote::TokenStreamExt as _;
 use quote::quote;
 
 /// Generation of Rust struct.
@@ -64,15 +67,15 @@ impl<'a> StructDef<'a> {
         config: &Config,
     ) -> Result<Self, Error<'a>> {
         if base.is_some() {
-            let base_pname = PropertyName::new(&config.base_type_prop_name);
+            let base_pname = StructFieldName::new_property(&config.base_type_prop_name);
             for p in &properties.properties {
-                let pname = PropertyName::new(p.name);
+                let pname = StructFieldName::new_property(p.name);
                 if base_pname == pname {
                     return Err(Error::BaseTypeConflict);
                 }
             }
             for p in &properties.nav_properties {
-                let pname = PropertyName::new(p.name);
+                let pname = StructFieldName::new_property(p.name);
                 if base_pname == pname {
                     return Err(Error::BaseTypeConflict);
                 }
@@ -90,6 +93,11 @@ impl<'a> StructDef<'a> {
 
     /// Generate rust code for the structure.
     pub fn generate(self, tokens: &mut TokenStream, config: &Config) {
+        self.generate_read(tokens, config);
+    }
+
+    /// Generate rust code for the structure.
+    pub fn generate_read(&self, tokens: &mut TokenStream, config: &Config) {
         enum ImplOdataType {
             Root,
             Child,
@@ -100,7 +108,7 @@ impl<'a> StructDef<'a> {
         let mut content = TokenStream::new();
         let odata_id = Ident::new("odata_id", Span::call_site());
         let impl_odata_type = if let Some(base) = self.base {
-            let base_pname = PropertyName::new(&config.base_type_prop_name);
+            let base_pname = StructFieldName::new_property(&config.base_type_prop_name);
             let typename = FullTypeName::new(base, config);
             content.extend(quote! {
                 /// Base type
@@ -127,31 +135,48 @@ impl<'a> StructDef<'a> {
             ImplOdataType::None
         };
 
-        for p in self.properties.properties {
-            Self::generate_property(&mut content, &p, config);
+        for p in &self.properties.properties {
+            if p.odata.permissions_is_write_only() {
+                continue;
+            }
+            Self::generate_property(&mut content, p, config);
         }
 
-        for p in self.properties.nav_properties {
-            Self::generate_nav_property(&mut content, &p, config);
+        for p in &self.properties.nav_properties {
+            if p.odata.permissions_is_write_only() {
+                continue;
+            }
+            Self::generate_nav_property(&mut content, p, config);
         }
 
-        for (_, a) in self.actions {
-            Self::generate_action_property(&mut content, &a, config);
+        for a in self.actions.values() {
+            Self::generate_action_property(&mut content, a, config);
         }
 
-        for p in self.parameters {
-            Self::generate_parameter(&mut content, &p, config);
+        for p in &self.parameters {
+            Self::generate_parameter(&mut content, p, config);
         }
 
         let name = self.name;
-        tokens.extend([
-            doc_format_and_generate(self.name, &self.odata),
-            quote! {
+        tokens.extend(doc_format_and_generate(self.name, &self.odata));
+
+        #[allow(clippy::branches_sharing_code)]
+        if self.can_serde_same_struct() {
+            // If we can serialize and deserialize the same struct
+            // then we derive Serialize / Deserialize and generate
+            // allias type. TODO:
+            tokens.extend(quote! {
                 #[derive(Deserialize, Debug)]
                 pub struct #name
-            },
-            TokenTree::Group(Group::new(Delimiter::Brace, content)).into(),
-        ]);
+            });
+        } else {
+            tokens.extend(quote! {
+                #[derive(Deserialize, Debug)]
+                pub struct #name
+            });
+        }
+
+        tokens.append(TokenTree::Group(Group::new(Delimiter::Brace, content)));
 
         match impl_odata_type {
             ImplOdataType::Root => {
@@ -186,7 +211,7 @@ impl<'a> StructDef<'a> {
         match p.ptype {
             PropertyType::One(v) => {
                 let rename = Literal::string(p.name.inner().inner());
-                let name = PropertyName::new(p.name);
+                let name = StructFieldName::new_property(p.name);
                 let ptype = FullTypeName::new(v, config);
                 content.extend(quote! { #[serde(rename=#rename)] });
                 if p.redfish.is_required.into_inner() {
@@ -197,7 +222,7 @@ impl<'a> StructDef<'a> {
             }
             PropertyType::CollectionOf(v) => {
                 let rename = Literal::string(p.name.inner().inner());
-                let name = PropertyName::new(p.name);
+                let name = StructFieldName::new_property(p.name);
                 let ptype = FullTypeName::new(v, config);
                 if p.redfish.is_required.into_inner() {
                     content.extend(quote! { #[serde(rename=#rename)] });
@@ -214,7 +239,7 @@ impl<'a> StructDef<'a> {
         match p.ptype {
             PropertyType::One(v) => {
                 let rename = Literal::string(p.name.inner().inner());
-                let name = PropertyName::new(p.name);
+                let name = StructFieldName::new_property(p.name);
                 let ptype = FullTypeName::new(v, config);
                 content.extend(quote! { #[serde(rename=#rename)] });
                 if p.redfish.is_required.into_inner() {
@@ -227,7 +252,7 @@ impl<'a> StructDef<'a> {
             }
             PropertyType::CollectionOf(v) => {
                 let rename = Literal::string(p.name.inner().inner());
-                let name = PropertyName::new(p.name);
+                let name = StructFieldName::new_property(p.name);
                 let ptype = FullTypeName::new(v, config);
                 if p.redfish.is_required.into_inner() {
                     content.extend(quote! { #[serde(rename=#rename)] });
@@ -239,8 +264,38 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    fn generate_parameter(_content: &mut TokenStream, _p: &Parameter<'_>, _config: &Config) {
-        // content.extend(doc_format_and_generate(p.name, &p.odata));
+    fn generate_parameter(content: &mut TokenStream, p: &Parameter<'_>, config: &Config) {
+        content.extend(doc_format_and_generate(p.name, &p.odata));
+        match p.ptype {
+            ParameterType::Type(PropertyType::One(v)) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = StructFieldName::new_parameter(p.name);
+                let ptype = FullTypeName::new(v, config);
+                content.extend(quote! { #[serde(rename=#rename)] });
+                content.extend(quote! { pub #name: Option<#ptype>, });
+            }
+            ParameterType::Type(PropertyType::CollectionOf(v)) => {
+                let rename = Literal::string(p.name.inner().inner());
+                let name = StructFieldName::new_parameter(p.name);
+                let ptype = FullTypeName::new(v, config);
+                content.extend(quote! { #[serde(rename=#rename, default)] });
+                content.extend(quote! { pub #name: Vec<#ptype>, });
+            }
+            ParameterType::Entity(PropertyType::One(_)) => {
+                let top = &config.top_module_alias;
+                let rename = Literal::string(p.name.inner().inner());
+                let name = StructFieldName::new_parameter(p.name);
+                content.extend(quote! { #[serde(rename=#rename)] });
+                content.extend(quote! { pub #name: Option<#top::Reference>, });
+            }
+            ParameterType::Entity(PropertyType::CollectionOf(_)) => {
+                let top = &config.top_module_alias;
+                let rename = Literal::string(p.name.inner().inner());
+                let name = StructFieldName::new_parameter(p.name);
+                content.extend(quote! { #[serde(rename=#rename, default)] });
+                content.extend(quote! { pub #name: Vec<#top::Reference>, });
+            }
+        }
     }
 
     fn generate_action_property(content: &mut TokenStream, a: &Action, config: &Config) {
@@ -250,5 +305,17 @@ impl<'a> StructDef<'a> {
         let typename = TypeName::new_action(a.binding_name, a.name);
         content.extend(quote! { #[serde(rename=#rename)] });
         content.extend(quote! { pub #name: #top::Action<#typename>, });
+    }
+
+    fn can_serde_same_struct(&self) -> bool {
+        self.base.is_none()
+            && self.actions.is_empty()
+            && self.parameters.is_empty()
+            && self.properties.nav_properties.is_empty()
+            && self.properties.properties.iter().all(|p| {
+                p.odata
+                    .permissions
+                    .is_none_or(|p| p == Permissions::ReadWrite)
+            })
     }
 }

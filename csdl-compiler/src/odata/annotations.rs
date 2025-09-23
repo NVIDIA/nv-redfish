@@ -44,6 +44,14 @@ pub type LongDescriptionRef<'a> = TaggedType<&'a String, LongDescriptionTag>;
 #[capability(inner_access, cloned)]
 pub enum LongDescriptionTag {}
 
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Permissions {
+    #[default]
+    Read,
+    Write,
+    ReadWrite,
+}
+
 trait IsODataNamespace {
     fn is_odata_namespace(&self) -> bool;
 }
@@ -83,10 +91,17 @@ pub trait ODataAnnotations {
             .map(LongDescriptionRef::new)
     }
 
-    fn odata_additional_properties(&self) -> Option<&Annotation> {
+    fn odata_permissions(&self) -> Option<Permissions> {
         self.annotations()
             .iter()
-            .find(|a| a.is_odata_annotation("AdditionalProperties"))
+            .find(|a| a.is_odata_annotation("Permissions"))
+            .and_then(|a| a.enum_member.as_ref())
+            .and_then(|v| match v.mname.inner().inner().as_str() {
+                "ReadWrite" => Some(Permissions::ReadWrite),
+                "Read" => Some(Permissions::Read),
+                "Write" => Some(Permissions::Write),
+                _ => None,
+            })
     }
 }
 

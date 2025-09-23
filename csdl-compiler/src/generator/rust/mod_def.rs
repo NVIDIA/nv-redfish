@@ -281,7 +281,7 @@ impl<'a> ModDef<'a> {
         }
     }
 
-    #[deny(clippy::too_many_arguments)]
+    #[allow(clippy::too_many_arguments)]
     fn add_struct_def(
         mut self,
         struct_name: TypeName<'a>,
@@ -349,11 +349,9 @@ impl<'a> ModDef<'a> {
                 Self::generate_ref_to_top_module(self.depth, config),
                 quote! {
                     #[allow(unused_imports)]
-                    use serde::Deserialize;
+                    use serde::{Serialize, Deserialize};
                     #[allow(unused_imports)]
-                    use #top::NavProperty;
-                    #[allow(unused_imports)]
-                    use #top::ODataId;
+                    use #top::{NavProperty, ODataId};
                 },
             ]);
             generate(&mut content);

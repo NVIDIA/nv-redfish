@@ -18,10 +18,11 @@ use crate::EntityType;
 use crate::Expandable;
 use crate::ODataId;
 use serde::Deserialize;
+use serde::Serialize;
 
 /// Reference varian of the navigation property (only `@odata.id`
 /// property specified).
-#[derive(Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub struct Reference {
     #[serde(rename = "@odata.id")]
     pub odata_id: ODataId,

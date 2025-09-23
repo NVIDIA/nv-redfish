@@ -81,7 +81,7 @@ pub type TypeName<'a> = type_name::TypeName<'a>;
 /// Reexport of `FullTypeName`.
 pub type FullTypeName<'a, 'config> = full_type_name::FullTypeName<'a, 'config>;
 /// Reexport of `PropertyName`.
-pub type PropertyName<'a> = property_name::PropertyName<'a>;
+pub type StructFieldName<'a> = property_name::StructFieldName<'a>;
 /// Reexport of `ActionName`.
 pub type ActionName<'a> = action_name::ActionName<'a>;
 /// Reexport of `ActionFullType`.
@@ -159,6 +159,7 @@ impl RustGenerator<'_> {
 
             use nv_redfish::EntityType;
             use nv_redfish::Expandable;
+            use nv_redfish::nav_property::Reference;
             type NavProperty<T> = nv_redfish::NavProperty<T>;
             type Action<T> = nv_redfish::Action<T>;
             type ODataId = nv_redfish::ODataId;

@@ -18,6 +18,7 @@
 use crate::odata::annotations::DescriptionRef;
 use crate::odata::annotations::LongDescriptionRef;
 use crate::odata::annotations::ODataAnnotations;
+use crate::odata::annotations::Permissions;
 use tagged_types::TaggedType;
 
 pub type MustHaveId = TaggedType<bool, MustHaveIdTag>;
@@ -33,6 +34,7 @@ pub struct OData<'a> {
     pub must_have_id: MustHaveId,
     pub description: Option<DescriptionRef<'a>>,
     pub long_description: Option<LongDescriptionRef<'a>>,
+    pub permissions: Option<Permissions>,
 }
 
 impl<'a> OData<'a> {
@@ -43,12 +45,19 @@ impl<'a> OData<'a> {
             must_have_id,
             description: src.odata_description(),
             long_description: src.odata_long_description(),
+            permissions: src.odata_permissions(),
         }
     }
 
     /// `OData` doesn't contain anything.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.description.is_none() && self.long_description.is_none()
+        self.description.is_none() && self.long_description.is_none() && self.permissions.is_none()
+    }
+
+    /// Property is explicitly set to write only.
+    #[must_use]
+    pub fn permissions_is_write_only(&self) -> bool {
+        self.permissions.is_some_and(|v| v == Permissions::Write)
     }
 }

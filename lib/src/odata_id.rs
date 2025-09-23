@@ -17,9 +17,10 @@ use core::fmt::Display;
 use core::fmt::Formatter;
 use core::fmt::Result as FmtResult;
 use serde::Deserialize;
+use serde::Serialize;
 
 /// Type for `@odata.id` identifier.
-#[derive(Debug, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Debug, Serialize, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ODataId(String);
 
