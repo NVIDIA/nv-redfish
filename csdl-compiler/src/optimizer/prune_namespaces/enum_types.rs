@@ -16,15 +16,15 @@
 //! Prune simple types namespaces.
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledProperty;
 use crate::compiler::MapType as _;
 use crate::compiler::PropertiesManipulation as _;
+use crate::compiler::Property;
 use crate::optimizer::map_types_in_actions;
 use crate::optimizer::replace;
 
 pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
     let replacements = super::prune_namepaces_replacements(|| input.enum_types.keys().copied());
-    let map_prop = |p: CompiledProperty<'a>| p.map_type(|t| replace(&t, &replacements));
+    let map_prop = |p: Property<'a>| p.map_type(|t| replace(&t, &replacements));
     Compiled {
         enum_types: input
             .enum_types

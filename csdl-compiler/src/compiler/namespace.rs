@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::edmx::attribute_values::Namespace;
+use crate::edmx::attribute_values::Namespace as EdmxNamespace;
 use crate::edmx::attribute_values::SimpleIdentifier;
 use std::fmt::Debug;
 use std::fmt::Display;
@@ -25,16 +25,16 @@ use std::hash::Hasher;
 /// This namespace is wrapper around original namespace. It adds
 /// additional useful possibilties like pruning tail elements of namespace.
 #[derive(Clone, Copy)]
-pub struct CompiledNamespace<'a> {
-    edmx_ns: &'a Namespace,
+pub struct Namespace<'a> {
+    edmx_ns: &'a EdmxNamespace,
     len: usize,
 }
 
 #[allow(clippy::len_without_is_empty)] // CompiledNamespace cannot be empty.
-impl<'a> CompiledNamespace<'a> {
+impl<'a> Namespace<'a> {
     /// Creates new compiled namespace.
     #[must_use]
-    pub const fn new(edmx_ns: &'a Namespace) -> Self {
+    pub const fn new(edmx_ns: &'a EdmxNamespace) -> Self {
         Self {
             edmx_ns,
             len: edmx_ns.ids.len(),
@@ -71,21 +71,21 @@ impl<'a> CompiledNamespace<'a> {
     }
 }
 
-impl PartialEq for CompiledNamespace<'_> {
+impl PartialEq for Namespace<'_> {
     fn eq(&self, other: &Self) -> bool {
         self.len == other.len && self.edmx_ns.ids[..self.len] == other.edmx_ns.ids[..self.len]
     }
 }
 
-impl Eq for CompiledNamespace<'_> {}
+impl Eq for Namespace<'_> {}
 
-impl Hash for CompiledNamespace<'_> {
+impl Hash for Namespace<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.edmx_ns.ids[..self.len].hash(state);
     }
 }
 
-impl Display for CompiledNamespace<'_> {
+impl Display for Namespace<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         let mut iter = self.edmx_ns.ids[..self.len].iter();
         if let Some(v) = iter.next() {
@@ -98,7 +98,7 @@ impl Display for CompiledNamespace<'_> {
     }
 }
 
-impl Debug for CompiledNamespace<'_> {
+impl Debug for Namespace<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(self, f)
     }

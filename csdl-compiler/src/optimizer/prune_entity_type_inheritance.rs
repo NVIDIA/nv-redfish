@@ -23,10 +23,10 @@
 //!
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledEntityType;
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledProperties;
+use crate::compiler::EntityType;
 use crate::compiler::MapType as _;
+use crate::compiler::NavProperty;
+use crate::compiler::Properties;
 use crate::compiler::PropertiesManipulation as _;
 use crate::compiler::QualifiedName;
 use crate::optimizer::map_types_in_actions;
@@ -79,7 +79,7 @@ pub fn prune_entity_type_inheritance<'a>(input: Compiled<'a>) -> Compiled<'a> {
         .into_iter()
         .partition(|(name, _)| replacements.contains_key(name));
 
-    let map_nav_prop = |p: CompiledNavProperty<'a>| p.map_type(|t| replace(&t, &replacements));
+    let map_nav_prop = |p: NavProperty<'a>| p.map_type(|t| replace(&t, &replacements));
     Compiled {
         entity_types: retain
             .into_iter()
@@ -104,11 +104,11 @@ pub fn prune_entity_type_inheritance<'a>(input: Compiled<'a>) -> Compiled<'a> {
                 }
                 (
                     name,
-                    CompiledEntityType {
+                    EntityType {
                         name: v.name,
                         base,
                         key: v.key,
-                        properties: CompiledProperties::rev_join(properties),
+                        properties: Properties::rev_join(properties),
                         odata,
                     },
                 )

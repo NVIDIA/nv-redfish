@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledOData;
-use crate::compiler::CompiledProperties;
-use crate::compiler::CompiledProperty;
-use crate::compiler::CompiledPropertyType;
+use crate::compiler::NavProperty;
+use crate::compiler::OData;
+use crate::compiler::Properties;
+use crate::compiler::Property;
+use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
@@ -39,8 +39,8 @@ use quote::quote;
 pub struct StructDef<'a> {
     pub name: TypeName<'a>,
     base: Option<QualifiedName<'a>>,
-    properties: CompiledProperties<'a>,
-    odata: CompiledOData<'a>,
+    properties: Properties<'a>,
+    odata: OData<'a>,
 }
 
 impl<'a> StructDef<'a> {
@@ -51,8 +51,8 @@ impl<'a> StructDef<'a> {
     pub fn new(
         name: TypeName<'a>,
         base: Option<QualifiedName<'a>>,
-        properties: CompiledProperties<'a>,
-        odata: CompiledOData<'a>,
+        properties: Properties<'a>,
+        odata: OData<'a>,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
         if base.is_some() {
@@ -163,10 +163,10 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    fn generate_property(content: &mut TokenStream, p: &CompiledProperty<'_>, config: &Config) {
+    fn generate_property(content: &mut TokenStream, p: &Property<'_>, config: &Config) {
         content.extend(doc_format_and_generate(p.name, &p.odata));
         match p.ptype {
-            CompiledPropertyType::One(v) => {
+            PropertyType::One(v) => {
                 let rename = Literal::string(p.name.inner().inner());
                 let name = PropertyName::new(p.name);
                 let ptype = FullTypeName::new(v, config);
@@ -177,7 +177,7 @@ impl<'a> StructDef<'a> {
                     content.extend(quote! { pub #name: Option<#ptype>, });
                 }
             }
-            CompiledPropertyType::CollectionOf(v) => {
+            PropertyType::CollectionOf(v) => {
                 let rename = Literal::string(p.name.inner().inner());
                 let name = PropertyName::new(p.name);
                 let ptype = FullTypeName::new(v, config);
@@ -191,14 +191,10 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    fn generate_nav_property(
-        content: &mut TokenStream,
-        p: &CompiledNavProperty<'_>,
-        config: &Config,
-    ) {
+    fn generate_nav_property(content: &mut TokenStream, p: &NavProperty<'_>, config: &Config) {
         content.extend(doc_format_and_generate(p.name, &p.odata));
         match p.ptype {
-            CompiledPropertyType::One(v) => {
+            PropertyType::One(v) => {
                 let rename = Literal::string(p.name.inner().inner());
                 let name = PropertyName::new(p.name);
                 let ptype = FullTypeName::new(v, config);
@@ -211,7 +207,7 @@ impl<'a> StructDef<'a> {
                     content.extend(quote! { pub #name: Option<Box<NavProperty<#ptype>>>, });
                 }
             }
-            CompiledPropertyType::CollectionOf(v) => {
+            PropertyType::CollectionOf(v) => {
                 let rename = Literal::string(p.name.inner().inner());
                 let name = PropertyName::new(p.name);
                 let ptype = FullTypeName::new(v, config);

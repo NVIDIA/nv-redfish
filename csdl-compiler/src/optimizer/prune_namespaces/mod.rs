@@ -31,7 +31,7 @@ mod enum_types;
 mod type_definitions;
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledNamespace;
+use crate::compiler::Namespace;
 use crate::compiler::QualifiedName;
 use crate::edmx::attribute_values::SimpleIdentifier;
 use crate::optimizer::Replacements;
@@ -49,7 +49,7 @@ pub fn prune_namespaces(input: Compiled<'_>) -> Compiled<'_> {
     .fold(input, |input, f| f(input))
 }
 
-type NamespaceMatches<'a> = HashMap<CompiledNamespace<'a>, u64>;
+type NamespaceMatches<'a> = HashMap<Namespace<'a>, u64>;
 type TypeNamespaces<'a> = HashMap<&'a SimpleIdentifier, NamespaceMatches<'a>>;
 
 fn prune_namepaces_replacements<'a, F, I>(f: F) -> Replacements<'a>

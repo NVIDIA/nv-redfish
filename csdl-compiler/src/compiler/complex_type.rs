@@ -13,26 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledOData;
-use crate::compiler::CompiledProperties;
-use crate::compiler::CompiledProperty;
 use crate::compiler::MapBase;
+use crate::compiler::NavProperty;
+use crate::compiler::OData;
+use crate::compiler::Properties;
 use crate::compiler::PropertiesManipulation;
+use crate::compiler::Property;
 use crate::compiler::QualifiedName;
 
 #[derive(Debug)]
-pub struct CompiledComplexType<'a> {
+pub struct ComplexType<'a> {
     pub name: QualifiedName<'a>,
     pub base: Option<QualifiedName<'a>>,
-    pub properties: CompiledProperties<'a>,
-    pub odata: CompiledOData<'a>,
+    pub properties: Properties<'a>,
+    pub odata: OData<'a>,
 }
 
-impl<'a> PropertiesManipulation<'a> for CompiledComplexType<'a> {
+impl<'a> PropertiesManipulation<'a> for ComplexType<'a> {
     fn map_properties<F>(mut self, f: F) -> Self
     where
-        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>,
+        F: Fn(Property<'a>) -> Property<'a>,
     {
         self.properties.properties = self.properties.properties.into_iter().map(f).collect();
         self
@@ -40,7 +40,7 @@ impl<'a> PropertiesManipulation<'a> for CompiledComplexType<'a> {
 
     fn map_nav_properties<F>(mut self, f: F) -> Self
     where
-        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>,
+        F: Fn(NavProperty<'a>) -> NavProperty<'a>,
     {
         self.properties.nav_properties =
             self.properties.nav_properties.into_iter().map(f).collect();
@@ -48,7 +48,7 @@ impl<'a> PropertiesManipulation<'a> for CompiledComplexType<'a> {
     }
 }
 
-impl<'a> MapBase<'a> for CompiledComplexType<'a> {
+impl<'a> MapBase<'a> for ComplexType<'a> {
     fn map_base<F>(mut self, f: F) -> Self
     where
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,

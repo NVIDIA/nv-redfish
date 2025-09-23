@@ -14,11 +14,11 @@
 // limitations under the License.
 
 use crate::compiler::CompiledAction;
-use crate::compiler::CompiledComplexType;
-use crate::compiler::CompiledEntityType;
-use crate::compiler::CompiledSingleton;
+use crate::compiler::ComplexType;
+use crate::compiler::EntityType;
 use crate::compiler::EnumType;
 use crate::compiler::QualifiedName;
+use crate::compiler::Singleton;
 use crate::compiler::TypeDefinition;
 use crate::edmx::ActionName;
 use std::collections::HashMap;
@@ -29,19 +29,19 @@ pub type CompiledActionsMap<'a> =
 /// Compiled data from schema.
 #[derive(Default, Debug)]
 pub struct Compiled<'a> {
-    pub complex_types: HashMap<QualifiedName<'a>, CompiledComplexType<'a>>,
-    pub entity_types: HashMap<QualifiedName<'a>, CompiledEntityType<'a>>,
+    pub complex_types: HashMap<QualifiedName<'a>, ComplexType<'a>>,
+    pub entity_types: HashMap<QualifiedName<'a>, EntityType<'a>>,
     pub type_definitions: HashMap<QualifiedName<'a>, TypeDefinition<'a>>,
     pub enum_types: HashMap<QualifiedName<'a>, EnumType<'a>>,
     pub actions: CompiledActionsMap<'a>,
-    pub root_singletons: Vec<CompiledSingleton<'a>>,
+    pub root_singletons: Vec<Singleton<'a>>,
 }
 
 impl<'a> Compiled<'a> {
     /// Creates compiled data structure that contains only one compiled
     /// entity type.
     #[must_use]
-    pub fn new_entity_type(v: CompiledEntityType<'a>) -> Self {
+    pub fn new_entity_type(v: EntityType<'a>) -> Self {
         Self {
             entity_types: vec![(v.name, v)].into_iter().collect(),
             ..Default::default()
@@ -51,7 +51,7 @@ impl<'a> Compiled<'a> {
     /// Creates compiled data structure that contains only one compiled
     /// complex type.
     #[must_use]
-    pub fn new_complex_type(v: CompiledComplexType<'a>) -> Self {
+    pub fn new_complex_type(v: ComplexType<'a>) -> Self {
         Self {
             complex_types: vec![(v.name, v)].into_iter().collect(),
             ..Default::default()
@@ -61,7 +61,7 @@ impl<'a> Compiled<'a> {
     /// Creates compiled data structure that contains only one compiled
     /// singleton.
     #[must_use]
-    pub fn new_singleton(v: CompiledSingleton<'a>) -> Self {
+    pub fn new_singleton(v: Singleton<'a>) -> Self {
         Self {
             root_singletons: vec![v],
             ..Default::default()

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use csdl_compiler::compiler::CompiledPropertyType;
+use csdl_compiler::compiler::PropertyType;
 use csdl_compiler::compiler::SchemaBundle;
 use csdl_compiler::edmx::Edmx;
 use csdl_compiler::edmx::ValidateError;
@@ -83,8 +83,8 @@ fn main() -> Result<(), Error> {
             println!("    properties:");
             for p in &t.properties.properties {
                 match p.ptype {
-                    CompiledPropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    CompiledPropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
+                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }
@@ -92,8 +92,8 @@ fn main() -> Result<(), Error> {
             println!("    Nav properties:");
             for p in &t.properties.nav_properties {
                 match p.ptype {
-                    CompiledPropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    CompiledPropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
+                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }
@@ -110,8 +110,8 @@ fn main() -> Result<(), Error> {
             println!("    properties:");
             for p in &t.properties.properties {
                 match p.ptype {
-                    CompiledPropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    CompiledPropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
+                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }
@@ -119,8 +119,8 @@ fn main() -> Result<(), Error> {
             println!("    Nav properties:");
             for p in &t.properties.nav_properties {
                 match p.ptype {
-                    CompiledPropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    CompiledPropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
+                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledOData;
+use crate::compiler::OData;
 use crate::compiler::QualifiedName;
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::enum_type::EnumMember as EdmxEnumMember;
@@ -30,7 +30,7 @@ pub struct EnumType<'a> {
     /// Members of the enum.
     pub members: Vec<EnumMember<'a>>,
     /// `OData` annotations associated with enum type.
-    pub odata: CompiledOData<'a>,
+    pub odata: OData<'a>,
 }
 /// Compiled member of the enum type.
 #[derive(Debug)]
@@ -38,14 +38,14 @@ pub struct EnumMember<'a> {
     /// Name of the member.
     pub name: &'a EnumMemberName,
     /// Attached Odata annotations.
-    pub odata: CompiledOData<'a>,
+    pub odata: OData<'a>,
 }
 
 impl<'a> From<&'a EdmxEnumMember> for EnumMember<'a> {
     fn from(v: &'a EdmxEnumMember) -> Self {
         Self {
             name: &v.name,
-            odata: CompiledOData::new(MustHaveId::new(false), v),
+            odata: OData::new(MustHaveId::new(false), v),
         }
     }
 }

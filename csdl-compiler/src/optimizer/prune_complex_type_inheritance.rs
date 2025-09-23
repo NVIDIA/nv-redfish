@@ -23,11 +23,11 @@
 //!
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledComplexType;
-use crate::compiler::CompiledProperties;
-use crate::compiler::CompiledProperty;
+use crate::compiler::ComplexType;
 use crate::compiler::MapType as _;
+use crate::compiler::Properties;
 use crate::compiler::PropertiesManipulation as _;
+use crate::compiler::Property;
 use crate::compiler::QualifiedName;
 use crate::optimizer::map_types_in_actions;
 use crate::optimizer::replace;
@@ -76,7 +76,7 @@ pub fn prune_complex_type_inheritance<'a>(input: Compiled<'a>) -> Compiled<'a> {
         .into_iter()
         .partition(|(name, _)| replacements.contains_key(name));
 
-    let map_prop = |p: CompiledProperty<'a>| p.map_type(|t| replace(&t, &replacements));
+    let map_prop = |p: Property<'a>| p.map_type(|t| replace(&t, &replacements));
     Compiled {
         complex_types: retain
             .into_iter()
@@ -94,10 +94,10 @@ pub fn prune_complex_type_inheritance<'a>(input: Compiled<'a>) -> Compiled<'a> {
                 }
                 (
                     name,
-                    CompiledComplexType {
+                    ComplexType {
                         name: v.name,
                         base,
-                        properties: CompiledProperties::rev_join(properties),
+                        properties: Properties::rev_join(properties),
                         odata: v.odata,
                     },
                 )

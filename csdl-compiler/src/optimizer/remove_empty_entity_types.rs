@@ -21,10 +21,10 @@
 //! generation.
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledEntityType;
-use crate::compiler::CompiledNavProperty;
+use crate::compiler::EntityType;
 use crate::compiler::MapBase as _;
 use crate::compiler::MapType as _;
+use crate::compiler::NavProperty;
 use crate::compiler::PropertiesManipulation as _;
 use crate::compiler::QualifiedName;
 use crate::optimizer::Replacements;
@@ -33,7 +33,7 @@ use crate::optimizer::replace;
 
 pub fn remove_empty_entity_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
     let et_replacements = collect_et_replacements(&input);
-    let map_nav_prop = |p: CompiledNavProperty<'a>| p.map_type(|t| replace(&t, &et_replacements));
+    let map_nav_prop = |p: NavProperty<'a>| p.map_type(|t| replace(&t, &et_replacements));
     Compiled {
         entity_types: input
             .entity_types
@@ -66,7 +66,7 @@ pub fn remove_empty_entity_types<'a>(input: Compiled<'a>) -> Compiled<'a> {
     }
 }
 
-const fn et_is_empty(et: &CompiledEntityType<'_>) -> bool {
+const fn et_is_empty(et: &EntityType<'_>) -> bool {
     et.properties.is_empty() && et.key.is_none() && et.odata.is_empty()
 }
 

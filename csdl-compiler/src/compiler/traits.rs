@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledProperty;
+use crate::compiler::NavProperty;
+use crate::compiler::Property;
 use crate::compiler::QualifiedName;
 
 /// Update properties and navigation properties with specified
@@ -23,12 +23,12 @@ pub trait PropertiesManipulation<'a> {
     #[must_use]
     fn map_properties<F>(self, f: F) -> Self
     where
-        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>;
+        F: Fn(Property<'a>) -> Property<'a>;
 
     #[must_use]
     fn map_nav_properties<F>(self, f: F) -> Self
     where
-        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>;
+        F: Fn(NavProperty<'a>) -> NavProperty<'a>;
 }
 
 /// Update type with specified function.

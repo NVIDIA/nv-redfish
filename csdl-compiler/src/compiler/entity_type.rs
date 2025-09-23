@@ -14,31 +14,31 @@
 // limitations under the License.
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledNavProperty;
-use crate::compiler::CompiledOData;
-use crate::compiler::CompiledProperties;
-use crate::compiler::CompiledProperty;
 use crate::compiler::Error;
 use crate::compiler::MapBase;
+use crate::compiler::NavProperty;
+use crate::compiler::OData;
+use crate::compiler::Properties;
 use crate::compiler::PropertiesManipulation;
+use crate::compiler::Property;
 use crate::compiler::QualifiedName;
 use crate::compiler::SchemaIndex;
 use crate::compiler::Stack;
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::QualifiedTypeName;
-use crate::edmx::entity_type::EntityType;
+use crate::edmx::entity_type::EntityType as EdmxEntityType;
 use crate::edmx::entity_type::Key;
 
 #[derive(Debug)]
-pub struct CompiledEntityType<'a> {
+pub struct EntityType<'a> {
     pub name: QualifiedName<'a>,
     pub base: Option<QualifiedName<'a>>,
     pub key: Option<&'a Key>,
-    pub properties: CompiledProperties<'a>,
-    pub odata: CompiledOData<'a>,
+    pub properties: Properties<'a>,
+    pub odata: OData<'a>,
 }
 
-impl<'a> CompiledEntityType<'a> {
+impl<'a> EntityType<'a> {
     /// Compiles entity type with specified name. Note that it also
     /// compiles all dependencies of the enity type.
     ///
@@ -48,7 +48,7 @@ impl<'a> CompiledEntityType<'a> {
     /// `schema_entity_type`.
     pub fn compile(
         name: QualifiedName<'a>,
-        schema_entity_type: &'a EntityType,
+        schema_entity_type: &'a EdmxEntityType,
         schema_index: &SchemaIndex<'a>,
         stack: &Stack<'a, '_>,
     ) -> Result<Compiled<'a>, Error<'a>> {
@@ -63,7 +63,7 @@ impl<'a> CompiledEntityType<'a> {
         let stack = stack.new_frame().merge(compiled);
 
         // Compile navigation and regular properties
-        let (compiled, properties) = CompiledProperties::compile(
+        let (compiled, properties) = Properties::compile(
             &schema_entity_type.properties,
             schema_index,
             stack.new_frame(),
@@ -71,12 +71,12 @@ impl<'a> CompiledEntityType<'a> {
 
         Ok(stack
             .merge(compiled)
-            .merge(Compiled::new_entity_type(CompiledEntityType {
+            .merge(Compiled::new_entity_type(EntityType {
                 name,
                 base,
                 key: schema_entity_type.key.as_ref(),
                 properties,
-                odata: CompiledOData::new(MustHaveId::new(true), schema_entity_type),
+                odata: OData::new(MustHaveId::new(true), schema_entity_type),
             }))
             .done())
     }
@@ -105,10 +105,10 @@ impl<'a> CompiledEntityType<'a> {
     }
 }
 
-impl<'a> PropertiesManipulation<'a> for CompiledEntityType<'a> {
+impl<'a> PropertiesManipulation<'a> for EntityType<'a> {
     fn map_properties<F>(mut self, f: F) -> Self
     where
-        F: Fn(CompiledProperty<'a>) -> CompiledProperty<'a>,
+        F: Fn(Property<'a>) -> Property<'a>,
     {
         self.properties.properties = self.properties.properties.into_iter().map(f).collect();
         self
@@ -116,7 +116,7 @@ impl<'a> PropertiesManipulation<'a> for CompiledEntityType<'a> {
 
     fn map_nav_properties<F>(mut self, f: F) -> Self
     where
-        F: Fn(CompiledNavProperty<'a>) -> CompiledNavProperty<'a>,
+        F: Fn(NavProperty<'a>) -> NavProperty<'a>,
     {
         self.properties.nav_properties =
             self.properties.nav_properties.into_iter().map(f).collect();
@@ -124,7 +124,7 @@ impl<'a> PropertiesManipulation<'a> for CompiledEntityType<'a> {
     }
 }
 
-impl<'a> MapBase<'a> for CompiledEntityType<'a> {
+impl<'a> MapBase<'a> for EntityType<'a> {
     fn map_base<F>(mut self, f: F) -> Self
     where
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,

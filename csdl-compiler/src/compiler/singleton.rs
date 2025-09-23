@@ -14,28 +14,28 @@
 // limitations under the License.
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledEntityType;
+use crate::compiler::EntityType;
 use crate::compiler::Error;
 use crate::compiler::MapType;
 use crate::compiler::QualifiedName;
 use crate::compiler::SchemaIndex;
 use crate::compiler::Stack;
-use crate::edmx::Singleton;
+use crate::edmx::Singleton as EdmxSingleton;
 use crate::edmx::attribute_values::SimpleIdentifier;
 
 #[derive(Debug)]
-pub struct CompiledSingleton<'a> {
+pub struct Singleton<'a> {
     pub name: &'a SimpleIdentifier,
     pub stype: QualifiedName<'a>,
 }
 
-impl<'a> CompiledSingleton<'a> {
+impl<'a> Singleton<'a> {
     /// # Errors
     ///
     /// Returns `Error::Singleton` error if failed to compile entity
     /// type of the singleton.
     pub fn compile(
-        singleton: &'a Singleton,
+        singleton: &'a EdmxSingleton,
         schema_index: &SchemaIndex<'a>,
         stack: &Stack<'a, '_>,
     ) -> Result<Compiled<'a>, Error<'a>> {
@@ -49,7 +49,7 @@ impl<'a> CompiledSingleton<'a> {
                     // Aready compiled singleton
                     Ok(Compiled::default())
                 } else {
-                    CompiledEntityType::compile(qtype, et, schema_index, stack)
+                    EntityType::compile(qtype, et, schema_index, stack)
                         .map_err(Box::new)
                         .map_err(|e| Error::EntityType(qtype, e))
                 }
@@ -58,7 +58,7 @@ impl<'a> CompiledSingleton<'a> {
             .map_err(Box::new)
             .map_err(|e| Error::Singleton(&singleton.name, e))
             .map(|(qtype, compiled)| {
-                compiled.merge(Compiled::new_singleton(CompiledSingleton {
+                compiled.merge(Compiled::new_singleton(Singleton {
                     name: &singleton.name,
                     stype: qtype,
                 }))
@@ -66,7 +66,7 @@ impl<'a> CompiledSingleton<'a> {
     }
 }
 
-impl<'a> MapType<'a> for CompiledSingleton<'a> {
+impl<'a> MapType<'a> for Singleton<'a> {
     fn map_type<F>(mut self, f: F) -> Self
     where
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,

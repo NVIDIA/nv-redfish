@@ -16,16 +16,16 @@
 //! Prune entity types namespaces.
 
 use crate::compiler::Compiled;
-use crate::compiler::CompiledNavProperty;
 use crate::compiler::MapBase as _;
 use crate::compiler::MapType as _;
+use crate::compiler::NavProperty;
 use crate::compiler::PropertiesManipulation as _;
 use crate::optimizer::map_types_in_actions;
 use crate::optimizer::replace;
 
 pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
     let replacements = super::prune_namepaces_replacements(|| input.entity_types.keys().copied());
-    let map_nav_prop = |p: CompiledNavProperty<'a>| p.map_type(|t| replace(&t, &replacements));
+    let map_nav_prop = |p: NavProperty<'a>| p.map_type(|t| replace(&t, &replacements));
     Compiled {
         entity_types: input
             .entity_types

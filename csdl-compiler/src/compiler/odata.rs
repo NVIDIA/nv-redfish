@@ -29,13 +29,13 @@ pub enum MustHaveIdTag {}
 
 /// `OData` attributes attached to different compiled enities.
 #[derive(Debug)]
-pub struct CompiledOData<'a> {
+pub struct OData<'a> {
     pub must_have_id: MustHaveId,
     pub description: Option<DescriptionRef<'a>>,
     pub long_description: Option<LongDescriptionRef<'a>>,
 }
 
-impl<'a> CompiledOData<'a> {
+impl<'a> OData<'a> {
     /// Create new instance from reference to object that implements
     /// annotations.
     pub fn new(must_have_id: MustHaveId, src: &'a impl ODataAnnotations) -> Self {

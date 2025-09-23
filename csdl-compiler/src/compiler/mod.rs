@@ -40,10 +40,10 @@ pub mod odata;
 pub mod redfish;
 
 /// Traits that are useful for compilation.
-pub mod compile_traits;
+pub mod traits;
 
 /// Compiled properties of `ComplexType` or `EntityType`
-pub mod compiled_properties;
+pub mod properties;
 
 /// Compiled enum type
 pub mod enum_type;
@@ -52,13 +52,13 @@ pub mod enum_type;
 pub mod type_definition;
 
 /// Compiled entity type
-pub mod compiled_entity_type;
+pub mod entity_type;
 
 /// Compiled complex type
-pub mod compiled_complex_type;
+pub mod complex_type;
 
 /// Compiled singleton
-pub mod compiled_singleton;
+pub mod singleton;
 
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::ActionName;
@@ -80,35 +80,35 @@ pub type Compiled<'a> = compiled::Compiled<'a>;
 pub type Error<'a> = error::Error<'a>;
 /// Reexport `QualifiedName` to the level of the compiler.
 pub type QualifiedName<'a> = qualified_name::QualifiedName<'a>;
-/// Reexport `CompiledNamespace` to the level of the compiler.
-pub type CompiledNamespace<'a> = namespace::CompiledNamespace<'a>;
+/// Reexport `Namespace` to the level of the compiler.
+pub type Namespace<'a> = namespace::Namespace<'a>;
 /// Reexport `CompiledOData` to the level of the compiler.
-pub type CompiledOData<'a> = odata::CompiledOData<'a>;
-/// Reexport `CompiledProperties` to the level of the compiler.
-pub type CompiledProperties<'a> = compiled_properties::CompiledProperties<'a>;
-/// Reexport `CompiledProperty` to the level of the compiler.
-pub type CompiledProperty<'a> = compiled_properties::CompiledProperty<'a>;
-/// Reexport `CompiledNavProperty` to the level of the compiler.
-pub type CompiledNavProperty<'a> = compiled_properties::CompiledNavProperty<'a>;
-/// Reexport `CompiledPropertyType` to the level of the compiler.
-pub type CompiledPropertyType<'a> = compiled_properties::CompiledPropertyType<'a>;
+pub type OData<'a> = odata::OData<'a>;
+/// Reexport `Properties` to the level of the compiler.
+pub type Properties<'a> = properties::Properties<'a>;
+/// Reexport `Property` to the level of the compiler.
+pub type Property<'a> = properties::Property<'a>;
+/// Reexport `NavProperty` to the level of the compiler.
+pub type NavProperty<'a> = properties::NavProperty<'a>;
+/// Reexport `PropertyType` to the level of the compiler.
+pub type PropertyType<'a> = properties::PropertyType<'a>;
 /// Reexport `EnumType` to the level of the compiler.
 pub type EnumType<'a> = enum_type::EnumType<'a>;
 /// Reexport `TypeDefinition` to the level of the compiler.
 pub type TypeDefinition<'a> = type_definition::TypeDefinition<'a>;
 /// Reexport `CompiledEntityType` to the level of the compiler.
-pub type CompiledEntityType<'a> = compiled_entity_type::CompiledEntityType<'a>;
+pub type EntityType<'a> = entity_type::EntityType<'a>;
+/// Reexport `ComplexType` to the level of the compiler.
+pub type ComplexType<'a> = complex_type::ComplexType<'a>;
 /// Reexport `CompiledComplexType` to the level of the compiler.
-pub type CompiledComplexType<'a> = compiled_complex_type::CompiledComplexType<'a>;
-/// Reexport `CompiledComplexType` to the level of the compiler.
-pub type CompiledSingleton<'a> = compiled_singleton::CompiledSingleton<'a>;
+pub type Singleton<'a> = singleton::Singleton<'a>;
 
 /// Reexport `MapBase` to the level of the compiler.
-pub use compile_traits::MapBase;
+pub use traits::MapBase;
 /// Reexport `MapType` to the level of the compiler.
-pub use compile_traits::MapType;
+pub use traits::MapType;
 /// Reexport `PropertiesManipulation` to the level of the compiler.
-pub use compile_traits::PropertiesManipulation;
+pub use traits::PropertiesManipulation;
 
 /// Collection of EDMX documents that are compiled together to produce
 /// code.
@@ -173,8 +173,7 @@ impl SchemaBundle {
                     .iter()
                     .try_fold(stack, |stack, s| {
                         if singletons.contains(&s.name) {
-                            CompiledSingleton::compile(s, schema_index, &stack)
-                                .map(|v| stack.merge(v))
+                            Singleton::compile(s, schema_index, &stack).map(|v| stack.merge(v))
                         } else {
                             Ok(stack)
                         }
@@ -256,7 +255,7 @@ impl SchemaBundle {
                     ensure_type(&p.ptype, schema_index, &cstack)
                         .map(|compiled| (compiled, CompiledParameterType::Type((&p.ptype).into())))
                 } else {
-                    CompiledEntityType::ensure(qtype_name, schema_index, &cstack).map(|compiled| {
+                    EntityType::ensure(qtype_name, schema_index, &cstack).map(|compiled| {
                         (compiled, CompiledParameterType::Entity((&p.ptype).into()))
                     })
                 }
@@ -325,7 +324,7 @@ fn compile_type<'a>(
                     name: qtype.into(),
                     underlying_type,
                     members: et.members.iter().map(Into::into).collect(),
-                    odata: CompiledOData::new(MustHaveId::new(false), et),
+                    odata: OData::new(MustHaveId::new(false), et),
                 }))
             }
             Type::ComplexType(ct) => {
@@ -341,15 +340,15 @@ fn compile_type<'a>(
                 let stack = stack.new_frame().merge(compiled);
 
                 let (compiled, properties) =
-                    CompiledProperties::compile(&ct.properties, schema_index, stack.new_frame())?;
+                    Properties::compile(&ct.properties, schema_index, stack.new_frame())?;
 
                 Ok(stack
                     .merge(compiled)
-                    .merge(Compiled::new_complex_type(CompiledComplexType {
+                    .merge(Compiled::new_complex_type(ComplexType {
                         name,
                         base,
                         properties,
-                        odata: CompiledOData::new(MustHaveId::new(false), ct),
+                        odata: OData::new(MustHaveId::new(false), ct),
                     }))
                     .done())
             }
@@ -374,8 +373,8 @@ pub struct CompiledParameter<'a> {
 /// maybe not exact and may be change in future.
 #[derive(Debug)]
 pub enum CompiledParameterType<'a> {
-    Entity(CompiledPropertyType<'a>),
-    Type(CompiledPropertyType<'a>),
+    Entity(PropertyType<'a>),
+    Type(PropertyType<'a>),
 }
 
 impl<'a> CompiledParameterType<'a> {
@@ -413,7 +412,7 @@ pub struct CompiledAction<'a> {
     /// Type of the return value. Note we reuse
     /// `CompiledPropertyType`, it maybe not exact and may be change
     /// in future.
-    pub return_type: Option<CompiledPropertyType<'a>>,
+    pub return_type: Option<PropertyType<'a>>,
     /// Type of the parameter. Note we reuse `CompiledPropertyType`, it
     /// maybe not exact and may be change in future.
     pub parameters: Vec<CompiledParameter<'a>>,

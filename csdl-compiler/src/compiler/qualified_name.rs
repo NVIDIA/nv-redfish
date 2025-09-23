@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledNamespace;
+use crate::compiler::Namespace;
 use crate::edmx::QualifiedTypeName;
-use crate::edmx::attribute_values::Namespace;
+use crate::edmx::attribute_values::Namespace as EdmxNamespace;
 use crate::edmx::attribute_values::SimpleIdentifier;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -25,7 +25,7 @@ use std::fmt::Result as FmtResult;
 #[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
 pub struct QualifiedName<'a> {
     /// Namespace where name is located.
-    pub namespace: CompiledNamespace<'a>,
+    pub namespace: Namespace<'a>,
     /// Name.
     pub name: &'a SimpleIdentifier,
 }
@@ -33,9 +33,9 @@ pub struct QualifiedName<'a> {
 impl<'a> QualifiedName<'a> {
     /// Create new qualified name.
     #[must_use]
-    pub const fn new(namespace: &'a Namespace, name: &'a SimpleIdentifier) -> Self {
+    pub const fn new(namespace: &'a EdmxNamespace, name: &'a SimpleIdentifier) -> Self {
         Self {
-            namespace: CompiledNamespace::new(namespace),
+            namespace: Namespace::new(namespace),
             name,
         }
     }
@@ -44,7 +44,7 @@ impl<'a> QualifiedName<'a> {
 impl<'a> From<&'a QualifiedTypeName> for QualifiedName<'a> {
     fn from(v: &'a QualifiedTypeName) -> Self {
         Self {
-            namespace: CompiledNamespace::new(&v.inner().namespace),
+            namespace: Namespace::new(&v.inner().namespace),
             name: &v.inner().name,
         }
     }

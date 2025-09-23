@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::CompiledComplexType;
-use crate::compiler::CompiledEntityType;
-use crate::compiler::CompiledOData;
-use crate::compiler::CompiledProperties;
+use crate::compiler::ComplexType;
+use crate::compiler::EntityType;
 use crate::compiler::EnumType;
+use crate::compiler::OData;
+use crate::compiler::Properties;
 use crate::compiler::QualifiedName;
 use crate::compiler::TypeDefinition;
 use crate::generator::rust::Config;
@@ -70,17 +70,13 @@ impl<'a> ModDef<'a> {
     /// Returns `CreateStruct` error if failed to add new struct to the
     /// module.  it may only happen in case of name conflicts because
     /// of case conversion.
-    pub fn add_complex_type(
-        self,
-        ct: CompiledComplexType<'a>,
-        config: &Config,
-    ) -> Result<Self, Error<'a>> {
+    pub fn add_complex_type(self, ct: ComplexType<'a>, config: &Config) -> Result<Self, Error<'a>> {
         self.inner_add_complex_type(ct, 0, config)
     }
 
     fn inner_add_complex_type(
         mut self,
-        ct: CompiledComplexType<'a>,
+        ct: ComplexType<'a>,
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
@@ -189,33 +185,29 @@ impl<'a> ModDef<'a> {
     /// Returns `CreateStruct` error if failed to add new struct to the
     /// module.  it may only happen in case of name conflicts because
     /// of case conversion.
-    pub fn add_entity_type(
-        self,
-        ct: CompiledEntityType<'a>,
-        config: &Config,
-    ) -> Result<Self, Error<'a>> {
-        self.inner_add_entity_type(ct, 0, config)
+    pub fn add_entity_type(self, t: EntityType<'a>, config: &Config) -> Result<Self, Error<'a>> {
+        self.inner_add_entity_type(t, 0, config)
     }
 
     fn inner_add_entity_type(
         mut self,
-        et: CompiledEntityType<'a>,
+        t: EntityType<'a>,
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
-        if let Some(id) = et.name.namespace.get_id(depth) {
+        if let Some(id) = t.name.namespace.get_id(depth) {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
                 .unwrap_or_else(|| ModDef::new(mod_name, depth))
-                .inner_add_entity_type(et, depth + 1, config)
+                .inner_add_entity_type(t, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
                     self
                 })
         } else {
-            let name = et.name;
-            self.add_struct_def(et.name, et.base, et.properties, et.odata, config)
+            let name = t.name;
+            self.add_struct_def(t.name, t.base, t.properties, t.odata, config)
                 .map_err(Box::new)
                 .map_err(|e| Error::CreateStruct(name, e))
         }
@@ -225,8 +217,8 @@ impl<'a> ModDef<'a> {
         mut self,
         qname: QualifiedName<'a>,
         base: Option<QualifiedName<'a>>,
-        properties: CompiledProperties<'a>,
-        odata: CompiledOData<'a>,
+        properties: Properties<'a>,
+        odata: OData<'a>,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
         let struct_name = TypeName::new(qname.name);

@@ -15,7 +15,7 @@
 
 //! Generation of Rust doc by comment lines.
 
-use crate::compiler::CompiledOData;
+use crate::compiler::OData;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -29,7 +29,7 @@ use std::fmt::Display;
 
 /// Generate rust doc from description and long description.
 #[must_use]
-pub fn format_and_generate(name: impl Display, odata: &CompiledOData<'_>) -> TokenStream {
+pub fn format_and_generate(name: impl Display, odata: &OData<'_>) -> TokenStream {
     format(name, odata)
         .map(|lines| generate(&lines))
         .unwrap_or_default()
@@ -37,7 +37,7 @@ pub fn format_and_generate(name: impl Display, odata: &CompiledOData<'_>) -> Tok
 
 /// Format long and short descriptions to multiple lines.
 #[must_use]
-pub fn format(name: impl Display, odata: &CompiledOData<'_>) -> Option<Vec<String>> {
+pub fn format(name: impl Display, odata: &OData<'_>) -> Option<Vec<String>> {
     let maybe_descr = odata.description.as_ref().map(ToString::to_string);
     let maybe_long_descr = odata.long_description.as_ref().map(ToString::to_string);
     match (maybe_descr, maybe_long_descr) {
