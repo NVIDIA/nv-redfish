@@ -107,11 +107,9 @@ impl<'a> StructDef<'a> {
                 ImplOdataType::None
             }
         } else if *self.odata.must_have_id.inner() {
-            // MustHaveId only for the root elements in type
-            // hierarchy. This requirements by code
-            // generation. Generator needs to add @odata.id field to
-            // the struct. If we will add odata.id on each level it ma
-            // break deserialization.
+            // MustHaveId only for the root elements in type hierarchy. This requirements by code
+            // generation. Generator needs to add @odata.id field to the struct.
+            // If we will add odata.id on each level it may break deserialization.
             content.extend(quote! {
                 #[serde(rename="@odata.id")]
                 pub #odata_id: ODataId,
@@ -149,39 +147,29 @@ impl<'a> StructDef<'a> {
             doc_format_and_generate(self.name, &self.odata),
             quote! {
                 #[derive(Deserialize, Debug)]
-                pub struct #name
+                pub struct #name { #content }
             },
         ]);
-        tokens.append(TokenTree::Group(Group::new(Delimiter::Brace, content)));
 
         match impl_odata_type {
             ImplOdataType::Root => {
                 tokens.extend(quote! {
                     impl #top::EntityType for #name {
                         #[inline]
-                        fn id(&self) -> &ODataId {
-                            &self.#odata_id
-                        }
+                        fn id(&self) -> &ODataId { &self.#odata_id }
                         #[inline]
-                        fn etag(&self) -> &Option<ODataETag> {
-                            &self.#odata_etag
-                        }
+                        fn etag(&self) -> &Option<ODataETag> { &self.#odata_etag }
                     }
                     impl #top::Expandable for #name {}
                 });
             }
             ImplOdataType::Child => {
-                let top = &config.top_module_alias;
                 tokens.extend(quote! {
                     impl #top::EntityType for #name {
                         #[inline]
-                        fn id(&self) -> &ODataId {
-                            self.base.id()
-                        }
+                        fn id(&self) -> &ODataId { self.base.id() }
                         #[inline]
-                        fn etag(&self) -> &Option<ODataETag> {
-                            self.base.etag()
-                        }
+                        fn etag(&self) -> &Option<ODataETag> { self.base.etag() }
                     }
                     impl #top::Expandable for #name {}
                 });
@@ -450,11 +438,7 @@ impl<'a> StructDef<'a> {
                                 }
                             }
                             PropertyType::CollectionOf(_) => {
-                                if *p.is_nullable.inner() {
-                                    arglist.extend(quote! {, #name: Vec<#base_type> });
-                                } else {
-                                    arglist.extend(quote! {, #name: Vec<#base_type> });
-                                }
+                                arglist.extend(quote! {, #name: Vec<#base_type> });
                             }
                         }
                     }

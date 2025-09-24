@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
     collections::HashMap,
     future::Future,
@@ -21,7 +21,7 @@ use std::{
 };
 use url::Url;
 
-use crate::{bmc::BmcCredentials, Bmc, EntityType, Expandable, ODataETag, ODataId};
+use crate::{Bmc, EntityType, Expandable, ODataETag, ODataId, bmc::BmcCredentials};
 
 /// Builder for Redfish `$expand` query parameters according to DSP0266 specification.
 ///
@@ -482,9 +482,7 @@ where
 {
     type Error = C::Error;
 
-    async fn get<
-        T: EntityType + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync,
-    >(
+    async fn get<T: EntityType + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -500,14 +498,13 @@ where
         {
             Ok(response) => {
                 let entity = Arc::new(response);
-                self.cache.put(id, Arc::clone(&entity), entity.etag().clone());
+                self.cache
+                    .put(id, Arc::clone(&entity), entity.etag().clone());
                 Ok(entity)
             }
             Err(e) => {
                 if e.is_cached() {
-                    self.cache.get::<T>(id).ok_or_else(|| {
-                        C::Error::cache_miss()
-                    })
+                    self.cache.get::<T>(id).ok_or_else(C::Error::cache_miss)
                 } else {
                     Err(e)
                 }
@@ -566,7 +563,7 @@ impl CacheableError for BmcReqwestError {
 impl std::fmt::Display for BmcReqwestError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            BmcReqwestError::ReqwestError(e) => write!(f, "HTTP client error: {}", e),
+            BmcReqwestError::ReqwestError(e) => write!(f, "HTTP client error: {e}"),
             BmcReqwestError::InvalidResponse(response) => {
                 write!(f, "Invalid HTTP response: {}", response.status())
             }
@@ -880,12 +877,8 @@ mod tests {
     #[cfg(feature = "reqwest")]
     #[test]
     fn test_cacheable_error_trait() {
-        let mock_response = reqwest::Response::from(
-            http::Response::builder()
-                .status(304)
-                .body("")
-                .unwrap()
-        );
+        let mock_response =
+            reqwest::Response::from(http::Response::builder().status(304).body("").unwrap());
         let error = BmcReqwestError::InvalidResponse(Box::new(mock_response));
         assert!(error.is_cached());
 
