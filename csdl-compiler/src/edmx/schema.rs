@@ -15,7 +15,7 @@
 
 use crate::ValidateError;
 use crate::edmx::EntityContainer;
-use crate::edmx::SchemaNamespace;
+use crate::edmx::Namespace;
 use crate::edmx::SimpleIdentifier;
 use crate::edmx::Term;
 use crate::edmx::TypeDefinition;
@@ -38,7 +38,7 @@ use std::collections::HashMap;
 pub struct DeSchema {
     /// 5.1.1 Attribute Namespace
     #[serde(rename = "@Namespace")]
-    pub namespace: SchemaNamespace,
+    pub namespace: Namespace,
     /// Children of schema.
     #[serde(rename = "$value", default)]
     pub items: Vec<DeSchemaItem>,
@@ -67,7 +67,7 @@ pub enum Type {
 /// Validated schema.
 #[derive(Debug)]
 pub struct Schema {
-    pub namespace: SchemaNamespace,
+    pub namespace: Namespace,
     pub entity_types: HashMap<SimpleIdentifier, EntityType>,
     pub types: HashMap<SimpleIdentifier, Type>,
     pub terms: HashMap<SimpleIdentifier, Term>,

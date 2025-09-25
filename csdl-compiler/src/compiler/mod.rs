@@ -60,6 +60,50 @@ pub mod entity_type;
 /// Compiled complex type
 pub mod complex_type;
 
+// Types reexport
+#[doc(inline)]
+pub use compiled::ActionsMap;
+#[doc(inline)]
+pub use compiled::Compiled;
+#[doc(inline)]
+pub use compiled::TypeActions;
+#[doc(inline)]
+pub use complex_type::ComplexType;
+#[doc(inline)]
+pub use context::Config;
+#[doc(inline)]
+pub use context::Context;
+#[doc(inline)]
+pub use entity_type::EntityType;
+#[doc(inline)]
+pub use enum_type::EnumType;
+#[doc(inline)]
+pub use error::Error;
+#[doc(inline)]
+pub use namespace::Namespace;
+#[doc(inline)]
+pub use odata::OData;
+#[doc(inline)]
+pub use properties::NavProperty;
+#[doc(inline)]
+pub use properties::Properties;
+#[doc(inline)]
+pub use properties::Property;
+#[doc(inline)]
+pub use properties::PropertyType;
+#[doc(inline)]
+pub use qualified_name::QualifiedName;
+#[doc(inline)]
+pub use type_definition::TypeDefinition;
+
+// Traits reexport
+#[doc(inline)]
+pub use traits::MapBase;
+#[doc(inline)]
+pub use traits::MapType;
+#[doc(inline)]
+pub use traits::PropertiesManipulation;
+
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::ActionName;
 use crate::edmx::Edmx;
@@ -72,32 +116,7 @@ use crate::edmx::schema::Type;
 use schema_index::SchemaIndex;
 use stack::Stack;
 
-pub type Compiled<'a> = compiled::Compiled<'a>;
-pub type Error<'a> = error::Error<'a>;
-pub type Context<'a> = context::Context<'a>;
-pub type Config<'a> = context::Config;
-pub type QualifiedName<'a> = qualified_name::QualifiedName<'a>;
-pub type Namespace<'a> = namespace::Namespace<'a>;
-pub type OData<'a> = odata::OData<'a>;
-pub type Properties<'a> = properties::Properties<'a>;
-pub type Property<'a> = properties::Property<'a>;
-pub type NavProperty<'a> = properties::NavProperty<'a>;
-pub type PropertyType<'a> = properties::PropertyType<'a>;
-pub type EnumType<'a> = enum_type::EnumType<'a>;
-pub type TypeDefinition<'a> = type_definition::TypeDefinition<'a>;
-pub type EntityType<'a> = entity_type::EntityType<'a>;
-pub type ComplexType<'a> = complex_type::ComplexType<'a>;
-pub type TypeActions<'a> = compiled::TypeActions<'a>;
-pub type ActionsMap<'a> = compiled::ActionsMap<'a>;
-
-/// Reexport `MapBase` to the level of the compiler.
-pub use traits::MapBase;
-/// Reexport `MapType` to the level of the compiler.
-pub use traits::MapType;
-/// Reexport `PropertiesManipulation` to the level of the compiler.
-pub use traits::PropertiesManipulation;
-
-/// Type class.
+/// Type class needed for property attributes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TypeClass {
     SimpleType,

@@ -63,7 +63,9 @@ use quick_xml::DeError;
 use serde::Deserialize;
 use tagged_types::TaggedType;
 
+/// Qualified type name is type name rogether with the namespace.
 pub type QualifiedTypeName = TaggedType<QualifiedName, QualifiedTypeNameTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq)]
 #[transparent(Debug, FromStr, Display, Deserialize)]
@@ -73,29 +75,35 @@ pub enum QualifiedTypeNameTag {}
 /// This is name of type inside Schema. This type is used when types
 /// are defined.
 pub type LocalTypeName = TaggedType<SimpleIdentifier, LocalTypeNameTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq)]
 #[transparent(Debug, Display, Deserialize)]
 #[capability(inner_access)]
 pub enum LocalTypeNameTag {}
 
+/// Name of the Action.
 pub type ActionName = TaggedType<String, ActionNameTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[transparent(Debug, Display, Deserialize)]
 #[capability(inner_access)]
 pub enum ActionNameTag {}
 
-pub type SchemaNamespace = Namespace;
-
+/// Name of the Property (either structural and navigational).
 pub type PropertyName = TaggedType<SimpleIdentifier, PropertyNameTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[transparent(Debug, Display, Deserialize)]
 #[capability(inner_access)]
 pub enum PropertyNameTag {}
 
+/// Name of the Parameter of `Function` or `Action`. In Redfish we
+/// don't have functions so here it is only parameter of Actions.
 pub type ParameterName = TaggedType<SimpleIdentifier, ParameterNameTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[transparent(Debug, Display, Deserialize)]
@@ -103,13 +111,17 @@ pub type ParameterName = TaggedType<SimpleIdentifier, ParameterNameTag>;
 pub enum ParameterNameTag {}
 
 pub type IsNullable = TaggedType<bool, IsNullableTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Copy, Clone)]
 #[transparent(Debug, Deserialize)]
 #[capability(inner_access)]
 pub enum IsNullableTag {}
 
+/// Flag for Action that says that action is bound to the specific
+/// type. First paramer of such Action defines binding.
 pub type IsBound = TaggedType<bool, IsBoundTag>;
+#[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Copy, Clone)]
 #[transparent(Debug, Deserialize)]
@@ -133,7 +145,7 @@ pub enum ValidateError {
     /// This is the case for Redfish. Keep it this way for parser.
     ManyContainersNotSupported,
     /// Schema validation error.
-    Schema(SchemaNamespace, Box<ValidateError>),
+    Schema(Namespace, Box<ValidateError>),
     /// `ComplexType` validation error.
     ComplexType(LocalTypeName, Box<ValidateError>),
     /// `EntityType` validation error.
