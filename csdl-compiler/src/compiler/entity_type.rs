@@ -25,7 +25,6 @@ use crate::compiler::QualifiedName;
 use crate::compiler::SchemaIndex;
 use crate::compiler::Stack;
 use crate::compiler::odata::MustHaveId;
-use crate::edmx::QualifiedTypeName;
 use crate::edmx::entity_type::EntityType as EdmxEntityType;
 use crate::edmx::entity_type::Key;
 
@@ -55,7 +54,7 @@ impl<'a> EntityType<'a> {
         let stack = stack.new_frame().with_enitity_type(name);
         // Ensure that base entity type compiled if present.
         let (base, compiled) = if let Some(base_type) = &schema_entity_type.base_type {
-            let compiled = Self::ensure(base_type, schema_index, &stack)?;
+            let compiled = Self::ensure(base_type.into(), schema_index, &stack)?;
             (Some(base_type.into()), compiled)
         } else {
             (None, Compiled::default())
@@ -88,19 +87,19 @@ impl<'a> EntityType<'a> {
     ///
     /// Returns error if failed to compile entity type.
     pub fn ensure(
-        qtype: &'a QualifiedTypeName,
+        qtype: QualifiedName<'a>,
         schema_index: &SchemaIndex<'a>,
         stack: &Stack<'a, '_>,
     ) -> Result<Compiled<'a>, Error<'a>> {
-        if stack.contains_entity(qtype.into()) {
+        if stack.contains_entity(qtype) {
             Ok(Compiled::default())
         } else {
             schema_index
                 .find_entity_type(qtype)
-                .ok_or_else(|| Error::EntityTypeNotFound(qtype.into()))
-                .and_then(|et| Self::compile(qtype.into(), et, schema_index, stack))
+                .ok_or(Error::EntityTypeNotFound(qtype))
+                .and_then(|et| Self::compile(qtype, et, schema_index, stack))
                 .map_err(Box::new)
-                .map_err(|e| Error::EntityType(qtype.into(), e))
+                .map_err(|e| Error::EntityType(qtype, e))
         }
     }
 }

@@ -17,7 +17,6 @@ use crate::compiler::Error;
 use crate::compiler::Namespace;
 use crate::compiler::QualifiedName;
 use crate::edmx::Edmx;
-use crate::edmx::QualifiedTypeName;
 use crate::edmx::entity_type::EntityType;
 use crate::edmx::schema::Schema;
 use crate::edmx::schema::Type;
@@ -74,9 +73,9 @@ impl<'a> SchemaIndex<'a> {
 
     /// Find entity type by type name
     #[must_use]
-    pub fn find_entity_type(&self, qtype: &QualifiedTypeName) -> Option<&'a EntityType> {
-        self.get(&Namespace::new(&qtype.inner().namespace))
-            .and_then(|ns| ns.entity_types.get(&qtype.inner().name))
+    pub fn find_entity_type(&self, qtype: QualifiedName<'_>) -> Option<&'a EntityType> {
+        self.get(&qtype.namespace)
+            .and_then(|ns| ns.entity_types.get(qtype.name))
     }
 
     /// Find most specific child.
@@ -111,9 +110,9 @@ impl<'a> SchemaIndex<'a> {
 
     /// Find entity type by type name
     #[must_use]
-    pub fn find_type(&self, qtype: &QualifiedTypeName) -> Option<&'a Type> {
-        self.get(&Namespace::new(&qtype.inner().namespace))
-            .and_then(|ns| ns.types.get(&qtype.inner().name))
+    pub fn find_type(&self, qtype: QualifiedName<'_>) -> Option<&'a Type> {
+        self.get(&qtype.namespace)
+            .and_then(|ns| ns.types.get(qtype.name))
     }
 
     #[must_use]

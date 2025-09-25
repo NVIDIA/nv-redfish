@@ -57,18 +57,13 @@ pub mod entity_type;
 /// Compiled complex type
 pub mod complex_type;
 
-/// Compiled singleton
-pub mod singleton;
-
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::ActionName;
 use crate::edmx::Edmx;
 use crate::edmx::IsNullable;
 use crate::edmx::ParameterName;
-use crate::edmx::QualifiedTypeName;
 use crate::edmx::action::Action as EdmxAction;
 use crate::edmx::attribute_values::SimpleIdentifier;
-use crate::edmx::attribute_values::TypeName;
 use crate::edmx::schema::Schema;
 use crate::edmx::schema::Type;
 use schema_index::SchemaIndex;
@@ -101,8 +96,6 @@ pub type EntityType<'a> = entity_type::EntityType<'a>;
 /// Reexport `ComplexType` to the level of the compiler.
 pub type ComplexType<'a> = complex_type::ComplexType<'a>;
 /// Reexport `Singleton` to the level of the compiler.
-pub type Singleton<'a> = singleton::Singleton<'a>;
-/// Reexport `Singleton` to the level of the compiler.
 pub type TypeActions<'a> = compiled::TypeActions<'a>;
 /// Reexport `Singleton` to the level of the compiler.
 pub type ActionsMap<'a> = compiled::ActionsMap<'a>;
@@ -131,6 +124,12 @@ pub struct SchemaBundle {
     pub edmx_docs: Vec<Edmx>,
 }
 
+/// Set of types that need to be compiled.
+pub struct RootSet<'a> {
+    entity_types: Vec<QualifiedName<'a>>,
+    complex_types: Vec<QualifiedName<'a>>,
+}
+
 impl SchemaBundle {
     /// Compile multiple schema, resolving all type dependencies.
     ///
@@ -139,19 +138,69 @@ impl SchemaBundle {
     /// Returns compile error if any type cannot be resolved.
     pub fn compile(&self, singletons: &[SimpleIdentifier]) -> Result<Compiled<'_>, Error> {
         let schema_index = SchemaIndex::build(&self.edmx_docs);
+        let root_set = self.root_set_from_singletons(&schema_index, singletons)?;
+        self.compile_root_set(&root_set, &schema_index)
+    }
+
+    fn root_set_from_singletons<'a>(
+        &'a self,
+        schema_index: &SchemaIndex<'a>,
+        singletons: &[SimpleIdentifier],
+    ) -> Result<RootSet<'a>, Error<'a>> {
+        // Go through: all signletons located in
+        //   edmx documents / schemas / entity container:
+        //
+        // Check if singleton one of required singletons. If so,
+        // collect its most recent descendant type as part of root
+        // set.
+        let entity_types = self
+            .edmx_docs
+            .iter()
+            .flat_map(|edmx| {
+                edmx.data_services.schemas.iter().flat_map(|s| {
+                    s.entity_container
+                        .as_ref()
+                        .map_or(Vec::new(), |entity_container| {
+                            entity_container
+                                .singletons
+                                .iter()
+                                .filter_map(|singleton| {
+                                    if singletons.contains(&singleton.name) {
+                                        Some(
+                                            schema_index
+                                                .find_child_entity_type((&singleton.stype).into())
+                                                .map(|(qname, _)| qname),
+                                        )
+                                    } else {
+                                        None
+                                    }
+                                })
+                                .collect::<Vec<_>>()
+                        })
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+        Ok(RootSet {
+            entity_types,
+            complex_types: Vec::new(),
+        })
+    }
+
+    fn compile_root_set<'a>(
+        &'a self,
+        root_set: &RootSet<'a>,
+        schema_index: &SchemaIndex<'a>,
+    ) -> Result<Compiled<'a>, Error<'a>> {
         let stack = Stack::default();
-        let stack = self.edmx_docs.iter().try_fold(stack, |stack, edmx| {
-            let cstack = stack.new_frame();
-            let compiled = edmx
-                .data_services
-                .schemas
-                .iter()
-                .try_fold(cstack, |stack, s| {
-                    Self::compile_schema(s, singletons, &schema_index, stack.new_frame())
-                        .map(|v| stack.merge(v))
-                })?
-                .done();
-            Ok(stack.merge(compiled))
+        let stack = root_set
+            .entity_types
+            .iter()
+            .try_fold(stack, |cstack, qname| {
+                EntityType::ensure(*qname, schema_index, &cstack)
+                    .map(|compiled| cstack.merge(compiled))
+            })?;
+        let stack = root_set.complex_types.iter().try_fold(stack, |cstack, t| {
+            ensure_type(*t, schema_index, &cstack).map(|(compiled, _)| cstack.merge(compiled))
         })?;
         // Compile actions for all extracted types
         self.edmx_docs
@@ -163,39 +212,13 @@ impl SchemaBundle {
                     .schemas
                     .iter()
                     .try_fold(cstack, |stack, s| {
-                        Self::compile_schema_actions(s, &schema_index, stack.new_frame())
+                        Self::compile_schema_actions(s, schema_index, stack.new_frame())
                             .map(|v| stack.merge(v))
                     })?
                     .done();
                 Ok(stack.merge(compiled))
             })
             .map(Stack::done)
-    }
-
-    fn compile_schema<'a>(
-        s: &'a Schema,
-        singletons: &[SimpleIdentifier],
-        schema_index: &SchemaIndex<'a>,
-        stack: Stack<'a, '_>,
-    ) -> Result<Compiled<'a>, Error<'a>> {
-        s.entity_container.as_ref().map_or_else(
-            || Ok(Compiled::default()),
-            |entity_container| {
-                entity_container
-                    .singletons
-                    .iter()
-                    .try_fold(stack, |stack, s| {
-                        if singletons.contains(&s.name) {
-                            Singleton::compile(s, schema_index, &stack).map(|v| stack.merge(v))
-                        } else {
-                            Ok(stack)
-                        }
-                    })
-                    .map_err(Box::new)
-                    .map_err(|e| Error::Schema(&s.namespace, e))
-                    .map(Stack::done)
-            },
-        )
     }
 
     fn compile_schema_actions<'a>(
@@ -243,7 +266,7 @@ impl SchemaBundle {
             .map_or_else(
                 || Ok((Compiled::default(), None)),
                 |rt| {
-                    ensure_type(&rt.rtype, schema_index, &stack)
+                    ensure_type(rt.rtype.qualified_type_name().into(), schema_index, &stack)
                         .map(|(compiled, _)| (compiled, Some((&rt.rtype).into())))
                 },
             )
@@ -259,7 +282,7 @@ impl SchemaBundle {
                 // and navigation poprerties points to entity type
                 // only. Example is AddResourceBlock in
                 // ComputerSystem schema.
-                let qtype_name = p.ptype.qualified_type_name();
+                let qtype_name = p.ptype.qualified_type_name().into();
                 let (compiled, ptype) = if is_simple_type(qtype_name) {
                     Ok((
                         Compiled::default(),
@@ -269,15 +292,17 @@ impl SchemaBundle {
                         },
                     ))
                 } else if schema_index.find_type(qtype_name).is_some() {
-                    ensure_type(&p.ptype, schema_index, &cstack).map(|(compiled, class)| {
-                        (
-                            compiled,
-                            ParameterType::Type {
-                                class,
-                                ptype: (&p.ptype).into(),
-                            },
-                        )
-                    })
+                    ensure_type(p.ptype.qualified_type_name().into(), schema_index, &cstack).map(
+                        |(compiled, class)| {
+                            (
+                                compiled,
+                                ParameterType::Type {
+                                    class,
+                                    ptype: (&p.ptype).into(),
+                                },
+                            )
+                        },
+                    )
                 } else {
                     EntityType::ensure(qtype_name, schema_index, &cstack)
                         .map(|compiled| (compiled, ParameterType::Entity((&p.ptype).into())))
@@ -305,25 +330,22 @@ impl SchemaBundle {
     }
 }
 
-fn is_simple_type(qtype: &QualifiedTypeName) -> bool {
-    qtype.inner().namespace.is_edm()
+fn is_simple_type(qtype: QualifiedName<'_>) -> bool {
+    qtype.namespace.is_edm()
 }
 
 fn ensure_type<'a>(
-    typename: &'a TypeName,
+    qtype: QualifiedName<'a>,
     schema_index: &SchemaIndex<'a>,
     stack: &Stack<'a, '_>,
 ) -> Result<(Compiled<'a>, TypeClass), Error<'a>> {
-    let qtype = match typename {
-        TypeName::One(v) | TypeName::CollectionOf(v) => v,
-    };
     if is_simple_type(qtype) {
         Ok((Compiled::default(), TypeClass::SimpleType))
-    } else if stack.contains_complex_type(qtype.into()) {
+    } else if stack.contains_complex_type(qtype) {
         Ok((Compiled::default(), TypeClass::ComplexType))
-    } else if stack.contains_type_definition(qtype.into()) {
+    } else if stack.contains_type_definition(qtype) {
         Ok((Compiled::default(), TypeClass::TypeDefinition))
-    } else if stack.contains_enum_type(qtype.into()) {
+    } else if stack.contains_enum_type(qtype) {
         Ok((Compiled::default(), TypeClass::EnumType))
     } else {
         compile_type(qtype, schema_index, stack)
@@ -331,20 +353,20 @@ fn ensure_type<'a>(
 }
 
 fn compile_type<'a>(
-    qtype: &'a QualifiedTypeName,
+    qtype: QualifiedName<'a>,
     schema_index: &SchemaIndex<'a>,
     stack: &Stack<'a, '_>,
 ) -> Result<(Compiled<'a>, TypeClass), Error<'a>> {
     schema_index
         .find_type(qtype)
-        .ok_or_else(|| Error::TypeNotFound(qtype.into()))
+        .ok_or(Error::TypeNotFound(qtype))
         .and_then(|t| match t {
             Type::TypeDefinition(td) => {
                 let underlying_type = (&td.underlying_type).into();
-                if is_simple_type(&td.underlying_type) {
+                if is_simple_type((&td.underlying_type).into()) {
                     Ok((
                         Compiled::new_type_definition(TypeDefinition {
-                            name: qtype.into(),
+                            name: qtype,
                             underlying_type,
                         }),
                         TypeClass::TypeDefinition,
@@ -357,7 +379,7 @@ fn compile_type<'a>(
                 let underlying_type = et.underlying_type.unwrap_or_default();
                 Ok((
                     Compiled::new_enum_type(EnumType {
-                        name: qtype.into(),
+                        name: qtype,
                         underlying_type,
                         members: et.members.iter().map(Into::into).collect(),
                         odata: OData::new(MustHaveId::new(false), et),
@@ -366,10 +388,10 @@ fn compile_type<'a>(
                 ))
             }
             Type::ComplexType(ct) => {
-                let name = qtype.into();
+                let name = qtype;
                 // Ensure that base entity type compiled if present.
                 let (base, compiled) = if let Some(base_type) = &ct.base_type {
-                    let (compiled, _) = compile_type(base_type, schema_index, stack)?;
+                    let (compiled, _) = compile_type(base_type.into(), schema_index, stack)?;
                     (Some(base_type.into()), compiled)
                 } else {
                     (None, Compiled::default())
@@ -395,7 +417,7 @@ fn compile_type<'a>(
             }
         })
         .map_err(Box::new)
-        .map_err(|e| Error::Type(qtype.into(), e))
+        .map_err(|e| Error::Type(qtype, e))
 }
 
 /// Compiled parameter of the action.
@@ -496,6 +518,7 @@ impl<'a> MapType<'a> for Action<'a> {
 mod test {
     use super::*;
     use crate::edmx::Edmx;
+    use crate::edmx::QualifiedTypeName;
 
     #[test]
     fn schema_test() {

@@ -15,14 +15,14 @@
 
 #![recursion_limit = "256"]
 
+use nv_redfish::Expandable;
+use nv_redfish::ODataId;
 use nv_redfish::bmc::BmcCredentials;
 use nv_redfish::http::BmcReqwestError;
 use nv_redfish::http::ExpandQuery;
 use nv_redfish::http::HttpBmc;
 use nv_redfish::http::ReqwestClient;
 use nv_redfish::http::ReqwestClientParams;
-use nv_redfish::Expandable;
-use nv_redfish::ODataId;
 use url::Url;
 
 #[tokio::main]
@@ -80,8 +80,7 @@ async fn main() -> Result<(), BmcReqwestError> {
         .get(&bmc)
         .await?
         .members
-        .iter()
-        .next()
+        .first()
         .expect("at least one system")
         .get(&bmc)
         .await?;

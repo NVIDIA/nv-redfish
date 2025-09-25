@@ -55,9 +55,10 @@ impl<'a> Properties<'a> {
             .try_fold((stack, Properties::default()), |(stack, mut p), sp| {
                 let stack = match &sp.attrs {
                     PropertyAttrs::StructuralProperty(v) => {
-                        let (compiled, typeclass) = ensure_type(&v.ptype, schema_index, &stack)
-                            .map_err(Box::new)
-                            .map_err(|e| Error::Property(&sp.name, e))?;
+                        let (compiled, typeclass) =
+                            ensure_type(v.ptype.qualified_type_name().into(), schema_index, &stack)
+                                .map_err(Box::new)
+                                .map_err(|e| Error::Property(&sp.name, e))?;
                         p.properties.push(Property {
                             name: &v.name,
                             ptype: (typeclass, (&v.ptype).into()),

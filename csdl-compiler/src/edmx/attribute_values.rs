@@ -16,10 +16,10 @@
 //! Types defined in 17 Attribute Values
 
 use crate::edmx::QualifiedTypeName;
-use serde::de::Error as DeError;
-use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
+use serde::de::Error as DeError;
+use serde::de::Visitor;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
@@ -52,6 +52,7 @@ impl Namespace {
         self.ids.len() == 1 && self.ids[0].inner() == "Edm"
     }
 }
+
 impl FromStr for Namespace {
     type Err = Error;
     fn from_str(s: &str) -> Result<Self, Self::Err> {

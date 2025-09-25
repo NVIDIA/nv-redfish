@@ -69,6 +69,12 @@ impl<'a> Namespace<'a> {
             None
         }
     }
+
+    /// Check if namespace is `Edm`.
+    #[must_use]
+    pub fn is_edm(&self) -> bool {
+        self.len == 1 && self.edmx_ns.is_edm()
+    }
 }
 
 impl PartialEq for Namespace<'_> {
