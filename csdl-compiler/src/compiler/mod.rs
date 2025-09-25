@@ -142,7 +142,7 @@ impl SchemaBundle {
     /// # Errors
     ///
     /// Returns compile error if any type cannot be resolved.
-    pub fn compile(&self, singletons: &[SimpleIdentifier]) -> Result<Compiled<'_>, Error> {
+    pub fn compile(&self, singletons: &[SimpleIdentifier]) -> Result<Compiled<'_>, Error<'_>> {
         let schema_index = SchemaIndex::build(&self.edmx_docs);
         let root_set = self.root_set_from_singletons(&schema_index, singletons)?;
         self.compile_root_set(&root_set, &schema_index)
@@ -155,7 +155,7 @@ impl SchemaBundle {
     /// # Errors
     ///
     /// Returns compile error if any type cannot be resolved.
-    pub fn compile_all(&self) -> Result<Compiled<'_>, Error> {
+    pub fn compile_all(&self) -> Result<Compiled<'_>, Error<'_>> {
         let schema_index = SchemaIndex::build(&self.edmx_docs);
         let root_set = self.root_set_all();
         self.compile_root_set(&root_set, &schema_index)
@@ -205,7 +205,7 @@ impl SchemaBundle {
         })
     }
 
-    fn root_set_all(&self) -> RootSet {
+    fn root_set_all(&self) -> RootSet<'_> {
         let entity_types = self
             .edmx_docs
             .iter()
