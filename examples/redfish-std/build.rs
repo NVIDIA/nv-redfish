@@ -50,6 +50,23 @@ fn main() -> Result<(), Error> {
         root: DEFAULT_ROOT.into(),
         output,
         csdls,
+        entity_type_patterns: [
+            "ServiceRoot.*.*",
+            "ChassisCollection.*",
+            "Chassis.*",
+            "AccountService.*",
+            "Bios.*",
+            "ComputerSystemCollection.*",
+            "ComputerSystem.*",
+            "PCIeDeviceCollection.*",
+            "PCIeDevice.*",
+            "PCIeFunctionCollection.*",
+            "PCIeFunction.*",
+        ]
+        .iter()
+        .map(|v| v.parse())
+        .collect::<Result<Vec<_>, _>>()
+        .expect("must be successfuly parsed"),
     })?;
     Ok(())
 }

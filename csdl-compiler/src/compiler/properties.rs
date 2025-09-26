@@ -27,8 +27,10 @@ use crate::compiler::ensure_type;
 use crate::compiler::redfish::RedfishProperty;
 use crate::edmx::PropertyName;
 use crate::edmx::attribute_values::TypeName;
+use crate::edmx::property::NavigationProperty as EdmxNavigationProperty;
 use crate::edmx::property::Property as EdmxProperty;
 use crate::edmx::property::PropertyAttrs;
+use tagged_types::TaggedType;
 
 /// Combination of all compiled properties and navigation properties.
 #[derive(Default, Debug)]
@@ -68,34 +70,9 @@ impl<'a> Properties<'a> {
                         stack.merge(compiled)
                     }
                     PropertyAttrs::NavigationProperty(v) => {
-                        let (ptype, compiled) = ctx
-                            .schema_index
-                            // We are searching for deepest available child in tre
-                            // hierarchy of types for singleton. So, we can parse most
-                            // recent protocol versions.
-                            .find_child_entity_type(v.ptype.qualified_type_name().into())
-                            .and_then(|(qtype, et)| {
-                                if stack.contains_entity(qtype) {
-                                    // Aready compiled entity
-                                    Ok(Compiled::default())
-                                } else {
-                                    EntityType::compile(qtype, et, ctx, &stack)
-                                        .map_err(Box::new)
-                                        .map_err(|e| Error::EntityType(qtype, e))
-                                }
-                                .map(|compiled| (qtype, compiled))
-                            })
+                        let compiled = Self::compile_nav_property(&mut p, v, ctx, &stack)
                             .map_err(Box::new)
                             .map_err(|e| Error::Property(&sp.name, e))?;
-                        p.nav_properties.push(NavProperty {
-                            name: &v.name,
-                            ptype: match &v.ptype {
-                                TypeName::One(_) => PropertyType::One(ptype),
-                                TypeName::CollectionOf(_) => PropertyType::CollectionOf(ptype),
-                            },
-                            odata: OData::new(MustHaveId::new(false), v),
-                            redfish: RedfishProperty::new(v),
-                        });
                         stack.merge(compiled)
                     }
                 };
@@ -123,6 +100,51 @@ impl<'a> Properties<'a> {
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.properties.is_empty() && self.nav_properties.is_empty()
+    }
+
+    fn compile_nav_property(
+        p: &mut Self,
+        v: &'a EdmxNavigationProperty,
+        ctx: &Context<'a>,
+        stack: &Stack<'a, '_>,
+    ) -> Result<Compiled<'a>, Error<'a>> {
+        let qname = v.ptype.qualified_type_name().into();
+        if ctx.config.entity_type_filter.matches(&qname) {
+            let (ptype, compiled) = ctx
+                .schema_index
+                // We are searching for deepest available child in tre
+                // hierarchy of types for singleton. So, we can parse most
+                // recent protocol versions.
+                .find_child_entity_type(qname)
+                .and_then(|(qtype, et)| {
+                    if stack.contains_entity(qtype) {
+                        // Already compiled entity
+                        Ok(Compiled::default())
+                    } else {
+                        EntityType::compile(qtype, et, ctx, stack)
+                            .map_err(Box::new)
+                            .map_err(|e| Error::EntityType(qtype, e))
+                    }
+                    .map(|compiled| (qtype, compiled))
+                })?;
+            p.nav_properties
+                .push(NavProperty::Expandable(NavPropertyExpandable {
+                    name: &v.name,
+                    ptype: match &v.ptype {
+                        TypeName::One(_) => PropertyType::One(ptype),
+                        TypeName::CollectionOf(_) => PropertyType::CollectionOf(ptype),
+                    },
+                    odata: OData::new(MustHaveId::new(false), v),
+                    redfish: RedfishProperty::new(v),
+                }));
+            Ok(compiled)
+        } else {
+            p.nav_properties.push(NavProperty::Reference(
+                &v.name,
+                IsCollection::new(matches!(v.ptype, TypeName::CollectionOf(_))),
+            ));
+            Ok(Compiled::default())
+        }
     }
 }
 
@@ -173,7 +195,32 @@ impl<'a> MapType<'a> for Property<'a> {
 }
 
 #[derive(Debug)]
-pub struct NavProperty<'a> {
+pub enum NavProperty<'a> {
+    Expandable(NavPropertyExpandable<'a>),
+    Reference(&'a PropertyName, IsCollection),
+}
+
+impl<'a> NavProperty<'a> {
+    /// Name of the property regrardless enum variant.
+    #[must_use]
+    pub const fn name(&'a self) -> &'a PropertyName {
+        match self {
+            Self::Expandable(v) => v.name,
+            Self::Reference(n, _) => n,
+        }
+    }
+}
+
+/// Property is collection.
+pub type IsCollection = TaggedType<bool, IsCollectionTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[transparent(Debug)]
+#[capability(inner_access)]
+pub enum IsCollectionTag {}
+
+#[derive(Debug)]
+pub struct NavPropertyExpandable<'a> {
     pub name: &'a PropertyName,
     pub ptype: PropertyType<'a>,
     pub odata: OData<'a>,
@@ -181,11 +228,16 @@ pub struct NavProperty<'a> {
 }
 
 impl<'a> MapType<'a> for NavProperty<'a> {
-    fn map_type<F>(mut self, f: F) -> Self
+    fn map_type<F>(self, f: F) -> Self
     where
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
     {
-        self.ptype = self.ptype.map(f);
-        self
+        match self {
+            Self::Expandable(mut exp) => {
+                exp.ptype = exp.ptype.map(f);
+                Self::Expandable(exp)
+            }
+            Self::Reference { .. } => self,
+        }
     }
 }

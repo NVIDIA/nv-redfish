@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use crate::compiler::Config as CompilerConfig;
+use crate::compiler::EntityTypeFilter;
+use crate::compiler::EntityTypeFilterPattern;
 use crate::compiler::SchemaBundle;
 use crate::edmx::Edmx;
 use crate::edmx::ValidateError;
@@ -59,6 +61,8 @@ pub enum Commands {
         /// File that contains geneated code.
         #[arg(short, long, default_value = "redfish.rs")]
         output: PathBuf,
+        #[arg(short = 'p', long = "pattern")]
+        entity_type_patterns: Vec<EntityTypeFilterPattern>,
     },
     /// Compile Oem CSDL schemas
     CompileOem {
@@ -84,6 +88,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             root,
             csdls,
             output,
+            entity_type_patterns,
         } => {
             let root_service = root.parse().map_err(Error::WrongRootService)?;
             if csdls.is_empty() {
@@ -91,7 +96,12 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             }
             let schema_bundle = read_csdls(csdls)?;
             let compiled = schema_bundle
-                .compile(&[root_service], CompilerConfig::default())
+                .compile(
+                    &[root_service],
+                    CompilerConfig {
+                        entity_type_filter: EntityTypeFilter::new(entity_type_patterns.clone()),
+                    },
+                )
                 .map_err(|e| {
                     format!("{e}")
                         .split('\n')

@@ -24,13 +24,13 @@ use crate::compiler::Property;
 use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::TypeClass;
-use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
 use crate::generator::rust::FullTypeName;
 use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
+use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -40,9 +40,9 @@ use proc_macro2::Spacing;
 use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
-use quote::quote;
 use quote::ToTokens as _;
 use quote::TokenStreamExt as _;
+use quote::quote;
 
 #[derive(Debug)]
 pub enum GenerateType {
@@ -129,9 +129,6 @@ impl<'a> StructDef<'a> {
         }
 
         for p in &self.properties.nav_properties {
-            if p.odata.permissions_is_write_only() {
-                continue;
-            }
             Self::generate_nav_property(&mut content, p, config);
         }
 
@@ -281,29 +278,52 @@ impl<'a> StructDef<'a> {
     }
 
     fn generate_nav_property(content: &mut TokenStream, p: &NavProperty<'_>, config: &Config) {
-        content.extend(doc_format_and_generate(p.name, &p.odata));
-        match p.ptype {
-            PropertyType::One(v) => {
-                let rename = Literal::string(p.name.inner().inner());
-                let name = StructFieldName::new_property(p.name);
-                let ptype = FullTypeName::new(v, config);
-                content.extend(quote! { #[serde(rename=#rename)] });
-                if p.redfish.is_required.into_inner() {
-                    content.extend(quote! { pub #name: NavProperty<#ptype>, });
-                } else {
-                    content.extend(quote! { pub #name: Option<NavProperty<#ptype>>, });
+        match p {
+            NavProperty::Expandable(p) => {
+                if p.odata.permissions_is_write_only() {
+                    return;
+                }
+                content.extend(doc_format_and_generate(p.name, &p.odata));
+                match p.ptype {
+                    PropertyType::One(v) => {
+                        let rename = Literal::string(p.name.inner().inner());
+                        let name = StructFieldName::new_property(p.name);
+                        let ptype = FullTypeName::new(v, config);
+                        content.extend(quote! { #[serde(rename=#rename)] });
+                        if p.redfish.is_required.into_inner() {
+                            content.extend(quote! { pub #name: NavProperty<#ptype>, });
+                        } else {
+                            content.extend(quote! { pub #name: Option<NavProperty<#ptype>>, });
+                        }
+                    }
+                    PropertyType::CollectionOf(v) => {
+                        let rename = Literal::string(p.name.inner().inner());
+                        let name = StructFieldName::new_property(p.name);
+                        let ptype = FullTypeName::new(v, config);
+                        if p.redfish.is_required.into_inner() {
+                            content.extend(quote! { #[serde(rename=#rename)] });
+                        } else {
+                            content.extend(quote! { #[serde(rename=#rename, default)] });
+                        }
+                        content.extend(quote! { pub #name: Vec<NavProperty<#ptype>>, });
+                    }
                 }
             }
-            PropertyType::CollectionOf(v) => {
-                let rename = Literal::string(p.name.inner().inner());
-                let name = StructFieldName::new_property(p.name);
-                let ptype = FullTypeName::new(v, config);
-                if p.redfish.is_required.into_inner() {
-                    content.extend(quote! { #[serde(rename=#rename)] });
+            NavProperty::Reference(name, is_collection) => {
+                let top = &config.top_module_alias;
+                let rename = Literal::string(name.inner().inner());
+                let name = StructFieldName::new_property(name);
+                if *is_collection.inner() {
+                    content.extend(quote! {
+                        #[serde(rename=#rename, default)]
+                        pub #name: Vec<#top::Reference>,
+                    });
                 } else {
-                    content.extend(quote! { #[serde(rename=#rename, default)] });
+                    content.extend(quote! {
+                        #[serde(rename=#rename, default)]
+                        pub #name: Option<#top::Reference>,
+                    });
                 }
-                content.extend(quote! { pub #name: Vec<NavProperty<#ptype>>, });
             }
         }
     }
@@ -551,7 +571,7 @@ impl<'a> StructDefBuilder<'a> {
                 }
             }
             for p in &self.0.properties.nav_properties {
-                let pname = StructFieldName::new_property(p.name);
+                let pname = StructFieldName::new_property(p.name());
                 if base_pname == pname {
                     return Err(Error::BaseTypeConflict);
                 }

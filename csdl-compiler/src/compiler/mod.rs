@@ -74,6 +74,10 @@ pub use context::Config;
 #[doc(inline)]
 pub use context::Context;
 #[doc(inline)]
+pub use context::EntityTypeFilter;
+#[doc(inline)]
+pub use context::EntityTypeFilterPattern;
+#[doc(inline)]
 pub use entity_type::EntityType;
 #[doc(inline)]
 pub use enum_type::EnumType;
@@ -85,6 +89,8 @@ pub use namespace::Namespace;
 pub use odata::OData;
 #[doc(inline)]
 pub use properties::NavProperty;
+#[doc(inline)]
+pub use properties::NavPropertyExpandable;
 #[doc(inline)]
 pub use properties::Properties;
 #[doc(inline)]
