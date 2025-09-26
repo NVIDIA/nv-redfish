@@ -5,8 +5,8 @@
 
 pwd := $(shell pwd)
 
-redfish-bundle-version = 2025.2
-redfish-bundle-sha256sum = 4ca0400088cfff6eb84851966b1a7fa86181898de0dbbaddfdaba7f8bba8c004
+redfish-version = 2025.2
+redfish-sha256sum = d95756f8a13b94a0f7e0949e21c9473f3a3d55b6e4dd1222269aab70f9f4eb19
 swordfish-bundle-version = v1.2.8
 swordfish-bundle-sha256sum = 87a0dd6c7e9a831a519e105b75ba8759ca85314cf92fd782cfd9ce6637f863aa
 
@@ -14,6 +14,7 @@ schema-dir = schemas
 schema-dir-dep = $(schema-dir)/.dep
 schema-dir-redfish = $(schema-dir)/redfish-csdl
 schema-dir-swordfish = $(schema-dir)/swordfish-csdl
+schema-dir-oem-contoso = $(schema-dir)/oem-contoso-csdl
 
 redfish-schemas-dep = schemas/.dep-redfish
 swordfish-schemas-dep = schemas/.dep-swordfish
@@ -29,9 +30,10 @@ clean:
 	rm -rf target
 
 $(redfish-schemas-dep): $(schema-dir-dep)
-	curl -vfL "https://www.dmtf.org/sites/default/files/standards/documents/DSP8010_$(redfish-bundle-version).zip" > $(schema-dir)/redfish-bundle.zip
-	printf "%s  %s" $(redfish-bundle-sha256sum) $(schema-dir)/redfish-bundle.zip | shasum -a 256 -c -
-	unzip -j -o $(schema-dir)/redfish-bundle.zip "DSP8010_$(redfish-bundle-version)/csdl/*" -d $(schema-dir-redfish)
+	curl -vfL "https://github.com/DMTF/Redfish-Publications/archive/refs/tags/$(redfish-version).zip" > $(schema-dir)/redfish-pub.zip
+	printf "%s  %s" $(redfish-sha256sum) $(schema-dir)/redfish-pub.zip | shasum -a 256 -c -
+	unzip -j -o $(schema-dir)/redfish-pub.zip "Redfish-Publications-$(redfish-version)/csdl/*" -d $(schema-dir-redfish)
+	unzip -j -o $(schema-dir)/redfish-pub.zip "Redfish-Publications-$(redfish-version)/mockups/public-oem-examples/Contoso.com/*" -d $(schema-dir-oem-contoso)
 	touch $@
 
 $(swordfish-schemas-dep): $(schema-dir-dep)

@@ -37,6 +37,8 @@ pub use bmc::Bmc;
 #[doc(inline)]
 pub use nav_property::NavProperty;
 #[doc(inline)]
+pub use nav_property::Reference;
+#[doc(inline)]
 pub use odata::ODataETag;
 #[doc(inline)]
 pub use odata::ODataId;

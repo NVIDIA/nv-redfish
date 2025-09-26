@@ -3,6 +3,7 @@ members = [
    "lib",
    "csdl-compiler",
    "examples/redfish-std",
+   "examples/redfish-oem-contoso",
    "examples/service-root-parser",
    "examples/explore-with-dummy-bmc",
    "examples/explore-with-reqwest-bmc",

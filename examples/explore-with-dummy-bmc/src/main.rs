@@ -20,6 +20,7 @@ use nv_redfish::Expandable;
 use nv_redfish::ODataId;
 use nv_redfish::http::ExpandQuery;
 use redfish_std::redfish::service_root::ServiceRoot;
+use serde::Deserialize;
 
 #[derive(Debug)]
 pub enum Error {
@@ -45,7 +46,7 @@ impl MockBmc {
     fn get_mock_json_for_uri(&self, uri: &str) -> String {
         match uri {
             "/redfish/v1" => {
-                r#"{
+                r##"{
                       "@odata.id": "/redfish/v1",
                       "Id": "RootService",
                       "Name": "Root Service",
@@ -55,8 +56,16 @@ impl MockBmc {
                       "Systems": {"@odata.id": "/redfish/v1/Systems"},
                       "Links": {
                          "Sessions": {"@odata.id": "/redfish/v1/SessionService/Sessions"}
+                      },
+                      "Oem": {
+                          "Contoso": {
+                              "@odata.type": "#ContosoServiceRoot.v1_0_0.ServiceRoot",
+                              "TurboencabulatorService": {
+                                  "@odata.id": "/redfish/v1/Oem/Contoso/TurboencabulatorService"
+                              }
+                          }
                       }
-                   }"#.to_string()
+                   }"##.to_string()
             },
             "/redfish/v1/Chassis" => {
                 r#"{
@@ -436,6 +445,21 @@ impl MockBmc {
                     }
                 }"##.to_string()
             }
+            "/redfish/v1/Oem/Contoso/TurboencabulatorService" => {
+                r##"{
+                       "@odata.id": "/redfish/v1/Oem/Contoso/TurboencabulatorService",
+                       "Id": "TurboencabulatorService",
+                       "Name": "Turboencabulator Service",
+                       "Status": {
+                           "State": "Enabled",
+                           "Health": "OK"
+                       },
+                       "IsCheap": false,
+                       "ServiceEnabled": true,
+                       "TurboencabulatorMode": "Retro",
+                       "WillGovernmentBuy": true
+                   }"##.to_string()
+            }
             _ => {
                 r#"{"id": "unknown", "name": "Unknown Resource"}"#.to_string()
             }
@@ -474,6 +498,12 @@ impl Bmc for MockBmc {
     ) -> Result<R, Self::Error> {
         todo!()
     }
+}
+
+#[derive(Deserialize, Debug)]
+struct Constoso {
+    #[serde(rename = "Contoso")]
+    oem_root: redfish_oem_contoso::redfish::contoso_service_root::ServiceRoot,
 }
 
 #[tokio::main]
@@ -521,7 +551,27 @@ async fn main() -> Result<(), Error> {
         .get(&bmc)
         .await?
         .members;
-    println!("{:?}", systems.iter().next().unwrap().get(&bmc).await?);
+    println!("{:#?}", systems.iter().next().unwrap().get(&bmc).await?);
+
+    // Oem:
+    let contoso_oem: Constoso = serde_json::from_value(
+        service_root
+            .base
+            .oem
+            .as_ref()
+            .unwrap()
+            .additional_properties
+            .clone(),
+    )
+    .unwrap();
+
+    let turboencabulator_service = contoso_oem
+        .oem_root
+        .turboencabulator_service
+        .unwrap()
+        .get(&bmc)
+        .await?;
+    println!("{:#?}", turboencabulator_service);
 
     Ok(())
 }
