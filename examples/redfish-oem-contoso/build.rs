@@ -27,30 +27,28 @@ fn main() -> Result<(), Error> {
     let redfish_schemas = "../../schemas/redfish-csdl/*.xml";
     let oem_contoso_schemas = "../../schemas/oem-contoso-csdl/*.xml";
 
-    let mut csdls = Vec::new();
-    csdls.extend(
-        glob(oem_contoso_schemas)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|p| p.display().to_string()),
-    );
-    csdls.push("@".into());
-    csdls.extend(
-        glob(redfish_schemas)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|p| p.display().to_string()),
-    );
+    let root_csdls = glob(oem_contoso_schemas)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|p| p.display().to_string())
+        .collect();
+    let resolve_csdls = glob(redfish_schemas)
+        .unwrap()
+        .filter_map(Result::ok)
+        .map(|p| p.display().to_string())
+        .collect();
 
-    for f in &csdls {
-        if f != "@" {
-            println!("cargo:rerun-if-changed={f}");
-        }
+    for f in &root_csdls {
+        println!("cargo:rerun-if-changed={f}");
+    }
+    for f in &resolve_csdls {
+        println!("cargo:rerun-if-changed={f}");
     }
 
     process_command(&Commands::CompileOem {
         output,
-        csdls,
+        root_csdls,
+        resolve_csdls,
         entity_type_patterns: ["ServiceRoot.*.*", "LogEntry.*"]
             .iter()
             .map(|v| v.parse())

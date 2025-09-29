@@ -61,10 +61,13 @@ pub enum Commands {
     },
     /// Compile Oem CSDL schemas
     CompileOem {
-        /// CSDL documents to be compiled. All data types from Oem
-        /// schema will be compiled.
-        #[arg(required = true)]
-        csdls: Vec<String>,
+        /// CSDL documents to be compiled and included to root
+        /// set (all data types from Oem schema will be compiled).
+        #[arg(required = true, value_terminator = "@")]
+        root_csdls: Vec<String>,
+        /// CSDL documents to for type resolution in `root_csdls`.
+        #[arg(index = 2)]
+        resolve_csdls: Vec<String>,
         /// File that contains geneated code.
         #[arg(short, long, default_value = "redfish.rs")]
         output: PathBuf,
@@ -100,7 +103,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             if csdls.is_empty() {
                 return Err(Error::AtLeastOneCSDLFileNeeded);
             }
-            let schema_bundle = read_csdls(csdls)?;
+            let schema_bundle = read_csdls(&[], csdls)?;
             let compiled = schema_bundle
                 .compile(
                     &[root_service],
@@ -121,14 +124,15 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             Ok(display_output)
         }
         Commands::CompileOem {
-            csdls,
+            root_csdls,
+            resolve_csdls,
             output,
             entity_type_patterns,
         } => {
-            if csdls.is_empty() {
+            if root_csdls.is_empty() {
                 return Err(Error::AtLeastOneCSDLFileNeeded);
             }
-            let schema_bundle = read_csdls(csdls)?;
+            let schema_bundle = read_csdls(root_csdls, resolve_csdls)?;
             let compiled = schema_bundle
                 .compile_all(CompilerConfig {
                     entity_type_filter: EntityTypeFilter::new(entity_type_patterns.clone()),
@@ -147,21 +151,24 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
     }
 }
 
-fn read_csdls(csdls: &[String]) -> Result<SchemaBundle, Error> {
-    csdls
+fn read_csdls(root_csdls: &[String], resolve_csdls: &[String]) -> Result<SchemaBundle, Error> {
+    let edmx_docs = root_csdls
         .iter()
-        .try_fold(SchemaBundle::default(), |mut schema_bundle, fname| {
-            if fname == "@" {
-                schema_bundle.root_set_threshold = Some(schema_bundle.edmx_docs.len());
-            } else {
-                let mut file = File::open(fname).map_err(|err| Error::Io(fname.clone(), err))?;
-                let mut content = String::new();
-                file.read_to_string(&mut content)
-                    .map_err(|err| Error::Io(fname.clone(), err))?;
-                schema_bundle
-                    .edmx_docs
-                    .push(Edmx::parse(&content).map_err(|e| Error::Edmx(fname.clone(), e))?);
-            }
-            Ok(schema_bundle)
+        .chain(resolve_csdls.iter())
+        .map(|fname| {
+            let mut file = File::open(fname).map_err(|err| Error::Io(fname.clone(), err))?;
+            let mut content = String::new();
+            file.read_to_string(&mut content)
+                .map_err(|err| Error::Io(fname.clone(), err))?;
+            Edmx::parse(&content).map_err(|e| Error::Edmx(fname.clone(), e))
         })
+        .collect::<Result<Vec<_>, _>>()?;
+    Ok(SchemaBundle {
+        edmx_docs,
+        root_set_threshold: if root_csdls.is_empty() {
+            None
+        } else {
+            Some(root_csdls.len())
+        },
+    })
 }
