@@ -48,5 +48,6 @@ pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
         actions: map_types_in_actions(input.actions, |t| replace(&t, &replacements)),
         enum_types: input.enum_types,
         type_definitions: input.type_definitions,
+        creatable_entity_types: input.creatable_entity_types,
     }
 }

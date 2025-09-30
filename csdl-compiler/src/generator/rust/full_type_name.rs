@@ -47,6 +47,11 @@ impl<'a, 'config> FullTypeName<'a, 'config> {
         FullTypeNameForUpdate(*self)
     }
 
+    #[must_use]
+    pub const fn for_create(&self) -> FullTypeNameForCreate<'a, 'config> {
+        FullTypeNameForCreate(*self)
+    }
+
     fn namespace_to_tokens(&self, tokens: &mut TokenStream) {
         let top = &self.config.top_module_alias;
         tokens.extend(quote! { #top });
@@ -79,6 +84,18 @@ impl ToTokens for FullTypeNameForUpdate<'_, '_> {
         tokens.append(Punct::new(':', Spacing::Joint));
         tokens.append(Punct::new(':', Spacing::Joint));
         let name = TypeName::new_qualified(self.0.type_name.name).for_update();
+        tokens.extend(quote! { #name });
+    }
+}
+
+pub struct FullTypeNameForCreate<'a, 'config>(FullTypeName<'a, 'config>);
+
+impl ToTokens for FullTypeNameForCreate<'_, '_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        self.0.namespace_to_tokens(tokens);
+        tokens.append(Punct::new(':', Spacing::Joint));
+        tokens.append(Punct::new(':', Spacing::Joint));
+        let name = TypeName::new_qualified(self.0.type_name.name).for_create();
         tokens.extend(quote! { #name });
     }
 }

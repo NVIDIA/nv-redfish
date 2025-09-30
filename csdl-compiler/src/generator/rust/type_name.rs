@@ -57,6 +57,11 @@ impl<'a> TypeName<'a> {
     pub const fn for_update(&self) -> TypeNameForUpdate<'a> {
         TypeNameForUpdate(*self)
     }
+
+    #[must_use]
+    pub const fn for_create(&self) -> TypeNameForCreate<'a> {
+        TypeNameForCreate(*self)
+    }
 }
 
 impl ToTokens for TypeName<'_> {
@@ -94,6 +99,20 @@ impl Display for TypeNameForUpdate<'_> {
 }
 
 impl ToTokens for TypeNameForUpdate<'_> {
+    fn to_tokens(&self, tokens: &mut TokenStream) {
+        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+    }
+}
+
+pub struct TypeNameForCreate<'a>(TypeName<'a>);
+
+impl Display for TypeNameForCreate<'_> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        write!(f, "{}Create", self.0)
+    }
+}
+
+impl ToTokens for TypeNameForCreate<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         tokens.append(Ident::new(&self.to_string(), Span::call_site()));
     }

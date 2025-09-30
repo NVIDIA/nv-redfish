@@ -155,6 +155,16 @@ pub enum PropertyType<'a> {
 }
 
 impl<'a> PropertyType<'a> {
+    /// Qualified type name of the property.
+    #[must_use]
+    pub const fn name(&self) -> QualifiedName<'a> {
+        match self {
+            Self::One(name) | Self::CollectionOf(name) => *name,
+        }
+    }
+}
+
+impl<'a> PropertyType<'a> {
     #[must_use]
     pub fn map<F>(self, f: F) -> Self
     where

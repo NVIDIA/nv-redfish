@@ -18,7 +18,6 @@ use std::sync::Arc;
 use nv_redfish::Bmc;
 use nv_redfish::Expandable;
 use nv_redfish::ODataId;
-use nv_redfish::Updatable;
 use nv_redfish::http::ExpandQuery;
 use redfish_std::redfish::service_root::ServiceRoot;
 use serde::Deserialize;
@@ -490,11 +489,22 @@ impl Bmc for MockBmc {
         Ok(Arc::new(result))
     }
 
-    async fn update<V: Sync + Send + Serialize, T: Updatable<V>>(
+    async fn update<V: Sync + Send + Serialize>(
         &self,
         _id: &ODataId,
         _v: &V,
     ) -> Result<(), Self::Error> {
+        todo!("unimplimented")
+    }
+
+    async fn create<
+        V: Sync + Send + Serialize,
+        R: Sync + Send + Sized + for<'a> serde::Deserialize<'a>,
+    >(
+        &self,
+        _id: &ODataId,
+        _v: &V,
+    ) -> Result<R, Self::Error> {
         todo!("unimplimented")
     }
 

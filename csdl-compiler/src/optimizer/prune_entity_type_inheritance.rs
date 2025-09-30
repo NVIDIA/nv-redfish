@@ -125,6 +125,11 @@ pub fn prune_entity_type_inheritance<'a>(input: Compiled<'a>) -> Compiled<'a> {
             // Replace all names that can refer to parent classes
             .map(|(name, v)| (name, v.map_nav_properties(map_nav_prop)))
             .collect(),
+        creatable_entity_types: input
+            .creatable_entity_types
+            .into_iter()
+            .map(|name| replace(&name, &replacements))
+            .collect(),
         complex_types: input
             .complex_types
             .into_iter()

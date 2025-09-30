@@ -18,6 +18,7 @@ use crate::compiler::ActionsMap;
 use crate::compiler::ComplexType;
 use crate::compiler::EntityType;
 use crate::compiler::EnumType;
+use crate::compiler::IsCreatable;
 use crate::compiler::TypeDefinition;
 use crate::generator::rust::Config;
 use crate::generator::rust::EnumDef;
@@ -202,13 +203,19 @@ impl<'a> ModDef<'a> {
     /// Returns `CreateStruct` error if failed to add new struct to the
     /// module.  it may only happen in case of name conflicts because
     /// of case conversion.
-    pub fn add_entity_type(self, t: EntityType<'a>, config: &Config) -> Result<Self, Error<'a>> {
-        self.inner_add_entity_type(t, 0, config)
+    pub fn add_entity_type(
+        self,
+        t: EntityType<'a>,
+        creatable: IsCreatable,
+        config: &Config,
+    ) -> Result<Self, Error<'a>> {
+        self.inner_add_entity_type(t, creatable, 0, config)
     }
 
     fn inner_add_entity_type(
         mut self,
         t: EntityType<'a>,
+        creatable: IsCreatable,
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
@@ -217,7 +224,7 @@ impl<'a> ModDef<'a> {
             self.sub_mods
                 .remove(&mod_name)
                 .unwrap_or_else(|| ModDef::new(mod_name, depth))
-                .inner_add_entity_type(t, depth + 1, config)
+                .inner_add_entity_type(t, creatable, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
                     self
@@ -230,16 +237,24 @@ impl<'a> ModDef<'a> {
             } else {
                 builder
             };
-            let gen_types = if t.odata.updatable.is_some_and(|v| v.inner().value) {
-                vec![GenerateType::Read, GenerateType::Update]
+            let mut gen_types = vec![GenerateType::Read];
+            if t.odata.updatable.is_some_and(|v| v.inner().value) {
+                gen_types.push(GenerateType::Update);
+            }
+            if creatable.into_inner() {
+                gen_types.push(GenerateType::Create);
+            }
+            // This is collection case. Members to be create are
+            // defined by Members property.
+            let builder = if let Some(mt) = t.insertable_member_type() {
+                builder.with_create(mt)
             } else {
-                vec![GenerateType::Read]
+                builder
             };
-            let struct_def = builder
+            let builder = builder
                 .with_properties(t.properties)
-                .with_generate_type(gen_types)
-                .build(config)?;
-            self.add_struct_def(struct_def)
+                .with_generate_type(gen_types);
+            self.add_struct_def(builder.build(config)?)
                 .map_err(Box::new)
                 .map_err(|e| Error::CreateStruct(struct_name, e))
         }

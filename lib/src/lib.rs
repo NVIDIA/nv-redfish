@@ -84,14 +84,29 @@ impl<'de> Deserialize<'de> for Empty {
 
 /// This trait is assigned to entity types that are marked as
 /// updatable in CSDL specification.
+pub trait Creatable<V: Sync + Send + Serialize, R: Sync + Send + Sized + for<'de> Deserialize<'de>>:
+    EntityType + Sized
+{
+    /// Create entity type `create` as payload.
+    fn create<B: Bmc>(
+        &self,
+        bmc: &B,
+        create: &V,
+    ) -> impl Future<Output = Result<R, B::Error>> + Send {
+        bmc.create::<V, R>(self.id(), create)
+    }
+}
+
+/// This trait is assigned to entity types that are marked as
+/// updatable in CSDL specification.
 pub trait Updatable<V: Sync + Send + Serialize>: EntityType + Sized {
     /// Update entity using `update` as payload.
-    fn expand<B: Bmc>(
+    fn update<B: Bmc>(
         &self,
         bmc: &B,
         update: &V,
     ) -> impl Future<Output = Result<(), B::Error>> + Send {
-        bmc.update::<V, Self>(self.id(), update)
+        bmc.update::<V>(self.id(), update)
     }
 }
 

@@ -22,8 +22,7 @@ use std::{
 use url::Url;
 
 use crate::{
-    Bmc, EntityType, Expandable, ODataETag, ODataId, Updatable, bmc::BmcCredentials,
-    cache::TypeErasedCarCache,
+    Bmc, EntityType, Expandable, ODataETag, ODataId, bmc::BmcCredentials, cache::TypeErasedCarCache,
 };
 
 /// Builder for Redfish `$expand` query parameters according to DSP0266 specification.
@@ -474,7 +473,15 @@ where
             .map(Arc::new)
     }
 
-    async fn update<V: Sync + Send + Serialize, T: Updatable<V>>(
+    async fn create<V: Sync + Send + Serialize, R: Sync + Send + for<'de> Deserialize<'de>>(
+        &self,
+        _id: &ODataId,
+        _v: &V,
+    ) -> Result<R, Self::Error> {
+        todo!()
+    }
+
+    async fn update<V: Sync + Send + Serialize>(
         &self,
         _id: &ODataId,
         _v: &V,

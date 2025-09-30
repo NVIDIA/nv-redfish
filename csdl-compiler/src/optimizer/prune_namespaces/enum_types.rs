@@ -48,6 +48,7 @@ pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
             .into_iter()
             .map(|(name, v)| (name, v.map_properties(map_prop)))
             .collect(),
+        creatable_entity_types: input.creatable_entity_types,
         actions: map_types_in_actions(input.actions, |t| replace(&t, &replacements)),
     }
 }

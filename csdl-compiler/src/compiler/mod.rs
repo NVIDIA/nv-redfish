@@ -66,6 +66,8 @@ pub use compiled::ActionsMap;
 #[doc(inline)]
 pub use compiled::Compiled;
 #[doc(inline)]
+pub use compiled::IsCreatable;
+#[doc(inline)]
 pub use compiled::TypeActions;
 #[doc(inline)]
 pub use complex_type::ComplexType;

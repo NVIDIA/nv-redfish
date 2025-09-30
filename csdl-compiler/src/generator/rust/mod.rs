@@ -57,6 +57,7 @@ pub mod type_def;
 pub mod enum_def;
 
 use crate::compiler::Compiled;
+use crate::compiler::IsCreatable;
 use crate::compiler::QualifiedName;
 use proc_macro2::TokenStream;
 use quote::quote;
@@ -122,6 +123,7 @@ impl<'a> RustGenerator<'a> {
     pub fn new(compiled: Compiled<'a>, config: Config) -> Result<Self, Error<'a>> {
         let root = ModDef::default();
         let mut cactions = compiled.actions;
+        let creatable = compiled.creatable_entity_types;
         let root = cactions.iter().try_fold(root, |m, (_, ma)| {
             ma.iter()
                 .try_fold(m, |m, (_, a)| m.add_action_type(a, &config))
@@ -136,7 +138,10 @@ impl<'a> RustGenerator<'a> {
         let root = compiled
             .entity_types
             .into_iter()
-            .try_fold(root, |m, (_, t)| m.add_entity_type(t, &config))?;
+            .try_fold(root, |m, (_, t)| {
+                let is_creatable = IsCreatable::new(creatable.contains(&t.name));
+                m.add_entity_type(t, is_creatable, &config)
+            })?;
         let root = compiled
             .type_definitions
             .into_iter()
@@ -162,6 +167,7 @@ impl<'a> RustGenerator<'a> {
                 Expandable,
                 Updatable,
                 Deletable,
+                Creatable,
                 Bmc,
                 Empty,
                 ActionError,

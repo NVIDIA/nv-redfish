@@ -55,6 +55,8 @@ fn main() -> Result<(), Error> {
             "ChassisCollection.*",
             "Chassis.*",
             "AccountService.*",
+            "ManagerAccountCollection.*",
+            "ManagerAccount.*",
             "Bios.*",
             "ComputerSystemCollection.*",
             "ComputerSystem.*",

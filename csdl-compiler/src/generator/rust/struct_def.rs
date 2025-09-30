@@ -48,6 +48,7 @@ use quote::quote;
 pub enum GenerateType {
     Read,
     Update,
+    Create,
     Action,
 }
 
@@ -61,6 +62,7 @@ pub struct StructDef<'a> {
     actions: ActionsMap<'a>,
     odata: OData<'a>,
     generate: Vec<GenerateType>,
+    create_type: Option<QualifiedName<'a>>,
 }
 
 impl<'a> StructDef<'a> {
@@ -74,6 +76,7 @@ impl<'a> StructDef<'a> {
     pub fn generate(self, tokens: &mut TokenStream, config: &Config) {
         for t in &self.generate {
             match t {
+                GenerateType::Create => self.generate_create(tokens, config),
                 GenerateType::Read => self.generate_read(tokens, config),
                 GenerateType::Update => self.generate_update(tokens, config),
                 GenerateType::Action => self.generate_action(tokens, config),
@@ -243,6 +246,57 @@ impl<'a> StructDef<'a> {
         }]);
 
         tokens.append(TokenTree::Group(Group::new(Delimiter::Brace, content)));
+    }
+
+    /// Generate rust code for the create structure.
+    pub fn generate_create(&self, tokens: &mut TokenStream, config: &Config) {
+        let mut content = TokenStream::new();
+        for p in &self.properties.properties {
+            if !p.odata.permissions_is_write() {
+                continue;
+            }
+
+            let rename = Literal::string(p.name.inner().inner());
+            let name = StructFieldName::new_property(p.name);
+            let (class, ptype @ (PropertyType::One(v) | PropertyType::CollectionOf(v))) = &p.ptype;
+
+            let mut full_type_name_tokens = TokenStream::new();
+            if *class == TypeClass::ComplexType {
+                FullTypeName::new(*v, config)
+                    .for_update()
+                    .to_tokens(&mut full_type_name_tokens);
+            } else {
+                FullTypeName::new(*v, config).to_tokens(&mut full_type_name_tokens);
+            }
+
+            content.extend(quote! { #[serde(rename=#rename)] });
+            if p.redfish.is_required_on_create.into_inner() {
+                match ptype {
+                    PropertyType::One(_) => {
+                        content.extend(quote! { pub #name: #full_type_name_tokens, });
+                    }
+                    PropertyType::CollectionOf(_) => {
+                        content.extend(quote! { pub #name: Vec<#full_type_name_tokens>, });
+                    }
+                }
+            } else {
+                match ptype {
+                    PropertyType::One(_) => {
+                        content.extend(quote! { pub #name: Option<#full_type_name_tokens>, });
+                    }
+                    PropertyType::CollectionOf(_) => {
+                        content.extend(quote! { pub #name: Vec<#full_type_name_tokens>, });
+                    }
+                }
+            }
+        }
+        let comment = format!(" Create struct corresponding to `{}`", self.name);
+        let name = self.name.for_create();
+        tokens.extend([quote! {
+            #[doc = #comment]
+            #[derive(Serialize, Debug, Default)]
+            pub struct #name { #content }
+        }]);
     }
 
     /// Generate Action struct.
@@ -446,6 +500,14 @@ impl<'a> StructDef<'a> {
                 impl #top::Deletable for #name {}
             });
         }
+
+        if let Some(create_type) = self.create_type {
+            let result_name = FullTypeName::new(create_type, config);
+            let create_name = result_name.for_create();
+            tokens.extend(quote! {
+                impl #top::Creatable<#create_name, #result_name> for #name {}
+            });
+        }
     }
 
     fn generate_action_function(content: &mut TokenStream, a: &Action, config: &Config) {
@@ -554,6 +616,7 @@ impl<'a> StructDefBuilder<'a> {
             actions: ActionsMap::default(),
             odata,
             generate: vec![GenerateType::Read],
+            create_type: None,
         })
     }
 
@@ -582,6 +645,13 @@ impl<'a> StructDefBuilder<'a> {
     #[must_use]
     pub fn with_parameters(mut self, parameters: Vec<Parameter<'a>>) -> Self {
         self.0.parameters = parameters;
+        self
+    }
+
+    /// Setup create type for the struct.
+    #[must_use]
+    pub const fn with_create(mut self, ct: QualifiedName<'a>) -> Self {
+        self.0.create_type = Some(ct);
         self
     }
 

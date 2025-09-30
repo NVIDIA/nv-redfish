@@ -21,9 +21,21 @@ use crate::compiler::QualifiedName;
 use crate::compiler::TypeDefinition;
 use crate::edmx::ActionName;
 use std::collections::HashMap;
+use std::collections::HashSet;
+use std::iter::once as iter_once;
+use tagged_types::TaggedType;
 
 pub type ActionsMap<'a> = HashMap<&'a ActionName, Action<'a>>;
 pub type TypeActions<'a> = HashMap<QualifiedName<'a>, ActionsMap<'a>>;
+
+/// Flag that type is creatable
+pub type IsCreatable = TaggedType<bool, IsCreatableTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Debug)]
+#[capability(inner_access)]
+pub enum IsCreatableTag {}
 
 /// Compiled data from schema.
 #[derive(Default, Debug)]
@@ -33,6 +45,7 @@ pub struct Compiled<'a> {
     pub type_definitions: HashMap<QualifiedName<'a>, TypeDefinition<'a>>,
     pub enum_types: HashMap<QualifiedName<'a>, EnumType<'a>>,
     pub actions: TypeActions<'a>,
+    pub creatable_entity_types: HashSet<QualifiedName<'a>>,
 }
 
 impl<'a> Compiled<'a> {
@@ -40,8 +53,14 @@ impl<'a> Compiled<'a> {
     /// entity type.
     #[must_use]
     pub fn new_entity_type(v: EntityType<'a>) -> Self {
+        let creatable_entity_types = v
+            .insertable_member_type()
+            .map_or_else(HashSet::new, |insertable_type| {
+                iter_once(&insertable_type).copied().collect()
+            });
         Self {
             entity_types: vec![(v.name, v)].into_iter().collect(),
+            creatable_entity_types,
             ..Default::default()
         }
     }
@@ -95,6 +114,8 @@ impl<'a> Compiled<'a> {
         self.type_definitions.extend(other.type_definitions);
         self.enum_types.extend(other.enum_types);
         self.entity_types.extend(other.entity_types);
+        self.creatable_entity_types
+            .extend(other.creatable_entity_types);
         self.actions =
             other
                 .actions

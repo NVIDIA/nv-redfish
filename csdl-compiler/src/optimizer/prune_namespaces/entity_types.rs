@@ -40,6 +40,11 @@ pub fn prune<'a>(input: Compiled<'a>) -> Compiled<'a> {
                 )
             })
             .collect(),
+        creatable_entity_types: input
+            .creatable_entity_types
+            .into_iter()
+            .map(|name| replace(&name, &replacements))
+            .collect(),
         complex_types: input
             .complex_types
             .into_iter()

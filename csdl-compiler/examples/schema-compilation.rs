@@ -165,5 +165,9 @@ fn main() -> Result<(), Error> {
     println!(" entity types:    {}", compiled.entity_types.len());
     println!(" enum types:      {}", compiled.enum_types.len());
     println!(" type defs:       {}", compiled.type_definitions.len());
+    println!(
+        " creatable:       {}",
+        compiled.creatable_entity_types.len()
+    );
     Ok(())
 }

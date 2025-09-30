@@ -65,15 +65,16 @@ impl<'a> EntityType<'a> {
         let (compiled, properties) =
             Properties::compile(&schema_entity_type.properties, ctx, stack.new_frame())?;
 
+        let entity_type = EntityType {
+            name,
+            base,
+            key: schema_entity_type.key.as_ref(),
+            properties,
+            odata: OData::new(MustHaveId::new(true), schema_entity_type),
+        };
         Ok(stack
             .merge(compiled)
-            .merge(Compiled::new_entity_type(EntityType {
-                name,
-                base,
-                key: schema_entity_type.key.as_ref(),
-                properties,
-                odata: OData::new(MustHaveId::new(true), schema_entity_type),
-            }))
+            .merge(Compiled::new_entity_type(entity_type))
             .done())
     }
 
@@ -97,6 +98,28 @@ impl<'a> EntityType<'a> {
                 .and_then(|et| Self::compile(qtype, et, ctx, stack))
                 .map_err(Box::new)
                 .map_err(|e| Error::EntityType(qtype, e))
+        }
+    }
+
+    /// Insertable collection member type.
+    ///
+    /// For collections that are Insertable this method returns
+    /// type name of the collection members.
+    ///
+    #[must_use]
+    pub fn insertable_member_type(&self) -> Option<QualifiedName<'a>> {
+        if self.odata.insertable.is_some_and(|v| v.inner().value) {
+            self.properties
+                .nav_properties
+                .iter()
+                .find(|p| p.name().inner().inner() == "Members")
+                .and_then(|p| match p {
+                    NavProperty::Expandable(v) => Some(v),
+                    NavProperty::Reference(_, _) => None,
+                })
+                .map(|p| p.ptype.name())
+        } else {
+            None
         }
     }
 }
