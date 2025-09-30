@@ -57,6 +57,7 @@ impl EnumDef<'_> {
             quote! {
                 #[derive(Serialize, Deserialize, Debug)]
                 #[allow(clippy::enum_variant_names)]
+                #[allow(non_camel_case_types)]
                 pub enum #name
             },
         ]);
