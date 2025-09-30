@@ -13,9 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use csdl_compiler::OneOrCollection;
 use csdl_compiler::compiler::Config;
 use csdl_compiler::compiler::NavProperty;
 use csdl_compiler::compiler::NavPropertyExpandable;
+use csdl_compiler::compiler::NavPropertyType;
 use csdl_compiler::compiler::PropertyType;
 use csdl_compiler::compiler::SchemaBundle;
 use csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
@@ -85,9 +87,9 @@ fn main() -> Result<(), Error> {
         if !t.properties.is_empty() {
             println!("    properties:");
             for p in &t.properties.properties {
-                match p.ptype.1 {
-                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                match p.ptype {
+                    PropertyType::One((_, t)) => println!("      {}: {}", p.name, t),
+                    PropertyType::Collection((_, t)) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }
@@ -97,20 +99,19 @@ fn main() -> Result<(), Error> {
                 match p {
                     NavProperty::Expandable(NavPropertyExpandable {
                         name,
-                        ptype: PropertyType::One(t),
+                        ptype: NavPropertyType::One(t),
                         ..
                     }) => println!("      {}: {}", name, t),
                     NavProperty::Expandable(NavPropertyExpandable {
                         name,
-                        ptype: PropertyType::CollectionOf(t),
+                        ptype: NavPropertyType::Collection(t),
                         ..
                     }) => println!("      {}: {}[]", name, t),
-                    NavProperty::Reference(name, is_collection) => {
-                        if *is_collection.inner() {
-                            println!("      {}: ref", name);
-                        } else {
-                            println!("      {}: ref[]", name);
-                        }
+                    NavProperty::Reference(OneOrCollection::One(name)) => {
+                        println!("      {}: ref", name);
+                    }
+                    NavProperty::Reference(OneOrCollection::Collection(name)) => {
+                        println!("      {}: ref[]", name);
                     }
                 }
             }
@@ -127,9 +128,9 @@ fn main() -> Result<(), Error> {
         if !t.properties.is_empty() {
             println!("    properties:");
             for p in &t.properties.properties {
-                match p.ptype.1 {
-                    PropertyType::One(t) => println!("      {}: {}", p.name, t),
-                    PropertyType::CollectionOf(t) => println!("      {}: {}[]", p.name, t),
+                match p.ptype {
+                    PropertyType::One((_, t)) => println!("      {}: {}", p.name, t),
+                    PropertyType::Collection((_, t)) => println!("      {}: {}[]", p.name, t),
                 }
             }
         }
@@ -139,20 +140,19 @@ fn main() -> Result<(), Error> {
                 match p {
                     NavProperty::Expandable(NavPropertyExpandable {
                         name,
-                        ptype: PropertyType::One(t),
+                        ptype: NavPropertyType::One(t),
                         ..
                     }) => println!("      {}: {}", name, t),
                     NavProperty::Expandable(NavPropertyExpandable {
                         name,
-                        ptype: PropertyType::CollectionOf(t),
+                        ptype: NavPropertyType::Collection(t),
                         ..
                     }) => println!("      {}: {}[]", name, t),
-                    NavProperty::Reference(name, is_collection) => {
-                        if *is_collection.inner() {
-                            println!("      {}: ref", name);
-                        } else {
-                            println!("      {}: ref[]", name);
-                        }
+                    NavProperty::Reference(OneOrCollection::One(name)) => {
+                        println!("      {}: ref", name);
+                    }
+                    NavProperty::Reference(OneOrCollection::Collection(name)) => {
+                        println!("      {}: ref[]", name);
                     }
                 }
             }

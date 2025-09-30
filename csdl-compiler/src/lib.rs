@@ -51,6 +51,8 @@ pub mod error;
 pub mod generator;
 /// OData-related functions.
 pub mod odata;
+/// Type or collection of type.
+pub mod one_or_collection;
 /// Optimizer of compiled data strcutres.
 pub mod optimizer;
 /// Redfish-related functions.
@@ -58,6 +60,8 @@ pub mod redfish;
 
 #[doc(inline)]
 pub use error::Error;
+#[doc(inline)]
+pub use one_or_collection::OneOrCollection;
 
 #[cfg(test)]
 mod test {

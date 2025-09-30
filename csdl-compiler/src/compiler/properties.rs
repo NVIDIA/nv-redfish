@@ -13,8 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::ensure_type;
-use crate::compiler::redfish::RedfishProperty;
+use crate::OneOrCollection;
 use crate::compiler::Compiled;
 use crate::compiler::Context;
 use crate::compiler::EntityType;
@@ -25,12 +24,12 @@ use crate::compiler::OData;
 use crate::compiler::QualifiedName;
 use crate::compiler::Stack;
 use crate::compiler::TypeClass;
-use crate::edmx::property::Property as EdmxProperty;
-use crate::edmx::property::PropertyAttrs;
+use crate::compiler::ensure_type;
+use crate::compiler::redfish::RedfishProperty;
 use crate::edmx::NavigationProperty as EdmxNavigationProperty;
 use crate::edmx::PropertyName;
-use crate::edmx::TypeName;
-use tagged_types::TaggedType;
+use crate::edmx::property::Property as EdmxProperty;
+use crate::edmx::property::PropertyAttrs;
 
 /// Combination of all compiled properties and navigation properties.
 #[derive(Default, Debug)]
@@ -63,7 +62,7 @@ impl<'a> Properties<'a> {
                                 .map_err(|e| Error::Property(&sp.name, e))?;
                         p.properties.push(Property {
                             name: &v.name,
-                            ptype: (typeclass, (&v.ptype).into()),
+                            ptype: v.ptype.as_ref().map(|t| (typeclass, t.into())),
                             odata: OData::new(MustHaveId::new(false), v),
                             redfish: RedfishProperty::new(v),
                         });
@@ -130,66 +129,33 @@ impl<'a> Properties<'a> {
             p.nav_properties
                 .push(NavProperty::Expandable(NavPropertyExpandable {
                     name: &v.name,
-                    ptype: match &v.ptype {
-                        TypeName::One(_) => PropertyType::One(ptype),
-                        TypeName::CollectionOf(_) => PropertyType::CollectionOf(ptype),
-                    },
+                    ptype: v.ptype.as_ref().map(|_| ptype),
                     odata: OData::new(MustHaveId::new(false), v),
                     redfish: RedfishProperty::new(v),
                 }));
             Ok(compiled)
         } else {
-            p.nav_properties.push(NavProperty::Reference(
-                &v.name,
-                IsCollection::new(matches!(v.ptype, TypeName::CollectionOf(_))),
-            ));
+            p.nav_properties
+                .push(NavProperty::Reference(v.ptype.as_ref().map(|_| &v.name)));
             Ok(Compiled::default())
         }
     }
 }
 
-#[derive(Debug, Clone, Copy)]
-pub enum PropertyType<'a> {
-    One(QualifiedName<'a>),
-    CollectionOf(QualifiedName<'a>),
-}
+pub type PropertyType<'a> = OneOrCollection<(TypeClass, QualifiedName<'a>)>;
 
 impl<'a> PropertyType<'a> {
     /// Qualified type name of the property.
     #[must_use]
     pub const fn name(&self) -> QualifiedName<'a> {
-        match self {
-            Self::One(name) | Self::CollectionOf(name) => *name,
-        }
-    }
-}
-
-impl<'a> PropertyType<'a> {
-    #[must_use]
-    pub fn map<F>(self, f: F) -> Self
-    where
-        F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
-    {
-        match self {
-            Self::One(v) => Self::One(f(v)),
-            Self::CollectionOf(v) => Self::CollectionOf(f(v)),
-        }
-    }
-}
-
-impl<'a> From<&'a TypeName> for PropertyType<'a> {
-    fn from(v: &'a TypeName) -> Self {
-        match v {
-            TypeName::One(v) => Self::One(v.into()),
-            TypeName::CollectionOf(v) => Self::CollectionOf(v.into()),
-        }
+        self.inner().1
     }
 }
 
 #[derive(Debug)]
 pub struct Property<'a> {
     pub name: &'a PropertyName,
-    pub ptype: (TypeClass, PropertyType<'a>),
+    pub ptype: PropertyType<'a>,
     pub odata: OData<'a>,
     pub redfish: RedfishProperty,
 }
@@ -199,15 +165,25 @@ impl<'a> MapType<'a> for Property<'a> {
     where
         F: FnOnce(QualifiedName<'a>) -> QualifiedName<'a>,
     {
-        self.ptype = (self.ptype.0, self.ptype.1.map(f));
+        self.ptype = self.ptype.map(|(typeclass, t)| (typeclass, f(t)));
         self
+    }
+}
+
+pub type NavPropertyType<'a> = OneOrCollection<QualifiedName<'a>>;
+
+impl<'a> NavPropertyType<'a> {
+    /// Qualified type name of the property.
+    #[must_use]
+    pub const fn name(&self) -> QualifiedName<'a> {
+        *self.inner()
     }
 }
 
 #[derive(Debug)]
 pub enum NavProperty<'a> {
     Expandable(NavPropertyExpandable<'a>),
-    Reference(&'a PropertyName, IsCollection),
+    Reference(OneOrCollection<&'a PropertyName>),
 }
 
 impl<'a> NavProperty<'a> {
@@ -216,23 +192,15 @@ impl<'a> NavProperty<'a> {
     pub const fn name(&'a self) -> &'a PropertyName {
         match self {
             Self::Expandable(v) => v.name,
-            Self::Reference(n, _) => n,
+            Self::Reference(n) => n.inner(),
         }
     }
 }
 
-/// Property is collection.
-pub type IsCollection = TaggedType<bool, IsCollectionTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[transparent(Debug)]
-#[capability(inner_access)]
-pub enum IsCollectionTag {}
-
 #[derive(Debug)]
 pub struct NavPropertyExpandable<'a> {
     pub name: &'a PropertyName,
-    pub ptype: PropertyType<'a>,
+    pub ptype: NavPropertyType<'a>,
     pub odata: OData<'a>,
     pub redfish: RedfishProperty,
 }

@@ -115,7 +115,7 @@ impl<'a> EntityType<'a> {
                 .find(|p| p.name().inner().inner() == "Members")
                 .and_then(|p| match p {
                     NavProperty::Expandable(v) => Some(v),
-                    NavProperty::Reference(_, _) => None,
+                    NavProperty::Reference(_) => None,
                 })
                 .map(|p| p.ptype.name())
         } else {

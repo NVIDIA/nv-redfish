@@ -13,9 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::OneOrCollection;
 use crate::compiler::Action;
 use crate::compiler::ActionsMap;
 use crate::compiler::NavProperty;
+use crate::compiler::NavPropertyType;
 use crate::compiler::OData;
 use crate::compiler::Parameter;
 use crate::compiler::ParameterType;
@@ -210,7 +212,7 @@ impl<'a> StructDef<'a> {
                 #[serde(rename=#rename)]
             });
 
-            let (class, ptype @ (PropertyType::One(v) | PropertyType::CollectionOf(v))) = &p.ptype;
+            let (class, v) = &p.ptype.inner();
             let mut full_type_name_tokens = TokenStream::new();
             if *class == TypeClass::ComplexType {
                 FullTypeName::new(*v, config)
@@ -219,11 +221,11 @@ impl<'a> StructDef<'a> {
             } else {
                 FullTypeName::new(*v, config).to_tokens(&mut full_type_name_tokens);
             }
-            match ptype {
+            match p.ptype {
                 PropertyType::One(_) => content.extend(quote! {
                     pub #name: Option<#full_type_name_tokens>,
                 }),
-                PropertyType::CollectionOf(_) => content.extend(quote! {
+                PropertyType::Collection(_) => content.extend(quote! {
                     pub #name: Vec<#full_type_name_tokens>,
                 }),
             }
@@ -247,7 +249,7 @@ impl<'a> StructDef<'a> {
 
             let rename = Literal::string(p.name.inner().inner());
             let name = StructFieldName::new_property(p.name);
-            let (class, ptype @ (PropertyType::One(v) | PropertyType::CollectionOf(v))) = &p.ptype;
+            let (class, v) = &p.ptype.inner();
 
             let mut full_type_name_tokens = TokenStream::new();
             if *class == TypeClass::ComplexType {
@@ -260,20 +262,20 @@ impl<'a> StructDef<'a> {
 
             content.extend(quote! { #[serde(rename=#rename)] });
             if p.redfish.is_required_on_create.into_inner() {
-                match ptype {
+                match p.ptype {
                     PropertyType::One(_) => {
                         content.extend(quote! { pub #name: #full_type_name_tokens, });
                     }
-                    PropertyType::CollectionOf(_) => {
+                    PropertyType::Collection(_) => {
                         content.extend(quote! { pub #name: Vec<#full_type_name_tokens>, });
                     }
                 }
             } else {
-                match ptype {
+                match p.ptype {
                     PropertyType::One(_) => {
                         content.extend(quote! { pub #name: Option<#full_type_name_tokens>, });
                     }
-                    PropertyType::CollectionOf(_) => {
+                    PropertyType::Collection(_) => {
                         content.extend(quote! { pub #name: Vec<#full_type_name_tokens>, });
                     }
                 }
@@ -309,8 +311,8 @@ impl<'a> StructDef<'a> {
         content.extend(doc_format_and_generate(p.name, &p.odata));
         let name = StructFieldName::new_property(p.name);
         let rename = Literal::string(p.name.inner().inner());
-        let ptype = FullTypeName::new(p.ptype.1.name(), config);
-        match p.ptype.1 {
+        let ptype = FullTypeName::new(p.ptype.name(), config);
+        match p.ptype {
             PropertyType::One(_) => {
                 content.extend(quote! { #[serde(rename=#rename)] });
                 if p.redfish.is_required.into_inner() {
@@ -319,7 +321,7 @@ impl<'a> StructDef<'a> {
                     content.extend(quote! { pub #name: Option<#ptype>, });
                 }
             }
-            PropertyType::CollectionOf(_) => {
+            PropertyType::Collection(_) => {
                 if p.redfish.is_required.into_inner() {
                     content.extend(quote! { #[serde(rename=#rename)] });
                 } else {
@@ -341,7 +343,7 @@ impl<'a> StructDef<'a> {
                 let name = StructFieldName::new_property(p.name);
                 let ptype = FullTypeName::new(p.ptype.name(), config);
                 match p.ptype {
-                    PropertyType::One(_) => {
+                    NavPropertyType::One(_) => {
                         content.extend(quote! { #[serde(rename=#rename)] });
                         if p.redfish.is_required.into_inner() {
                             content.extend(quote! { pub #name: NavProperty<#ptype>, });
@@ -349,7 +351,7 @@ impl<'a> StructDef<'a> {
                             content.extend(quote! { pub #name: Option<NavProperty<#ptype>>, });
                         }
                     }
-                    PropertyType::CollectionOf(_) => {
+                    NavPropertyType::Collection(_) => {
                         if p.redfish.is_required.into_inner() {
                             content.extend(quote! { #[serde(rename=#rename)] });
                         } else {
@@ -359,21 +361,23 @@ impl<'a> StructDef<'a> {
                     }
                 }
             }
-            NavProperty::Reference(name, is_collection) => {
+            NavProperty::Reference(OneOrCollection::One(name)) => {
                 let top = &config.top_module_alias;
                 let rename = Literal::string(name.inner().inner());
                 let name = StructFieldName::new_property(name);
-                if *is_collection.inner() {
-                    content.extend(quote! {
-                        #[serde(rename=#rename, default)]
-                        pub #name: Vec<#top::Reference>,
-                    });
-                } else {
-                    content.extend(quote! {
-                        #[serde(rename=#rename, default)]
-                        pub #name: Option<#top::Reference>,
-                    });
-                }
+                content.extend(quote! {
+                    #[serde(rename=#rename, default)]
+                    pub #name: Option<#top::Reference>,
+                });
+            }
+            NavProperty::Reference(OneOrCollection::Collection(name)) => {
+                let top = &config.top_module_alias;
+                let rename = Literal::string(name.inner().inner());
+                let name = StructFieldName::new_property(name);
+                content.extend(quote! {
+                    #[serde(rename=#rename, default)]
+                    pub #name: Vec<#top::Reference>,
+                });
             }
         }
     }
@@ -383,10 +387,9 @@ impl<'a> StructDef<'a> {
         let rename = Literal::string(p.name.inner().inner());
         let name = StructFieldName::new_parameter(p.name);
         match p.ptype {
-            ParameterType::Type {
-                ptype: ptype @ (PropertyType::One(v) | PropertyType::CollectionOf(v)),
-                class,
-            } => {
+            ParameterType::Type(
+                ptype @ (PropertyType::One((class, v)) | PropertyType::Collection((class, v))),
+            ) => {
                 let mut base_type = TokenStream::new();
                 if class == TypeClass::ComplexType {
                     FullTypeName::new(v, config)
@@ -409,7 +412,7 @@ impl<'a> StructDef<'a> {
                             });
                         }
                     }
-                    PropertyType::CollectionOf(_) => {
+                    PropertyType::Collection(_) => {
                         if *p.is_nullable.inner() {
                             content.extend(quote! {
                                 #[serde(rename=#rename)]
@@ -424,12 +427,12 @@ impl<'a> StructDef<'a> {
                     }
                 }
             }
-            ParameterType::Entity(PropertyType::One(_)) => {
+            ParameterType::Entity(NavPropertyType::One(_)) => {
                 let top = &config.top_module_alias;
                 content.extend(quote! { #[serde(rename=#rename)] });
                 content.extend(quote! { pub #name: Option<#top::Reference>, });
             }
-            ParameterType::Entity(PropertyType::CollectionOf(_)) => {
+            ParameterType::Entity(NavPropertyType::Collection(_)) => {
                 let top = &config.top_module_alias;
                 content.extend(quote! { #[serde(rename=#rename, default)] });
                 content.extend(quote! { pub #name: Vec<#top::Reference>, });
@@ -444,10 +447,10 @@ impl<'a> StructDef<'a> {
         let typename = TypeName::new_action(a.binding_name, a.name);
         let mut ret_type = TokenStream::new();
         match a.return_type {
-            Some(PropertyType::One(v)) => {
+            Some(OneOrCollection::One(v)) => {
                 FullTypeName::new(v, config).to_tokens(&mut ret_type);
             }
-            Some(PropertyType::CollectionOf(v)) => {
+            Some(OneOrCollection::Collection(v)) => {
                 let mut typename = TokenStream::new();
                 FullTypeName::new(v, config).to_tokens(&mut typename);
                 ret_type.extend(quote! { Vec<#typename> });
@@ -493,10 +496,10 @@ impl<'a> StructDef<'a> {
         let typename = TypeName::new_action(a.binding_name, a.name);
         let mut ret_type = TokenStream::new();
         match a.return_type {
-            Some(PropertyType::One(v)) => {
+            Some(OneOrCollection::One(v)) => {
                 FullTypeName::new(v, config).to_tokens(&mut ret_type);
             }
-            Some(PropertyType::CollectionOf(v)) => {
+            Some(OneOrCollection::Collection(v)) => {
                 let mut typename = TokenStream::new();
                 FullTypeName::new(v, config).to_tokens(&mut typename);
                 ret_type.extend(quote! { Vec<#typename> });
@@ -511,10 +514,10 @@ impl<'a> StructDef<'a> {
                 let name = StructFieldName::new_parameter(p.name);
                 params.extend(quote! { #name, });
                 match p.ptype {
-                    ParameterType::Type {
-                        ptype: ptype @ (PropertyType::One(v) | PropertyType::CollectionOf(v)),
-                        class,
-                    } => {
+                    ParameterType::Type(
+                        ptype @ (PropertyType::One((class, v))
+                        | PropertyType::Collection((class, v))),
+                    ) => {
                         let mut base_type = TokenStream::new();
                         if class == TypeClass::ComplexType {
                             FullTypeName::new(v, config)
@@ -531,15 +534,15 @@ impl<'a> StructDef<'a> {
                                     arglist.extend(quote! {, #name: Option<#base_type> });
                                 }
                             }
-                            PropertyType::CollectionOf(_) => {
+                            PropertyType::Collection(_) => {
                                 arglist.extend(quote! {, #name: Vec<#base_type> });
                             }
                         }
                     }
-                    ParameterType::Entity(PropertyType::One(_)) => {
+                    ParameterType::Entity(NavPropertyType::One(_)) => {
                         arglist.extend(quote! {, #name: Option<#top::Reference> });
                     }
-                    ParameterType::Entity(PropertyType::CollectionOf(_)) => {
+                    ParameterType::Entity(NavPropertyType::Collection(_)) => {
                         arglist.extend(quote! {, #name: Vec<#top::Reference> });
                     }
                 }

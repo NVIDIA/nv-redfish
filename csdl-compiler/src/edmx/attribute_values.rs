@@ -15,6 +15,7 @@
 
 //! Types defined in 17 Attribute Values
 
+use crate::OneOrCollection;
 use crate::edmx::QualifiedTypeName;
 use serde::de::Error as DeError;
 use serde::de::Visitor;
@@ -210,18 +211,12 @@ impl<'de> Deserialize<'de> for QualifiedName {
 }
 
 /// 17.4 `TypeName`
-#[derive(Debug, PartialEq, Eq)]
-pub enum TypeName {
-    One(QualifiedTypeName),
-    CollectionOf(QualifiedTypeName),
-}
+pub type TypeName = OneOrCollection<QualifiedTypeName>;
 
 impl TypeName {
     #[must_use]
     pub const fn qualified_type_name(&self) -> &QualifiedTypeName {
-        match self {
-            Self::One(v) | Self::CollectionOf(v) => v,
-        }
+        self.inner()
     }
 }
 
@@ -232,7 +227,7 @@ impl FromStr for TypeName {
         const COLLECTION_SUFFIX: &str = ")";
         if s.starts_with(COLLECTION_PREFIX) && s.ends_with(COLLECTION_SUFFIX) {
             let qtype = s[COLLECTION_PREFIX.len()..s.len() - COLLECTION_SUFFIX.len()].parse()?;
-            Ok(Self::CollectionOf(qtype))
+            Ok(Self::Collection(qtype))
         } else {
             Ok(Self::One(s.parse()?))
         }
@@ -494,7 +489,7 @@ mod tests {
             );
 
             assert!(
-                matches!(tn.unwrap(), TypeName::CollectionOf(_)),
+                matches!(tn.unwrap(), TypeName::Collection(_)),
                 "Collection TypeName parsed as simple: {}",
                 case
             );
@@ -536,7 +531,7 @@ mod tests {
             json_from_str(collection_json).expect("Should deserialize valid Collection TypeName");
 
         assert!(
-            matches!(collection, TypeName::CollectionOf(_)),
+            matches!(collection, TypeName::Collection(_)),
             "Collection TypeName deserialized as simple"
         );
     }

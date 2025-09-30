@@ -94,6 +94,8 @@ pub use properties::NavProperty;
 #[doc(inline)]
 pub use properties::NavPropertyExpandable;
 #[doc(inline)]
+pub use properties::NavPropertyType;
+#[doc(inline)]
 pub use properties::Properties;
 #[doc(inline)]
 pub use properties::Property;
@@ -112,6 +114,7 @@ pub use traits::MapType;
 #[doc(inline)]
 pub use traits::PropertiesManipulation;
 
+use crate::OneOrCollection;
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::Action as EdmxAction;
 use crate::edmx::ActionName;
@@ -362,7 +365,7 @@ impl SchemaBundle {
                 || Ok((Compiled::default(), None)),
                 |rt| {
                     ensure_type(rt.rtype.qualified_type_name().into(), ctx, &stack)
-                        .map(|(compiled, _)| (compiled, Some((&rt.rtype).into())))
+                        .map(|(compiled, _)| (compiled, Some(rt.rtype.as_ref().map(Into::into))))
                 },
             )
             .map_err(Box::new)
@@ -381,26 +384,26 @@ impl SchemaBundle {
                 let (compiled, ptype) = if is_simple_type(qtype_name) {
                     Ok((
                         Compiled::default(),
-                        ParameterType::Type {
-                            class: TypeClass::SimpleType,
-                            ptype: (&p.ptype).into(),
-                        },
+                        ParameterType::Type(
+                            p.ptype.as_ref().map(|v| (TypeClass::SimpleType, v.into())),
+                        ),
                     ))
                 } else if ctx.schema_index.find_type(qtype_name).is_some() {
                     ensure_type(p.ptype.qualified_type_name().into(), ctx, &cstack).map(
                         |(compiled, class)| {
                             (
                                 compiled,
-                                ParameterType::Type {
-                                    class,
-                                    ptype: (&p.ptype).into(),
-                                },
+                                ParameterType::Type(p.ptype.as_ref().map(|v| (class, v.into()))),
                             )
                         },
                     )
                 } else {
-                    EntityType::ensure(qtype_name, ctx, &cstack)
-                        .map(|compiled| (compiled, ParameterType::Entity((&p.ptype).into())))
+                    EntityType::ensure(qtype_name, ctx, &cstack).map(|compiled| {
+                        (
+                            compiled,
+                            ParameterType::Entity(p.ptype.as_ref().map(Into::into)),
+                        )
+                    })
                 }
                 .map_err(Box::new)
                 .map_err(|e| Error::ActionParameter(&p.name, e))?;
@@ -533,11 +536,8 @@ pub struct Parameter<'a> {
 /// maybe not exact and may be change in future.
 #[derive(Debug, Clone, Copy)]
 pub enum ParameterType<'a> {
-    Entity(PropertyType<'a>),
-    Type {
-        class: TypeClass,
-        ptype: PropertyType<'a>,
-    },
+    Entity(NavPropertyType<'a>),
+    Type(PropertyType<'a>),
 }
 
 impl<'a> ParameterType<'a> {
@@ -547,10 +547,7 @@ impl<'a> ParameterType<'a> {
     {
         match self {
             Self::Entity(v) => Self::Entity(v.map(f)),
-            Self::Type { class, ptype } => Self::Type {
-                class,
-                ptype: ptype.map(f),
-            },
+            Self::Type(v) => Self::Type(v.map(|(typeclass, ptype)| (typeclass, f(ptype)))),
         }
     }
 }
@@ -578,10 +575,8 @@ pub struct Action<'a> {
     pub binding_name: &'a ParameterName,
     /// Name of the parameter.
     pub name: &'a ActionName,
-    /// Type of the return value. Note we reuse
-    /// `PropertyType`, it maybe not exact and may be change
-    /// in future.
-    pub return_type: Option<PropertyType<'a>>,
+    /// Type of the return value.
+    pub return_type: Option<OneOrCollection<QualifiedName<'a>>>,
     /// Type of the parameter. Note we reuse `PropertyType`, it
     /// maybe not exact and may be change in future.
     pub parameters: Vec<Parameter<'a>>,
