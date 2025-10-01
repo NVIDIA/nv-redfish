@@ -622,7 +622,6 @@ async fn main() -> Result<(), Error> {
     let update = ContosoTurboencabulatorServiceUpdate {
         turboencabulator_mode: Some(TurboencabulatorMode::Turbo),
         service_enabled: None,
-        status: None,
     };
     turboencabulator_service.update(&bmc, &update).await?;
 

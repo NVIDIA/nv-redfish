@@ -15,6 +15,7 @@
 
 use crate::compiler::Compiled;
 use crate::compiler::QualifiedName;
+use crate::compiler::TypeInfo;
 
 /// Compilation stack. Creates every time when we go inside recursion
 /// to compile inner type.
@@ -66,9 +67,12 @@ impl<'a, 'stack> Stack<'a, 'stack> {
 
     /// Check that complex type has been compiled.
     #[must_use]
-    pub fn contains_complex_type(&self, qtype: QualifiedName<'a>) -> bool {
-        self.current.complex_types.contains_key(&qtype)
-            || self.parent.is_some_and(|p| p.contains_complex_type(qtype))
+    pub fn complex_type_info(&self, qtype: QualifiedName<'a>) -> Option<TypeInfo> {
+        self.current
+            .complex_types
+            .get(&qtype)
+            .map(|v| TypeInfo::complex_type(v))
+            .or_else(|| self.parent.and_then(|p| p.complex_type_info(qtype)))
     }
 
     /// Check that type definition has been compiled.

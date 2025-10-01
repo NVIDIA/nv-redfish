@@ -28,6 +28,7 @@ use crate::generator::rust::StructDef;
 use crate::generator::rust::TypeDef;
 use crate::generator::rust::TypeName;
 use crate::generator::rust::struct_def::GenerateType;
+use crate::odata::annotations::Permissions;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -105,10 +106,14 @@ impl<'a> ModDef<'a> {
             } else {
                 builder
             };
+            let builder = if ct.odata.permissions.is_none_or(|v| v != Permissions::Read) {
+                builder.with_generate_type(vec![GenerateType::Read, GenerateType::Update])
+            } else {
+                builder.with_generate_type(vec![GenerateType::Read])
+            };
             let struct_def = builder
                 .with_properties(ct.properties)
                 .with_actions(actions)
-                .with_generate_type(vec![GenerateType::Read, GenerateType::Update])
                 .build(config)?;
             self.add_struct_def(struct_def)
                 .map_err(Box::new)

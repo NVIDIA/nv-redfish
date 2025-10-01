@@ -15,6 +15,7 @@
 
 use crate::OneOrCollection;
 use crate::compiler::Compiled;
+use crate::compiler::ComplexType;
 use crate::compiler::Context;
 use crate::compiler::EntityType;
 use crate::compiler::Error;
@@ -30,6 +31,7 @@ use crate::edmx::NavigationProperty as EdmxNavigationProperty;
 use crate::edmx::PropertyName;
 use crate::edmx::property::Property as EdmxProperty;
 use crate::edmx::property::PropertyAttrs;
+use crate::odata::annotations::Permissions;
 
 /// Combination of all compiled properties and navigation properties.
 #[derive(Default, Debug)]
@@ -56,13 +58,13 @@ impl<'a> Properties<'a> {
             .try_fold((stack, Properties::default()), |(stack, mut p), sp| {
                 let stack = match &sp.attrs {
                     PropertyAttrs::StructuralProperty(v) => {
-                        let (compiled, typeclass) =
+                        let (compiled, typeinfo) =
                             ensure_type(v.ptype.qualified_type_name().into(), ctx, &stack)
                                 .map_err(Box::new)
                                 .map_err(|e| Error::Property(&sp.name, e))?;
                         p.properties.push(Property {
                             name: &v.name,
-                            ptype: v.ptype.as_ref().map(|t| (typeclass, t.into())),
+                            ptype: v.ptype.as_ref().map(|t| (typeinfo, t.into())),
                             odata: OData::new(MustHaveId::new(false), v),
                             redfish: RedfishProperty::new(v),
                         });
@@ -142,7 +144,56 @@ impl<'a> Properties<'a> {
     }
 }
 
-pub type PropertyType<'a> = OneOrCollection<(TypeClass, QualifiedName<'a>)>;
+/// Additional info about type that is used for properties.
+#[derive(Clone, Copy, Debug)]
+pub struct TypeInfo {
+    /// Class of the type.
+    pub class: TypeClass,
+    /// Permissions associated with type.
+    ///
+    /// In Redfish Permissions on the type level is only used for two
+    /// complex types (`Status` and `Condition`) in Resource namespace
+    /// but this is important to support because this is in the base
+    /// class of all Redfish resources.
+    pub permissions: Option<Permissions>,
+}
+
+impl TypeInfo {
+    /// Create simple type info.
+    #[must_use]
+    pub const fn simple_type() -> Self {
+        Self {
+            class: TypeClass::SimpleType,
+            permissions: None,
+        }
+    }
+    /// Create enum type info.
+    #[must_use]
+    pub const fn enum_type() -> Self {
+        Self {
+            class: TypeClass::EnumType,
+            permissions: None,
+        }
+    }
+    /// Create type definition info.
+    #[must_use]
+    pub const fn type_definition() -> Self {
+        Self {
+            class: TypeClass::TypeDefinition,
+            permissions: None,
+        }
+    }
+    /// Complex type info.
+    #[must_use]
+    pub const fn complex_type(ct: &ComplexType) -> Self {
+        Self {
+            class: TypeClass::ComplexType,
+            permissions: ct.odata.permissions,
+        }
+    }
+}
+
+pub type PropertyType<'a> = OneOrCollection<(TypeInfo, QualifiedName<'a>)>;
 
 impl<'a> PropertyType<'a> {
     /// Qualified type name of the property.

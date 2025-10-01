@@ -31,6 +31,7 @@ use crate::generator::rust::FullTypeName;
 use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::odata::annotations::Permissions;
 use proc_macro2::Ident;
 use proc_macro2::Literal;
 use proc_macro2::Span;
@@ -229,9 +230,11 @@ impl<'a> StructDef<'a> {
 
     fn generate_update(&self, tokens: &mut TokenStream, config: &Config) {
         let properties = self.properties.properties.iter().filter_map(|p| {
-            if p.odata.permissions_is_write() {
-                let (class, v) = &p.ptype.inner();
-                let full_type = FullTypeName::new(*v, config).for_update(Some(*class));
+            let (typeinfo, v) = &p.ptype.inner();
+            if p.odata.permissions_is_write()
+                && typeinfo.permissions.is_none_or(|p| p != Permissions::Read)
+            {
+                let full_type = FullTypeName::new(*v, config).for_update(Some(typeinfo.class));
                 let prop_type = match p.ptype {
                     PropertyType::One(_) => quote! { Option<#full_type> },
                     PropertyType::Collection(_) => quote! { Option<Vec<#full_type>> },
@@ -260,9 +263,11 @@ impl<'a> StructDef<'a> {
 
     fn generate_create(&self, tokens: &mut TokenStream, config: &Config) {
         let properties = self.properties.properties.iter().filter_map(|p| {
-            if p.odata.permissions_is_write() {
-                let (class, v) = &p.ptype.inner();
-                let full_type = FullTypeName::new(*v, config).for_update(Some(*class));
+            let (typeinfo, v) = &p.ptype.inner();
+            if p.odata.permissions_is_write()
+                && typeinfo.permissions.is_none_or(|p| p != Permissions::Read)
+            {
+                let full_type = FullTypeName::new(*v, config).for_update(Some(typeinfo.class));
                 let (serde_opt, prop_type) = match p.ptype {
                     PropertyType::One(_) => {
                         if p.redfish.is_required_on_create.into_inner() {
@@ -426,9 +431,10 @@ impl<'a> StructDef<'a> {
         let name = StructFieldName::new_parameter(p.name);
         let (serde, ptype) = match p.ptype {
             ParameterType::Type(
-                ptype @ (PropertyType::One((class, v)) | PropertyType::Collection((class, v))),
+                ptype
+                @ (PropertyType::One((typeinfo, v)) | PropertyType::Collection((typeinfo, v))),
             ) => {
-                let full_type = FullTypeName::new(v, config).for_update(Some(class));
+                let full_type = FullTypeName::new(v, config).for_update(Some(typeinfo.class));
                 let optional = Some(*p.is_nullable.inner());
                 Self::gen_de_struct_field(&ptype, full_type, rename, optional)
             }
@@ -513,10 +519,11 @@ impl<'a> StructDef<'a> {
                 params.extend(quote! { #name, });
                 let argtype = match p.ptype {
                     ParameterType::Type(
-                        ptype @ (PropertyType::One((class, v))
-                        | PropertyType::Collection((class, v))),
+                        ptype @ (PropertyType::One((typeinfo, v))
+                        | PropertyType::Collection((typeinfo, v))),
                     ) => {
-                        let full_type = FullTypeName::new(v, config).for_update(Some(class));
+                        let full_type =
+                            FullTypeName::new(v, config).for_update(Some(typeinfo.class));
                         Self::gen_de_struct_field_type(
                             &ptype,
                             full_type,

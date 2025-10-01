@@ -102,6 +102,8 @@ pub use properties::Property;
 #[doc(inline)]
 pub use properties::PropertyType;
 #[doc(inline)]
+pub use properties::TypeInfo;
+#[doc(inline)]
 pub use qualified_name::QualifiedName;
 #[doc(inline)]
 pub use type_definition::TypeDefinition;
@@ -353,7 +355,7 @@ impl SchemaBundle {
         // will not have node to attach this action. Note: This may
         // not be correct for common CSDL schema but Redfish always
         // points to ComplexType (Actions).
-        if !stack.contains_complex_type(binding) {
+        if stack.complex_type_info(binding).is_none() {
             return Ok(Compiled::default());
         }
         let stack = stack.new_frame();
@@ -385,7 +387,9 @@ impl SchemaBundle {
                     Ok((
                         Compiled::default(),
                         ParameterType::Type(
-                            p.ptype.as_ref().map(|v| (TypeClass::SimpleType, v.into())),
+                            p.ptype
+                                .as_ref()
+                                .map(|v| (TypeInfo::simple_type(), v.into())),
                         ),
                     ))
                 } else if ctx.schema_index.find_type(qtype_name).is_some() {
@@ -436,15 +440,15 @@ fn ensure_type<'a>(
     qtype: QualifiedName<'a>,
     ctx: &Context<'a>,
     stack: &Stack<'a, '_>,
-) -> Result<(Compiled<'a>, TypeClass), Error<'a>> {
+) -> Result<(Compiled<'a>, TypeInfo), Error<'a>> {
     if is_simple_type(qtype) {
-        Ok((Compiled::default(), TypeClass::SimpleType))
-    } else if stack.contains_complex_type(qtype) {
-        Ok((Compiled::default(), TypeClass::ComplexType))
+        Ok((Compiled::default(), TypeInfo::simple_type()))
+    } else if let Some(info) = stack.complex_type_info(qtype) {
+        Ok((Compiled::default(), info))
     } else if stack.contains_type_definition(qtype) {
-        Ok((Compiled::default(), TypeClass::TypeDefinition))
+        Ok((Compiled::default(), TypeInfo::type_definition()))
     } else if stack.contains_enum_type(qtype) {
-        Ok((Compiled::default(), TypeClass::EnumType))
+        Ok((Compiled::default(), TypeInfo::enum_type()))
     } else {
         compile_type(qtype, ctx, stack)
     }
@@ -454,7 +458,7 @@ fn compile_type<'a>(
     qtype: QualifiedName<'a>,
     ctx: &Context<'a>,
     stack: &Stack<'a, '_>,
-) -> Result<(Compiled<'a>, TypeClass), Error<'a>> {
+) -> Result<(Compiled<'a>, TypeInfo), Error<'a>> {
     ctx.schema_index
         .find_type(qtype)
         .ok_or(Error::TypeNotFound(qtype))
@@ -467,7 +471,7 @@ fn compile_type<'a>(
                             name: qtype,
                             underlying_type,
                         }),
-                        TypeClass::TypeDefinition,
+                        TypeInfo::type_definition(),
                     ))
                 } else {
                     Err(Error::TypeDefinitionOfNotPrimitiveType(underlying_type))
@@ -482,7 +486,7 @@ fn compile_type<'a>(
                         members: et.members.iter().map(Into::into).collect(),
                         odata: OData::new(MustHaveId::new(false), et),
                     }),
-                    TypeClass::EnumType,
+                    TypeInfo::enum_type(),
                 ))
             }
             Type::ComplexType(ct) => {
@@ -500,17 +504,19 @@ fn compile_type<'a>(
                 let (compiled, properties) =
                     Properties::compile(&ct.properties, ctx, stack.new_frame())?;
 
+                let complex_type = ComplexType {
+                    name,
+                    base,
+                    properties,
+                    odata: OData::new(MustHaveId::new(false), ct),
+                };
+                let typeinfo = TypeInfo::complex_type(&complex_type);
                 Ok((
                     stack
                         .merge(compiled)
-                        .merge(Compiled::new_complex_type(ComplexType {
-                            name,
-                            base,
-                            properties,
-                            odata: OData::new(MustHaveId::new(false), ct),
-                        }))
+                        .merge(Compiled::new_complex_type(complex_type))
                         .done(),
-                    TypeClass::ComplexType,
+                    typeinfo,
                 ))
             }
         })
