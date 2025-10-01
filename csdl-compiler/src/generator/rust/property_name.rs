@@ -59,8 +59,8 @@ impl ToTokens for StructFieldName<'_> {
 impl Display for StructFieldName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            Self::Property(v) => f.write_str(&casemungler::camel_to_snake(v.inner())),
-            Self::Parameter(v) => f.write_str(&casemungler::camel_to_snake(v.inner())),
+            Self::Property(v) => f.write_str(&casemungler::to_snake(v.inner())),
+            Self::Parameter(v) => f.write_str(&casemungler::to_snake(v.inner())),
         }
     }
 }

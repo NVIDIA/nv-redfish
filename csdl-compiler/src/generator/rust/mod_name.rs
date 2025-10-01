@@ -46,7 +46,7 @@ impl ToTokens for ModName<'_> {
 
 impl Display for ModName<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        f.write_str(&casemungler::camel_to_snake(self.0.inner()))
+        f.write_str(&casemungler::to_snake(self.0.inner()))
     }
 }
 
