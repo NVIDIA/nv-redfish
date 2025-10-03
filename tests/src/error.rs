@@ -13,26 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish-related attributes needed to generate code.
+//! Errors for tests
 
-use crate::IsRequired;
-use crate::IsRequiredOnCreate;
-use crate::redfish::annotations::RedfishPropertyAnnotations;
+use crate::bmc::Error as BmcError;
 
-/// Redfish property attributes attached to different compiled enities.
 #[derive(Debug)]
-pub struct RedfishProperty {
-    pub is_required: IsRequired,
-    pub is_required_on_create: IsRequiredOnCreate,
-}
-
-impl RedfishProperty {
-    /// Create new instance from reference to object that implements
-    /// annotations.
-    pub fn new(src: &impl RedfishPropertyAnnotations) -> Self {
-        Self {
-            is_required: src.is_required(),
-            is_required_on_create: src.is_required_on_create(),
-        }
-    }
+pub enum Error {
+    Bmc(BmcError),
+    ExpectedProperty(&'static str),
 }

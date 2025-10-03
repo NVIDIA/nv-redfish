@@ -13,26 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish-related attributes needed to generate code.
+use serde::Deserialize;
+use serde::Deserializer;
 
-use crate::IsRequired;
-use crate::IsRequiredOnCreate;
-use crate::redfish::annotations::RedfishPropertyAnnotations;
-
-/// Redfish property attributes attached to different compiled enities.
-#[derive(Debug)]
-pub struct RedfishProperty {
-    pub is_required: IsRequired,
-    pub is_required_on_create: IsRequiredOnCreate,
+/// Deserialize optional nullable field. nv-redfish models these field
+/// with `Option<Option<T>>`. Where `None` means "no field",
+/// `Some(None)` means field set to null.
+pub fn de_optional_nullable<'de, D, T>(de: D) -> Result<Option<Option<T>>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Deserialize::deserialize(de).map(Some)
 }
 
-impl RedfishProperty {
-    /// Create new instance from reference to object that implements
-    /// annotations.
-    pub fn new(src: &impl RedfishPropertyAnnotations) -> Self {
-        Self {
-            is_required: src.is_required(),
-            is_required_on_create: src.is_required_on_create(),
-        }
-    }
+/// Deserialize required nullable field. nv-redfish model these fields
+/// with `Option<T>`. Where `None` means null.
+pub fn de_required_nullable<'de, D, T>(de: D) -> Result<Option<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Deserialize::deserialize(de)
 }

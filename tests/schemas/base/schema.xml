@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Resource">
+      <EntityType Name="Resource" Abstract="true"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="ServiceRoot">
+      <EntityType Name="ServiceRoot" BaseType="Resource.Resource" Abstract="true"/>
+    </Schema>
+
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="ServiceRoot.v1_0_0">
+
+      <EntityType Name="ServiceRoot" BaseType="ServiceRoot.ServiceRoot">
+        <Property Name="RedfishVersion" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This is version of Redfish for testing purpose."/>
+          <Annotation Term="OData.LongDescription" String="This is long description of Redfish version."/>
+          <Annotation Term="Validation.Pattern" String="^\d+\.\d+\.\d+$"/>
+        </Property>
+        <Property Name="OptionalNullable" Type="Edm.String" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+
+        <NavigationProperty Name="TestRequiredService" Nullable="false" Type="ServiceRoot.v1_0_0.TestRequiredService">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+
+        <NavigationProperty Name="TestRequiredNullableService" Nullable="false" Type="ServiceRoot.v1_0_0.TestRequiredNullableService">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+
+        <NavigationProperty Name="TestRequiredCollectionService" Nullable="false" Type="ServiceRoot.v1_0_0.TestRequiredCollectionService">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+      </EntityType>
+
+      <EntityType Name="TestRequiredService">
+        <Property Name="Required" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </EntityType>
+
+      <EntityType Name="TestRequiredNullableService">
+        <Property Name="RequiredNullable" Type="Edm.String" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </EntityType>
+
+      <EntityType Name="TestRequiredCollectionService">
+        <Property Name="RequiredCollection" Type="Collection(Edm.String)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </EntityType>
+
+      <EntityContainer Name="ServiceContainer">
+        <Singleton Name="Service" Type="ServiceRoot.ServiceRoot"/>
+      </EntityContainer>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -101,6 +101,8 @@ pub use schema::Type;
 #[doc(inline)]
 pub use validate_error::ValidateError;
 
+use crate::IsNullable;
+
 /// Qualified type name is type name rogether with the namespace.
 pub type QualifiedTypeName = TaggedType<QualifiedName, QualifiedTypeNameTag>;
 #[doc(hidden)]
@@ -147,14 +149,6 @@ pub type ParameterName = TaggedType<SimpleIdentifier, ParameterNameTag>;
 #[transparent(Debug, Display, Deserialize)]
 #[capability(inner_access)]
 pub enum ParameterNameTag {}
-
-pub type IsNullable = TaggedType<bool, IsNullableTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Copy, Clone)]
-#[transparent(Debug, Deserialize)]
-#[capability(inner_access)]
-pub enum IsNullableTag {}
 
 /// Flag for Action that says that action is bound to the specific
 /// type. First paramer of such Action defines binding.

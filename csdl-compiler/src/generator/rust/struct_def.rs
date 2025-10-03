@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::IsNullable;
+use crate::IsRequired;
 use crate::OneOrCollection;
 use crate::compiler::Action;
 use crate::compiler::ActionsMap;
@@ -202,6 +204,8 @@ impl<'a> StructDef<'a> {
                             pub #odata_id: ODataId,
                             #[serde(rename="@odata.etag")]
                             pub #odata_etag: Option<ODataETag>,
+                            #[serde(rename="@odata.type")]
+                            pub odata_type: String,
                         },
                         ImplOdataType::Root,
                     )
@@ -337,7 +341,8 @@ impl<'a> StructDef<'a> {
             &p.ptype,
             FullTypeName::new(p.ptype.name(), config),
             Literal::string(p.name.inner().inner()),
-            Some(!p.redfish.is_required.into_inner()),
+            p.nullable,
+            p.redfish.is_required,
         );
         let name = StructFieldName::new_property(p.name);
         quote! {
@@ -351,28 +356,28 @@ impl<'a> StructDef<'a> {
         cardinality: &OneOrCollection<T>,
         ftype: impl ToTokens,
         rename: impl ToTokens,
-        optional: Option<bool>,
+        nullable: IsNullable,
+        required: IsRequired,
     ) -> (TokenStream, TokenStream) {
         (
-            Self::gen_de_struct_field_serde_annot(cardinality, rename, optional),
-            Self::gen_de_struct_field_type(cardinality, ftype, optional),
+            Self::gen_de_struct_field_serde_annot(rename, nullable, required),
+            Self::gen_de_struct_field_type(cardinality, ftype, nullable, required),
         )
     }
 
-    fn gen_de_struct_field_serde_annot<T>(
-        cardinality: &OneOrCollection<T>,
+    fn gen_de_struct_field_serde_annot(
         rename: impl ToTokens,
-        optional: Option<bool>,
+        nullable: IsNullable,
+        required: IsRequired,
     ) -> TokenStream {
-        match cardinality {
-            OneOrCollection::One(_) => quote! { #[serde(rename=#rename)] },
-            OneOrCollection::Collection(_) => {
-                if optional.is_none_or(|v| v) {
-                    quote! { #[serde(rename=#rename, default)] }
-                } else {
-                    quote! { #[serde(rename=#rename)] }
-                }
-            }
+        if required.into_inner() && nullable.into_inner() {
+            quote! { #[serde(rename=#rename, deserialize_with="de_required_nullable")] }
+        } else if required.into_inner() {
+            quote! { #[serde(rename=#rename)] }
+        } else if nullable.into_inner() {
+            quote! { #[serde(rename=#rename, default, deserialize_with="de_optional_nullable")] }
+        } else {
+            quote! { #[serde(rename=#rename, default)] }
         }
     }
 
@@ -380,17 +385,32 @@ impl<'a> StructDef<'a> {
     fn gen_de_struct_field_type<T>(
         cardinality: &OneOrCollection<T>,
         ftype: impl ToTokens,
-        optional: Option<bool>,
+        nullable: IsNullable,
+        required: IsRequired,
     ) -> TokenStream {
         match cardinality {
             OneOrCollection::One(_) => {
-                if optional.is_none_or(|v| v) {
+                if required.into_inner() && nullable.into_inner() {
                     quote! { Option<#ftype> }
-                } else {
+                } else if required.into_inner() {
                     quote! { #ftype }
+                } else if nullable.into_inner() {
+                    quote! { Option<Option<#ftype>> }
+                } else {
+                    quote! { Option<#ftype> }
                 }
             }
-            OneOrCollection::Collection(_) => quote! { Vec<#ftype> },
+            OneOrCollection::Collection(_) => {
+                if required.into_inner() && nullable.into_inner() {
+                    quote! { Nullable<Vec<#ftype>> }
+                } else if required.into_inner() {
+                    quote! { Vec<#ftype> }
+                } else if nullable.into_inner() {
+                    quote! { Option<Nullable<Vec<#ftype>>> }
+                } else {
+                    quote! { Option<Vec<#ftype>>}
+                }
+            }
         }
     }
 
@@ -404,17 +424,27 @@ impl<'a> StructDef<'a> {
                 }
                 let doc = doc_format_and_generate(p.ptype.name(), &p.odata);
                 let full_type = FullTypeName::new(p.ptype.name(), config);
-                let optional = Some(!p.redfish.is_required.into_inner());
                 let ptype = quote! { NavProperty<#full_type> };
-                let (sa, t) = Self::gen_de_struct_field(&p.ptype, ptype, rename, optional);
+                let (sa, t) = Self::gen_de_struct_field(
+                    &p.ptype,
+                    ptype,
+                    rename,
+                    p.nullable,
+                    p.redfish.is_required,
+                );
                 (doc, sa, t)
             }
             NavProperty::Reference(r) => {
                 let doc = TokenStream::new();
                 let top = &config.top_module_alias;
-                let optional = None;
                 let ptype = quote! { #top::Reference };
-                let (sa, t) = Self::gen_de_struct_field(r, ptype, rename, optional);
+                let (sa, t) = Self::gen_de_struct_field(
+                    r,
+                    ptype,
+                    rename,
+                    IsNullable::new(false),
+                    IsRequired::new(false),
+                );
                 (doc, sa, t)
             }
         };
@@ -438,12 +468,17 @@ impl<'a> StructDef<'a> {
                     return quote! {};
                 }
                 let full_type = FullTypeName::new(v, config).for_update(Some(typeinfo.class));
-                let optional = Some(*p.is_nullable.inner());
-                Self::gen_de_struct_field(&ptype, full_type, rename, optional)
+                Self::gen_de_struct_field(&ptype, full_type, rename, p.nullable, p.required)
             }
             ParameterType::Entity(e) => {
                 let top = &config.top_module_alias;
-                Self::gen_de_struct_field(&e, quote! { #top::Reference }, rename, Some(true))
+                Self::gen_de_struct_field(
+                    &e,
+                    quote! { #top::Reference },
+                    rename,
+                    p.nullable,
+                    p.required,
+                )
             }
         };
         quote! {
@@ -529,15 +564,11 @@ impl<'a> StructDef<'a> {
                         }
                         let full_type =
                             FullTypeName::new(v, config).for_update(Some(typeinfo.class));
-                        Self::gen_de_struct_field_type(
-                            &ptype,
-                            full_type,
-                            Some(*p.is_nullable.inner()),
-                        )
+                        Self::gen_de_struct_field_type(&ptype, full_type, p.nullable, p.required)
                     }
                     ParameterType::Entity(e) => {
                         let full_type = quote! { #top::Reference };
-                        Self::gen_de_struct_field_type(&e, full_type, Some(true))
+                        Self::gen_de_struct_field_type(&e, full_type, p.nullable, p.required)
                     }
                 };
                 params.extend(quote! { #name, });

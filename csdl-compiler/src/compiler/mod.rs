@@ -116,16 +116,18 @@ pub use traits::MapType;
 #[doc(inline)]
 pub use traits::PropertiesManipulation;
 
+use crate::IsNullable;
+use crate::IsRequired;
 use crate::OneOrCollection;
 use crate::compiler::odata::MustHaveId;
 use crate::edmx::Action as EdmxAction;
 use crate::edmx::ActionName;
 use crate::edmx::Edmx;
-use crate::edmx::IsNullable;
 use crate::edmx::ParameterName;
 use crate::edmx::Schema;
 use crate::edmx::SimpleIdentifier;
 use crate::edmx::Type;
+use crate::redfish::annotations::RedfishPropertyAnnotations as _;
 use schema_index::SchemaIndex;
 use stack::Stack;
 
@@ -414,7 +416,8 @@ impl SchemaBundle {
                 params.push(Parameter {
                     name: &p.name,
                     ptype,
-                    is_nullable: p.nullable.unwrap_or(IsNullable::new(true)),
+                    nullable: p.nullable.unwrap_or(IsNullable::new(false)),
+                    required: p.is_required(),
                     odata: OData::new(MustHaveId::new(false), p),
                 });
                 Ok((cstack.merge(compiled), params))
@@ -533,7 +536,9 @@ pub struct Parameter<'a> {
     /// specific type.
     pub ptype: ParameterType<'a>,
     /// Flag that parameter is nullable.
-    pub is_nullable: IsNullable,
+    pub nullable: IsNullable,
+    /// Flag that parameter is required.
+    pub required: IsRequired,
     /// Odata for parameter
     pub odata: OData<'a>,
 }
@@ -566,7 +571,8 @@ impl<'a> MapType<'a> for Parameter<'a> {
         Self {
             name: self.name,
             ptype: self.ptype.map(f),
-            is_nullable: self.is_nullable,
+            nullable: self.nullable,
+            required: self.required,
             odata: self.odata,
         }
     }

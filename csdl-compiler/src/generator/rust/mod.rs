@@ -176,7 +176,9 @@ impl<'a> RustGenerator<'a> {
                 Action,
                 ODataId,
                 ODataETag,
-                AdditionalProperties
+                AdditionalProperties,
+                de_optional_nullable,
+                de_required_nullable,
             };
 
             pub mod edm {

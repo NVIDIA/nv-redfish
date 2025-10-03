@@ -13,26 +13,29 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish-related attributes needed to generate code.
+//! This is tests support lib.
 
-use crate::IsRequired;
-use crate::IsRequiredOnCreate;
-use crate::redfish::annotations::RedfishPropertyAnnotations;
+/// Schema compiled for base tests.
+pub mod base;
+/// BMC trait implementation for tests.
+pub mod bmc;
+/// Errors used in tests.
+pub mod error;
+/// Expectations in tests.
+pub mod expect;
+/// Expectations in tests.
+pub mod json_merge;
 
-/// Redfish property attributes attached to different compiled enities.
-#[derive(Debug)]
-pub struct RedfishProperty {
-    pub is_required: IsRequired,
-    pub is_required_on_create: IsRequiredOnCreate,
-}
+#[doc(inline)]
+pub use bmc::Bmc;
+#[doc(inline)]
+pub use error::Error;
+#[doc(inline)]
+pub use expect::Expect;
+#[doc(inline)]
+pub use json_merge::json_merge;
 
-impl RedfishProperty {
-    /// Create new instance from reference to object that implements
-    /// annotations.
-    pub fn new(src: &impl RedfishPropertyAnnotations) -> Self {
-        Self {
-            is_required: src.is_required(),
-            is_required_on_create: src.is_required_on_create(),
-        }
-    }
-}
+/// Used in tests for `@odata.id` fields.
+pub const ODATA_ID: &str = "@odata.id";
+/// Used in tests for `@odata.type` fields.
+pub const ODATA_TYPE: &str = "@odata.type";

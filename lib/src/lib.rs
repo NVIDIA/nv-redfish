@@ -19,6 +19,8 @@ pub mod action;
 pub mod bmc;
 /// Adaptive cache implementation using Clock-CAR algorithm
 pub mod cache;
+/// Custom desrialization.
+pub mod deserialize;
 /// HTTP client abstractions and Redfish expand query support
 pub mod http;
 /// Type for navigation property.
@@ -36,6 +38,10 @@ pub use action::Action;
 pub use action::ActionError;
 #[doc(inline)]
 pub use bmc::Bmc;
+#[doc(inline)]
+pub use deserialize::de_optional_nullable;
+#[doc(inline)]
+pub use deserialize::de_required_nullable;
 #[doc(inline)]
 pub use nav_property::NavProperty;
 #[doc(inline)]

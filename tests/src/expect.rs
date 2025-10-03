@@ -13,26 +13,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish-related attributes needed to generate code.
+//! Expectations for the test.
 
-use crate::IsRequired;
-use crate::IsRequiredOnCreate;
-use crate::redfish::annotations::RedfishPropertyAnnotations;
+use nv_redfish::ODataId;
+use std::fmt::Display;
 
-/// Redfish property attributes attached to different compiled enities.
+/// Expectation for the tests.
 #[derive(Debug)]
-pub struct RedfishProperty {
-    pub is_required: IsRequired,
-    pub is_required_on_create: IsRequiredOnCreate,
+pub enum Expect {
+    /// Expectation of get of secific URL
+    Get {
+        id: ODataId,
+        response: serde_json::Value,
+    },
 }
 
-impl RedfishProperty {
-    /// Create new instance from reference to object that implements
-    /// annotations.
-    pub fn new(src: &impl RedfishPropertyAnnotations) -> Self {
-        Self {
-            is_required: src.is_required(),
-            is_required_on_create: src.is_required_on_create(),
+impl Expect {
+    pub fn get(uri: impl Display, response: impl Display) -> Self {
+        Expect::Get {
+            id: uri.to_string().into(),
+            response: serde_json::from_str(&response.to_string()).expect("invalid json"),
         }
     }
 }

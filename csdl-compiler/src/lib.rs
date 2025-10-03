@@ -58,15 +58,42 @@ pub mod optimizer;
 /// Redfish-related functions.
 pub mod redfish;
 
+use tagged_types::TaggedType;
+
 #[doc(inline)]
 pub use error::Error;
 #[doc(inline)]
 pub use one_or_collection::OneOrCollection;
 
+/// Attribute is nullable.
+pub type IsNullable = TaggedType<bool, IsNullableTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Copy, Clone)]
+#[transparent(Debug, Deserialize)]
+#[capability(inner_access)]
+pub enum IsNullableTag {}
+
+/// Attribute is required.
+pub type IsRequired = TaggedType<bool, IsRequiredTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Display, Debug)]
+#[capability(inner_access)]
+pub enum IsRequiredTag {}
+
+/// Attribute is required when object is created.
+pub type IsRequiredOnCreate = TaggedType<bool, IsRequiredOnCreateTag>;
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Display, Debug)]
+#[capability(inner_access)]
+pub enum IsRequiredOnCreateTag {}
+
 #[cfg(test)]
 mod test {
-    use super::edmx::attribute_values::SimpleIdentifier;
     use super::edmx::Edmx;
+    use super::edmx::attribute_values::SimpleIdentifier;
     use crate::Error;
     use std::fs;
     use std::path::Path;

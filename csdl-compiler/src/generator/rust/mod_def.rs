@@ -363,7 +363,7 @@ impl<'a> ModDef<'a> {
                     #[allow(unused_imports)]
                     use serde::{Serialize, Deserialize};
                     #[allow(unused_imports)]
-                    use #top::{NavProperty, ODataId, ODataETag};
+                    use #top::{NavProperty, ODataId, ODataETag, de_optional_nullable, de_required_nullable};
                     #[allow(unused_imports)]
                     use #top::ActionError;
                 },

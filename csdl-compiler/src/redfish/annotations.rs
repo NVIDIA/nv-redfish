@@ -13,24 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::IsRequired;
+use crate::IsRequiredOnCreate;
 use crate::edmx::Annotation;
 use crate::edmx::NavigationProperty;
+use crate::edmx::Parameter;
 use crate::edmx::StructuralProperty;
-use tagged_types::TaggedType;
-
-pub type IsRequired = TaggedType<bool, IsRequiredTag>;
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy)]
-#[transparent(Display, Debug)]
-#[capability(inner_access)]
-pub enum IsRequiredTag {}
-
-pub type IsRequiredOnCreate = TaggedType<bool, IsRequiredOnCreateTag>;
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy)]
-#[transparent(Display, Debug)]
-#[capability(inner_access)]
-pub enum IsRequiredOnCreateTag {}
 
 pub trait RedfishAnnotation {
     fn is_redfish_annotation(&self, name: &str) -> bool;
@@ -72,6 +60,12 @@ impl RedfishPropertyAnnotations for StructuralProperty {
 }
 
 impl RedfishPropertyAnnotations for NavigationProperty {
+    fn annotations(&self) -> &Vec<Annotation> {
+        &self.annotations
+    }
+}
+
+impl RedfishPropertyAnnotations for Parameter {
     fn annotations(&self) -> &Vec<Annotation> {
         &self.annotations
     }

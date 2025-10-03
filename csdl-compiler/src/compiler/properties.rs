@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::IsNullable;
 use crate::OneOrCollection;
 use crate::compiler::Compiled;
 use crate::compiler::ComplexType;
@@ -67,6 +68,7 @@ impl<'a> Properties<'a> {
                             ptype: v.ptype.as_ref().map(|t| (typeinfo, t.into())),
                             odata: OData::new(MustHaveId::new(false), v),
                             redfish: RedfishProperty::new(v),
+                            nullable: v.nullable.unwrap_or(IsNullable::new(false)),
                         });
                         stack.merge(compiled)
                     }
@@ -134,6 +136,7 @@ impl<'a> Properties<'a> {
                     ptype: v.ptype.as_ref().map(|_| ptype),
                     odata: OData::new(MustHaveId::new(false), v),
                     redfish: RedfishProperty::new(v),
+                    nullable: v.nullable.unwrap_or(IsNullable::new(false)),
                 }));
             Ok(compiled)
         } else {
@@ -234,6 +237,7 @@ pub struct Property<'a> {
     pub ptype: PropertyType<'a>,
     pub odata: OData<'a>,
     pub redfish: RedfishProperty,
+    pub nullable: IsNullable,
 }
 
 impl<'a> MapType<'a> for Property<'a> {
@@ -279,6 +283,7 @@ pub struct NavPropertyExpandable<'a> {
     pub ptype: NavPropertyType<'a>,
     pub odata: OData<'a>,
     pub redfish: RedfishProperty,
+    pub nullable: IsNullable,
 }
 
 impl<'a> MapType<'a> for NavProperty<'a> {
