@@ -21,6 +21,8 @@ pub mod bmc;
 pub mod cache;
 /// Custom desrialization.
 pub mod deserialize;
+/// Type that represents `Edm.Duration`.
+pub mod edm_duration;
 /// HTTP client abstractions and Redfish expand query support
 pub mod http;
 /// Type for navigation property.
@@ -42,6 +44,8 @@ pub use bmc::Bmc;
 pub use deserialize::de_optional_nullable;
 #[doc(inline)]
 pub use deserialize::de_required_nullable;
+#[doc(inline)]
+pub use edm_duration::EdmDuration;
 #[doc(inline)]
 pub use nav_property::NavProperty;
 #[doc(inline)]

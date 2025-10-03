@@ -193,7 +193,7 @@ impl<'a> RustGenerator<'a> {
                 /// Mapping of Edm.Decimal
                 pub type Decimal = f64;
                 /// Mapping of Duration type
-                pub type Duration = String;
+                pub type Duration = nv_redfish::EdmDuration;
                 /// Mapping of Guid type
                 pub type Guid = String;
                 /// Mapping of Edm.Int64 type

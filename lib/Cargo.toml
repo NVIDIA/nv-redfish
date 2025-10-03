@@ -21,6 +21,7 @@ reqwest = { workspace = true, optional = true, features = ["json"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 url = { workspace = true }
+rust_decimal = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
