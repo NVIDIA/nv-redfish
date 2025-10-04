@@ -13,61 +13,132 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+const SNAKE_WORD_SEPARATOR: &str = "~!#%^&*()+-:<>?,./ ";
+const CAMEL_WORD_SEPARATOR: &str = "_~!#%^&*()+-:<>?,./ ";
+
+/// Wrapper for snakecase producer 
 #[must_use]
 pub fn to_snake(s: impl AsRef<str>) -> String {
-    tokenize_to_words(s.as_ref())
-        .collect::<Vec<String>>()
-        .join("_")
-        .to_lowercase()
+    tokenize(s.as_ref(), SNAKE_WORD_SEPARATOR).map_or_else(
+        || String::from(s.as_ref()),
+        |iter| iter.collect::<Vec<String>>().join("_").to_lowercase(),
+    )
 }
 
+/// Wrapper for camelcase producer 
 #[must_use]
 pub fn to_camel(s: impl AsRef<str>) -> String {
-    tokenize_to_words(s.as_ref()).fold(String::new(), |mut acc, word| {
-        let mut itr = word.chars();
-        if let Some(first) = itr.next() {
-            acc.push(first.to_ascii_uppercase());
-        }
-        for ch in itr {
-            acc.push(ch.to_ascii_lowercase());
-        }
-        acc
+    let orig_str = String::from(s.as_ref());
+
+    if orig_str.len() < 2 {
+        return orig_str;
+    }
+
+    tokenize(s.as_ref(), CAMEL_WORD_SEPARATOR).map_or(orig_str, |iter| {
+        iter.fold(String::new(), |mut acc, word| {
+            let mut word_iter = word.chars();
+            if let Some(first) = word_iter.next() {
+                acc.push(first.to_ascii_uppercase());
+            }
+            for ch in word_iter {
+                acc.push(ch.to_ascii_lowercase());
+            }
+            acc
+        })
     })
 }
 
-fn tokenize_to_words(s: &str) -> impl Iterator<Item = String> {
-    let chars: Vec<char> = s.chars().collect();
+/// Tokenizer is a wrapper for word splitter with custom separators 
+fn tokenize(s: &str, separators: &str) -> Option<impl Iterator<Item = String>> {
+    let mut itr = split_to_words(s, separators).peekable();
 
-    chars
+    // NB: we are not in 2024 yet, so, no let-chains ;)
+    if let Some(word) = itr.peek() {
+        if !word.is_empty() {
+            return Some(itr);
+        }
+    }
+    None
+}
+
+/// A feeble attempt to determine words boundaries for camel and snake cases
+fn is_word_boundary(chars: &[char], idx: usize, ch: char, separators: &str) -> bool {
+    if separators.contains(ch) {
+        return true;
+    }
+
+    // Don't split on first character
+    if idx == 0 {
+        return false;
+    }
+
+    // Only consider uppercase letters for camelCase splitting
+    if !ch.is_uppercase() {
+        return false;
+    }
+
+    let prev_char = chars[idx - 1];
+
+    // Transition from lowercase to uppercase (standard camelCase: someWord)
+    if prev_char.is_lowercase() {
+        return true;
+    }
+
+    // Transitions between normal word and acronym
+    is_acronym_to_word_transition(chars, idx)
+}
+
+/// Check if a chars slice index indicates a needed transition from acronym to a new word
+fn is_acronym_to_word_transition(chars: &[char], idx: usize) -> bool {
+    let prev_char = chars[idx - 1];
+
+    // Previous character must be uppercase (part of acronym)
+    if !prev_char.is_uppercase() {
+        return false;
+    }
+
+    // Need at least one more char after current position
+    if idx + 1 >= chars.len() {
+        return false;
+    }
+
+    // Next character should be lowercase (start of a new word for camelcase)
+    if !chars[idx + 1].is_lowercase() {
+        return false;
+    }
+
+    // Count following lowercase letters to ensure it's a complete word (not just a single char)
+    let lowercase_count = chars[(idx + 1)..]
+        .iter()
+        .take_while(|&&c| c.is_lowercase())
+        .count();
+
+    lowercase_count >= 2
+}
+
+/// Split a string slice into vector of strings (words) iterator so the caller
+/// can do something with the resulting words 
+fn split_to_words(s: &str, separators: &str) -> impl Iterator<Item = String> {
+    let str_chars: Vec<char> = s.chars().collect();
+
+    str_chars
         .iter()
         .enumerate()
         .fold(vec![vec![]], |mut words: Vec<Vec<char>>, (i, &ch)| {
-            // catch all situations where we need to separate stream of chars into words
-            //if i > 0 && ch.is_uppercase() && {
-            if ch == '_'
-                || i > 0 && ch.is_uppercase() && {
-                    let prev_char = chars[i - 1];
-
-                    // case 1: transition from lower to uppercase (standard camelCase)
-                    prev_char.is_lowercase() ||
-                    // case 2: transition from acronym to a new word
-                    (prev_char.is_uppercase() &&
-                        i + 1 < chars.len() && chars[i + 1].is_lowercase() &&
-                        // Count following lowercase letters to identify complete words
-                        chars[(i + 1)..]
-                            .iter()
-                            .take_while(|&&c| c.is_lowercase())
-                            .count() >= 2)
+            if is_word_boundary(&str_chars, i, ch, separators) {
+                // Create a new word _only_ if the current word has 1+ character,
+                // otherwise all weird corner cases will pop up 
+                if words[words.len() - 1].len() > 1 {
+                    words.push(vec![]);
                 }
-            {
-                words.push(vec![]);
             }
-
-            if let Some(curr_word) = words.last_mut() {
-                if ch != '_' {
+            // Accumulate chars to the current word, don't keep the separator
+            if !separators.contains(ch) {
+                if let Some(curr_word) = words.last_mut() {
                     curr_word.push(ch);
                 }
             }
+
             words
         })
         .into_iter()
@@ -79,6 +150,59 @@ fn tokenize_to_words(s: &str) -> impl Iterator<Item = String> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // Common test patterns: (input, expected_snake, expected_camel)
+    const TEST_PATTERNS: &[(&str, &str, &str)] = &[
+        // Empty and separator cases
+        ("", "", ""),
+        ("_", "_", "_"),
+        ("___", "___", "___"),
+        (".", ".", "."),
+        // single and double character
+        ("F", "f", "F"),
+        ("PF", "pf", "Pf"),
+        ("pF", "pf", "Pf"),
+        // underscore prefix
+        ("_SomeThing", "_some_thing", "SomeThing"),
+        ("_SomeBadMojo", "_some_bad_mojo", "SomeBadMojo"),
+        ("_Some_Bad_Mojo", "_some_bad_mojo", "SomeBadMojo"),
+        ("_Some_Bad_Mojo__", "_some_bad_mojo__", "SomeBadMojo"),
+        // special prefixes (controllable by {CAMEL|SNAKE}WORD_SEPARATOR)
+        // note: camel looses next char's case. X3 is this is a problem :)
+        ("$SomeThing", "$some_thing", "$someThing"),
+        ("@SomeThing", "@some_thing", "@someThing"),
+        // string contains word separators specified in {CAMEL|SNAKE}WORD_SEPARATOR)
+        ("Some Thing", "some_thing", "SomeThing"),
+        ("Some thing", "some_thing", "SomeThing"),
+        ("some thing", "some_thing", "SomeThing"),
+        ("some Thing", "some_thing", "SomeThing"),
+        ("some     thing", "some_thing", "SomeThing"),
+        ("some.thing", "some_thing", "SomeThing"),
+        ("some:thing", "some_thing", "SomeThing"),
+        ("Some::Thing", "some_thing", "SomeThing"),
+        ("$Some::Thing", "$some_thing", "$someThing"),
+        // should we do something about the below?
+        ("$some::Thing", "$some_thing", "$someThing"),
+        // Acronym cases
+        ("NVMe", "nvme", "Nvme"),
+        ("NVME", "nvme", "Nvme"),
+        ("nVMEFoobar", "nvme_foobar", "NvmeFoobar"),
+        ("iSCSI", "iscsi", "Iscsi"),
+        ("iSCSIDriveName", "iscsi_drive_name", "IscsiDriveName"),
+        ("PCIe_Functions", "pcie_functions", "PcieFunctions"),
+        ("PCIeFunctions", "pcie_functions", "PcieFunctions"),
+        ("PCIEFunctions", "pcie_functions", "PcieFunctions"),
+        ("PFFunctionNumber", "pf_function_number", "PfFunctionNumber"),
+        // Standard cases
+        ("FOO_BAR", "foo_bar", "FooBar"),
+        ("Foo_Bar", "foo_bar", "FooBar"),
+        ("Foo_bar", "foo_bar", "FooBar"),
+        ("Foobar", "foobar", "Foobar"),
+        ("FooBarBaz", "foo_bar_baz", "FooBarBaz"),
+        ("fooBarBaz", "foo_bar_baz", "FooBarBaz"),
+        ("PhysFuncNum", "phys_func_num", "PhysFuncNum"),
+        ("physFuncNum", "phys_func_num", "PhysFuncNum"),
+    ];
 
     #[test]
     fn test_casemungler_as_string() {
@@ -99,60 +223,20 @@ mod tests {
     }
 
     #[test]
-    fn test_casemungler_to_snake() {
-        assert_eq!(to_snake(""), "");
-        assert_eq!(to_snake("_"), "_");
-        assert_eq!(to_snake("___"), "___");
-        assert_eq!(to_snake("F"), "f");
-        assert_eq!(to_snake("PF"), "pf");
-        assert_eq!(to_snake("pF"), "p_f");
-        assert_eq!(to_snake("_SomeThing"), "_some_thing");
-        assert_eq!(to_snake("_SomeBadMojo"), "_some_bad_mojo");
-        assert_eq!(to_snake("_Some_Bad_Mojo"), "_some_bad_mojo");
-        assert_eq!(to_snake("NVMe"), "nvme");
-        assert_eq!(to_snake("NVME"), "nvme");
-        assert_eq!(to_snake("nVME"), "n_vme");
-        assert_eq!(to_snake("nVMEfoobar"), "n_vm_efoobar");
-        assert_eq!(to_snake("nVMEFoobar"), "n_vme_foobar");
-        assert_eq!(to_snake("PCIe_Functions"), "pcie_functions");
-        assert_eq!(to_snake("PCIeFunctions"), "pcie_functions");
-        assert_eq!(to_snake("PCIEFunctions"), "pcie_functions");
-        assert_eq!(to_snake("PFFunctionNumber"), "pf_function_number");
-        assert_eq!(to_snake("PhysFunctionNumber"), "phys_function_number");
-        assert_eq!(to_snake("physFunctionNumber"), "phys_function_number");
-        assert_eq!(to_snake("FOO_BAR"), "foo_bar");
-        assert_eq!(to_snake("Foo_Bar"), "foo_bar");
-        assert_eq!(to_snake("Foo_bar"), "foo_bar");
-        assert_eq!(to_snake("FooBar"), "foo_bar");
-        assert_eq!(to_snake("Foobar"), "foobar");
-    }
-
-    #[test]
-    fn test_casemungler_to_camel() {
-        assert_eq!(to_camel(""), "");
-        assert_eq!(to_camel("_"), "");
-        assert_eq!(to_camel("___"), "");
-        assert_eq!(to_camel("F"), "F");
-        assert_eq!(to_camel("PF"), "Pf");
-        assert_eq!(to_camel("pF"), "PF");
-        assert_eq!(to_camel("_SomeThing"), "SomeThing");
-        assert_eq!(to_camel("_SomeThingIsNotRight"), "SomeThingIsNotRight");
-        assert_eq!(to_camel("_Some_Thing_Is_Not_Right"), "SomeThingIsNotRight");
-        assert_eq!(to_camel("NVMe"), "Nvme");
-        assert_eq!(to_camel("NVME"), "Nvme");
-        assert_eq!(to_camel("nVME"), "NVme");
-        assert_eq!(to_camel("nVMEfoobar"), "NVmEfoobar");
-        assert_eq!(to_camel("nVMEFoobar"), "NVmeFoobar");
-        assert_eq!(to_camel("PCIe_Functions"), "PcieFunctions");
-        assert_eq!(to_camel("PCIeFunctions"), "PcieFunctions");
-        assert_eq!(to_camel("PCIEFunctions"), "PcieFunctions");
-        assert_eq!(to_camel("PFFunctionNumber"), "PfFunctionNumber");
-        assert_eq!(to_camel("PhysicalFunctionNumber"), "PhysicalFunctionNumber");
-        assert_eq!(to_camel("physicalFunctionNumber"), "PhysicalFunctionNumber");
-        assert_eq!(to_camel("FOO_BAR"), "FooBar");
-        assert_eq!(to_camel("Foo_Bar"), "FooBar");
-        assert_eq!(to_camel("Foo_bar"), "FooBar");
-        assert_eq!(to_camel("FooBar"), "FooBar");
-        assert_eq!(to_camel("Foobar"), "Foobar");
+    fn test_casemungler_common_patterns() {
+        for &(input, expected_snake, expected_camel) in TEST_PATTERNS {
+            assert_eq!(
+                to_snake(input),
+                expected_snake,
+                "to_snake failed for input: '{}'",
+                input
+            );
+            assert_eq!(
+                to_camel(input),
+                expected_camel,
+                "to_camel failed for input: '{}'",
+                input
+            );
+        }
     }
 }
