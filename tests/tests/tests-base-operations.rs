@@ -231,6 +231,7 @@ async fn update_property_test() -> Result<(), Error> {
     let bmc = Bmc::default();
     let data_type = "ServiceRoot.v1_0_0.ServiceRoot";
     let updatable_name = "Updatable";
+    let updatable_guid_name = "UpdatableGuid";
     let write_only_name = "WriteOnly";
     let root_id = ODataId::service_root();
     let root_json = json!({
@@ -241,11 +242,16 @@ async fn update_property_test() -> Result<(), Error> {
     let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
     assert_eq!(service_root.updatable, None);
 
+    let uuid_str = "a1a2a3a4-b1b2-c1c2-d1d2-d3d4d5d6d7d8";
+    let uuid_value = uuid_str.parse().expect("uuid must be parsed");
     let value = "Value".to_string();
     bmc.expect(Expect::update(
         root_id.clone(),
-        json!({ updatable_name: &value }),
-        &json_merge([&root_json, &json!({ updatable_name: &value })]),
+        json!({ updatable_name: &value, updatable_guid_name: &uuid_str }),
+        &json_merge([
+            &root_json,
+            &json!({ updatable_name: &value, updatable_guid_name: &uuid_str}),
+        ]),
     ));
     let service_root = service_root
         .update(
@@ -257,12 +263,14 @@ async fn update_property_test() -> Result<(), Error> {
                 //
                 // If this code compiles then check passed.
                 updatable: Some(value.clone()),
+                updatable_guid: Some(uuid_value),
                 write_only: None,
             },
         )
         .await
         .map_err(Error::Bmc)?;
     assert_eq!(service_root.updatable, Some(value));
+    assert_eq!(service_root.updatable_guid, Some(uuid_value));
 
     // Update write only:
     let value = "Value".to_string();
@@ -276,6 +284,7 @@ async fn update_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: None,
+                updatable_guid: None,
                 write_only: Some(value.clone()),
             },
         )

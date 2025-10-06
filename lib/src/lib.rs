@@ -56,6 +56,8 @@ pub use odata::ODataETag;
 pub use odata::ODataId;
 #[doc(inline)]
 pub use serde_json::Value as AdditionalProperties;
+#[doc(inline)]
+pub use uuid::Uuid as EdmGuid;
 
 /// Entity type trait that is implemented by CSDL compiler for all
 /// generated entity types.
