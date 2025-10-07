@@ -15,8 +15,8 @@
 
 //! Expectations for the test.
 
-use nv_redfish::ODataId;
-use nv_redfish::action::ActionTarget;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::action::ActionTarget;
 use std::fmt::Display;
 
 /// Expectation for the tests.

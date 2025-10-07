@@ -17,12 +17,13 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
-    use nv_redfish::{
-        http::{BmcReqwestError, ExpandQuery}, Bmc
+    use nv_redfish_core::{
+        Bmc,
+        http::{BmcReqwestError, ExpandQuery},
     };
     use wiremock::{
-        matchers::{body_json, header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
+        matchers::{body_json, header, method, path, query_param},
     };
 
     use crate::common::test_utils::*;
@@ -32,20 +33,13 @@ mod reqwest_client_tests {
         let mock_server = MockServer::start().await;
         let resource_path = paths::SYSTEMS_1;
 
-        let test_resource = create_test_resource(
-            resource_path,
-            Some("123"),
-            names::TEST_SYSTEM,
-            42,
-        );
+        let test_resource =
+            create_test_resource(resource_path, Some("123"), names::TEST_SYSTEM, 42);
 
         Mock::given(method("GET"))
             .and(path(resource_path))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(&test_resource)
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -66,21 +60,14 @@ mod reqwest_client_tests {
         let mock_server = MockServer::start().await;
         let resource_path = paths::SYSTEMS_1;
 
-        let test_resource = create_test_resource(
-            resource_path,
-            Some("456"),
-            names::TEST_SYSTEM,
-            100,
-        );
+        let test_resource =
+            create_test_resource(resource_path, Some("456"), names::TEST_SYSTEM, 100);
 
         Mock::given(method("GET"))
             .and(path(resource_path))
             .and(query_param("$expand", ".($levels=2)"))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(&test_resource)
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -107,21 +94,14 @@ mod reqwest_client_tests {
             value: 999,
         };
 
-        let created_resource = create_test_resource(
-            "/redfish/v1/systems/new",
-            None,
-            names::TEST_SYSTEM,
-            999,
-        );
+        let created_resource =
+            create_test_resource("/redfish/v1/systems/new", None, names::TEST_SYSTEM, 999);
 
         Mock::given(method("POST"))
             .and(path(collection_path))
             .and(body_json(&create_request))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(
-                ResponseTemplate::new(201)
-                    .set_body_json(&created_resource)
-            )
+            .respond_with(ResponseTemplate::new(201).set_body_json(&created_resource))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -129,7 +109,9 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc(&mock_server);
 
         let collection_id = create_odata_id(collection_path);
-        let result = bmc.create::<CreateRequest, TestResource>(&collection_id, &create_request).await;
+        let result = bmc
+            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await;
 
         assert!(result.is_ok());
         let created = result.unwrap();
@@ -158,10 +140,7 @@ mod reqwest_client_tests {
             .and(path(resource_path))
             .and(body_json(&update_request))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(&updated_resource)
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(&updated_resource))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -169,7 +148,9 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc(&mock_server);
 
         let resource_id = create_odata_id(resource_path);
-        let result = bmc.update::<UpdateRequest, TestResource>(&resource_id, &update_request).await;
+        let result = bmc
+            .update::<UpdateRequest, TestResource>(&resource_id, &update_request)
+            .await;
 
         assert!(result.is_ok());
         let updated = result.unwrap();
@@ -185,7 +166,7 @@ mod reqwest_client_tests {
         Mock::given(method("DELETE"))
             .and(path(resource_path))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(ResponseTemplate::new(204)) 
+            .respond_with(ResponseTemplate::new(204))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -216,10 +197,7 @@ mod reqwest_client_tests {
             .and(path(action_path))
             .and(body_json(&action_request))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(
-                ResponseTemplate::new(200)
-                    .set_body_json(&action_response),
-            )
+            .respond_with(ResponseTemplate::new(200).set_body_json(&action_response))
             .expect(1)
             .mount(&mock_server)
             .await;

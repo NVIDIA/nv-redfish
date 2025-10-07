@@ -15,4 +15,4 @@ serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 redfish-std = { path = "../redfish-std" }
 redfish-oem-contoso = { path = "../redfish-oem-contoso" }
-nv-redfish = { path = "../../lib" }
+nv-redfish-core = { workspace = true }

@@ -13,18 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use nv_redfish::bmc::BmcCredentials;
-use nv_redfish::http::BmcReqwestError;
-use nv_redfish::http::ExpandQuery;
-use nv_redfish::http::HttpBmc;
-use nv_redfish::http::ReqwestClient;
-use nv_redfish::http::ReqwestClientParams;
-use nv_redfish::Creatable;
-use nv_redfish::Deletable;
-use nv_redfish::EntityTypeRef;
-use nv_redfish::Expandable;
-use nv_redfish::ODataId;
+use nv_redfish_core::Creatable;
+use nv_redfish_core::Deletable;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::bmc::BmcCredentials;
+use nv_redfish_core::http::BmcReqwestError;
+use nv_redfish_core::http::ExpandQuery;
+use nv_redfish_core::http::HttpBmc;
+use nv_redfish_core::http::ReqwestClient;
+use nv_redfish_core::http::ReqwestClientParams;
+use redfish_std::redfish::manager_account::ManagerAccount;
 use redfish_std::redfish::manager_account::ManagerAccountCreate;
+use redfish_std::redfish::service_root::ServiceRoot;
 use url::Url;
 
 #[tokio::main]
@@ -35,10 +38,7 @@ async fn main() -> Result<(), BmcReqwestError> {
     let creds = BmcCredentials::new("username".into(), "password".into());
     let bmc = HttpBmc::new(client, Url::parse("https://192.168.2.2").unwrap(), creds);
 
-    let service_root =
-        nv_redfish::NavProperty::<redfish_std::redfish::service_root::ServiceRoot>::new_reference(
-            ODataId::service_root(),
-        )
+    let service_root = NavProperty::<ServiceRoot>::new_reference(ODataId::service_root())
         .get(&bmc)
         .await?;
 
@@ -155,19 +155,15 @@ async fn main() -> Result<(), BmcReqwestError> {
         .await?;
     println!("{account:?}");
 
-    let acc = nv_redfish::NavProperty::<
-        redfish_std::redfish::manager_account::ManagerAccount,
-    >::new_reference(account.id().clone())
-    .get(&bmc)
-    .await?;
+    let acc = NavProperty::<ManagerAccount>::new_reference(account.id().clone())
+        .get(&bmc)
+        .await?;
 
     acc.delete(&bmc).await?;
 
-    let _ = nv_redfish::NavProperty::<
-        redfish_std::redfish::manager_account::ManagerAccount,
-    >::new_reference(account.id().clone())
-    .get(&bmc)
-    .await?;
+    let _ = NavProperty::<ManagerAccount>::new_reference(account.id().clone())
+        .get(&bmc)
+        .await?;
 
     Ok(())
 }

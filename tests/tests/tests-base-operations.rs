@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use nv_redfish::Creatable;
-use nv_redfish::EntityTypeRef;
-use nv_redfish::NavProperty;
-use nv_redfish::ODataId;
-use nv_redfish::Updatable;
+use nv_redfish_core::Creatable;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::Updatable;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Error;
 use nv_redfish_tests::Expect;

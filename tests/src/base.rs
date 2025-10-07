@@ -20,9 +20,9 @@ pub mod redfish {
 use crate::Expect;
 use crate::ODATA_ID;
 use crate::ODATA_TYPE;
-use nv_redfish::Bmc as NvRedfishBmc;
-use nv_redfish::NavProperty;
-use nv_redfish::ODataId;
+use nv_redfish_core::Bmc as NvRedfishBmc;
+use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
 use redfish::service_root::ServiceRoot;
 use serde_json::json;
 use std::sync::Arc;

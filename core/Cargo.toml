@@ -1,5 +1,5 @@
 [package]
-name = "nv-redfish"
+name = "nv-redfish-core"
 version.workspace = true
 license.workspace = true
 repository.workspace = true

@@ -1,6 +1,6 @@
 [workspace]
 members = [
-   "lib",
+   "core",
    "csdl-compiler",
    "examples/redfish-std",
    "examples/redfish-oem-contoso",
@@ -38,6 +38,8 @@ url = { version = "2.5" }
 uuid = { version = "1.18", default-features = false }
 time = { version = "0.3", default-features = false }
 rust_decimal = { version = "1.38", default-features = false }
+nv-redfish-core = { version = "0.1", path = "./core" }
+csdl-compiler = { version = "0.1", path = "./csdl-compiler" }
 
 # Dev
 tokio = "1"

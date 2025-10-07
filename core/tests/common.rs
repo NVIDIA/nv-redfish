@@ -16,8 +16,11 @@
 #[cfg(feature = "reqwest")]
 #[allow(dead_code)]
 pub mod test_utils {
-    use nv_redfish::{
-        action::Action, bmc::BmcCredentials, http::{HttpBmc, ReqwestClient}, EntityTypeRef, Expandable, ODataETag, ODataId
+    use nv_redfish_core::{
+        EntityTypeRef, Expandable, ODataETag, ODataId,
+        action::Action,
+        bmc::BmcCredentials,
+        http::{HttpBmc, ReqwestClient},
     };
     use serde::{Deserialize, Serialize};
     use url::Url;
@@ -83,7 +86,12 @@ pub mod test_utils {
         serde_json::from_str(&json).unwrap()
     }
 
-    pub fn create_test_resource(path: &str, etag: Option<&str>, name: &str, value: i32) -> TestResource {
+    pub fn create_test_resource(
+        path: &str,
+        etag: Option<&str>,
+        name: &str,
+        value: i32,
+    ) -> TestResource {
         TestResource {
             id: create_odata_id(path),
             etag: etag.map(create_odata_etag),

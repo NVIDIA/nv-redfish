@@ -11,8 +11,8 @@ documentation.workspace = true
 
 [dependencies]
 serde = { workspace = true, features = ["derive"] }
-nv-redfish = { path = "../../lib" }
+nv-redfish-core = { workspace = true }
 
 [build-dependencies]
 glob = { workspace = true }
-csdl-compiler = { path = "../../csdl-compiler" }
+csdl-compiler = { workspace = true }

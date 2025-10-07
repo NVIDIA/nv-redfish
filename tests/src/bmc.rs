@@ -14,13 +14,13 @@
 // limitations under the License.
 
 use crate::Expect;
-use nv_redfish::ActionError;
-use nv_redfish::Bmc as NvRedfishBmc;
-use nv_redfish::Empty;
-use nv_redfish::Expandable;
-use nv_redfish::ODataId;
-use nv_redfish::action::ActionTarget;
-use nv_redfish::http::ExpandQuery;
+use nv_redfish_core::ActionError;
+use nv_redfish_core::Bmc as NvRedfishBmc;
+use nv_redfish_core::Empty;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::action::ActionTarget;
+use nv_redfish_core::http::ExpandQuery;
 use serde::Serialize;
 use serde_json::Error as JsonError;
 use std::collections::VecDeque;
@@ -77,7 +77,7 @@ impl NvRedfishBmc for Bmc {
         todo!("unimplimented")
     }
 
-    async fn get<T: nv_redfish::EntityTypeRef + Sized + for<'a> serde::Deserialize<'a>>(
+    async fn get<T: nv_redfish_core::EntityTypeRef + Sized + for<'a> serde::Deserialize<'a>>(
         &self,
         in_id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -169,7 +169,7 @@ impl NvRedfishBmc for Bmc {
         R: Send + Sync + Sized + for<'a> serde::Deserialize<'a>,
     >(
         &self,
-        action: &nv_redfish::Action<T, R>,
+        action: &nv_redfish_core::Action<T, R>,
         params: &T,
     ) -> Result<R, Self::Error> {
         let expect = self

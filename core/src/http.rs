@@ -46,7 +46,7 @@ use crate::{
 /// # Examples
 ///
 /// ```rust
-/// use nv_redfish::http::ExpandQuery;
+/// use nv_redfish_core::http::ExpandQuery;
 ///
 /// // Default: expand current resource one level
 /// let default = ExpandQuery::default();
@@ -92,7 +92,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let query = ExpandQuery::new();
     /// assert_eq!(query.to_query_string(), "$expand=.($levels=1)");
@@ -112,7 +112,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let query = ExpandQuery::all();
     /// assert_eq!(query.to_query_string(), "$expand=*($levels=1)");
@@ -138,7 +138,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let query = ExpandQuery::current();
     /// assert_eq!(query.to_query_string(), "$expand=.($levels=1)");
@@ -160,7 +160,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let query = ExpandQuery::links();
     /// assert_eq!(query.to_query_string(), "$expand=~($levels=1)");
@@ -184,7 +184,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let thermal = ExpandQuery::property("Thermal");
     /// assert_eq!(thermal.to_query_string(), "$expand=Thermal($levels=1)");
@@ -211,7 +211,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let env = ExpandQuery::properties(&["Thermal", "Power"]);
     /// assert_eq!(env.to_query_string(), "$expand=Thermal,Power($levels=1)");
@@ -240,7 +240,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let shallow = ExpandQuery::current().levels(1);
     /// assert_eq!(shallow.to_query_string(), "$expand=.($levels=1)");
@@ -266,7 +266,7 @@ impl ExpandQuery {
     /// # Examples
     ///
     /// ```rust
-    /// use nv_redfish::http::ExpandQuery;
+    /// use nv_redfish_core::http::ExpandQuery;
     ///
     /// let query = ExpandQuery::property("Thermal").levels(2);
     /// assert_eq!(query.to_query_string(), "$expand=Thermal($levels=2)");
@@ -341,9 +341,9 @@ pub trait HttpClient: Send + Sync {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use nv_redfish::http::{HttpBmc, ReqwestClient};
-/// use nv_redfish::bmc::BmcCredentials;
-/// use nv_redfish::{Bmc, ODataId};
+/// use nv_redfish_core::http::{HttpBmc, ReqwestClient};
+/// use nv_redfish_core::bmc::BmcCredentials;
+/// use nv_redfish_core::{Bmc, ODataId};
 /// use url::Url;
 ///
 /// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -378,8 +378,8 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use nv_redfish::http::{HttpBmc, ReqwestClient};
-    /// use nv_redfish::bmc::BmcCredentials;
+    /// use nv_redfish_core::http::{HttpBmc, ReqwestClient};
+    /// use nv_redfish_core::bmc::BmcCredentials;
     /// use url::Url;
     ///
     /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -638,7 +638,7 @@ impl std::error::Error for BmcReqwestError {
 /// # Examples
 ///
 /// ```rust
-/// use nv_redfish::http::ReqwestClientParams;
+/// use nv_redfish_core::http::ReqwestClientParams;
 /// use std::time::Duration;
 ///
 /// let params = ReqwestClientParams::new()
@@ -734,9 +734,9 @@ impl ReqwestClientParams {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use nv_redfish::http::{ReqwestClient, HttpBmc};
-/// use nv_redfish::bmc::BmcCredentials;
-/// use nv_redfish::http::ReqwestClientParams;
+/// use nv_redfish_core::http::{ReqwestClient, HttpBmc};
+/// use nv_redfish_core::bmc::BmcCredentials;
+/// use nv_redfish_core::http::ReqwestClientParams;
 /// use std::time::Duration;
 /// use url::Url;
 ///

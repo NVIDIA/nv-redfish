@@ -13,15 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use nv_redfish::ActionError;
-use nv_redfish::Bmc;
-use nv_redfish::Creatable;
-use nv_redfish::Empty;
-use nv_redfish::EntityTypeRef;
-use nv_redfish::Expandable;
-use nv_redfish::ODataId;
-use nv_redfish::Updatable;
-use nv_redfish::http::ExpandQuery;
+use nv_redfish_core::Action;
+use nv_redfish_core::ActionError;
+use nv_redfish_core::Bmc;
+use nv_redfish_core::Creatable;
+use nv_redfish_core::Empty;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::Updatable;
+use nv_redfish_core::http::ExpandQuery;
 use redfish_oem_contoso::redfish::contoso_turboencabulator_service::ContosoTurboencabulatorServiceUpdate;
 use redfish_oem_contoso::redfish::contoso_turboencabulator_service::TurboencabulatorMode;
 use redfish_std::redfish::manager_account::ManagerAccountCreate;
@@ -48,11 +50,9 @@ pub struct MockBmc {}
 
 impl MockBmc {
     pub async fn get_service_root(&self) -> Result<Arc<ServiceRoot>, Error> {
-        nv_redfish::NavProperty::<redfish_std::redfish::service_root::ServiceRoot>::new_reference(
-            ODataId::service_root(),
-        )
-        .get(self)
-        .await
+        NavProperty::<ServiceRoot>::new_reference(ODataId::service_root())
+            .get(self)
+            .await
     }
 
     fn get_mock_json_for_uri(&self, uri: &str) -> String {
@@ -465,7 +465,7 @@ impl Bmc for MockBmc {
         todo!("unimplimented")
     }
 
-    async fn get<T: nv_redfish::EntityTypeRef + Sized + for<'a> serde::Deserialize<'a>>(
+    async fn get<T: EntityTypeRef + Sized + for<'a> Deserialize<'a>>(
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -478,7 +478,7 @@ impl Bmc for MockBmc {
 
     async fn update<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> serde::Deserialize<'a>,
+        R: Sync + Send + Sized + for<'a> Deserialize<'a>,
     >(
         &self,
         id: &ODataId,
@@ -496,7 +496,7 @@ impl Bmc for MockBmc {
 
     async fn create<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> serde::Deserialize<'a>,
+        R: Sync + Send + Sized + for<'a> Deserialize<'a>,
     >(
         &self,
         id: &ODataId,
@@ -518,10 +518,10 @@ impl Bmc for MockBmc {
 
     async fn action<
         T: Send + Sync + serde::Serialize,
-        R: Send + Sync + Sized + for<'a> serde::Deserialize<'a>,
+        R: Send + Sync + Sized + for<'a> Deserialize<'a>,
     >(
         &self,
-        _action: &nv_redfish::Action<T, R>,
+        _action: &Action<T, R>,
         _params: &T,
     ) -> Result<R, Self::Error> {
         //println!(

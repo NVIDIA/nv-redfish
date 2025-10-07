@@ -14,5 +14,5 @@ tokio = { workspace = true, features = ["full"] }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 redfish-std = { path = "../redfish-std" }
-nv-redfish = { path = "../../lib" }
 url = { workspace = true }
+nv-redfish-core = { workspace = true }

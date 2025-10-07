@@ -162,7 +162,7 @@ impl<'a> RustGenerator<'a> {
             const _CSDL_GENERATED_CODE_COMMENT: &str = "";
 
             #[allow(unused_imports)]
-            use nv_redfish::{
+            use nv_redfish_core::{
                 EntityTypeRef,
                 Expandable,
                 Updatable,
@@ -189,13 +189,13 @@ impl<'a> RustGenerator<'a> {
                 /// Mapping of Edm.Boolean type
                 pub type Boolean = bool;
                 /// Mapping of DateTimeOffset type
-                pub type DateTimeOffset = nv_redfish::EdmDateTimeOffset;
+                pub type DateTimeOffset = nv_redfish_core::EdmDateTimeOffset;
                 /// Mapping of Edm.Decimal
                 pub type Decimal = f64;
                 /// Mapping of Duration type
-                pub type Duration = nv_redfish::EdmDuration;
+                pub type Duration = nv_redfish_core::EdmDuration;
                 /// Mapping of Guid type
-                pub type Guid = nv_redfish::EdmGuid;
+                pub type Guid = nv_redfish_core::EdmGuid;
                 /// Mapping of Edm.Int64 type
                 pub type Int64 = i64;
                 /// Mapping of Edm.String type
