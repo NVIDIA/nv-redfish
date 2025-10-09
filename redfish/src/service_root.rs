@@ -39,11 +39,11 @@ impl<B: Bmc> Clone for ServiceRoot<B> {
 }
 
 impl<B: Bmc> ServiceRoot<B> {
-    /// Create new service root.
+    /// Create a new service root.
     ///
     /// # Errors
     ///
-    /// Returns error if failed to retrieve root path using Redfish.
+    /// Returns error if retrieving the root path via Redfish fails.
     pub async fn new(bmc: Arc<B>) -> Result<Self, Error<B>> {
         let root = NavProperty::<SchemaServiceRoot>::new_reference(ODataId::service_root())
             .get(bmc.as_ref())
@@ -55,11 +55,11 @@ impl<B: Bmc> ServiceRoot<B> {
         })
     }
 
-    /// Get account service that belongs the BMC.
+    /// Get the account service belonging to the BMC.
     ///
     /// # Errors
     ///
-    /// Returns error if failed to retrieve accoint service data.
+    /// Returns error if retrieving account service data fails.
     #[cfg(feature = "accounts")]
     pub async fn account_service(&self) -> Result<AccountService<B>, Error<B>> {
         let service = self
@@ -74,11 +74,11 @@ impl<B: Bmc> ServiceRoot<B> {
     }
 }
 
-// Known Redfish implementation bugs checks.
+// Known Redfish implementation bug checks.
 impl<B: Bmc> ServiceRoot<B> {
     // Account type is required according to schema specification
     // (marked with Redfish.Required annotation) but some vendors
-    // ignores this flag. Workaround of this bug is supporte by
+    // ignores this flag. A workaround for this bug is supported by
     // `nv-redfish`.
     #[cfg(feature = "accounts")]
     pub(crate) fn bug_no_account_type_in_accounts(&self) -> bool {

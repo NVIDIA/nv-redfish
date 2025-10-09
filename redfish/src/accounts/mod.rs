@@ -13,8 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! This module represents AccountService defined in Redfish
-//! specification.
+//! AccountService (Redfish) — high-level wrappers
+//!
+//! Feature: `accounts` (this module is compiled only when the feature is enabled).
+//!
+//! This module provides ergonomic wrappers around the generated Redfish
+//! AccountService model:
+//! - `AccountService`: entry point to manage accounts
+//! - `AccountCollection`: access and create `ManagerAccount` members
+//! - `Account`: operate on an individual `ManagerAccount`
+//!
+//! Vendor compatibility
+//! - Some implementations omit fields marked as `Redfish.Required`.
+//! - This crate can apply read/response patches (see `patch_support`) to keep
+//!   behavior compatible across vendors (for example, defaulting `AccountTypes`).
+//!
 
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::CreateWithPatch;
@@ -42,8 +55,7 @@ pub use crate::schema::redfish::manager_account::ManagerAccountCreate;
 #[doc(inline)]
 pub use crate::schema::redfish::manager_account::ManagerAccountUpdate;
 
-/// Account service. Provide possibility to manage accounts using
-/// Redfish.
+/// Account service. Provides the ability to manage accounts via Redfish.
 pub struct AccountService<B: Bmc> {
     account_read_patch_fn: Option<ReadPatchFn>,
     service: Arc<SchemaAccountService>,
@@ -51,7 +63,7 @@ pub struct AccountService<B: Bmc> {
 }
 
 impl<B: Bmc> AccountService<B> {
-    /// Create new account service. This is always done by
+    /// Create a new account service. This is always done by
     /// `ServiceRoot` object.
     pub(crate) fn new(
         root: &ServiceRoot<B>,
@@ -77,7 +89,7 @@ impl<B: Bmc> AccountService<B> {
         }
     }
 
-    /// `OData` identifier of the `AccountService` in the Redfish.
+    /// `OData` identifier of the `AccountService` in Redfish.
     ///
     /// It is almost always `/redfish/v1/AccountService`.
     #[must_use]
@@ -92,7 +104,7 @@ impl<B: Bmc> AccountService<B> {
     ///
     /// # Errors
     ///
-    /// Returns error if failed to expand collection.
+    /// Returns error if expanding the collection fails.
     pub async fn accounts(&self) -> Result<AccountCollection<B>, Error<B>> {
         let collection_ref = self
             .service
@@ -117,7 +129,7 @@ impl<B: Bmc> AccountService<B> {
 
 /// Accounts collection.
 ///
-/// Provides function for access collection members.
+/// Provides functions to access collection members.
 pub struct AccountCollection<B: Bmc> {
     read_patch_fn: Option<ReadPatchFn>,
     bmc: Arc<B>,
@@ -151,7 +163,7 @@ impl<B: Bmc + Sync + Send>
 }
 
 impl<B: Bmc + Sync + Send> AccountCollection<B> {
-    /// `OData` identifier of the account collection in the Redfish.
+    /// `OData` identifier of the account collection in Redfish.
     ///
     /// It is almost always `/redfish/v1/AccountService/Accounts`.
     #[must_use]
@@ -159,11 +171,11 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
         self.collection.as_ref().id()
     }
 
-    /// Create new account.
+    /// Create a new account.
     ///
     /// # Errors
     ///
-    /// Returns error if failed to create new account.
+    /// Returns error if creating a new account fails.
     pub async fn create_account(
         &self,
         create: &ManagerAccountCreate,
@@ -178,14 +190,13 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
 
     /// Get accounts data.
     ///
-    /// This metod doesn't update collection itself. It is only
-    /// retrieve all accounts data (if it hasn't retrieved yet).
+    /// This method doesn't update the collection itself. It only
+    /// retrieves all account data (if not already retrieved).
     ///
     /// # Errors
     ///
-    /// Returns error if failed to get account data. Note that it is
-    /// only happens if account collection wasn't expanded by any
-    /// reason.
+    /// Returns error if getting account data fails. This only happens
+    /// if the account collection wasn't expanded for some reason.
     pub async fn all_accounts_data(&self) -> Result<Vec<Account<B>>, Error<B>> {
         let mut result = Vec::with_capacity(self.collection.members.len());
         for m in &self.collection.members {
@@ -199,7 +210,7 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
     }
 }
 
-/// Represents `ManagerAccount` in the Redfish.
+/// Represents `ManagerAccount` in Redfish.
 pub struct Account<B: Bmc> {
     read_patch_fn: Option<ReadPatchFn>,
     bmc: Arc<B>,
@@ -231,14 +242,14 @@ where
         self.data.clone()
     }
 
-    /// Update account using Redfish.
+    /// Update the account using Redfish.
     ///
-    /// Function returns newly created account.
+    /// Returns the new (updated) account.
     ///
     /// # Errors
     ///
-    /// Returns error if server returned error or if response failed
-    /// to be parsed.
+    /// Returns error if the server returns an error or if the response
+    /// fails to parse.
     pub async fn update(&self, update: &ManagerAccountUpdate) -> Result<Self, Error<B>> {
         let account = self.update_with_patch(update).await?;
         Ok(Self {
@@ -248,14 +259,14 @@ where
         })
     }
 
-    /// Update account password.
+    /// Update the account password.
     ///
-    /// Note that function returns new (updated) account as result.
+    /// Returns the new (updated) account.
     ///
     /// # Errors
     ///
-    /// Returns error if server returned error or if response failed
-    /// to be parsed.
+    /// Returns error if the server returns an error or if the response
+    /// fails to parse.
     pub async fn update_password(&self, password: String) -> Result<Self, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
@@ -265,14 +276,14 @@ where
         .await
     }
 
-    /// Update current account's user name.
+    /// Update the current account's user name.
     ///
-    /// Note that function returns new (updated) account as result.
+    /// Returns the new (updated) account.
     ///
     /// # Errors
     ///
-    /// Returns error if server returned error or if response failed
-    /// to be parsed.
+    /// Returns error if the server returns an error or if the response
+    /// fails to parse.
     pub async fn update_user_name(&self, user_name: String) -> Result<Self, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
@@ -282,11 +293,11 @@ where
         .await
     }
 
-    /// Delete current account.
+    /// Delete the current account.
     ///
     /// # Errors
     ///
-    /// Returns error if server returned error on delete.
+    /// Returns error if the server returns an error on delete.
     pub async fn delete(&self) -> Result<(), Error<B>> {
         self.data
             .delete(self.bmc.as_ref())
@@ -296,9 +307,9 @@ where
     }
 }
 
-// `AccountTypes` is marked as `Redfish.Required` but some systems
-// ignores this requirement. Account service replace it's value with
-// 'reasonable' default (see below).
+// `AccountTypes` is marked as `Redfish.Required`, but some systems
+// ignore this requirement. The account service replaces its value with
+// a reasonable default (see below).
 //
 // Note quote from schema: "if this property is not provided by the client, the default value
 // shall be an array that contains the value `Redfish`".

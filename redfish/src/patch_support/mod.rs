@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Sometime Redfish implementations are not perfectly match CSDL
-//! specification. This module provides helpers to deal with it.
+//! Sometimes Redfish implementations do not perfectly match the CSDL
+//! specification. This module provides helpers to deal with that.
 
 /// Redfish collection related patches.
 mod collection;
@@ -34,6 +34,6 @@ pub use serde_json::Value as JsonValue;
 
 use std::sync::Arc;
 
-/// Reference to patch funcion. This function should transform json
-/// structure to Redfish-compatible structure.
+/// Reference to a patch function. This function should transform a JSON
+/// structure to a Redfish-compatible structure.
 pub type ReadPatchFn = Arc<dyn Fn(JsonValue) -> JsonValue + Sync + Send>;

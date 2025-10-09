@@ -32,10 +32,10 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
 
-/// Trait that provides possibility to patch collection members data
-/// before it deserialized to member data structure. This is required
-/// in situations where BMC implementation do something that is not
-/// aligned with CSDL schema.
+/// Trait that allows patching collection member data before it is
+/// deserialized to the member data structure. This is required when a
+/// BMC implementation produces payloads that are not aligned with the
+/// CSDL schema.
 ///
 /// Example of usage is in `AccountCollection` implementation.
 pub trait CollectionWithPatch<T, M, B>
@@ -77,8 +77,8 @@ where
     }
 }
 
-/// Trait that provides possibility to create collection member and patch
-/// response before it is deserialized to member datastructure.
+/// Trait that allows creating a collection member and patching the
+/// response before it is deserialized to the member data structure.
 ///
 /// Example of usage is in `AccountCollection` implementation.
 pub trait CreateWithPatch<T, M, C, B>
@@ -104,13 +104,12 @@ where
     }
 }
 
-/// Collection of entity types that is capable to apply patches to
-/// it's members on read.
+/// Collection of entity types that can apply patches to its members on read.
 ///
-/// In some situation implementation of BMC may miss fields that
-/// marked as required but this field may have reasonable default.
-/// This Collection can be use to deserialize this collection and then
-/// restore original collection by patching payload of members.
+/// In some situations, a BMC implementation may miss fields that are
+/// marked as required but have reasonable defaults. This collection
+/// can be used to deserialize the collection and then restore the
+/// original shape by patching member payloads.
 #[derive(Deserialize)]
 struct Collection {
     #[serde(flatten)]
@@ -174,8 +173,8 @@ impl EntityTypeRef for Collection {
 
 impl Expandable for Collection {}
 
-// Helper struct that enables possiblitity to create new member of the
-// collection and apply patch to the payload before creating member.
+// Helper struct that enables creating a new member of the collection
+// and applying a patch to the payload before creation.
 struct Creator<'a> {
     id: &'a ODataId,
 }

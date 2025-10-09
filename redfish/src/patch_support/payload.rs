@@ -52,15 +52,15 @@ where
 
 /// Support payload patching.
 ///
-/// The struct supports deserialization from any json payload then
-/// gives method to apply patch and after "deserialize" to the target
-/// type.
+/// This struct supports deserialization from any JSON payload and
+/// provides a method to apply a patch and then deserialize to the
+/// target type.
 #[derive(Deserialize)]
 #[serde(transparent)]
 pub struct Payload(JsonValue);
 
 impl Payload {
-    /// Apply function f to payload and then try to deserialize to the
+    /// Apply function `f` to the payload and then try to deserialize to the
     /// target type.
     pub(crate) fn to_target<T, B, F>(&self, f: F) -> Result<T, Error<B>>
     where
