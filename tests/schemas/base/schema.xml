@@ -155,6 +155,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
         </NavigationProperty>
       </ComplexType>
+      <ComplexType Name="PreferredApplyTime"/>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

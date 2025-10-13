@@ -301,6 +301,12 @@ impl SchemaBundle {
         let (name, _) = ctx.schema_index.redfish_settings_type()?;
         let (compiled, _) = ensure_type(name, ctx, &stack)?;
         let stack = stack.merge(compiled);
+        // Compile type for @Redfish.SettingsApplyTime
+        let (name, _) = ctx
+            .schema_index
+            .redfish_settings_preferred_apply_time_type()?;
+        let (compiled, _) = ensure_type(name, ctx, &stack)?;
+        let stack = stack.merge(compiled);
         // Compile actions for all extracted types
         self.edmx_docs
             .iter()
@@ -413,6 +419,7 @@ mod test {
                </Schema>
                <Schema Namespace="Settings">
                  <ComplexType Name="Settings"/>
+                 <ComplexType Name="PreferredApplyTime"/>
                </Schema>
              </edmx:DataServices>
            </edmx:Edmx>"#;

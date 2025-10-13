@@ -32,6 +32,7 @@ pub enum Error<'a> {
     EntityTypeNotFound(QualifiedName<'a>),
     ComplexTypeNotFound(QualifiedName<'a>),
     SettingsTypeNotFound,
+    SettingsPreferredApplyTimeTypeNotFound,
     EntityType(QualifiedName<'a>, Box<Error<'a>>),
     TypeNotFound(QualifiedName<'a>),
     TypeDefinitionOfNotPrimitiveType(QualifiedName<'a>),
@@ -54,6 +55,10 @@ impl Display for Error<'_> {
             Self::SettingsTypeNotFound => writeln!(
                 f,
                 "cannot find type for redfish settings (Settings.Settings)"
+            ),
+            Self::SettingsPreferredApplyTimeTypeNotFound => writeln!(
+                f,
+                "cannot find type for redfish settings preferred apply time (Settings.PreferredApplyTime)"
             ),
             Self::NotBoundAction => {
                 write!(f, "unbound action is not supported")

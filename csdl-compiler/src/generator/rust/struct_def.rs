@@ -61,6 +61,12 @@ pub struct StructDef<'a> {
     odata: OData<'a>,
     generate: Vec<GenerateType>,
     create_type: Option<QualifiedName<'a>>,
+    // Today we implement settings resource using the same EntityType
+    // as we use for active resource (see DSP0266 9.10 Settings
+    // resource for terminology). In theory we can generate own type
+    // for Settings that excludes "ReadOnly, not required" fields and
+    // implements `@Redfish.SettingsApplyTime` instead of implementing
+    // it in active resource itself.
     need_redfish_settings: bool,
 }
 
@@ -211,6 +217,8 @@ impl<'a> StructDef<'a> {
                             pub odata_type: String,
                             #[serde(rename = "@Redfish.Settings")]
                             pub redfish_settings: Option<#top::settings::Settings>,
+                            #[serde(rename = "@Redfish.SettingsApplyTime")]
+                            pub redfish_settings_apply_type: Option<#top::settings::PreferredApplyTime>,
                         },
                         ImplType::Root,
                     )
