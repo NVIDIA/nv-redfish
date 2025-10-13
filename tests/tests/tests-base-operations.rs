@@ -17,6 +17,7 @@ use nv_redfish_core::Creatable;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::RedfishSettings;
 use nv_redfish_core::Updatable;
 use nv_redfish_tests::base::expect_root;
 use nv_redfish_tests::base::expect_root_srv;
@@ -452,5 +453,151 @@ async fn action_method_test() -> Result<(), Error> {
         .await
         .map_err(Error::Bmc)?;
 
+    Ok(())
+}
+
+// Deserialize @Redfish.Settings and navigate to settings object.
+#[test]
+async fn redfish_settings_nav_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let root_id = ODataId::service_root();
+    let service_name = "TestSettingsService";
+    let service_id = format!("{root_id}/{service_name}");
+    let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
+
+    bmc.expect(expect_root_srv(service_name, &service_id));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+
+    let settings_id = format!("{service_id}/Settings");
+    bmc.expect(Expect::get(
+        &service_id,
+        json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: &service_data_type,
+            "@Redfish.Settings": { "SettingsObject": { ODATA_ID: &settings_id } },
+            "@Redfish.SettingsApplyTime": {},
+            "SettingValue": "current",
+        }),
+    ));
+    let service = service_root
+        .test_settings_service
+        .as_ref()
+        .ok_or(Error::ExpectedProperty("test_settings_service"))?
+        .get(&bmc)
+        .await
+        .map_err(Error::Bmc)?;
+
+    assert!(service.redfish_settings.is_some());
+    assert!(service.redfish_settings_apply_type.is_some());
+    let settings_nav = service.settings_object().expect("settings nav must exist");
+
+    // Fetch settings object
+    bmc.expect(Expect::get(
+        &settings_id,
+        json!({
+            ODATA_ID: &settings_id,
+            ODATA_TYPE: &service_data_type,
+            "SettingValue": "current",
+        }),
+    ));
+    let _settings = settings_nav.get(&bmc).await.map_err(Error::Bmc)?;
+    Ok(())
+}
+
+// Update via settings object; ensure update goes to settings resource id and applies value.
+#[test]
+async fn redfish_settings_update_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let root_id = ODataId::service_root();
+    let service_name = "TestSettingsService";
+    let service_id = format!("{root_id}/{service_name}");
+    let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
+
+    bmc.expect(expect_root_srv(service_name, &service_id));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+
+    let settings_id = format!("{service_id}/Settings");
+    bmc.expect(Expect::get(
+        &service_id,
+        json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: &service_data_type,
+            "@Redfish.Settings": { "SettingsObject": { ODATA_ID: &settings_id } },
+            "@Redfish.SettingsApplyTime": {},
+            "SettingValue": "current",
+        }),
+    ));
+    let service = service_root
+        .test_settings_service
+        .as_ref()
+        .ok_or(Error::ExpectedProperty("test_settings_service"))?
+        .get(&bmc)
+        .await
+        .map_err(Error::Bmc)?;
+
+    let settings_nav = service.settings_object().expect("settings nav must exist");
+    // Retrieve settings object once and update it
+    bmc.expect(Expect::get(
+        &settings_id,
+        json!({
+            ODATA_ID: &settings_id,
+            ODATA_TYPE: &service_data_type,
+            "SettingValue": "current",
+        }),
+    ));
+    let settings = settings_nav.get(&bmc).await.map_err(Error::Bmc)?;
+
+    let new_value = "new".to_string();
+    bmc.expect(Expect::update(
+        &settings_id,
+        json!({ "SettingValue": &new_value }),
+        json!({
+            ODATA_ID: &settings_id,
+            ODATA_TYPE: &service_data_type,
+            "SettingValue": &new_value,
+        }),
+    ));
+    let updated = settings
+        .update(
+            &bmc,
+            &nv_redfish_tests::base::redfish::service_root::TestSettingsServiceUpdate {
+                setting_value: Some(new_value.clone()),
+            },
+        )
+        .await
+        .map_err(Error::Bmc)?;
+    assert_eq!(updated.setting_value, Some(new_value));
+    Ok(())
+}
+
+// If no @Redfish.Settings present, settings_object() returns None.
+#[test]
+async fn redfish_settings_absent_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let root_id = ODataId::service_root();
+    let service_name = "TestSettingsService";
+    let service_id = format!("{root_id}/{service_name}");
+    let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
+
+    bmc.expect(expect_root_srv(service_name, &service_id));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+
+    // No settings annotations included
+    bmc.expect(Expect::get(
+        &service_id,
+        json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: &service_data_type,
+            "SettingValue": "current",
+        }),
+    ));
+    let service = service_root
+        .test_settings_service
+        .as_ref()
+        .ok_or(Error::ExpectedProperty("test_settings_service"))?
+        .get(&bmc)
+        .await
+        .map_err(Error::Bmc)?;
+    assert!(service.settings_object().is_none());
     Ok(())
 }
