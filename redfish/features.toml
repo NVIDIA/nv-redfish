@@ -14,11 +14,6 @@ patterns = [
 ]
 
 [[features]]
-name = "events"
-csdl_files = ["EventService_v1.xml", "Event_v1.xml", "EventDestination_v1.xml"]
-patterns = ["EventService.*"]
-
-[[features]]
 name = "chassis"
 csdl_files = [
     "Chassis_v1.xml",
@@ -133,7 +128,7 @@ patterns = [
 ]
 
 [[features]]
-name = "update_service"
+name = "update-service"
 csdl_files = [
     "UpdateService_v1.xml",
     "SoftwareInventory_v1.xml",
@@ -148,7 +143,7 @@ patterns = [
 ]
 
 [[features]]
-name = "__log_service"
+name = "__log-service"
 csdl_files = [
     "LogService_v1.xml",
     "LogServiceCollection_v1.xml",

@@ -10,16 +10,15 @@ categories.workspace = true
 documentation.workspace = true
 
 [features]
-default = ["accounts", "events", "chassis", "systems", "update_service", "managers"]
+default = ["accounts", "chassis", "systems", "update-service", "managers"]
 accounts = []
-events = []
-chassis = ["__log_service"]
-systems = ["__log_service"]
-update_service = []
-managers = ["__log_service"]
+chassis = ["__log-service"]
+systems = ["__log-service"]
+update-service = []
+managers = ["__log-service"]
 
 # Internal feature, does not make sense on it own
-__log_service = []
+__log-service = []
 
 # OEM features support
 oem-lenovo = ["oem"]

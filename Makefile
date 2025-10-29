@@ -21,14 +21,16 @@ swordfish-schemas-dep = schemas/.dep-swordfish
 
 all: $(redfish-schemas-dep) $(swordfish-schemas-dep) 
 	cargo build --all-features
-	cargo build --features oem-hpe,accounts,events
+	cargo build --features oem-hpe,accounts
 	cargo build --features oem-lenovo
 	cargo build --features oem-hpe
 	cargo build --features oem-nvidia
 	cargo build --features oem-dell
 	cargo build --features oem-ami
 	cargo build --features accounts
-	cargo build --features events
+	cargo build --features chassis
+	cargo build --features systems
+	cargo build --features update-service
 	cargo build --features ""
 	cargo test -- --no-capture
 	cargo clippy --all-features

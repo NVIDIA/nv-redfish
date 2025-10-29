@@ -45,7 +45,13 @@ fn main() -> Result<(), Box<dyn StdError>> {
     let target_features = manifest
         .all_features()
         .into_iter()
-        .filter(|f| var(format!("CARGO_FEATURE_{}", f.to_uppercase())).is_ok())
+        .filter(|f| {
+            var(format!(
+                "CARGO_FEATURE_{}",
+                f.to_uppercase().replace('-', "_")
+            ))
+            .is_ok()
+        })
         .collect::<Vec<_>>();
 
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
@@ -61,13 +67,18 @@ fn main() -> Result<(), Box<dyn StdError>> {
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed");
-    let (features_csdls, features_swordfish_csdls, features_patterns) = manifest.collect(&target_features);
+    let (features_csdls, features_swordfish_csdls, features_patterns) =
+        manifest.collect(&target_features);
     let csdls = redfish_csdl
         .iter()
         .chain(service_root.iter())
         .chain(features_csdls)
         .map(|f| format!("{redfish_schema_path}/{f}"))
-        .chain(features_swordfish_csdls.iter().map(|f| format!("{swordfish_schema_path}/{f}")))
+        .chain(
+            features_swordfish_csdls
+                .iter()
+                .map(|f| format!("{swordfish_schema_path}/{f}")),
+        )
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();

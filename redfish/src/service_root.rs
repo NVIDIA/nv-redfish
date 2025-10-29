@@ -30,7 +30,7 @@ use crate::chassis::ChassisCollection;
 use crate::managers::ManagerCollection;
 #[cfg(feature = "systems")]
 use crate::systems::SystemCollection;
-#[cfg(feature = "update_service")]
+#[cfg(feature = "update-service")]
 use crate::update_service::UpdateService;
 
 /// Represents `ServiceRoot` in the BMC model.
@@ -118,7 +118,7 @@ impl<B: Bmc> ServiceRoot<B> {
     /// # Errors
     ///
     /// Returns error if update service is not available in BMC
-    #[cfg(feature = "update_service")]
+    #[cfg(feature = "update-service")]
     pub async fn update_service(&self) -> Result<UpdateService<B>, Error<B>> {
         let service_ref = self
             .root

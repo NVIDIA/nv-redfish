@@ -13,15 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
-use nv_redfish_core::Bmc;
-
 use crate::extract_sensor_uris;
 use crate::schema::redfish::power_supply::PowerSupply as PowerSupplySchema;
 use crate::schema::redfish::power_supply_metrics::PowerSupplyMetrics;
 use crate::sensors::Sensor;
 use crate::Error;
+use nv_redfish_core::Bmc;
+use std::sync::Arc;
 
 /// Represents a power supply in a chassis.
 ///

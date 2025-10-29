@@ -33,7 +33,6 @@
 //!
 //! Features
 //! - `accounts`: enables the `AccountService` wrappers (implemented).
-//! - `events`: enables the Events service wrappers (planned).
 //! - OEM-specific feature flags (planned) enable vendor extensions when needed.
 //!
 //! Status
@@ -89,12 +88,6 @@ pub mod accounts;
 /// Chassis.
 #[cfg(feature = "chassis")]
 pub mod chassis;
-/// Events Service.
-#[cfg(feature = "events")]
-pub mod events;
-/// Log Service.
-#[cfg(feature = "__log_service")]
-pub mod log_service;
 /// Manager.
 #[cfg(feature = "managers")]
 pub mod managers;
@@ -102,8 +95,12 @@ pub mod managers;
 #[cfg(feature = "systems")]
 pub mod systems;
 /// Update Service.
-#[cfg(feature = "update_service")]
+#[cfg(feature = "update-service")]
 pub mod update_service;
+
+/// Log Service.
+#[cfg(feature = "__log-service")]
+pub mod log_service;
 
 #[doc(inline)]
 pub use error::Error;

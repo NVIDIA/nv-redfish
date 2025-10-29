@@ -23,7 +23,7 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::Expandable as _;
 use std::sync::Arc;
 
-#[cfg(feature = "__log_service")]
+#[cfg(feature = "__log-service")]
 use crate::log_service::LogService;
 
 /// Represents a computer system in the BMC.
@@ -163,7 +163,7 @@ where
     /// Returns an error if:
     /// - The computer system does not have log services
     /// - Fetching log service data fails
-    #[cfg(feature = "__log_service")]
+    #[cfg(feature = "__log-service")]
     pub async fn list_log_services(&self) -> Result<Vec<LogService<B>>, Error<B>> {
         let log_services_ref = self
             .data

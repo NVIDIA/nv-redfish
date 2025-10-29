@@ -13,11 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::sync::Arc;
-
-use nv_redfish_core::Bmc;
-
 use crate::schema::redfish::thermal::Thermal as ThermalSchema;
+use nv_redfish_core::Bmc;
+use std::sync::Arc;
 
 /// Legacy Thermal resource wrapper.
 ///

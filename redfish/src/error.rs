@@ -50,23 +50,23 @@ pub enum Error<B: Bmc> {
     /// Metrics not available for this entity
     MetricsNotAvailable,
     /// Update service not supported by BMC
-    #[cfg(feature = "update_service")]
+    #[cfg(feature = "update-service")]
     UpdateServiceNotSupported,
     /// Firmware inventory not available
-    #[cfg(feature = "update_service")]
+    #[cfg(feature = "update-service")]
     FirmwareInventoryNotAvailable,
     /// Software inventory not available
-    #[cfg(feature = "update_service")]
+    #[cfg(feature = "update-service")]
     SoftwareInventoryNotAvailable,
     /// Action not available for this resource
     ActionNotAvailable,
     /// Sensors not available for this resource
     SensorsNotAvailable,
     /// Log service not available for this resource
-    #[cfg(feature = "__log_service")]
+    #[cfg(feature = "__log-service")]
     LogServiceNotAvailable,
     /// Log entries not available
-    #[cfg(feature = "__log_service")]
+    #[cfg(feature = "__log-service")]
     LogEntriesNotAvailable,
     /// Manager not supported by BMC
     #[cfg(feature = "managers")]
@@ -111,15 +111,15 @@ impl<B: Bmc> Display for Error<B> {
             Self::MetricsNotAvailable => {
                 write!(f, "Metrics are not available for this entity")
             }
-            #[cfg(feature = "update_service")]
+            #[cfg(feature = "update-service")]
             Self::UpdateServiceNotSupported => {
                 write!(f, "Update service is not supported by system")
             }
-            #[cfg(feature = "update_service")]
+            #[cfg(feature = "update-service")]
             Self::FirmwareInventoryNotAvailable => {
                 write!(f, "Firmware inventory is not available")
             }
-            #[cfg(feature = "update_service")]
+            #[cfg(feature = "update-service")]
             Self::SoftwareInventoryNotAvailable => {
                 write!(f, "Software inventory is not available")
             }
@@ -129,11 +129,11 @@ impl<B: Bmc> Display for Error<B> {
             Self::SensorsNotAvailable => {
                 write!(f, "Sensors is not available for this resource")
             }
-            #[cfg(feature = "__log_service")]
+            #[cfg(feature = "__log-service")]
             Self::LogServiceNotAvailable => {
                 write!(f, "Log service is not available for this resource")
             }
-            #[cfg(feature = "__log_service")]
+            #[cfg(feature = "__log-service")]
             Self::LogEntriesNotAvailable => {
                 write!(f, "Log entries are not available")
             }
