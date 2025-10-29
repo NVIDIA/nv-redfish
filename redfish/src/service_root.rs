@@ -24,6 +24,12 @@ use std::sync::Arc;
 use crate::accounts::AccountService;
 #[cfg(feature = "accounts")]
 use crate::accounts::SlotDefinedConfig as SlotDefinedUserAccountsConfig;
+#[cfg(feature = "chassis")]
+use crate::chassis::ChassisCollection;
+#[cfg(feature = "system")]
+use crate::system::SystemCollection;
+#[cfg(feature = "manager")]
+use crate::manager::ManagerCollection;
 
 /// Represents `ServiceRoot` in the BMC model.
 pub struct ServiceRoot<B: Bmc> {
@@ -73,6 +79,73 @@ impl<B: Bmc> ServiceRoot<B> {
             .await
             .map_err(Error::Bmc)?;
         Ok(AccountService::new(self, service, self.bmc.clone()))
+    }
+
+    /// Get chassis collection in BMC
+    ///
+    /// # Errors
+    ///
+    /// Returns error if chassis list is not avaiable in BMC
+    #[cfg(feature = "chassis")]
+    pub async fn chassis_collection(&self) -> Result<ChassisCollection<B>, Error<B>> {
+        let chassis = self
+            .root
+            .chassis
+            .as_ref()
+            .ok_or(Error::ChassisNotSupported)?;
+        Ok(ChassisCollection::new(self.bmc.clone(), chassis).await?)
+    }
+
+    /// Get computer system collection in BMC
+    ///
+    /// # Errors
+    ///
+    /// Returns error if system list is not available in BMC
+    #[cfg(feature = "system")]
+    pub async fn system_collection(&self) -> Result<SystemCollection<B>, Error<B>> {
+        let systems = self
+            .root
+            .systems
+            .as_ref()
+            .ok_or(Error::SystemNotSupported)?;
+        Ok(SystemCollection::new(self.bmc.clone(), systems).await?)
+    }
+
+    /// Get update service in BMC
+    ///
+    /// # Errors
+    ///
+    /// Returns error if update service is not available in BMC
+    #[cfg(feature = "update_service")]
+    pub async fn update_service(&self) -> Result<crate::update_service::UpdateService<B>, Error<B>> {
+        let service_ref = self
+            .root
+            .update_service
+            .as_ref()
+            .ok_or(Error::UpdateServiceNotSupported)?;
+        let service = service_ref
+            .get(self.bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)?;
+        Ok(crate::update_service::UpdateService::new(
+            self.bmc.clone(),
+            service,
+        ))
+    }
+
+    /// Get manager collection in BMC
+    ///
+    /// # Errors
+    ///
+    /// Returns error if manager list is not available in BMC
+    #[cfg(feature = "manager")]
+    pub async fn list_managers(&self) -> Result<ManagerCollection<B>, Error<B>> {
+        let managers = self
+            .root
+            .managers
+            .as_ref()
+            .ok_or(Error::ManagerNotSupported)?;
+        Ok(ManagerCollection::new(self.bmc.clone(), managers).await?)
     }
 }
 

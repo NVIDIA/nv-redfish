@@ -203,8 +203,7 @@ mod cache_integration_tests {
         let resource_path = paths::CHASSIS_1;
         let etag_value = "headeretag";
 
-        let test_resource =
-            create_test_resource(resource_path, None, names::TEST_CHASSIS, 100);
+        let test_resource = create_test_resource(resource_path, None, names::TEST_CHASSIS, 100);
 
         Mock::given(method("GET"))
             .and(path(resource_path))

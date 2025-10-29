@@ -38,12 +38,19 @@ pub struct EnumDef<'a> {
 
 impl EnumDef<'_> {
     /// Generate rust code for types derived from enums.
-    pub fn generate(self, tokens: &mut TokenStream, _config: &Config) {
+    pub fn generate(self, tokens: &mut TokenStream, config: &Config) {
         let name = self.name;
+        let top = &config.top_module_alias;
         let mut members_content = TokenStream::new();
+        let mut snake_case_match_arms = TokenStream::new();
+
         for m in self.compiled.members {
             let rename = Literal::string(m.name.inner().inner());
             let member_name = EnumMemberName::new(m.name.inner());
+
+            let snake_case_str = casemungler::to_snake(m.name.inner().inner());
+            let snake_case_literal = Literal::string(&snake_case_str);
+
             members_content.extend([
                 doc_format_and_generate(m.name, &m.odata),
                 quote! {
@@ -51,6 +58,10 @@ impl EnumDef<'_> {
                     #member_name,
                 },
             ]);
+
+            snake_case_match_arms.extend(quote! {
+                Self::#member_name => #snake_case_literal,
+            });
         }
 
         tokens.extend([
@@ -62,6 +73,16 @@ impl EnumDef<'_> {
             },
         ]);
         tokens.append(Group::new(Delimiter::Brace, members_content));
+
+        tokens.extend(quote! {
+            impl #top::ToSnakeCase for #name {
+                fn to_snake_case(&self) -> &'static str {
+                    match self {
+                        #snake_case_match_arms
+                    }
+                }
+            }
+        });
     }
 }
 

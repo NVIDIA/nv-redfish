@@ -64,15 +64,16 @@ impl FeaturesManifest {
     pub fn collect<'a>(
         &'a self,
         features: &[&String],
-    ) -> (Vec<&'a String>, Vec<&'a EntityTypeFilterPattern>) {
+    ) -> (Vec<&'a String>, Vec<&'a String>, Vec<&'a EntityTypeFilterPattern>) {
         self.features
             .iter()
-            .fold((Vec::new(), Vec::new()), |(mut files, mut patterns), f| {
+            .fold((Vec::new(), Vec::new(), Vec::new()), |(mut files, mut swordfish_files, mut patterns), f| {
                 if features.contains(&&f.name) {
                     files.extend(f.csdl_files.iter());
+                    swordfish_files.extend(f.swordfish_csdl_files.iter());
                     patterns.extend(f.patterns.iter());
                 }
-                (files, patterns)
+                (files, swordfish_files, patterns)
             })
     }
 
@@ -127,6 +128,8 @@ impl FeaturesManifest {
 pub struct Feature {
     pub name: String,
     pub csdl_files: Vec<String>,
+    #[serde(default)]
+    pub swordfish_csdl_files: Vec<String>,
     pub patterns: Vec<EntityTypeFilterPattern>,
 }
 

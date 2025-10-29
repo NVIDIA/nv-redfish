@@ -32,6 +32,45 @@ pub enum Error<B: Bmc> {
     /// `slot_defined_user_accounts` feature.
     #[cfg(feature = "accounts")]
     AccountSlotNotAvailable,
+    /// Chassis not supported by BMC
+    #[cfg(feature = "chassis")]
+    ChassisNotSupported,
+    /// Computer system not supported by BMC
+    #[cfg(feature = "system")]
+    SystemNotSupported,
+    /// Processors not available for this system
+    #[cfg(feature = "system")]
+    ProcessorsNotAvailable,
+    /// Storage not available for this system
+    #[cfg(feature = "system")]
+    StorageNotAvailable,
+    /// Memory not available for this system
+    #[cfg(feature = "system")]
+    MemoryNotAvailable,
+    /// Metrics not available for this entity
+    MetricsNotAvailable,
+    /// Update service not supported by BMC
+    #[cfg(feature = "update_service")]
+    UpdateServiceNotSupported,
+    /// Firmware inventory not available
+    #[cfg(feature = "update_service")]
+    FirmwareInventoryNotAvailable,
+    /// Software inventory not available
+    #[cfg(feature = "update_service")]
+    SoftwareInventoryNotAvailable,
+    /// Action not available for this resource
+    ActionNotAvailable,
+    /// Sensors not available for this resource
+    SensorsNotAvailable,
+    /// Log service not available for this resource
+    #[cfg(feature = "__log_service")]
+    LogServiceNotAvailable,
+    /// Log entries not available
+    #[cfg(feature = "__log_service")]
+    LogEntriesNotAvailable,
+    /// Manager not supported by BMC
+    #[cfg(feature = "manager")]
+    ManagerNotSupported,
     /// JSON parse error.
     Json(JsonError),
 }
@@ -48,6 +87,59 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "accounts")]
             Self::AccountSlotNotAvailable => {
                 write!(f, "Free account slot is not found")
+            }
+            #[cfg(feature = "chassis")]
+            Self::ChassisNotSupported => {
+                write!(f, "Chassis is not supported by system")
+            }
+            #[cfg(feature = "system")]
+            Self::SystemNotSupported => {
+                write!(f, "Computer system is not supported by system")
+            }
+            #[cfg(feature = "system")]
+            Self::ProcessorsNotAvailable => {
+                write!(f, "Processors are not available for this system")
+            }
+            #[cfg(feature = "system")]
+            Self::StorageNotAvailable => {
+                write!(f, "Storage is not available for this system")
+            }
+            #[cfg(feature = "system")]
+            Self::MemoryNotAvailable => {
+                write!(f, "Memory is not available for this system")
+            }
+            Self::MetricsNotAvailable => {
+                write!(f, "Metrics are not available for this entity")
+            }
+            #[cfg(feature = "update_service")]
+            Self::UpdateServiceNotSupported => {
+                write!(f, "Update service is not supported by system")
+            }
+            #[cfg(feature = "update_service")]
+            Self::FirmwareInventoryNotAvailable => {
+                write!(f, "Firmware inventory is not available")
+            }
+            #[cfg(feature = "update_service")]
+            Self::SoftwareInventoryNotAvailable => {
+                write!(f, "Software inventory is not available")
+            }
+            Self::ActionNotAvailable => {
+                write!(f, "Action is not available for this resource")
+            }
+            Self::SensorsNotAvailable => {
+                write!(f, "Sensors is not available for this resource")
+            }
+            #[cfg(feature = "__log_service")]
+            Self::LogServiceNotAvailable => {
+                write!(f, "Log service is not available for this resource")
+            }
+            #[cfg(feature = "__log_service")]
+            Self::LogEntriesNotAvailable => {
+                write!(f, "Log entries are not available")
+            }
+            #[cfg(feature = "manager")]
+            Self::ManagerNotSupported => {
+                write!(f, "Manager is not supported by system")
             }
         }
     }

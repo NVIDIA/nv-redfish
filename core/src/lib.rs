@@ -209,3 +209,9 @@ pub trait RedfishSettings<E: EntityTypeRef>: Sized {
     /// Reference to the enity type object.
     fn settings_object(&self) -> Option<NavProperty<E>>;
 }
+
+/// Trait for converting enum variants to snake_case strings
+pub trait ToSnakeCase {
+    /// Convert this enum variant to a snake_case string
+    fn to_snake_case(&self) -> &'static str;
+}

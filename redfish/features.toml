@@ -5,23 +5,174 @@ csdl_files = [
     "AccountService_v1.xml",
     "ManagerAccountCollection_v1.xml",
     "ManagerAccount_v1.xml",
-    "Privileges_v1.xml"
+    "Privileges_v1.xml",
 ]
 patterns = [
     "AccountService.*",
     "ManagerAccountCollection.*",
-    "ManagerAccount.*"
+    "ManagerAccount.*",
 ]
 
 [[features]]
 name = "events"
+csdl_files = ["EventService_v1.xml", "Event_v1.xml", "EventDestination_v1.xml"]
+patterns = ["EventService.*"]
+
+[[features]]
+name = "chassis"
 csdl_files = [
-    "EventService_v1.xml",
-    "Event_v1.xml",
-    "EventDestination_v1.xml",
+    "Chassis_v1.xml",
+    "ChassisCollection_v1.xml",
+    "Circuit_v1.xml",
+    "CircuitCollection_v1.xml",
+    "EnvironmentMetrics_v1.xml",
+    "Fan_v1.xml",
+    "FanCollection_v1.xml",
+    "LeakDetection_v1.xml",
+    "LeakDetector_v1.xml",
+    "LeakDetectorCollection_v1.xml",
+    "PhysicalContext_v1.xml",
+    "Power_v1.xml",
+    "PowerSubsystem_v1.xml",
+    "PowerSupply_v1.xml",
+    "PowerSupplyCollection_v1.xml",
+    "PowerSupplyMetrics_v1.xml",
+    "Redundancy_v1.xml",
+    "Sensor_v1.xml",
+    "SensorCollection_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "Thermal_v1.xml",
+    "ThermalMetrics_v1.xml",
+    "ThermalSubsystem_v1.xml",
 ]
 patterns = [
-    "EventService.*",
+    "ChassisCollection.*",
+    "Chassis.*",
+    "EnvironmentMetrics.*",
+    "Fan.*",
+    "FanCollection.*",
+    "LeakDetection.*",
+    "LeakDetector.*",
+    "LeakDetectorCollection.*",
+    "PhysicalContext.*",
+    "Power.*",
+    "Power.*.*",
+    "PowerSubsystem.*",
+    "PowerSupply.*",
+    "PowerSupplyCollection.*",
+    "PowerSupplyMetrics.*",
+    "Sensor.*",
+    "SensorCollection.*",
+    "Thermal.*",
+    "Thermal.*.*",
+    "ThermalMetrics.*",
+    "ThermalSubsystem.*",
+    "ThermalSubsystem.*.*",
+]
+
+[[features]]
+name = "system"
+csdl_files = [
+    "ComputerSystem_v1.xml",
+    "ComputerSystemCollection_v1.xml",
+    "Drive_v1.xml",
+    "DriveCollection_v1.xml",
+    "DriveMetrics_v1.xml",
+    "EnvironmentMetrics_v1.xml",
+    "Memory_v1.xml",
+    "MemoryCollection_v1.xml",
+    "MemoryMetrics_v1.xml",
+    "PCIeDevice_v1.xml",
+    "PCIeDeviceCollection_v1.xml",
+    "PhysicalContext_v1.xml",
+    "Processor_v1.xml",
+    "ProcessorCollection_v1.xml",
+    "ProcessorMetrics_v1.xml",
+    "Protocol_v1.xml",
+    "Redundancy_v1.xml",
+    "ResourceBlock_v1.xml",
+    "ResourceBlockCollection_v1.xml",
+    "Sensor_v1.xml",
+    "SensorCollection_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "Storage_v1.xml",
+    "StorageCollection_v1.xml",
+    "StorageController_v1.xml",
+    "StorageControllerMetrics_v1.xml",
+    "Volume_v1.xml",
+    "VolumeCollection_v1.xml",
+]
+swordfish_csdl_files = [
+    "Capacity_v1.xml",
+    "DataStorageLoSCapabilities_v1.xml",
+    "IOStatistics_v1.xml",
+    "StorageReplicaInfo_v1.xml",
+]
+patterns = [
+    "ComputerSystem.*",
+    "ComputerSystemCollection.*",
+    "Drive.*",
+    "DriveCollection.*",
+    "DriveMetrics.*",
+    "EnvironmentMetrics.*",
+    "Memory.*",
+    "MemoryCollection.*",
+    "MemoryMetrics.*",
+    "PhysicalContext.*",
+    "Processor.*",
+    "ProcessorCollection.*",
+    "ProcessorMetrics.*",
+    "Sensor.*",
+    "SensorCollection.*",
+    "Storage.*",
+    "StorageCollection.*",
+    "StorageController.*",
+    "StorageControllerMetrics.*",
+    "Volume.*",
+    "VolumeCollection.*",
+]
+
+[[features]]
+name = "update_service"
+csdl_files = [
+    "UpdateService_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "SoftwareInventoryCollection_v1.xml",
+    "Key_v1.xml",
+    "PhysicalContext_v1.xml",
+]
+patterns = [
+    "UpdateService.*",
+    "SoftwareInventory.*",
+    "SoftwareInventoryCollection.*",
+]
+
+[[features]]
+name = "__log_service"
+csdl_files = [
+    "LogService_v1.xml",
+    "LogServiceCollection_v1.xml",
+    "LogEntry_v1.xml",
+    "LogEntryCollection_v1.xml",
+    "Event_v1.xml",
+]
+patterns = [
+    "LogService.*",
+    "LogServiceCollection.*",
+    "LogEntry.*",
+    "LogEntryCollection.*",
+]
+
+[[features]]
+name = "manager"
+csdl_files = [
+    "Manager_v1.xml",
+    "ManagerCollection_v1.xml",
+    "SoftwareInventory_v1.xml",
+]
+patterns = [
+    "Manager.*",
+    "ManagerCollection.*",
 ]
 
 [[oem-features]]
@@ -35,8 +186,5 @@ csdl_files = []
 [[oem-features]]
 vendor = "hpe"
 name = "accounts"
-oem_csdl_files = [
-    "HpeiLOAccountService_v1.xml",
-]
+oem_csdl_files = ["HpeiLOAccountService_v1.xml"]
 csdl_files = []
-

@@ -184,6 +184,7 @@ impl<'a> RustGenerator<'a> {
                 ODataETag,
                 ReferenceLeaf,
                 AdditionalProperties,
+                ToSnakeCase,
                 de_optional_nullable,
                 de_required_nullable,
             };

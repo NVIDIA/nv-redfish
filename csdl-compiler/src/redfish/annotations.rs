@@ -72,7 +72,9 @@ pub trait RedfishPropertyAnnotations {
     fn excerpt(&self) -> Option<Excerpt> {
         self.annotations()
             .iter()
-            .find(|a| a.is_redfish_annotation("Excerpt"))
+            .find(|a| {
+                a.is_redfish_annotation("Excerpt") || a.is_redfish_annotation("ExcerptCopyOnly")
+            })
             .map_or_else(
                 || None,
                 |v| {

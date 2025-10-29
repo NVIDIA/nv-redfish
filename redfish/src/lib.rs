@@ -42,6 +42,7 @@
 //!   manner.
 //!
 
+#![recursion_limit = "256"]
 #![deny(
     clippy::all,
     clippy::pedantic,
@@ -71,6 +72,10 @@ pub(crate) mod schema;
 /// Errors defined by the crate.
 pub mod error;
 
+/// Metrics and sensor abstraction.
+#[cfg(any(feature = "chassis", feature = "system"))]
+pub mod sensors;
+
 /// Service Root implementation.
 pub mod service_root;
 
@@ -81,11 +86,29 @@ pub mod oem;
 /// Accounts Service.
 #[cfg(feature = "accounts")]
 pub mod accounts;
+/// Chassis.
+#[cfg(feature = "chassis")]
+pub mod chassis;
 /// Events Service.
 #[cfg(feature = "events")]
 pub mod events;
+/// Log Service.
+#[cfg(feature = "__log_service")]
+pub mod log_service;
+/// Manager.
+#[cfg(feature = "manager")]
+pub mod manager;
+/// Computer System.
+#[cfg(feature = "system")]
+pub mod system;
+/// Update Service.
+#[cfg(feature = "update_service")]
+pub mod update_service;
 
 #[doc(inline)]
 pub use error::Error;
+#[doc(inline)]
+#[cfg(any(feature = "chassis", feature = "system"))]
+pub use sensors::Sensor;
 #[doc(inline)]
 pub use service_root::ServiceRoot;

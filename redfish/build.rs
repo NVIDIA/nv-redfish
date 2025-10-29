@@ -50,7 +50,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
     let output = out_dir.join("redfish.rs");
-    let schema_path = "../schemas/redfish-csdl";
+    let redfish_schema_path = "../schemas/redfish-csdl";
+    let swordfish_schema_path = "../schemas/swordfish-csdl";
     let service_root = vec!["ServiceRoot_v1.xml"]
         .into_iter()
         .map(Into::into)
@@ -60,12 +61,15 @@ fn main() -> Result<(), Box<dyn StdError>> {
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed");
-    let (features_csdls, features_patterns) = manifest.collect(&target_features);
+    let (features_csdls, features_swordfish_csdls, features_patterns) = manifest.collect(&target_features);
     let csdls = redfish_csdl
         .iter()
         .chain(service_root.iter())
         .chain(features_csdls)
-        .map(|f| format!("{schema_path}/{f}"))
+        .map(|f| format!("{redfish_schema_path}/{f}"))
+        .chain(features_swordfish_csdls.iter().map(|f| format!("{swordfish_schema_path}/{f}")))
+        .collect::<std::collections::HashSet<_>>()
+        .into_iter()
         .collect::<Vec<_>>();
 
     for f in &csdls {
@@ -123,7 +127,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
         let resolve_csdls = redfish_csdl
             .iter()
             .chain(resolve_csdls.into_iter())
-            .map(|f| format!("{schema_path}/{f}"))
+            .map(|f| format!("{redfish_schema_path}/{f}"))
             .collect::<Vec<_>>();
 
         for f in root_csdls.iter().chain(resolve_csdls.iter()) {
