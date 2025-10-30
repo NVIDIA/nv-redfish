@@ -19,9 +19,14 @@
 //! and their sub-resources like processors, storage, memory, and drives.
 
 mod computer_system;
+
+#[cfg(feature = "storages")]
 mod drive;
+#[cfg(feature = "memory")]
 mod memory;
+#[cfg(feature = "processors")]
 mod processor;
+#[cfg(feature = "storages")]
 mod storage;
 
 use crate::schema::redfish::computer_system_collection::ComputerSystemCollection as ComputerSystemCollectionSchema;
@@ -35,12 +40,16 @@ use std::sync::Arc;
 #[doc(inline)]
 pub use computer_system::ComputerSystem;
 #[doc(inline)]
+#[cfg(feature = "storages")]
 pub use drive::Drive;
 #[doc(inline)]
+#[cfg(feature = "memory")]
 pub use memory::Memory;
 #[doc(inline)]
+#[cfg(feature = "processors")]
 pub use processor::Processor;
 #[doc(inline)]
+#[cfg(feature = "storages")]
 pub use storage::Storage;
 
 /// Computer system collection.

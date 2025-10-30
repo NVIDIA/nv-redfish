@@ -20,7 +20,6 @@ csdl_files = [
     "ChassisCollection_v1.xml",
     "Circuit_v1.xml",
     "CircuitCollection_v1.xml",
-    "EnvironmentMetrics_v1.xml",
     "LeakDetection_v1.xml",
     "LeakDetector_v1.xml",
     "LeakDetectorCollection_v1.xml",
@@ -36,7 +35,6 @@ csdl_files = [
 patterns = [
     "ChassisCollection.*",
     "Chassis.*",
-    "EnvironmentMetrics.*",
     "LeakDetection.*",
     "LeakDetector.*",
     "LeakDetectorCollection.*",
@@ -52,61 +50,33 @@ patterns = [
 ]
 
 [[features]]
+name = "memory"
+csdl_files = [
+    "Memory_v1.xml",
+    "MemoryCollection_v1.xml",
+    "MemoryMetrics_v1.xml",
+]
+patterns = [
+    "Memory.*",
+    "MemoryCollection.*",
+    "MemoryMetrics.*",
+]
+
+[[features]]
 name = "systems"
 csdl_files = [
     "ComputerSystem_v1.xml",
     "ComputerSystemCollection_v1.xml",
-    "Drive_v1.xml",
-    "DriveCollection_v1.xml",
-    "DriveMetrics_v1.xml",
-    "EnvironmentMetrics_v1.xml",
-    "Memory_v1.xml",
-    "MemoryCollection_v1.xml",
-    "MemoryMetrics_v1.xml",
-    "PCIeDevice_v1.xml",
-    "PCIeDeviceCollection_v1.xml",
     "PhysicalContext_v1.xml",
-    "Processor_v1.xml",
-    "ProcessorCollection_v1.xml",
-    "ProcessorMetrics_v1.xml",
-    "Protocol_v1.xml",
     "Redundancy_v1.xml",
     "ResourceBlock_v1.xml",
     "ResourceBlockCollection_v1.xml",
     "SoftwareInventory_v1.xml",
-    "Storage_v1.xml",
-    "StorageCollection_v1.xml",
-    "StorageController_v1.xml",
-    "StorageControllerMetrics_v1.xml",
-    "Volume_v1.xml",
-    "VolumeCollection_v1.xml",
-]
-swordfish_csdl_files = [
-    "Capacity_v1.xml",
-    "DataStorageLoSCapabilities_v1.xml",
-    "IOStatistics_v1.xml",
-    "StorageReplicaInfo_v1.xml",
 ]
 patterns = [
     "ComputerSystem.*",
     "ComputerSystemCollection.*",
-    "Drive.*",
-    "DriveCollection.*",
-    "DriveMetrics.*",
-    "EnvironmentMetrics.*",
-    "Memory.*",
-    "MemoryCollection.*",
-    "MemoryMetrics.*",
     "PhysicalContext.*",
-    "Processor.*",
-    "ProcessorCollection.*",
-    "ProcessorMetrics.*",
-    "Storage.*",
-    "StorageCollection.*",
-    "StorageController.*",
-    "StorageControllerMetrics.*",
-    "Volume.*",
-    "VolumeCollection.*",
 ]
 
 [[features]]
@@ -153,6 +123,19 @@ patterns = [
 ]
 
 [[features]]
+name = "processors"
+csdl_files = [
+    "Processor_v1.xml",
+    "ProcessorCollection_v1.xml",
+    "ProcessorMetrics_v1.xml",
+]
+patterns = [
+    "Processor.*",
+    "ProcessorCollection.*",
+    "ProcessorMetrics.*",
+]
+
+[[features]]
 name = "power-supplies"
 csdl_files = [
     "PowerSupply_v1.xml",
@@ -172,12 +155,49 @@ csdl_files = [
     "FanCollection_v1.xml",
     "Sensor_v1.xml",
     "SensorCollection_v1.xml",
+    "EnvironmentMetrics_v1.xml",
 ]
 patterns = [
     "Sensor.*",
     "SensorCollection.*",
     "Fan.*",
     "FanCollection.*",
+    "EnvironmentMetrics.*",
+]
+
+[[features]]
+name = "storages"
+csdl_files = [
+    "Drive_v1.xml",
+    "DriveCollection_v1.xml",
+    "DriveMetrics_v1.xml",
+    "PCIeDevice_v1.xml",
+    "PCIeDeviceCollection_v1.xml",
+    "Protocol_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "Storage_v1.xml",
+    "StorageCollection_v1.xml",
+    "StorageController_v1.xml",
+    "StorageControllerMetrics_v1.xml",
+    "Volume_v1.xml",
+    "VolumeCollection_v1.xml",
+]
+swordfish_csdl_files = [
+    "Capacity_v1.xml",
+    "DataStorageLoSCapabilities_v1.xml",
+    "IOStatistics_v1.xml",
+    "StorageReplicaInfo_v1.xml",
+]
+patterns = [
+    "Storage.*",
+    "StorageCollection.*",
+    "StorageController.*",
+    "StorageControllerMetrics.*",
+    "Volume.*",
+    "VolumeCollection.*",
+    "Drive.*",
+    "DriveCollection.*",
+    "DriveMetrics.*",
 ]
 
 [[oem-features]]

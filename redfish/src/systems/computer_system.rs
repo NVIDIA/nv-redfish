@@ -14,22 +14,30 @@
 // limitations under the License.
 
 use crate::schema::redfish::computer_system::ComputerSystem as ComputerSystemSchema;
-use crate::systems::Memory;
-use crate::systems::Processor;
-use crate::systems::Storage;
-use crate::Error;
-use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::Expandable as _;
 use std::sync::Arc;
 
 #[cfg(feature = "log-services")]
 use crate::log_services::LogService;
+#[cfg(feature = "memory")]
+use crate::systems::Memory;
+#[cfg(feature = "processors")]
+use crate::systems::Processor;
+#[cfg(feature = "storages")]
+use crate::systems::Storage;
+
+#[cfg(any(feature = "memory", feature = "processors", feature = "storages"))]
+use crate::Error;
+#[cfg(any(feature = "memory", feature = "processors", feature = "storages"))]
+use nv_redfish_core::query::ExpandQuery;
+#[cfg(any(feature = "memory", feature = "processors", feature = "storages"))]
+use nv_redfish_core::Expandable as _;
 
 /// Represents a computer system in the BMC.
 ///
 /// Provides access to system information and sub-resources such as processors.
 pub struct ComputerSystem<B: Bmc> {
+    #[allow(dead_code)] // feature-enabled...
     bmc: Arc<B>,
     data: Arc<ComputerSystemSchema>,
 }
@@ -61,6 +69,7 @@ where
     /// Returns an error if:
     /// - The system does not have a processors collection
     /// - Fetching processor data fails
+    #[cfg(feature = "processors")]
     pub async fn processors(&self) -> Result<Vec<Processor<B>>, Error<B>> {
         let processors_ref = self
             .data
@@ -97,6 +106,7 @@ where
     /// Returns an error if:
     /// - The system does not have a storage collection
     /// - Fetching storage data fails
+    #[cfg(feature = "storages")]
     pub async fn storage_controllers(&self) -> Result<Vec<Storage<B>>, Error<B>> {
         let storage_ref = self
             .data
@@ -133,6 +143,7 @@ where
     /// Returns an error if:
     /// - The system does not have a memory collection
     /// - Fetching memory data fails
+    #[cfg(feature = "memory")]
     pub async fn memory_modules(&self) -> Result<Vec<Memory<B>>, Error<B>> {
         let memory_ref = self.data.memory.as_ref().ok_or(Error::MemoryNotAvailable)?;
 

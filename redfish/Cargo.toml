@@ -17,8 +17,11 @@ std-redfish = [
     "chassis",
     "log-services",
     "managers",
+    "memory",
     "power-supplies",
+    "processors",
     "sensors",
+    "storages",
     "systems",
     "update-service",
 ]
@@ -27,10 +30,13 @@ accounts = []
 chassis = []
 log-services = []
 managers = []
-update-service = []
-sensors = []
-systems = []
+memory = []
 power-supplies = []
+processors = []
+sensors = []
+storages = []
+systems = []
+update-service = []
 
 # OEM features support
 oem-lenovo = ["oem"]

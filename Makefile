@@ -8,18 +8,31 @@ maybe-lenovo-build = $(if $(wildcard $(pwd)/oem/lenovo/*.xml),cargo build --feat
 
 space := $(empty) $(empty)
 comma :=,
+indent := $(empty)	$(empty)
+define new-line
+$(empty)
+$(empty)
+endef
 
 # We cannot use --all-features because they depends on oem files that
 # are not distributed by the repo.
 all-std-features = accounts \
                    chassis \
+                   log-services \
+                   memory \
+                   power-supplies \
+                   processors \
+                   sensors \
+                   storages \
                    systems \
                    update-service \
-                   log-services \
-                   power-supplies \
-                   sensors
+# Features that cannot be compiled standalone (no references from the tree).
+std-not-standalone-features = log-services sensors
+std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-features))
 
 ci-features-list := $(subst $(space),$(comma),$(all-std-features))
+
+compile-one-feature = $(indent)cargo build --features $1$(new-line)
 
 define build-and-test
 	cargo build
@@ -32,10 +45,7 @@ define build-and-test
 	cargo build --features oem-nvidia
 	cargo build --features oem-dell
 	cargo build --features oem-ami
-	cargo build --features accounts
-	cargo build --features chassis
-	cargo build --features systems
-	cargo build --features update-service
+	$(foreach f,$(std-standalone-features),$(call compile-one-feature,$f))
 	cargo build --features ""
 	cargo doc $1
 	cargo build
