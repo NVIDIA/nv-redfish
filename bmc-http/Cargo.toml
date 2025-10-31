@@ -1,7 +1,7 @@
 [package]
-name = "nv-redfish-core"
+name = "nv-redfish-bmc-http"
 version.workspace = true
-license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 readme.workspace = true
 edition.workspace = true
@@ -9,12 +9,21 @@ keywords.workspace = true
 categories.workspace = true
 documentation.workspace = true
 
+[features]
+default = ["reqwest"]
+
+# HTTP client implementations with reqwest
+reqwest = ["dep:reqwest"]
+
 [dependencies]
+nv-redfish-core = { workspace = true }
+http = { workspace = true }
+reqwest = { workspace = true, optional = true, features = ["json"] }
 serde = { workspace = true }
-serde_json = { workspace = true, features = [ "std" ] }
+serde_json = { workspace = true }
+url = { workspace = true }
 uuid = { workspace = true, features = [ "serde" ] }
 time = { workspace = true, features = [ "serde", "formatting", "parsing" ] }
-rust_decimal = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

@@ -16,3 +16,4 @@ serde_json = { workspace = true }
 redfish-std = { path = "../redfish-std" }
 url = { workspace = true }
 nv-redfish-core = { workspace = true }
+nv-redfish-bmc-http = { workspace = true }

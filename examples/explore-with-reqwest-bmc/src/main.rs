@@ -13,11 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use nv_redfish_core::bmc::BmcCredentials;
-use nv_redfish_core::http::BmcReqwestError;
-use nv_redfish_core::http::HttpBmc;
-use nv_redfish_core::http::ReqwestClient;
-use nv_redfish_core::http::ReqwestClientParams;
+use nv_redfish_bmc_http::BmcCredentials;
+use nv_redfish_bmc_http::BmcReqwestError;
+use nv_redfish_bmc_http::HttpBmc;
+use nv_redfish_bmc_http::ReqwestClient;
+use nv_redfish_bmc_http::ReqwestClientParams;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Creatable;
 use nv_redfish_core::Deletable;

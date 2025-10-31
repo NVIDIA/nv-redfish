@@ -69,17 +69,12 @@
 pub mod action;
 /// BMC trait and credentials.
 pub mod bmc;
-/// Adaptive cache implementation using the Clock-CAR algorithm.
-pub mod cache;
 /// Custom deserialization helpers.
 pub mod deserialize;
 /// `Edm.DateTimeOffset` type.
 pub mod edm_date_time_offset;
 /// Type that represents `Edm.Duration`.
 pub mod edm_duration;
-/// HTTP client abstractions and Redfish `$expand` query support.
-#[allow(missing_docs)]
-pub mod http;
 /// Navigation property wrapper.
 pub mod nav_property;
 /// Type for `@odata.id` identifier.

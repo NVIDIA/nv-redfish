@@ -12,6 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+pub mod cache;
+pub mod credentials;
+
+use crate::cache::TypeErasedCarCache;
+use nv_redfish_core::query::ExpandQuery;
+use nv_redfish_core::Action;
+use nv_redfish_core::Bmc;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::FilterQuery;
+use nv_redfish_core::ODataETag;
+use nv_redfish_core::ODataId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::{
     collections::HashMap,
@@ -22,13 +34,13 @@ use std::{
 use url::Url;
 
 #[cfg(feature = "reqwest")]
-use crate::Empty;
-use crate::{
-    Bmc, EntityTypeRef, Expandable, ODataETag, ODataId, bmc::BmcCredentials, cache::TypeErasedCarCache, query::ExpandQuery
-};
+use nv_redfish_core::Empty;
 
 #[cfg(feature = "reqwest")]
 use std::time::Duration;
+
+#[doc(inline)]
+pub use credentials::BmcCredentials;
 
 pub trait HttpClient: Send + Sync {
     type Error: Send + StdError;
@@ -87,8 +99,8 @@ pub trait HttpClient: Send + Sync {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use nv_redfish_core::http::{HttpBmc, ReqwestClient};
-/// use nv_redfish_core::bmc::BmcCredentials;
+/// use nv_redfish_bmc_http::{HttpBmc, ReqwestClient};
+/// use nv_redfish_bmc_http::BmcCredentials;
 /// use nv_redfish_core::{Bmc, ODataId};
 /// use url::Url;
 ///
@@ -124,8 +136,8 @@ where
     /// # Examples
     ///
     /// ```rust,no_run
-    /// use nv_redfish_core::http::{HttpBmc, ReqwestClient};
-    /// use nv_redfish_core::bmc::BmcCredentials;
+    /// use nv_redfish_bmc_http::{HttpBmc, ReqwestClient};
+    /// use nv_redfish_bmc_http::BmcCredentials;
     /// use url::Url;
     ///
     /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
@@ -218,7 +230,9 @@ where
     /// - Handling 304 Not Modified responses from cache
     /// - Updating cache and `ETag` storage on success
     #[allow(clippy::significant_drop_tightening)]
-    async fn get_with_cache<T: EntityTypeRef + Sized + for<'de> Deserialize<'de> + 'static + Send + Sync>(
+    async fn get_with_cache<
+        T: EntityTypeRef + Sized + for<'de> Deserialize<'de> + 'static + Send + Sync,
+    >(
         &self,
         endpoint_url: Url,
         id: &ODataId,
@@ -339,7 +353,7 @@ where
         R: Sync + Send + Sized + for<'de> Deserialize<'de>,
     >(
         &self,
-        action: &crate::Action<T, R>,
+        action: &Action<T, R>,
         params: &T,
     ) -> Result<R, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&action.target.to_string());
@@ -347,11 +361,11 @@ where
             .post(endpoint_url, params, &self.credentials)
             .await
     }
-    
+
     async fn filter<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
         &self,
         id: &ODataId,
-        query: crate::FilterQuery,
+        query: FilterQuery,
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self
             .redfish_endpoint
@@ -434,7 +448,7 @@ impl std::error::Error for BmcReqwestError {
 /// # Examples
 ///
 /// ```rust
-/// use nv_redfish_core::http::ReqwestClientParams;
+/// use nv_redfish_bmc_http::ReqwestClientParams;
 /// use std::time::Duration;
 ///
 /// let params = ReqwestClientParams::new()
@@ -538,9 +552,9 @@ impl ReqwestClientParams {
 /// # Examples
 ///
 /// ```rust,no_run
-/// use nv_redfish_core::http::{ReqwestClient, HttpBmc};
-/// use nv_redfish_core::bmc::BmcCredentials;
-/// use nv_redfish_core::http::ReqwestClientParams;
+/// use nv_redfish_bmc_http::{ReqwestClient, HttpBmc};
+/// use nv_redfish_bmc_http::BmcCredentials;
+/// use nv_redfish_bmc_http::ReqwestClientParams;
 /// use std::time::Duration;
 /// use url::Url;
 ///

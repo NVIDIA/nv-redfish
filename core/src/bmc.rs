@@ -61,7 +61,6 @@ use crate::FilterQuery;
 use crate::ODataETag;
 use crate::ODataId;
 use std::error::Error as StdError;
-use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
 
@@ -130,49 +129,4 @@ pub trait Bmc: Send + Sync {
         action: &Action<T, R>,
         params: &T,
     ) -> impl Future<Output = Result<R, Self::Error>> + Send;
-}
-
-/// Credentials used to access the BMC.
-///
-/// Security notes:
-/// - `Debug`/`Display` redact the password by design.
-/// - Prefer short-lived instances and avoid logging credentials.
-#[derive(Clone)]
-pub struct BmcCredentials {
-    /// Username to access BMC.
-    pub username: String,
-    password: String,
-}
-
-impl BmcCredentials {
-    /// Create new credentials.
-    #[must_use]
-    pub const fn new(username: String, password: String) -> Self {
-        Self { username, password }
-    }
-
-    /// Get password.
-    #[must_use]
-    pub fn password(&self) -> &str {
-        &self.password
-    }
-}
-
-impl fmt::Debug for BmcCredentials {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BmcCredentials")
-            .field("username", &self.username)
-            .field("password", &"[REDACTED]")
-            .finish()
-    }
-}
-
-impl fmt::Display for BmcCredentials {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "BmcCredentials(username: {}, password: [REDACTED])",
-            self.username
-        )
-    }
 }

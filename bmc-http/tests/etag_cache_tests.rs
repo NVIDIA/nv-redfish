@@ -19,7 +19,8 @@ mod common;
 mod cache_integration_tests {
     use crate::common::test_utils::*;
 
-    use nv_redfish_core::{http::BmcReqwestError, Bmc};
+    use nv_redfish_bmc_http::BmcReqwestError;
+    use nv_redfish_core::Bmc;
     use std::sync::Arc;
     use wiremock::{
         matchers::{header, method, path},

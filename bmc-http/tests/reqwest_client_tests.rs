@@ -17,7 +17,11 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
-    use nv_redfish_core::{http::BmcReqwestError, query::{ExpandQuery, FilterQuery}, Bmc};
+    use nv_redfish_bmc_http::BmcReqwestError;
+    use nv_redfish_core::{
+        query::{ExpandQuery, FilterQuery},
+        Bmc,
+    };
     use wiremock::{
         matchers::{body_json, header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,

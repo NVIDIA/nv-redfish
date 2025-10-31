@@ -16,12 +16,9 @@
 #[cfg(feature = "reqwest")]
 #[allow(dead_code)]
 pub mod test_utils {
-    use nv_redfish_core::{
-        action::Action,
-        bmc::BmcCredentials,
-        http::{HttpBmc, ReqwestClient},
-        EntityTypeRef, Expandable, ODataETag, ODataId,
-    };
+    use nv_redfish_bmc_http::BmcCredentials;
+    use nv_redfish_bmc_http::{HttpBmc, ReqwestClient};
+    use nv_redfish_core::{action::Action, EntityTypeRef, Expandable, ODataETag, ODataId};
     use serde::{Deserialize, Serialize};
     use url::Url;
     use wiremock::MockServer;
