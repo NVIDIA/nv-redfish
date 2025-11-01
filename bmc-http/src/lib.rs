@@ -98,6 +98,7 @@ pub trait HttpClient: Send + Sync {
 ///
 /// ```rust,no_run
 /// use nv_redfish_bmc_http::HttpBmc;
+/// use nv_redfish_bmc_http::CacheSettings;
 /// use nv_redfish_bmc_http::BmcCredentials;
 /// use nv_redfish_bmc_http::reqwest::Client;
 /// use nv_redfish_core::{Bmc, ODataId};
@@ -108,7 +109,7 @@ pub trait HttpClient: Send + Sync {
 /// let http_client = Client::new()?;
 /// let endpoint = Url::parse("https://192.168.1.100")?;
 ///
-/// let bmc = HttpBmc::new(http_client, endpoint, credentials);
+/// let bmc = HttpBmc::new(http_client, endpoint, credentials, CacheSettings::default());
 /// # Ok(())
 /// # }
 /// ```
@@ -136,6 +137,7 @@ where
     ///
     /// ```rust,no_run
     /// use nv_redfish_bmc_http::HttpBmc;
+    /// use nv_redfish_bmc_http::CacheSettings;
     /// use nv_redfish_bmc_http::BmcCredentials;
     /// use nv_redfish_bmc_http::reqwest::Client;
     /// use url::Url;
@@ -145,16 +147,21 @@ where
     /// let http_client = Client::new()?;
     /// let endpoint = Url::parse("https://192.168.1.100")?;
     ///
-    /// let bmc = HttpBmc::new(http_client, endpoint, credentials);
+    /// let bmc = HttpBmc::new(http_client, endpoint, credentials, CacheSettings::default());
     /// # Ok(())
     /// # }
     /// ```
-    pub fn new(client: C, redfish_endpoint: Url, credentials: BmcCredentials) -> Self {
+    pub fn new(
+        client: C,
+        redfish_endpoint: Url,
+        credentials: BmcCredentials,
+        cache_settings: CacheSettings,
+    ) -> Self {
         Self {
             client,
             redfish_endpoint: RedfishEndpoint::from(redfish_endpoint),
             credentials,
-            cache: RwLock::new(TypeErasedCarCache::new(1000)),
+            cache: RwLock::new(TypeErasedCarCache::new(cache_settings.capacity)),
             etags: RwLock::new(HashMap::new()),
         }
     }
@@ -189,6 +196,23 @@ impl RedfishEndpoint {
         let mut url = self.with_path(path);
         url.set_query(Some(query));
         url
+    }
+}
+
+/// `CacheSettings` for internal BMC cache with etags
+pub struct CacheSettings {
+    capacity: usize,
+}
+
+impl Default for CacheSettings {
+    fn default() -> Self {
+        Self { capacity: 100 }
+    }
+}
+
+impl CacheSettings {
+    pub fn with_capacity(capacity: usize) -> Self {
+        Self { capacity }
     }
 }
 

@@ -18,6 +18,7 @@
 pub mod test_utils {
     use nv_redfish_bmc_http::reqwest::Client;
     use nv_redfish_bmc_http::BmcCredentials;
+    use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
     use nv_redfish_core::{action::Action, EntityTypeRef, Expandable, ODataETag, ODataId};
     use serde::{Deserialize, Serialize};
@@ -105,7 +106,12 @@ pub mod test_utils {
     pub fn create_test_bmc(mock_server: &MockServer) -> HttpBmc<Client> {
         let client = Client::new().unwrap();
         let credentials = create_test_credentials();
-        HttpBmc::new(client, Url::parse(&mock_server.uri()).unwrap(), credentials)
+        HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri()).unwrap(),
+            credentials,
+            CacheSettings::default(),
+        )
     }
 
     pub fn create_test_bmc_with_credentials(
@@ -113,7 +119,12 @@ pub mod test_utils {
         credentials: BmcCredentials,
     ) -> HttpBmc<Client> {
         let client = Client::new().unwrap();
-        HttpBmc::new(client, Url::parse(&mock_server.uri()).unwrap(), credentials)
+        HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri()).unwrap(),
+            credentials,
+            CacheSettings::default(),
+        )
     }
 
     pub mod names {

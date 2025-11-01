@@ -16,6 +16,7 @@
 use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
+use http::HeaderMap;
 use nv_redfish_core::Empty;
 use nv_redfish_core::ODataETag;
 use serde::de::DeserializeOwned;
@@ -117,6 +118,8 @@ pub struct ClientParams {
     pub pool_idle_timeout: Option<Duration>,
     /// Maximum idle connections per host
     pub pool_max_idle_per_host: Option<usize>,
+    /// List of default headers, added to every request
+    pub default_headers: Option<HeaderMap>,
 }
 
 impl Default for ClientParams {
@@ -124,12 +127,13 @@ impl Default for ClientParams {
         Self {
             timeout: Some(Duration::from_secs(30)),
             connect_timeout: Some(Duration::from_secs(10)),
-            user_agent: Some("nv-redfish/0.1.0".to_string()),
+            user_agent: Some("nv-redfish/0.1".to_string()),
             accept_invalid_certs: false,
             max_redirects: Some(10),
             tcp_keepalive: Some(Duration::from_secs(60)),
             pool_idle_timeout: Some(Duration::from_secs(90)),
             pool_max_idle_per_host: Some(10),
+            default_headers: None,
         }
     }
 }
@@ -181,6 +185,12 @@ impl ClientParams {
         self.timeout = None;
         self
     }
+
+    #[must_use]
+    pub fn default_headers(mut self, default_headers: HeaderMap) -> Self {
+        self.default_headers = Some(default_headers);
+        self
+    }
 }
 
 /// HTTP client implementation using the reqwest library.
@@ -194,6 +204,7 @@ impl ClientParams {
 /// ```rust,no_run
 /// use nv_redfish_bmc_http::HttpBmc;
 /// use nv_redfish_bmc_http::reqwest::Client;
+/// use nv_redfish_bmc_http::CacheSettings;
 /// use nv_redfish_bmc_http::BmcCredentials;
 /// use nv_redfish_bmc_http::reqwest::ClientParams;
 /// use std::time::Duration;
@@ -210,10 +221,11 @@ impl ClientParams {
 /// // Use with HttpBmc
 /// let credentials = BmcCredentials::new("admin".to_string(), "password".to_string());
 /// let endpoint = Url::parse("https://192.168.1.100")?;
-/// let bmc = HttpBmc::new(client, endpoint, credentials);
+/// let bmc = HttpBmc::new(client, endpoint, credentials, CacheSettings::default());
 /// # Ok(())
 /// # }
 /// ```
+#[derive(Clone)]
 pub struct Client {
     client: reqwest::Client,
 }
@@ -258,6 +270,10 @@ impl Client {
 
         if let Some(max_idle) = params.pool_max_idle_per_host {
             builder = builder.pool_max_idle_per_host(max_idle);
+        }
+
+        if let Some(default_headers) = params.default_headers {
+            builder = builder.default_headers(default_headers);
         }
 
         Ok(Self {

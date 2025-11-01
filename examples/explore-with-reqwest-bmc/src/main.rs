@@ -17,6 +17,7 @@ use nv_redfish_bmc_http::reqwest::BmcError;
 use nv_redfish_bmc_http::reqwest::Client;
 use nv_redfish_bmc_http::reqwest::ClientParams;
 use nv_redfish_bmc_http::BmcCredentials;
+use nv_redfish_bmc_http::CacheSettings;
 use nv_redfish_bmc_http::HttpBmc;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Creatable;
@@ -36,7 +37,12 @@ async fn main() -> Result<(), BmcError> {
         .map_err(BmcError::ReqwestError)?;
 
     let creds = BmcCredentials::new("username".into(), "password".into());
-    let bmc = HttpBmc::new(client, Url::parse("https://192.168.2.2").unwrap(), creds);
+    let bmc = HttpBmc::new(
+        client,
+        Url::parse("https://192.168.2.2").unwrap(),
+        creds,
+        CacheSettings::default(),
+    );
 
     let service_root = NavProperty::<ServiceRoot>::new_reference(ODataId::service_root())
         .get(&bmc)
