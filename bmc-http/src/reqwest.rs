@@ -62,12 +62,12 @@ impl CacheableError for BmcError {
 impl std::fmt::Display for BmcError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Self::ReqwestError(e) => write!(f, "HTTP client error: {e}"),
+            Self::ReqwestError(e) => write!(f, "HTTP client error: {e:?}"),
             Self::InvalidResponse(response) => {
                 write!(f, "Invalid HTTP response: {}", response.status())
             }
             Self::CacheMiss => write!(f, "Resource not found in cache"),
-            Self::CacheError(r) => write!(f, "Error occurred in cache {r}"),
+            Self::CacheError(r) => write!(f, "Error occurred in cache {r:?}"),
             Self::JsonError(e) => write!(
                 f,
                 "JSON deserialization error at line {} column {} path {}: {e}",
@@ -251,7 +251,6 @@ impl Client {
 
     pub fn with_params(params: ClientParams) -> Result<Self, reqwest::Error> {
         let mut builder = reqwest::Client::builder();
-        builder = builder.http2_prior_knowledge();
 
         if let Some(timeout) = params.timeout {
             builder = builder.timeout(timeout);
