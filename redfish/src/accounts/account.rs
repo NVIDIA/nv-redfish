@@ -56,10 +56,7 @@ pub struct Account<B: Bmc> {
     data: Arc<ManagerAccount>,
 }
 
-impl<B> UpdateWithPatch<ManagerAccount, ManagerAccountUpdate, B> for Account<B>
-where
-    B: Bmc + Sync + Send,
-{
+impl<B: Bmc> UpdateWithPatch<ManagerAccount, ManagerAccountUpdate, B> for Account<B> {
     fn entity_ref(&self) -> &ManagerAccount {
         self.data.as_ref()
     }
@@ -71,10 +68,7 @@ where
     }
 }
 
-impl<B> Account<B>
-where
-    B: Bmc + Sync + Send,
-{
+impl<B: Bmc> Account<B> {
     /// Create a new account handle. This does not create an account on the
     /// BMC.
     pub(crate) const fn new(bmc: Arc<B>, data: Arc<ManagerAccount>, config: Config) -> Self {

@@ -44,6 +44,7 @@ use crate::accounts::ManagerAccountCreate;
 use crate::accounts::ManagerAccountUpdate;
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::CreateWithPatch;
+use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::manager_account::ManagerAccount;
 use crate::schema::redfish::manager_account_collection::ManagerAccountCollection;
@@ -105,8 +106,7 @@ impl<B: Bmc> CollectionWithPatch<ManagerAccountCollection, ManagerAccount, B>
     }
 }
 
-impl<B: Bmc + Sync + Send>
-    CreateWithPatch<ManagerAccountCollection, ManagerAccount, ManagerAccountCreate, B>
+impl<B: Bmc> CreateWithPatch<ManagerAccountCollection, ManagerAccount, ManagerAccountCreate, B>
     for AccountCollection<B>
 {
     fn entity_ref(&self) -> &ManagerAccountCollection {
@@ -120,7 +120,7 @@ impl<B: Bmc + Sync + Send>
     }
 }
 
-impl<B: Bmc + Sync + Send> AccountCollection<B> {
+impl<B: Bmc> AccountCollection<B> {
     pub(crate) async fn new(
         bmc: Arc<B>,
         collection_ref: &NavProperty<ManagerAccountCollection>,
@@ -163,7 +163,7 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
             // that is disabled (and whose id is >= `min_slot`, if defined)
             // and apply an update to it.
             for nav in &self.collection.members {
-                let Ok(member) = nav.get(self.bmc.as_ref()).await else {
+                let Ok(member) = self.get_one(nav).await else {
                     continue;
                 };
                 if let Some(min) = cfg.min_slot {
@@ -236,7 +236,7 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
             // to make it appear as if they were not created. This behavior is
             // controlled by the `hide_disabled` configuration parameter.
             for m in &self.collection.members {
-                let account = m.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                let account = self.get_one(m).await?;
                 if !cfg.hide_disabled || account.enabled.is_none_or(identity) {
                     result.push(Account::new(
                         self.bmc.clone(),
@@ -249,11 +249,22 @@ impl<B: Bmc + Sync + Send> AccountCollection<B> {
             for m in &self.collection.members {
                 result.push(Account::new(
                     self.bmc.clone(),
-                    m.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?,
+                    self.get_one(m).await?,
                     self.config.account.clone(),
                 ));
             }
         }
         Ok(result)
+    }
+
+    async fn get_one(
+        &self,
+        nav: &NavProperty<ManagerAccount>,
+    ) -> Result<Arc<ManagerAccount>, Error<B>> {
+        if let Some(read_patch_fn) = &self.config.account.read_patch_fn {
+            Payload::get(self.bmc.as_ref(), nav, read_patch_fn.as_ref()).await
+        } else {
+            nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+        }
     }
 }

@@ -129,7 +129,7 @@ impl<B: Bmc> ServiceRoot<B> {
             .get(self.bmc.as_ref())
             .await
             .map_err(Error::Bmc)?;
-        Ok(UpdateService::new(self.bmc.clone(), service))
+        Ok(UpdateService::new(self, service, self.bmc.clone()))
     }
 
     /// Get manager collection in BMC
@@ -185,5 +185,17 @@ impl<B: Bmc> ServiceRoot<B> {
         } else {
             None
         }
+    }
+
+    // In some implementations BMC ReleaseDate is incorrectly set to
+    // 00:00:00Z in FirmwareInventory (which is
+    // SoftwareInventoryCollection).
+    #[cfg(feature = "update-service")]
+    pub(crate) fn fw_inventory_wrong_release_date(&self) -> bool {
+        self.root
+            .vendor
+            .as_ref()
+            .and_then(Option::as_ref)
+            .is_some_and(|v| v == "Dell")
     }
 }

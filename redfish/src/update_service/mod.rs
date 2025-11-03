@@ -20,17 +20,23 @@
 
 mod software_inventory;
 
+use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::update_service::UpdateService as UpdateServiceSchema;
 use crate::schema::redfish::update_service::UpdateServiceSimpleUpdateAction;
 use crate::Error;
+use crate::ServiceRoot;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::Expandable as _;
+use serde_json::Value as JsonValue;
+use software_inventory::SoftwareInventoryCollection;
 use std::sync::Arc;
 
-pub use software_inventory::SoftwareInventory;
+#[doc(inline)]
 // Re-export types needed for actions
 pub use crate::schema::redfish::update_service::TransferProtocolType;
+#[doc(inline)]
+pub use software_inventory::SoftwareInventory;
 
 /// Update service.
 ///
@@ -38,12 +44,28 @@ pub use crate::schema::redfish::update_service::TransferProtocolType;
 pub struct UpdateService<B: Bmc> {
     bmc: Arc<B>,
     data: Arc<UpdateServiceSchema>,
+    fw_inventory_read_patch_fn: Option<ReadPatchFn>,
 }
 
 impl<B: Bmc + Sync + Send> UpdateService<B> {
     /// Create a new update service handle.
-    pub(crate) const fn new(bmc: Arc<B>, data: Arc<UpdateServiceSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) fn new(root: &ServiceRoot<B>, data: Arc<UpdateServiceSchema>, bmc: Arc<B>) -> Self {
+        let mut fw_inventory_patches = Vec::new();
+        if root.fw_inventory_wrong_release_date() {
+            fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
+        }
+        let fw_inventory_read_patch_fn = if fw_inventory_patches.is_empty() {
+            None
+        } else {
+            let fw_inventory_patches_fn: ReadPatchFn =
+                Arc::new(move |v| fw_inventory_patches.iter().fold(v, |acc, f| f(acc)));
+            Some(fw_inventory_patches_fn)
+        };
+        Self {
+            bmc,
+            data,
+            fw_inventory_read_patch_fn,
+        }
     }
 
     /// Get the raw schema data for this update service.
@@ -69,20 +91,14 @@ impl<B: Bmc + Sync + Send> UpdateService<B> {
             .as_ref()
             .ok_or(Error::FirmwareInventoryNotAvailable)?;
 
-        let collection = collection_ref
-            .expand(self.bmc.as_ref(), ExpandQuery::all())
-            .await
-            .map_err(Error::Bmc)?
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
-
-        let mut items = Vec::new();
-        for item_ref in &collection.members {
-            let item = item_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-            items.push(SoftwareInventory::new(self.bmc.clone(), item));
-        }
-        Ok(items)
+        SoftwareInventoryCollection::new(
+            self.bmc.clone(),
+            collection_ref,
+            self.fw_inventory_read_patch_fn.clone(),
+        )
+        .await?
+        .members()
+        .await
     }
 
     /// List all software inventory items.
@@ -98,7 +114,6 @@ impl<B: Bmc + Sync + Send> UpdateService<B> {
             .software_inventory
             .as_ref()
             .ok_or(Error::SoftwareInventoryNotAvailable)?;
-
         let collection = collection_ref
             .expand(self.bmc.as_ref(), ExpandQuery::all())
             .await
@@ -197,5 +212,21 @@ impl<B: Bmc + Sync + Send> UpdateService<B> {
             .map_err(Error::Bmc)?;
 
         Ok(())
+    }
+}
+
+// `ReleaseDate` is marked as `edm.DateTimeOffset`, but some systems
+// puts "00:00:00Z" as ReleaseDate that is not conform to ABNF of the DateTimeOffset.
+// we delete such fields...
+fn fw_inventory_patch_wrong_release_date(v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(mut obj) = v {
+        if let Some(JsonValue::String(date)) = obj.get("ReleaseDate") {
+            if date == "00:00:00Z" {
+                obj.remove("ReleaseDate");
+            }
+        }
+        JsonValue::Object(obj)
+    } else {
+        v
     }
 }

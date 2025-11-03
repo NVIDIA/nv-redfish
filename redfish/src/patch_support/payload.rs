@@ -18,11 +18,14 @@ use crate::patch_support::ReadPatchFn;
 use crate::Error;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::Updatable;
 use serde::Deserialize;
+use serde::Deserializer;
 use serde::Serialize;
+use std::sync::Arc;
 
 pub trait UpdateWithPatch<T, V, B>
 where
@@ -61,6 +64,26 @@ where
 pub struct Payload(JsonValue);
 
 impl Payload {
+    #[allow(dead_code)] // enabled by features
+    pub(crate) async fn get<T, B, F>(
+        bmc: &B,
+        nav: &NavProperty<T>,
+        f: F,
+    ) -> Result<Arc<T>, Error<B>>
+    where
+        T: EntityTypeRef + for<'a> Deserialize<'a> + Send + Sync + 'static,
+        B: Bmc,
+        F: FnOnce(JsonValue) -> JsonValue,
+    {
+        match nav {
+            NavProperty::Expanded(_) => nav.get(bmc).await.map_err(Error::Bmc),
+            NavProperty::Reference(_) => {
+                let getter = NavProperty::<Getter>::new_reference(nav.id().clone());
+                let v = getter.get(bmc).await.map_err(Error::Bmc)?;
+                v.payload.to_target(f).map(Arc::new)
+            }
+        }
+    }
     /// Apply function `f` to the payload and then try to deserialize to the
     /// target type.
     pub(crate) fn to_target<T, B, F>(&self, f: F) -> Result<T, Error<B>>
@@ -70,6 +93,33 @@ impl Payload {
         F: FnOnce(JsonValue) -> JsonValue,
     {
         serde_json::from_value(f(self.0.clone())).map_err(Error::Json)
+    }
+}
+
+#[allow(dead_code)] // enabled by features
+struct Getter {
+    id: ODataId,
+    payload: Payload,
+}
+
+impl EntityTypeRef for Getter {
+    fn id(&self) -> &ODataId {
+        &self.id
+    }
+    fn etag(&self) -> Option<&ODataETag> {
+        None
+    }
+}
+
+impl<'de> Deserialize<'de> for Getter {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        Ok(Self {
+            id: String::new().into(),
+            payload: Payload::deserialize(deserializer)?,
+        })
     }
 }
 
