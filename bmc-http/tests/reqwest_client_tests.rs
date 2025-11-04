@@ -310,4 +310,103 @@ mod reqwest_client_tests {
         let error = result.unwrap_err();
         assert!(matches!(error, BmcError::InvalidResponse(_)));
     }
+
+    #[tokio::test]
+    async fn test_custom_headers_in_get_request() {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::SYSTEMS_1;
+
+        let test_resource =
+            create_test_resource(resource_path, Some("123"), names::TEST_SYSTEM, 42);
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Custom-Header", "custom-value"))
+            .and(header("X-Auth-Token", "test-token-12345"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut custom_headers = http::HeaderMap::new();
+        custom_headers.insert("X-Custom-Header", "custom-value".parse().unwrap());
+        custom_headers.insert("X-Auth-Token", "test-token-12345".parse().unwrap());
+
+        let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
+
+        let resource_id = create_odata_id(resource_path);
+        let result = bmc.get::<TestResource>(&resource_id).await;
+
+        assert!(result.is_ok());
+        let retrieved = result.unwrap();
+        assert_eq!(retrieved.name, names::TEST_SYSTEM);
+        assert_eq!(retrieved.value, 42);
+    }
+
+    #[tokio::test]
+    async fn test_custom_headers_in_post_request() {
+        let mock_server = MockServer::start().await;
+        let collection_path = paths::SYSTEMS_1;
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+
+        let created_resource =
+            create_test_resource("/redfish/v1/systems/new", None, names::TEST_SYSTEM, 999);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Vendor-Specific", "vendor-value"))
+            .and(header("X-Request-Id", "req-123"))
+            .respond_with(ResponseTemplate::new(201).set_body_json(&created_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut custom_headers = http::HeaderMap::new();
+        custom_headers.insert("X-Vendor-Specific", "vendor-value".parse().unwrap());
+        custom_headers.insert("X-Request-Id", "req-123".parse().unwrap());
+
+        let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
+
+        let collection_id = create_odata_id(collection_path);
+        let result = bmc
+            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await;
+
+        assert!(result.is_ok());
+        let created = result.unwrap();
+        assert_eq!(created.name, names::TEST_SYSTEM);
+        assert_eq!(created.value, 999);
+    }
+
+    #[tokio::test]
+    async fn test_custom_headers_in_delete_request() {
+        let mock_server = MockServer::start().await;
+        let resource_path = "/redfish/v1/systems/1";
+
+        Mock::given(method("DELETE"))
+            .and(path(resource_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Delete-Reason", "decommissioned"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut custom_headers = http::HeaderMap::new();
+        custom_headers.insert("X-Delete-Reason", "decommissioned".parse().unwrap());
+
+        let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
+
+        let resource_id = create_odata_id(resource_path);
+        let result = bmc.delete(&resource_id).await;
+
+        assert!(result.is_ok());
+    }
 }

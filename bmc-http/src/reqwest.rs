@@ -16,6 +16,7 @@
 use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
+use http::header;
 use http::HeaderMap;
 use nv_redfish_core::Empty;
 use nv_redfish_core::ODataETag;
@@ -126,6 +127,8 @@ pub struct ClientParams {
     pub pool_max_idle_per_host: Option<usize>,
     /// List of default headers, added to every request
     pub default_headers: Option<HeaderMap>,
+    /// Forces use of rust TLS, enabled by default
+    pub use_rust_tls: bool,
 }
 
 impl Default for ClientParams {
@@ -140,6 +143,7 @@ impl Default for ClientParams {
             pool_idle_timeout: Some(Duration::from_secs(90)),
             pool_max_idle_per_host: Some(1),
             default_headers: None,
+            use_rust_tls: true,
         }
     }
 }
@@ -189,6 +193,12 @@ impl ClientParams {
     #[must_use]
     pub const fn pool_max_idle_per_host(mut self, pool_max_idle_per_host: usize) -> Self {
         self.pool_max_idle_per_host = Some(pool_max_idle_per_host);
+        self
+    }
+
+    #[must_use]
+    pub const fn idle_timeout(mut self, pool_idle_timeout: Duration) -> Self {
+        self.pool_idle_timeout = Some(pool_idle_timeout);
         self
     }
 
@@ -251,6 +261,10 @@ impl Client {
 
     pub fn with_params(params: ClientParams) -> Result<Self, reqwest::Error> {
         let mut builder = reqwest::Client::builder();
+
+        if params.use_rust_tls {
+            builder = builder.use_rustls_tls();
+        }
 
         if let Some(timeout) = params.timeout {
             builder = builder.timeout(timeout);
@@ -337,6 +351,7 @@ impl HttpClient for Client {
         url: Url,
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
+        custom_headers: &HeaderMap,
     ) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
@@ -344,10 +359,11 @@ impl HttpClient for Client {
         let mut request = self
             .client
             .get(url)
-            .basic_auth(&credentials.username, Some(credentials.password()));
+            .basic_auth(&credentials.username, Some(credentials.password()))
+            .headers(custom_headers.clone());
 
         if let Some(etag) = etag {
-            request = request.header("If-None-Match", etag.to_string());
+            request = request.header(header::IF_NONE_MATCH, etag.to_string());
         }
 
         let response = request.send().await?;
@@ -359,6 +375,7 @@ impl HttpClient for Client {
         url: Url,
         body: &B,
         credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
     ) -> Result<T, Self::Error>
     where
         B: Serialize + Send + Sync,
@@ -368,6 +385,7 @@ impl HttpClient for Client {
             .client
             .post(url)
             .basic_auth(&credentials.username, Some(credentials.password()))
+            .headers(custom_headers.clone())
             .json(body)
             .send()
             .await?;
@@ -381,6 +399,7 @@ impl HttpClient for Client {
         etag: ODataETag,
         body: &B,
         credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
     ) -> Result<T, Self::Error>
     where
         B: Serialize + Send + Sync,
@@ -389,19 +408,26 @@ impl HttpClient for Client {
         let mut request = self
             .client
             .patch(url)
-            .basic_auth(&credentials.username, Some(credentials.password()));
+            .basic_auth(&credentials.username, Some(credentials.password()))
+            .headers(custom_headers.clone());
 
-        request = request.header("If-Match", etag.to_string());
+        request = request.header(header::IF_MATCH, etag.to_string());
 
         let response = request.json(body).send().await?;
         self.handle_response(response).await
     }
 
-    async fn delete(&self, url: Url, credentials: &BmcCredentials) -> Result<Empty, Self::Error> {
+    async fn delete(
+        &self,
+        url: Url,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> Result<Empty, Self::Error> {
         let response = self
             .client
             .delete(url)
             .basic_auth(&credentials.username, Some(credentials.password()))
+            .headers(custom_headers.clone())
             .send()
             .await?;
 

@@ -127,6 +127,21 @@ pub mod test_utils {
         )
     }
 
+    pub fn create_test_bmc_with_custom_headers(
+        mock_server: &MockServer,
+        custom_headers: http::HeaderMap,
+    ) -> HttpBmc<Client> {
+        let client = Client::new().unwrap();
+        let credentials = create_test_credentials();
+        HttpBmc::with_custom_headers(
+            client,
+            Url::parse(&mock_server.uri()).unwrap(),
+            credentials,
+            CacheSettings::default(),
+            custom_headers,
+        )
+    }
+
     pub mod names {
         pub const TEST_CHASSIS: &str = "Test Chassis";
         pub const TEST_SYSTEM: &str = "Test System";

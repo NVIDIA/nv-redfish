@@ -19,6 +19,7 @@ pub mod credentials;
 pub mod reqwest;
 
 use crate::cache::TypeErasedCarCache;
+use http::HeaderMap;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Action;
 use nv_redfish_core::Bmc;
@@ -49,6 +50,7 @@ pub trait HttpClient: Send + Sync {
         url: Url,
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
+        custom_headers: &HeaderMap,
     ) -> impl Future<Output = Result<T, Self::Error>> + Send
     where
         T: DeserializeOwned + Send + Sync;
@@ -59,6 +61,7 @@ pub trait HttpClient: Send + Sync {
         url: Url,
         body: &B,
         credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
     ) -> impl Future<Output = Result<T, Self::Error>> + Send
     where
         B: Serialize + Send + Sync,
@@ -71,6 +74,7 @@ pub trait HttpClient: Send + Sync {
         etag: ODataETag,
         body: &B,
         credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
     ) -> impl Future<Output = Result<T, Self::Error>> + Send
     where
         B: Serialize + Send + Sync,
@@ -81,6 +85,7 @@ pub trait HttpClient: Send + Sync {
         &self,
         url: Url,
         credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
     ) -> impl Future<Output = Result<Empty, Self::Error>> + Send;
 }
 
@@ -119,6 +124,7 @@ pub struct HttpBmc<C: HttpClient> {
     credentials: BmcCredentials,
     cache: RwLock<TypeErasedCarCache<ODataId>>,
     etags: RwLock<HashMap<ODataId, ODataETag>>,
+    custom_headers: HeaderMap,
 }
 
 impl<C: HttpClient> HttpBmc<C>
@@ -157,12 +163,80 @@ where
         credentials: BmcCredentials,
         cache_settings: CacheSettings,
     ) -> Self {
+        Self::with_custom_headers(
+            client,
+            redfish_endpoint,
+            credentials,
+            cache_settings,
+            HeaderMap::new(),
+        )
+    }
+
+    /// Create a new HTTP-based BMC client with custom headers and ETag-based caching.
+    ///
+    /// This is an alternative constructor that allows specifying custom HTTP headers
+    /// that will be included in all requests. Use this when you need vendor-specific
+    /// headers, custom authentication tokens, or other HTTP headers required by the
+    /// Redfish service at construction time.
+    ///
+    /// For most use cases, prefer [`HttpBmc::new`] which creates a client without
+    /// custom headers.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - The HTTP client implementation to use for requests
+    /// * `redfish_endpoint` - The base URL of the Redfish service (e.g., `https://192.168.1.100`)
+    /// * `credentials` - Authentication credentials for the BMC
+    /// * `cache_settings` - Cache configuration for response caching
+    /// * `custom_headers` - Custom HTTP headers to include in all requests
+    ///
+    /// # Examples
+    ///
+    /// ```rust,no_run
+    /// use nv_redfish_bmc_http::HttpBmc;
+    /// use nv_redfish_bmc_http::CacheSettings;
+    /// use nv_redfish_bmc_http::BmcCredentials;
+    /// use nv_redfish_bmc_http::reqwest::Client;
+    /// use url::Url;
+    /// use http::HeaderMap;
+    ///
+    /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
+    /// let credentials = BmcCredentials::new("admin".to_string(), "password".to_string());
+    /// let http_client = Client::new()?;
+    /// let endpoint = Url::parse("https://192.168.1.100")?;
+    ///
+    /// // Create custom headers
+    /// let mut headers = HeaderMap::new();
+    /// headers.insert("X-Auth-Token", "custom-token-value".parse()?);
+    /// headers.insert("X-Vendor-Header", "vendor-specific-value".parse()?);
+    ///
+    /// // Create BMC client with custom headers
+    /// let bmc = HttpBmc::with_custom_headers(
+    ///     http_client,
+    ///     endpoint,
+    ///     credentials,
+    ///     CacheSettings::default(),
+    ///     headers,
+    /// );
+    ///
+    /// // All requests will include the custom headers
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn with_custom_headers(
+        client: C,
+        redfish_endpoint: Url,
+        credentials: BmcCredentials,
+        cache_settings: CacheSettings,
+        custom_headers: HeaderMap,
+    ) -> Self {
         Self {
             client,
             redfish_endpoint: RedfishEndpoint::from(redfish_endpoint),
             credentials,
             cache: RwLock::new(TypeErasedCarCache::new(cache_settings.capacity)),
             etags: RwLock::new(HashMap::new()),
+            custom_headers,
         }
     }
 }
@@ -273,7 +347,7 @@ where
         // Perform GET request
         match self
             .client
-            .get::<T>(endpoint_url, &self.credentials, etag)
+            .get::<T>(endpoint_url, &self.credentials, etag, &self.custom_headers)
             .await
         {
             Ok(response) => {
@@ -349,7 +423,9 @@ where
         v: &V,
     ) -> Result<R, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
-        self.client.post(endpoint_url, v, &self.credentials).await
+        self.client
+            .post(endpoint_url, v, &self.credentials, &self.custom_headers)
+            .await
     }
 
     async fn update<V: Sync + Send + Serialize, R: Sync + Send + for<'de> Deserialize<'de>>(
@@ -363,13 +439,21 @@ where
             .cloned()
             .unwrap_or_else(|| ODataETag::from(String::from("*")));
         self.client
-            .patch(endpoint_url, etag, v, &self.credentials)
+            .patch(
+                endpoint_url,
+                etag,
+                v,
+                &self.credentials,
+                &self.custom_headers,
+            )
             .await
     }
 
     async fn delete(&self, id: &ODataId) -> Result<Empty, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
-        self.client.delete(endpoint_url, &self.credentials).await
+        self.client
+            .delete(endpoint_url, &self.credentials, &self.custom_headers)
+            .await
     }
 
     async fn action<
@@ -382,7 +466,12 @@ where
     ) -> Result<R, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&action.target.to_string());
         self.client
-            .post(endpoint_url, params, &self.credentials)
+            .post(
+                endpoint_url,
+                params,
+                &self.credentials,
+                &self.custom_headers,
+            )
             .await
     }
 

@@ -18,13 +18,16 @@ reqwest = ["dep:reqwest", "dep:serde_path_to_error"]
 [dependencies]
 nv-redfish-core = { workspace = true }
 http = { workspace = true }
-reqwest = { workspace = true, optional = true, features = ["json"] }
+reqwest = { workspace = true, optional = true, features = [
+    "json",
+    "rustls-tls",
+] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true, optional = true }
 url = { workspace = true }
-uuid = { workspace = true, features = [ "serde" ] }
-time = { workspace = true, features = [ "serde", "formatting", "parsing" ] }
+uuid = { workspace = true, features = ["serde"] }
+time = { workspace = true, features = ["serde", "formatting", "parsing"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
