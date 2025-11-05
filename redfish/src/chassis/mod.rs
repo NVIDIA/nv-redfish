@@ -74,8 +74,7 @@ impl<B: Bmc + Sync + Send> ChassisCollection<B> {
     pub async fn chassis(&self) -> Result<Vec<Chassis<B>>, Error<B>> {
         let mut chassis_members = Vec::new();
         for chassis in &self.collection.members {
-            let chassis = chassis.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-            chassis_members.push(Chassis::new(self.bmc.clone(), chassis));
+            chassis_members.push(Chassis::new(&self.bmc, chassis).await?);
         }
 
         Ok(chassis_members)

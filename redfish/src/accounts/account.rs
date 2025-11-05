@@ -33,6 +33,7 @@
 //! Use the collection to create new accounts.
 
 use crate::accounts::ManagerAccountUpdate;
+use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::patch_support::UpdateWithPatch;
 use crate::schema::redfish::manager_account::ManagerAccount;
@@ -40,6 +41,8 @@ use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::Deletable as _;
+use nv_redfish_core::NavProperty;
+use std::convert::identity;
 use std::sync::Arc;
 
 #[derive(Clone)]
@@ -72,14 +75,42 @@ impl<B: Bmc> UpdateWithPatch<ManagerAccount, ManagerAccountUpdate, B> for Accoun
 impl<B: Bmc> Account<B> {
     /// Create a new account handle. This does not create an account on the
     /// BMC.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ManagerAccount>, config: Config) -> Self {
-        Self { config, bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<ManagerAccount>,
+        config: &Config,
+    ) -> Result<Self, Error<B>> {
+        if let Some(read_patch_fn) = &config.read_patch_fn {
+            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
+        } else {
+            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+        }
+        .map(|data| Self {
+            bmc: bmc.clone(),
+            data,
+            config: config.clone(),
+        })
+    }
+
+    /// Create from existing data.
+    pub(crate) fn from_data(bmc: NvBmc<B>, data: ManagerAccount, config: Config) -> Self {
+        Self {
+            bmc,
+            data: Arc::new(data),
+            config,
+        }
     }
 
     /// Raw `ManagerAccount` data.
     #[must_use]
     pub fn raw(&self) -> Arc<ManagerAccount> {
         self.data.clone()
+    }
+
+    /// Account is enabled.
+    #[must_use]
+    pub fn is_enabled(&self) -> bool {
+        self.data.enabled.is_none_or(identity)
     }
 
     /// Update the account.

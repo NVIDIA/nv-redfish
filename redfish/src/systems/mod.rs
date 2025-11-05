@@ -80,12 +80,8 @@ impl<B: Bmc + Sync + Send> SystemCollection<B> {
     /// Returns an error if fetching system data fails.
     pub async fn systems(&self) -> Result<Vec<ComputerSystem<B>>, Error<B>> {
         let mut systems = Vec::new();
-        for system_ref in &self.collection.members {
-            let system = system_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            systems.push(ComputerSystem::new(self.bmc.clone(), system));
+        for m in &self.collection.members {
+            systems.push(ComputerSystem::new(&self.bmc, m).await?);
         }
 
         Ok(systems)

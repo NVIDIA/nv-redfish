@@ -14,8 +14,11 @@
 // limitations under the License.
 
 use crate::schema::redfish::thermal::Thermal as ThermalSchema;
+use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Legacy Thermal resource wrapper.
@@ -27,15 +30,24 @@ use std::sync::Arc;
 /// Note: This type intentionally does NOT implement `crate::metrics::HasMetrics`
 /// to encourage explicit handling of legacy vs modern approaches.
 pub struct Thermal<B: Bmc> {
-    #[allow(dead_code)]
-    bmc: NvBmc<B>,
     data: Arc<ThermalSchema>,
+    _marker: PhantomData<B>,
 }
 
 impl<B: Bmc> Thermal<B> {
     /// Create a new thermal resource handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ThermalSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        thermal_ref: &NavProperty<ThermalSchema>,
+    ) -> Result<Self, Error<B>> {
+        thermal_ref
+            .get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                data,
+                _marker: PhantomData,
+            })
     }
 
     /// Get the raw schema data for this thermal resource.

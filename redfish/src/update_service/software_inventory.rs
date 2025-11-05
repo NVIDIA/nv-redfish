@@ -36,8 +36,20 @@ pub struct SoftwareInventory<B: Bmc> {
 
 impl<B: Bmc> SoftwareInventory<B> {
     /// Create a new software inventory handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<SoftwareInventorySchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<SoftwareInventorySchema>,
+        read_patch_fn: Option<&ReadPatchFn>,
+    ) -> Result<Self, Error<B>> {
+        if let Some(read_patch_fn) = read_patch_fn {
+            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
+        } else {
+            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+        }
+        .map(|data| Self {
+            bmc: bmc.clone(),
+            data,
+        })
     }
 
     /// Get the raw schema data for this software inventory item.
@@ -85,20 +97,8 @@ impl<B: Bmc> SoftwareInventoryCollection<B> {
     pub(crate) async fn members(&self) -> Result<Vec<SoftwareInventory<B>>, Error<B>> {
         let mut items = Vec::new();
         for nav in &self.collection.members {
-            let item = self.get_one(nav).await?;
-            items.push(SoftwareInventory::new(self.bmc.clone(), item));
+            items.push(SoftwareInventory::new(&self.bmc, nav, self.read_patch_fn.as_ref()).await?);
         }
         Ok(items)
-    }
-
-    async fn get_one(
-        &self,
-        nav: &NavProperty<SoftwareInventorySchema>,
-    ) -> Result<Arc<SoftwareInventorySchema>, Error<B>> {
-        if let Some(read_patch_fn) = &self.read_patch_fn {
-            Payload::get(self.bmc.as_ref(), nav, read_patch_fn.as_ref()).await
-        } else {
-            nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
-        }
     }
 }

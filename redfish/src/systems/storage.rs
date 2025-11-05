@@ -18,6 +18,7 @@ use crate::systems::Drive;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 /// Represents a storage controller in a computer system.
@@ -30,8 +31,17 @@ pub struct Storage<B: Bmc> {
 
 impl<B: Bmc> Storage<B> {
     /// Create a new storage handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<StorageSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<StorageSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this storage controller.
@@ -60,9 +70,8 @@ impl<B: Bmc> Storage<B> {
             .ok_or(Error::StorageNotAvailable)?;
 
         let mut drives = Vec::new();
-        for drive_ref in drives_ref {
-            let drive = drive_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-            drives.push(Drive::new(self.bmc.clone(), drive));
+        for d in drives_ref {
+            drives.push(Drive::new(&self.bmc, d).await?);
         }
 
         Ok(drives)

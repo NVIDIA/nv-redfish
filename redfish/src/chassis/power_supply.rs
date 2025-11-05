@@ -18,6 +18,7 @@ use crate::schema::redfish::power_supply_metrics::PowerSupplyMetrics;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "sensors")]
@@ -35,8 +36,17 @@ pub struct PowerSupply<B: Bmc> {
 
 impl<B: Bmc> PowerSupply<B> {
     /// Create a new power supply handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<PowerSupplySchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<PowerSupplySchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this power supply.

@@ -14,14 +14,11 @@
 // limitations under the License.
 
 use crate::schema::redfish::chassis::Chassis as ChassisSchema;
-#[allow(unused_imports)] // enabled by any feature
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::bmc::Bmc;
-use std::sync::Arc;
-
-#[cfg(feature = "sensors")]
 use nv_redfish_core::NavProperty;
+use std::sync::Arc;
 
 #[cfg(feature = "power")]
 use crate::chassis::Power;
@@ -42,15 +39,24 @@ use crate::sensors::Sensor;
 ///
 /// Provides access to chassis information and sub-resources such as power supplies.
 pub struct Chassis<B: Bmc> {
-    #[allow(dead_code)] // enabled by any feature
+    #[allow(dead_code)] // used if any feature enabled.
     bmc: NvBmc<B>,
     data: Arc<ChassisSchema>,
 }
 
 impl<B: Bmc> Chassis<B> {
     /// Create a new chassis handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ChassisSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<ChassisSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this chassis.
@@ -78,11 +84,7 @@ impl<B: Bmc> Chassis<B> {
                 let supplies = &self.bmc.expand_property(supplies).await?.members;
                 let mut power_supplies = Vec::with_capacity(supplies.len());
                 for power_supply in supplies {
-                    let power_supply = power_supply
-                        .get(self.bmc.as_ref())
-                        .await
-                        .map_err(Error::Bmc)?;
-                    power_supplies.push(PowerSupply::new(self.bmc.clone(), power_supply));
+                    power_supplies.push(PowerSupply::new(&self.bmc, power_supply).await?);
                 }
                 return Ok(power_supplies);
             }
@@ -103,8 +105,7 @@ impl<B: Bmc> Chassis<B> {
     #[cfg(feature = "power")]
     pub async fn power(&self) -> Result<Option<Power<B>>, Error<B>> {
         if let Some(power_ref) = &self.data.power {
-            let power = power_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-            Ok(Some(Power::new(self.bmc.clone(), power)))
+            Ok(Some(Power::new(&self.bmc, power_ref).await?))
         } else {
             Ok(None)
         }
@@ -122,11 +123,7 @@ impl<B: Bmc> Chassis<B> {
     #[cfg(feature = "thermal")]
     pub async fn thermal(&self) -> Result<Option<Thermal<B>>, Error<B>> {
         if let Some(thermal_ref) = &self.data.thermal {
-            let thermal = thermal_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            Ok(Some(Thermal::new(self.bmc.clone(), thermal)))
+            Thermal::new(&self.bmc, thermal_ref).await.map(Some)
         } else {
             Ok(None)
         }
@@ -153,12 +150,8 @@ impl<B: Bmc> Chassis<B> {
             .map_err(Error::Bmc)?;
 
         let mut log_services = Vec::new();
-        for log_service_ref in &log_services_collection.members {
-            let log_service = log_service_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            log_services.push(LogService::new(self.bmc.clone(), log_service));
+        for m in &log_services_collection.members {
+            log_services.push(LogService::new(&self.bmc, m).await?);
         }
 
         Ok(log_services)

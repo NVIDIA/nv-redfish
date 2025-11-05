@@ -121,11 +121,9 @@ impl<B: Bmc> UpdateService<B> {
             .as_ref()
             .ok_or(Error::SoftwareInventoryNotAvailable)?;
         let collection = self.bmc.expand_property(collection_ref).await?;
-
         let mut items = Vec::new();
         for item_ref in &collection.members {
-            let item = item_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-            items.push(SoftwareInventory::new(self.bmc.clone(), item));
+            items.push(SoftwareInventory::new(&self.bmc, item_ref, None).await?);
         }
         Ok(items)
     }

@@ -38,8 +38,17 @@ pub struct LogService<B: Bmc> {
 
 impl<B: Bmc> LogService<B> {
     /// Create a new log service handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<LogServiceSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<LogServiceSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(crate::Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this log service.

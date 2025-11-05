@@ -14,8 +14,10 @@
 // limitations under the License.
 
 use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "log-services")]
@@ -31,8 +33,17 @@ pub struct Manager<B: Bmc> {
 
 impl<B: Bmc + Sync + Send> Manager<B> {
     /// Create a new manager handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ManagerSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<ManagerSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this manager.
@@ -65,12 +76,8 @@ impl<B: Bmc + Sync + Send> Manager<B> {
             .map_err(crate::Error::Bmc)?;
 
         let mut log_services = Vec::new();
-        for log_service_ref in &log_services_collection.members {
-            let log_service = log_service_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(crate::Error::Bmc)?;
-            log_services.push(LogService::new(self.bmc.clone(), log_service));
+        for m in &log_services_collection.members {
+            log_services.push(LogService::new(&self.bmc, m).await?);
         }
 
         Ok(log_services)

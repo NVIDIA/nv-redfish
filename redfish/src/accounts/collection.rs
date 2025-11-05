@@ -44,7 +44,6 @@ use crate::accounts::ManagerAccountCreate;
 use crate::accounts::ManagerAccountUpdate;
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::CreateWithPatch;
-use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::manager_account::ManagerAccount;
 use crate::schema::redfish::manager_account_collection::ManagerAccountCollection;
@@ -55,7 +54,6 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
-use std::convert::identity;
 use std::sync::Arc;
 
 /// Configuration for slot-defined user accounts.
@@ -158,20 +156,20 @@ impl<B: Bmc> AccountCollection<B> {
             // that is disabled (and whose id is >= `min_slot`, if defined)
             // and apply an update to it.
             for nav in &self.collection.members {
-                let Ok(member) = self.get_one(nav).await else {
+                let Ok(account) = Account::new(&self.bmc, nav, &self.config.account).await else {
                     continue;
                 };
                 if let Some(min) = cfg.min_slot {
                     // If the minimum id is configured and this slot id is below
                     // the threshold, look for another slot.
-                    let Ok(id) = member.base.id.parse::<u32>() else {
+                    let Ok(id) = account.raw().base.id.parse::<u32>() else {
                         continue;
                     };
                     if id < min {
                         continue;
                     }
                 }
-                if member.enabled.is_none_or(identity) {
+                if account.is_enabled() {
                     // Slot is already explicitly enabled. Find another slot.
                     continue;
                 }
@@ -196,20 +194,15 @@ impl<B: Bmc> AccountCollection<B> {
                     mfa_bypass: create.mfa_bypass,
                 };
 
-                let account = Account::new(
-                    self.bmc.clone(),
-                    member.clone(),
-                    self.config.account.clone(),
-                );
                 return account.update(&update).await;
             }
             // No available slot found
             Err(Error::AccountSlotNotAvailable)
         } else {
             let account = self.create_with_patch(&create).await?;
-            Ok(Account::new(
+            Ok(Account::from_data(
                 self.bmc.clone(),
-                Arc::new(account),
+                account,
                 self.config.account.clone(),
             ))
         }
@@ -231,35 +224,16 @@ impl<B: Bmc> AccountCollection<B> {
             // to make it appear as if they were not created. This behavior is
             // controlled by the `hide_disabled` configuration parameter.
             for m in &self.collection.members {
-                let account = self.get_one(m).await?;
-                if !cfg.hide_disabled || account.enabled.is_none_or(identity) {
-                    result.push(Account::new(
-                        self.bmc.clone(),
-                        account,
-                        self.config.account.clone(),
-                    ));
+                let account = Account::new(&self.bmc, m, &self.config.account).await?;
+                if !cfg.hide_disabled || account.is_enabled() {
+                    result.push(account);
                 }
             }
         } else {
             for m in &self.collection.members {
-                result.push(Account::new(
-                    self.bmc.clone(),
-                    self.get_one(m).await?,
-                    self.config.account.clone(),
-                ));
+                result.push(Account::new(&self.bmc, m, &self.config.account).await?);
             }
         }
         Ok(result)
-    }
-
-    async fn get_one(
-        &self,
-        nav: &NavProperty<ManagerAccount>,
-    ) -> Result<Arc<ManagerAccount>, Error<B>> {
-        if let Some(read_patch_fn) = &self.config.account.read_patch_fn {
-            Payload::get(self.bmc.as_ref(), nav, read_patch_fn.as_ref()).await
-        } else {
-            nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
-        }
     }
 }

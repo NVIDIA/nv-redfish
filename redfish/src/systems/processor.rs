@@ -18,6 +18,7 @@ use crate::schema::redfish::processor_metrics::ProcessorMetrics;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "sensors")]
@@ -37,8 +38,17 @@ pub struct Processor<B: Bmc> {
 
 impl<B: Bmc> Processor<B> {
     /// Create a new processor handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ProcessorSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<ProcessorSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(crate::Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this processor.

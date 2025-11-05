@@ -14,8 +14,11 @@
 // limitations under the License.
 
 use crate::schema::redfish::power::Power as PowerSchema;
+use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
+use std::marker::PhantomData;
 use std::sync::Arc;
 
 /// Legacy Power resource wrapper.
@@ -27,18 +30,23 @@ use std::sync::Arc;
 /// Note: This type intentionally does NOT implement `crate::metrics::HasMetrics`
 /// to encourage explicit handling of legacy vs modern approaches.
 pub struct Power<B: Bmc> {
-    #[allow(dead_code)]
-    bmc: NvBmc<B>,
     data: Arc<PowerSchema>,
+    _marker: PhantomData<B>,
 }
 
-impl<B> Power<B>
-where
-    B: Bmc + Sync + Send,
-{
+impl<B: Bmc> Power<B> {
     /// Create a new power resource handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<PowerSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<PowerSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                data,
+                _marker: PhantomData,
+            })
     }
 
     /// Get the raw schema data for this power resource.

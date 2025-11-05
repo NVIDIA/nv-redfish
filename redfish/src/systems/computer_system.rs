@@ -14,8 +14,10 @@
 // limitations under the License.
 
 use crate::schema::redfish::computer_system::ComputerSystem as ComputerSystemSchema;
+use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "log-services")]
@@ -27,9 +29,6 @@ use crate::systems::Processor;
 #[cfg(feature = "storages")]
 use crate::systems::Storage;
 
-#[cfg(any(feature = "memory", feature = "processors", feature = "storages"))]
-use crate::Error;
-
 /// Represents a computer system in the BMC.
 ///
 /// Provides access to system information and sub-resources such as processors.
@@ -39,13 +38,19 @@ pub struct ComputerSystem<B: Bmc> {
     data: Arc<ComputerSystemSchema>,
 }
 
-impl<B> ComputerSystem<B>
-where
-    B: Bmc + Sync + Send,
-{
+impl<B: Bmc> ComputerSystem<B> {
     /// Create a new computer system handle.
-    pub(crate) const fn new(bmc: NvBmc<B>, data: Arc<ComputerSystemSchema>) -> Self {
-        Self { bmc, data }
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<ComputerSystemSchema>,
+    ) -> Result<Self, Error<B>> {
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(crate::Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this computer system.
@@ -77,12 +82,8 @@ where
         let processors_collection = self.bmc.expand_property(processors_ref).await?;
 
         let mut processors = Vec::new();
-        for processor_ref in &processors_collection.members {
-            let processor = processor_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            processors.push(Processor::new(self.bmc.clone(), processor));
+        for m in &processors_collection.members {
+            processors.push(Processor::new(&self.bmc, m).await?);
         }
 
         Ok(processors)
@@ -108,12 +109,8 @@ where
         let storage_collection = self.bmc.expand_property(storage_ref).await?;
 
         let mut storage_controllers = Vec::new();
-        for storage_controller_ref in &storage_collection.members {
-            let storage_controller = storage_controller_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            storage_controllers.push(Storage::new(self.bmc.clone(), storage_controller));
+        for m in &storage_collection.members {
+            storage_controllers.push(Storage::new(&self.bmc, m).await?);
         }
 
         Ok(storage_controllers)
@@ -135,12 +132,8 @@ where
         let memory_collection = self.bmc.expand_property(memory_ref).await?;
 
         let mut memory_modules = Vec::new();
-        for memory_ref in &memory_collection.members {
-            let memory = memory_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            memory_modules.push(Memory::new(self.bmc.clone(), memory));
+        for m in &memory_collection.members {
+            memory_modules.push(Memory::new(&self.bmc, m).await?);
         }
 
         Ok(memory_modules)
@@ -167,12 +160,8 @@ where
             .map_err(Error::Bmc)?;
 
         let mut log_services = Vec::new();
-        for log_service_ref in &log_services_collection.members {
-            let log_service = log_service_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
-            log_services.push(LogService::new(self.bmc.clone(), log_service));
+        for m in &log_services_collection.members {
+            log_services.push(LogService::new(&self.bmc, m).await?);
         }
 
         Ok(log_services)
