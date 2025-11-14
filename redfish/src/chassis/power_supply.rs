@@ -17,6 +17,8 @@ use crate::schema::redfish::power_supply::PowerSupply as PowerSupplySchema;
 use crate::schema::redfish::power_supply_metrics::PowerSupplyMetrics;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -114,5 +116,11 @@ impl<B: Bmc> PowerSupply<B> {
             .into_iter()
             .map(|r| SensorRef::new(self.bmc.clone(), r))
             .collect())
+    }
+}
+
+impl<B: Bmc> Resource for PowerSupply<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

@@ -20,6 +20,8 @@ use crate::schema::redfish::ethernet_interface::EthernetInterface as EthernetInt
 use crate::schema::redfish::ethernet_interface_collection::EthernetInterfaceCollection as EthernetInterfaceCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::marker::PhantomData;
@@ -87,5 +89,11 @@ impl<B: Bmc> EthernetInterface<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<EthernetInterfaceSchema> {
         self.data.clone()
+    }
+}
+
+impl<B: Bmc> Resource for EthernetInterface<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

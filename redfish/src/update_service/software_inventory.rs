@@ -21,6 +21,8 @@ use crate::schema::redfish::software_inventory::SoftwareInventory as SoftwareInv
 use crate::schema::redfish::software_inventory_collection::SoftwareInventoryCollection as SoftwareInventoryCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -59,6 +61,12 @@ impl<B: Bmc> SoftwareInventory<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<SoftwareInventorySchema> {
         self.data.clone()
+    }
+}
+
+impl<B: Bmc> Resource for SoftwareInventory<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }
 

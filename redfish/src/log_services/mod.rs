@@ -22,6 +22,8 @@ use crate::schema::redfish::log_entry::LogEntry;
 use crate::schema::redfish::log_service::LogService as LogServiceSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::NavProperty;
@@ -151,5 +153,11 @@ impl<B: Bmc> LogService<B> {
             entries.push(entry);
         }
         Ok(entries)
+    }
+}
+
+impl<B: Bmc> Resource for LogService<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

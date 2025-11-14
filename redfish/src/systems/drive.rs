@@ -17,6 +17,8 @@ use crate::schema::redfish::drive::Drive as DriveSchema;
 use crate::schema::redfish::drive_metrics::DriveMetrics;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -96,5 +98,11 @@ impl<B: Bmc> Drive<B> {
             .into_iter()
             .map(|r| SensorRef::new(self.bmc.clone(), r))
             .collect())
+    }
+}
+
+impl<B: Bmc> Resource for Drive<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

@@ -17,6 +17,8 @@ use crate::schema::redfish::memory::Memory as MemorySchema;
 use crate::schema::redfish::memory_metrics::MemoryMetrics;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -96,5 +98,11 @@ impl<B: Bmc> Memory<B> {
             .into_iter()
             .map(|r| SensorRef::new(self.bmc.clone(), r))
             .collect())
+    }
+}
+
+impl<B: Bmc> Resource for Memory<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

@@ -70,6 +70,9 @@ pub mod error;
 /// Service Root implementation.
 pub mod service_root;
 
+/// Redfish resource common functions.
+pub mod resource;
+
 /// Accounts Service.
 #[cfg(feature = "accounts")]
 pub mod accounts;
@@ -119,6 +122,9 @@ pub use nv_redfish_core::Bmc;
 #[doc(inline)]
 pub use protocol_features::ProtocolFeatures;
 #[doc(inline)]
+pub use resource::Resource;
+#[doc(inline)]
 pub use service_root::ServiceRoot;
 
+pub(crate) use crate::schema::redfish::resource::Resource as ResourceSchema;
 pub(crate) use bmc::NvBmc;

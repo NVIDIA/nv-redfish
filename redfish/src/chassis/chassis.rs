@@ -16,6 +16,8 @@
 use crate::schema::redfish::chassis::Chassis as ChassisSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::bmc::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -205,5 +207,11 @@ impl<B: Bmc> Chassis<B> {
         } else {
             Err(Error::SensorsNotAvailable)
         }
+    }
+}
+
+impl<B: Bmc> Resource for Chassis<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

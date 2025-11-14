@@ -39,6 +39,8 @@ use crate::patch_support::UpdateWithPatch;
 use crate::schema::redfish::manager_account::ManagerAccount;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::Deletable as _;
 use nv_redfish_core::NavProperty;
@@ -181,5 +183,11 @@ impl<B: Bmc> Account<B> {
                 .map_err(Error::Bmc)
                 .map(|_| ())
         }
+    }
+}
+
+impl<B: Bmc> Resource for Account<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

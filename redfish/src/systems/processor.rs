@@ -17,6 +17,8 @@ use crate::schema::redfish::processor::Processor as ProcessorSchema;
 use crate::schema::redfish::processor_metrics::ProcessorMetrics;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -127,5 +129,11 @@ impl<B: Bmc> Processor<B> {
             .into_iter()
             .map(|r| SensorRef::new(self.bmc.clone(), r))
             .collect())
+    }
+}
+
+impl<B: Bmc> Resource for Processor<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

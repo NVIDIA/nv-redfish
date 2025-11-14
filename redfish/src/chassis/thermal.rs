@@ -16,6 +16,8 @@
 use crate::schema::redfish::thermal::Thermal as ThermalSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::marker::PhantomData;
@@ -58,5 +60,11 @@ impl<B: Bmc> Thermal<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<ThermalSchema> {
         self.data.clone()
+    }
+}
+
+impl<B: Bmc> Resource for Thermal<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

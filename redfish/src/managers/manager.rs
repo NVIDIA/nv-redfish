@@ -16,6 +16,8 @@
 use crate::schema::redfish::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -33,7 +35,7 @@ pub struct Manager<B: Bmc> {
     data: Arc<ManagerSchema>,
 }
 
-impl<B: Bmc + Sync + Send> Manager<B> {
+impl<B: Bmc> Manager<B> {
     /// Create a new manager handle.
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
@@ -102,5 +104,11 @@ impl<B: Bmc + Sync + Send> Manager<B> {
         }
 
         Ok(log_services)
+    }
+}
+
+impl<B: Bmc> Resource for Manager<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }

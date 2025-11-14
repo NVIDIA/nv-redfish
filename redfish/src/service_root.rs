@@ -17,6 +17,8 @@ use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
 use crate::Error;
 use crate::NvBmc;
 use crate::ProtocolFeatures;
+use crate::Resource;
+use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
@@ -164,5 +166,11 @@ impl<B: Bmc> ServiceRoot<B> {
             .as_ref()
             .and_then(Option::as_ref)
             .is_some_and(|v| v == "Dell")
+    }
+}
+
+impl<B: Bmc> Resource for ServiceRoot<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.root.as_ref().base
     }
 }

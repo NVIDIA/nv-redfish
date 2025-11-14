@@ -25,6 +25,8 @@ use crate::schema::redfish::update_service::UpdateService as UpdateServiceSchema
 use crate::schema::redfish::update_service::UpdateServiceSimpleUpdateAction;
 use crate::Error;
 use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
 use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
 use serde_json::Value as JsonValue;
@@ -210,6 +212,12 @@ impl<B: Bmc> UpdateService<B> {
             .map_err(Error::Bmc)?;
 
         Ok(())
+    }
+}
+
+impl<B: Bmc> Resource for UpdateService<B> {
+    fn resource_ref(&self) -> &ResourceSchema {
+        &self.data.as_ref().base
     }
 }
 
