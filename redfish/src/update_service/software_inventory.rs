@@ -24,8 +24,31 @@ use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::EdmDateTimeOffset;
 use nv_redfish_core::NavProperty;
+use std::convert::identity;
 use std::sync::Arc;
+use tagged_types::TaggedType;
+
+/// Version of the software.
+pub type Version = TaggedType<String, VersionTag>;
+/// Reference to the version of softeare.
+pub type VersionRef<'a> = TaggedType<&'a String, VersionTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum VersionTag {}
+
+/// Release date of the software.
+pub type ReleaseDate = TaggedType<EdmDateTimeOffset, ReleaseDateTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum ReleaseDateTag {}
 
 /// Represents a software inventory item in the update service.
 ///
@@ -61,6 +84,25 @@ impl<B: Bmc> SoftwareInventory<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<SoftwareInventorySchema> {
         self.data.clone()
+    }
+
+    /// Get the version of software inventory item.
+    #[must_use]
+    pub fn version(&self) -> Option<VersionRef<'_>> {
+        self.data
+            .version
+            .as_ref()
+            .and_then(Option::as_ref)
+            .map(VersionRef::new)
+    }
+
+    /// Get the release date of the software inventory item.
+    #[must_use]
+    pub fn release_date(&self) -> Option<ReleaseDate> {
+        self.data
+            .release_date
+            .and_then(identity)
+            .map(ReleaseDate::new)
     }
 }
 

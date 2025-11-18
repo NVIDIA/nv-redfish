@@ -34,10 +34,13 @@ use software_inventory::SoftwareInventoryCollection;
 use std::sync::Arc;
 
 #[doc(inline)]
-// Re-export types needed for actions
 pub use crate::schema::redfish::update_service::TransferProtocolType;
 #[doc(inline)]
 pub use software_inventory::SoftwareInventory;
+#[doc(inline)]
+pub use software_inventory::Version;
+#[doc(inline)]
+pub use software_inventory::VersionRef;
 
 /// Update service.
 ///
