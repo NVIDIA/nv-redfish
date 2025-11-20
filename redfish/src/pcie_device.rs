@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! `PCIe` devices
+//! PCIe devices
 //!
 
 use crate::hardware_id::HardwareIdRef;
@@ -26,13 +26,16 @@ use crate::schema::redfish::pcie_device_collection::PcieDeviceCollection as Pcie
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
+use crate::ResourceProvidesStatus;
 use crate::ResourceSchema;
+use crate::ResourceStatusSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use tagged_types::TaggedType;
 
-/// `PCIe` devices collection.
+/// PCIe devices collection.
 ///
 /// Provides functions to access collection members.
 pub struct PcieDeviceCollection<B: Bmc> {
@@ -70,21 +73,30 @@ impl<B: Bmc> PcieDeviceCollection<B> {
 #[doc(hidden)]
 pub enum PcieDeviceTag {}
 
-/// Chassis manufacturer.
+/// PCIe device manufacturer.
 pub type Manufacturer<T> = HardwareIdManufacturer<T, PcieDeviceTag>;
 
-/// Chassis model.
+/// PCIe device model.
 pub type Model<T> = HardwareIdModel<T, PcieDeviceTag>;
 
-/// Chassis part number.
+/// PCIe device part number.
 pub type PartNumber<T> = HardwareIdPartNumber<T, PcieDeviceTag>;
 
-/// Chassis serial number.
+/// PCIe device serial number.
 pub type SerialNumber<T> = HardwareIdSerialNumber<T, PcieDeviceTag>;
 
-/// `PCIe` device.
+/// Firmware version of the PCIe device.
+pub type FirmwareVersion<T> = TaggedType<T, FirmwareVersionTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum FirmwareVersionTag {}
+
+/// PCIe device.
 ///
-/// Provides functions to access `PCIe` device data.
+/// Provides functions to access PCIe device data.
 pub struct PcieDevice<B: Bmc> {
     data: Arc<PcieDeviceSchema>,
     _marker: PhantomData<B>,
@@ -105,13 +117,13 @@ impl<B: Bmc> PcieDevice<B> {
             })
     }
 
-    /// Get the raw schema data for this `PCIe` device.
+    /// Get the raw schema data for this PCIe device.
     #[must_use]
     pub fn raw(&self) -> Arc<PcieDeviceSchema> {
         self.data.clone()
     }
 
-    /// Get hardware identifier of the `PCIe` device.
+    /// Get hardware identifier of the PCIe device.
     #[must_use]
     pub fn hardware_id(&self) -> HardwareIdRef<'_, PcieDeviceTag> {
         HardwareIdRef {
@@ -141,10 +153,26 @@ impl<B: Bmc> PcieDevice<B> {
                 .map(SerialNumber::new),
         }
     }
+
+    /// The version of firmware for this PCIe device.
+    #[must_use]
+    pub fn firmware_version(&self) -> Option<FirmwareVersion<&String>> {
+        self.data
+            .firmware_version
+            .as_ref()
+            .and_then(Option::as_ref)
+            .map(FirmwareVersion::new)
+    }
 }
 
 impl<B: Bmc> Resource for PcieDevice<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
+    }
+}
+
+impl<B: Bmc> ResourceProvidesStatus for PcieDevice<B> {
+    fn resource_status_ref(&self) -> Option<&ResourceStatusSchema> {
+        self.data.status.as_ref()
     }
 }

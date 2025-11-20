@@ -63,6 +63,7 @@
     clippy::print_stderr
 )]
 #![deny(missing_docs)]
+#![allow(clippy::doc_markdown)]
 
 /// Errors defined by the crate.
 pub mod error;
@@ -133,7 +134,10 @@ pub use protocol_features::ProtocolFeatures;
 #[doc(inline)]
 pub use resource::Resource;
 #[doc(inline)]
+pub use resource::ResourceProvidesStatus;
+#[doc(inline)]
 pub use service_root::ServiceRoot;
 
 pub(crate) use crate::schema::redfish::resource::Resource as ResourceSchema;
+pub(crate) use crate::schema::redfish::resource::Status as ResourceStatusSchema;
 pub(crate) use bmc::NvBmc;

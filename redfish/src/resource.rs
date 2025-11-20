@@ -16,7 +16,14 @@
 //! Redfish resource
 
 use crate::ResourceSchema;
+use crate::ResourceStatusSchema;
+use std::convert::identity;
 use tagged_types::TaggedType;
+
+#[doc(inline)]
+pub use crate::schema::redfish::resource::Health;
+#[doc(inline)]
+pub use crate::schema::redfish::resource::State;
 
 #[doc(inline)]
 #[cfg(feature = "computer-systems")]
@@ -77,5 +84,32 @@ pub trait Resource {
             .as_ref()
             .and_then(|v| v.as_ref())
             .map(ResourceDescriptionRef::new)
+    }
+}
+
+/// The status and health of a resource and its children.
+#[derive(Clone, Debug)]
+pub struct Status {
+    /// The state of the resource.
+    pub state: Option<State>,
+    /// The health state of this resource in the absence of its dependent resources.
+    pub health: Option<Health>,
+    /// The overall health state from the view of this resource.
+    pub health_rollup: Option<Health>,
+}
+
+/// Represents Redfish resource that provides it's status.
+pub trait ResourceProvidesStatus {
+    /// Required function. Must be implemented for Redfish resources
+    /// that provides resource status.
+    fn resource_status_ref(&self) -> Option<&ResourceStatusSchema>;
+
+    /// Status of the resource if it is provided.
+    fn status(&self) -> Option<Status> {
+        self.resource_status_ref().map(|status| Status {
+            state: status.state.and_then(identity),
+            health: status.health.and_then(identity),
+            health_rollup: status.health_rollup.and_then(identity),
+        })
     }
 }
