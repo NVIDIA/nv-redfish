@@ -39,6 +39,8 @@ use nv_redfish_core::Bmc;
 use std::sync::Arc;
 
 #[doc(inline)]
+pub use item::BootOptionReference;
+#[doc(inline)]
 pub use item::ComputerSystem;
 
 #[doc(inline)]

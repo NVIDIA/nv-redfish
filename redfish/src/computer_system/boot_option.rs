@@ -15,6 +15,7 @@
 //! Boot options
 //!
 
+use crate::computer_system::BootOptionReference;
 use crate::schema::redfish::boot_option::BootOption as BootOptionSchema;
 use crate::schema::redfish::boot_option_collection::BootOptionCollection as BootOptionCollectionSchema;
 use crate::Error;
@@ -23,6 +24,7 @@ use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
+use std::convert::identity;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tagged_types::TaggedType;
@@ -62,6 +64,15 @@ impl<B: Bmc> BootOptionCollection<B> {
     }
 }
 
+/// An indication of whether the boot option is enabled.
+pub type Enabled = TaggedType<bool, EnabledTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
+#[capability(inner_access)]
+pub enum EnabledTag {}
+
 /// The UEFI device path to access this UEFI boot option.
 ///
 /// Nv-redfish keeps open underlying type for `UefiDevicePath` because it
@@ -71,8 +82,18 @@ pub type UefiDevicePath<T> = TaggedType<T, UefiDevicePathTag>;
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
-#[capability(inner_access)]
+#[capability(inner_access, cloned)]
 pub enum UefiDevicePathTag {}
+
+/// The user-readable display name of the boot option that appears in
+/// the boot order list in the user interface.
+pub type DisplayName<T> = TaggedType<T, DisplayNameTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Debug, Display, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum DisplayNameTag {}
 
 /// Boot option.
 ///
@@ -103,11 +124,31 @@ impl<B: Bmc> BootOption<B> {
         self.data.clone()
     }
 
+    ///
+    /// Boot option reference.
+    #[must_use]
+    pub fn boot_reference(&self) -> BootOptionReference<&String> {
+        BootOptionReference::new(self.id().inner())
+    }
+
+    /// An indication of whether the boot option is enabled.
+    #[must_use]
+    pub fn enabled(&self) -> Option<Enabled> {
+        self.data
+            .boot_option_enabled
+            .and_then(identity)
+            .map(Enabled::new)
+    }
+
     /// The user-readable display name of the boot option that appears
     /// in the boot order list in the user interface.
     #[must_use]
-    pub fn display_name(&self) -> Option<&String> {
-        self.data.display_name.as_ref().and_then(Option::as_ref)
+    pub fn display_name(&self) -> Option<DisplayName<&String>> {
+        self.data
+            .display_name
+            .as_ref()
+            .and_then(Option::as_ref)
+            .map(DisplayName::new)
     }
 
     /// The UEFI device path to access this UEFI boot option.

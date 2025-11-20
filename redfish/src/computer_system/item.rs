@@ -67,6 +67,15 @@ pub type Sku<T> = TaggedType<T, ComputerSystemSkuTag>;
 #[capability(inner_access, cloned)]
 pub enum ComputerSystemSkuTag {}
 
+/// `BootOptionReference` type represent boot order of the `ComputerSystem`.
+pub type BootOptionReference<T> = TaggedType<T, BootOptionReferenceTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum BootOptionReferenceTag {}
+
 /// Represents a computer system in the BMC.
 ///
 /// Provides access to system information and sub-resources such as processors.
@@ -131,6 +140,7 @@ impl<B: Bmc> ComputerSystem<B> {
     }
 
     /// The manufacturer SKU for this system.
+    #[must_use]
     pub fn sku(&self) -> Option<Sku<&String>> {
         self.data
             .sku
@@ -140,8 +150,21 @@ impl<B: Bmc> ComputerSystem<B> {
     }
 
     /// Power state of this system.
+    #[must_use]
     pub fn power_state(&self) -> Option<PowerState> {
         self.data.power_state.and_then(identity)
+    }
+
+    /// An array of `BootOptionReference` strings that represent the persistent boot order for with this
+    /// computer system.
+    #[must_use]
+    pub fn boot_order(&self) -> Option<Vec<BootOptionReference<&String>>> {
+        self.data
+            .as_ref()
+            .boot
+            .as_ref()
+            .and_then(|boot| boot.boot_order.as_ref().and_then(Option::as_ref))
+            .map(|v| v.iter().map(BootOptionReference::new).collect::<Vec<_>>())
     }
 
     /// Get processors associated with this system.
