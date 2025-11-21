@@ -70,10 +70,14 @@ pub mod action;
 pub mod bmc;
 /// Custom deserialization helpers.
 pub mod deserialize;
+/// Dynamic properties support.
+pub mod dynamic_properties;
 /// `Edm.DateTimeOffset` type.
 pub mod edm_date_time_offset;
-/// Type that represents `Edm.Duration`.
+/// `Edm.Duration` type.
 pub mod edm_duration;
+/// `Edm.PrimitiveType` type.
+pub mod edm_primitive_type;
 /// Navigation property wrapper.
 pub mod nav_property;
 /// Type for `@odata.id` identifier.
@@ -96,9 +100,13 @@ pub use deserialize::de_optional_nullable;
 #[doc(inline)]
 pub use deserialize::de_required_nullable;
 #[doc(inline)]
+pub use dynamic_properties::DynamicProperties;
+#[doc(inline)]
 pub use edm_date_time_offset::EdmDateTimeOffset;
 #[doc(inline)]
 pub use edm_duration::EdmDuration;
+#[doc(inline)]
+pub use edm_primitive_type::EdmPrimitiveType;
 #[doc(inline)]
 pub use nav_property::NavProperty;
 #[doc(inline)]

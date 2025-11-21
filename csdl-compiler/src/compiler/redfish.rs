@@ -15,7 +15,8 @@
 
 //! Redfish-specific attributes used during code generation.
 
-use crate::redfish::annotations::RedfishPropertyAnnotations;
+use crate::redfish::annotations::RedfishAnnotations;
+use crate::redfish::DynamicProperties;
 use crate::redfish::Excerpt;
 use crate::redfish::ExcerptCopy;
 use crate::IsExcerptCopyOnly;
@@ -40,13 +41,30 @@ pub struct RedfishProperty {
 impl RedfishProperty {
     /// Create a new instance from an object that provides Redfish
     /// property annotations.
-    pub fn new(src: &impl RedfishPropertyAnnotations) -> Self {
+    pub fn new(src: &impl RedfishAnnotations) -> Self {
         Self {
             is_required: src.is_required(),
             is_required_on_create: src.is_required_on_create(),
             is_excerpt_only: src.is_excerpt_only(),
             excerpt: src.excerpt(),
             excerpt_copy: src.excerpt_copy(),
+        }
+    }
+}
+
+/// Redfish attributes attached to types.
+#[derive(Debug)]
+pub struct Redfish<'a> {
+    /// Dynamic properties defined for the type.
+    pub dynamic_properties: Option<DynamicProperties<'a>>,
+}
+
+impl<'a> Redfish<'a> {
+    /// Create a new instance from an object that provides Redfish
+    /// property annotations.
+    pub fn new(src: &'a impl RedfishAnnotations) -> Self {
+        Self {
+            dynamic_properties: src.dynamic_properties(),
         }
     }
 }

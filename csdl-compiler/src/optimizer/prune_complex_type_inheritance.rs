@@ -100,6 +100,7 @@ pub fn prune_complex_type_inheritance<'a>(input: Compiled<'a>, _config: &Config)
                     base,
                     properties: Properties::rev_join(properties),
                     odata: v.odata,
+                    redfish: v.redfish,
                 },
             )
         })

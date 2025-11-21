@@ -14,9 +14,11 @@
 // limitations under the License.
 
 use crate::edmx::Annotation;
+use crate::edmx::ComplexType;
 use crate::edmx::NavigationProperty;
 use crate::edmx::Parameter;
 use crate::edmx::StructuralProperty;
+use crate::redfish::DynamicProperties;
 use crate::redfish::Excerpt;
 use crate::redfish::ExcerptCopy;
 use crate::redfish::ExcerptKey;
@@ -37,7 +39,7 @@ impl RedfishAnnotation for Annotation {
     }
 }
 
-pub trait RedfishPropertyAnnotations {
+pub trait RedfishAnnotations {
     fn annotations(&self) -> &Vec<Annotation>;
 
     fn is_required(&self) -> IsRequired {
@@ -75,19 +77,16 @@ pub trait RedfishPropertyAnnotations {
             .find(|a| {
                 a.is_redfish_annotation("Excerpt") || a.is_redfish_annotation("ExcerptCopyOnly")
             })
-            .map_or_else(
-                || None,
-                |v| {
-                    v.string.as_ref().map_or_else(
-                        || Some(Excerpt::All),
-                        |s| {
-                            Some(Excerpt::Keys(
-                                s.split(',').map(Into::into).map(ExcerptKey::new).collect(),
-                            ))
-                        },
-                    )
-                },
-            )
+            .and_then(|v| {
+                v.string.as_ref().map_or_else(
+                    || Some(Excerpt::All),
+                    |s| {
+                        Some(Excerpt::Keys(
+                            s.split(',').map(Into::into).map(ExcerptKey::new).collect(),
+                        ))
+                    },
+                )
+            })
     }
 
     /// Returns if property is marked as excerpt copy.
@@ -95,31 +94,58 @@ pub trait RedfishPropertyAnnotations {
         self.annotations()
             .iter()
             .find(|a| a.is_redfish_annotation("ExcerptCopy"))
-            .map_or_else(
-                || None,
-                |v| {
-                    v.string.as_ref().map_or_else(
-                        || Some(ExcerptCopy::AllKeys),
-                        |s| Some(ExcerptCopy::Key(ExcerptKey::new(s.into()))),
-                    )
-                },
-            )
+            .and_then(|v| {
+                v.string.as_ref().map_or_else(
+                    || Some(ExcerptCopy::AllKeys),
+                    |s| Some(ExcerptCopy::Key(ExcerptKey::new(s.into()))),
+                )
+            })
+    }
+
+    /// Returns if type can contain dynamic properties.
+    fn dynamic_properties(&self) -> Option<DynamicProperties<'_>> {
+        self.annotations()
+            .iter()
+            .find(|a| a.is_redfish_annotation("DynamicPropertyPatterns"))
+            .and_then(|v| v.collection.as_ref())
+            .and_then(|collection| {
+                collection.record.iter().find_map(|record| {
+                    record
+                        .property_value("Type")
+                        .and_then(|t| t.string_value.as_ref())
+                        .and_then(|t| {
+                            record
+                                .property_value("Pattern")
+                                .and_then(|p| p.string_value.as_ref())
+                                .map(|p| DynamicProperties {
+                                    pattern: p,
+                                    ptype: t,
+                                })
+                        })
+                })
+            })
     }
 }
 
-impl RedfishPropertyAnnotations for StructuralProperty {
+impl RedfishAnnotations for StructuralProperty {
     fn annotations(&self) -> &Vec<Annotation> {
         &self.annotations
     }
 }
 
-impl RedfishPropertyAnnotations for NavigationProperty {
+impl RedfishAnnotations for NavigationProperty {
     fn annotations(&self) -> &Vec<Annotation> {
         &self.annotations
     }
 }
 
-impl RedfishPropertyAnnotations for Parameter {
+impl RedfishAnnotations for Parameter {
+    fn annotations(&self) -> &Vec<Annotation> {
+        &self.annotations
+    }
+}
+
+impl RedfishAnnotations for ComplexType {
     fn annotations(&self) -> &Vec<Annotation> {
         &self.annotations
     }

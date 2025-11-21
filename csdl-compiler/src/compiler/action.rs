@@ -30,7 +30,7 @@ use crate::compiler::TypeInfo;
 use crate::edmx::Action as EdmxAction;
 use crate::edmx::ActionName;
 use crate::edmx::ParameterName;
-use crate::redfish::annotations::RedfishPropertyAnnotations as _;
+use crate::redfish::annotations::RedfishAnnotations as _;
 use crate::IsNullable;
 use crate::OneOrCollection;
 

@@ -25,6 +25,7 @@ use crate::compiler::Properties;
 use crate::compiler::PropertiesManipulation;
 use crate::compiler::Property;
 use crate::compiler::QualifiedName;
+use crate::compiler::Redfish;
 use crate::compiler::Stack;
 use crate::compiler::TypeInfo;
 use crate::edmx::ComplexType as EdmxComplexType;
@@ -40,6 +41,8 @@ pub struct ComplexType<'a> {
     pub properties: Properties<'a>,
     /// Attached `OData` annotations.
     pub odata: OData<'a>,
+    /// Attached Redfish annotations.
+    pub redfish: Redfish<'a>,
 }
 
 impl<'a> PropertiesManipulation<'a> for ComplexType<'a> {
@@ -95,6 +98,7 @@ pub(crate) fn compile<'a>(
         base,
         properties,
         odata: OData::new(MustHaveId::new(false), ct),
+        redfish: Redfish::new(ct),
     };
     let typeinfo = TypeInfo::complex_type(&complex_type);
     Ok((

@@ -138,6 +138,8 @@ pub use properties::TypeInfo;
 #[doc(inline)]
 pub use qualified_name::QualifiedName;
 #[doc(inline)]
+pub use redfish::Redfish;
+#[doc(inline)]
 pub use type_definition::TypeDefinition;
 
 // Trait re-exports

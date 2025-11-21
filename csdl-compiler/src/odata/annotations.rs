@@ -174,14 +174,12 @@ pub trait ODataAnnotations {
             .find(|a| a.is_capabilities_annotation("InsertRestrictions"))
             .and_then(|a| a.record.as_ref())
             .and_then(|record| {
-                if record.property_value.property == "Insertable" {
-                    record.property_value.bool_value.map(|value| Capability {
+                record.property_value("Insertable").and_then(|pv| {
+                    pv.bool_value.map(|value| Capability {
                         value,
                         description: record.odata_description(),
                     })
-                } else {
-                    None
-                }
+                })
             })
             .map(Insertable::new)
     }
@@ -192,14 +190,12 @@ pub trait ODataAnnotations {
             .find(|a| a.is_capabilities_annotation("UpdateRestrictions"))
             .and_then(|a| a.record.as_ref())
             .and_then(|record| {
-                if record.property_value.property == "Updatable" {
-                    record.property_value.bool_value.map(|value| Capability {
+                record.property_value("Updatable").and_then(|pv| {
+                    pv.bool_value.map(|value| Capability {
                         value,
                         description: record.odata_description(),
                     })
-                } else {
-                    None
-                }
+                })
             })
             .map(Updatable::new)
     }
@@ -210,14 +206,12 @@ pub trait ODataAnnotations {
             .find(|a| a.is_capabilities_annotation("DeleteRestrictions"))
             .and_then(|a| a.record.as_ref())
             .and_then(|record| {
-                if record.property_value.property == "Deletable" {
-                    record.property_value.bool_value.map(|value| Capability {
+                record.property_value("Deletable").and_then(|pv| {
+                    pv.bool_value.map(|value| Capability {
                         value,
                         description: record.odata_description(),
                     })
-                } else {
-                    None
-                }
+                })
             })
             .map(Deletable::new)
     }

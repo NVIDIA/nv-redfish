@@ -184,6 +184,7 @@ impl<'a> RustGenerator<'a> {
                 ODataETag,
                 ReferenceLeaf,
                 AdditionalProperties,
+                DynamicProperties,
                 ToSnakeCase,
                 de_optional_nullable,
                 de_required_nullable,
@@ -208,6 +209,8 @@ impl<'a> RustGenerator<'a> {
                 pub type Int64 = i64;
                 /// Mapping of `Edm.String` type
                 pub type String = ::std::string::String;
+                /// Mapping of `Edm.PrimitiveType` type
+                pub type PrimitiveType = nv_redfish_core::EdmPrimitiveType;
             }
         });
         self.root.generate(&mut tokens, &self.config);

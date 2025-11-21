@@ -13,26 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish helpers to work with edmx
+use serde::Deserialize;
+use serde::Serialize;
 
-/// Redfish annotations helpers.
-pub mod annotations;
-
-/// Defines excerpt copy of the resource.
-pub mod excerpt;
-
-#[doc(inline)]
-pub use excerpt::Excerpt;
-
-#[doc(inline)]
-pub use excerpt::ExcerptKey;
-
-#[doc(inline)]
-pub use excerpt::ExcerptCopy;
-
-/// Dynamic properties defined by the type.
-#[derive(Debug, Clone, Copy)]
-pub struct DynamicProperties<'a> {
-    pub pattern: &'a String,
-    pub ptype: &'a String,
+/// Represents Edm.PrimitiveType
+#[derive(Serialize, Deserialize, Debug)]
+#[serde(untagged)]
+pub enum EdmPrimitiveType {
+    /// String primitive type.
+    String(String),
+    /// Integer primitive type.
+    Integer(i64),
+    /// Floating point primitive type.
+    Decimal(f64),
 }

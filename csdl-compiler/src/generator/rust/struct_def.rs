@@ -31,6 +31,7 @@ use crate::generator::rust::FullTypeName;
 use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
 use crate::odata::annotations::Permissions;
+use crate::redfish::DynamicProperties;
 use crate::redfish::ExcerptCopy;
 use crate::IsNullable;
 use crate::IsRequired;
@@ -70,6 +71,7 @@ pub struct StructDef<'a> {
     // implements `@Redfish.SettingsApplyTime` instead of implementing
     // it in active resource itself.
     need_redfish_settings: bool,
+    dynamic_properties: Option<DynamicProperties<'a>>,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -140,7 +142,19 @@ impl<'a> StructDef<'a> {
                 pub additional_properties: #top::AdditionalProperties,
             }
         } else {
-            TokenStream::new()
+            // Add dynamic properties if no additional properties
+            // defined.
+            self.dynamic_properties
+                .map_or_else(
+                    TokenStream::new,
+                    |dynamic_properties| match dynamic_properties.ptype.as_str() {
+                        "Edm.PrimitiveType" => quote! {
+                            #[serde(flatten)]
+                            pub dynamic_properties: #top::DynamicProperties<#top::edm::PrimitiveType>,
+                        },
+                        v => quote! { not_supported_type: compile_error!(#v) },
+                    },
+                )
         };
 
         // Combine all together in content
@@ -827,6 +841,7 @@ impl<'a> StructDefBuilder<'a> {
             generate: vec![GenerateType::Read],
             create_type: None,
             need_redfish_settings: false,
+            dynamic_properties: None,
         })
     }
 
@@ -876,6 +891,13 @@ impl<'a> StructDefBuilder<'a> {
     #[must_use]
     pub const fn with_redfish_settings(mut self) -> Self {
         self.0.need_redfish_settings = true;
+        self
+    }
+
+    /// Add support of dynamic properties.
+    #[must_use]
+    pub const fn with_dynamic_properties(mut self, dp: DynamicProperties<'a>) -> Self {
+        self.0.dynamic_properties = Some(dp);
         self
     }
 

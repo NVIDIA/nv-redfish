@@ -108,6 +108,11 @@ impl<'a> ModDef<'a> {
             } else {
                 builder
             };
+            let builder = if let Some(dynamic_properties) = ct.redfish.dynamic_properties {
+                builder.with_dynamic_properties(dynamic_properties)
+            } else {
+                builder
+            };
             // If complex type cannot be used for updates then skip
             // generation of Update structures.
             let builder = if TypeInfo::complex_type(&ct)

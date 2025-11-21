@@ -13,26 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Redfish helpers to work with edmx
+use std::collections::HashMap;
 
-/// Redfish annotations helpers.
-pub mod annotations;
-
-/// Defines excerpt copy of the resource.
-pub mod excerpt;
-
-#[doc(inline)]
-pub use excerpt::Excerpt;
-
-#[doc(inline)]
-pub use excerpt::ExcerptKey;
-
-#[doc(inline)]
-pub use excerpt::ExcerptCopy;
-
-/// Dynamic properties defined by the type.
-#[derive(Debug, Clone, Copy)]
-pub struct DynamicProperties<'a> {
-    pub pattern: &'a String,
-    pub ptype: &'a String,
-}
+/// Represents dynamic properties that can be assigned to Complex Type
+/// in CSDL.
+pub type DynamicProperties<T> = HashMap<String, T>;

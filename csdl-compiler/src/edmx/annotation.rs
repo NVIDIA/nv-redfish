@@ -51,14 +51,25 @@ pub struct Annotation {
 pub struct AnnotationCollection {
     #[serde(rename = "String", default)]
     pub strings: Vec<String>,
+    #[serde(rename = "Record", default)]
+    pub record: Vec<AnnotationRecord>,
 }
 
 #[derive(Debug, Deserialize)]
 pub struct AnnotationRecord {
     #[serde(rename = "PropertyValue")]
-    pub property_value: PropertyValue,
+    pub property_value: Vec<PropertyValue>,
     #[serde(rename = "Annotation", default)]
     pub annotations: Vec<Annotation>,
+}
+
+impl AnnotationRecord {
+    #[must_use]
+    pub fn property_value(&self, name: &str) -> Option<&PropertyValue> {
+        self.property_value
+            .iter()
+            .find(|v| v.property.as_str() == name)
+    }
 }
 
 #[derive(Debug, Deserialize)]
