@@ -30,6 +30,8 @@ mod drive;
 mod memory;
 #[cfg(feature = "processors")]
 mod processor;
+#[cfg(feature = "secure-boot")]
+mod secure_boot;
 #[cfg(feature = "storages")]
 mod storage;
 
@@ -63,6 +65,15 @@ pub use memory::Memory;
 #[doc(inline)]
 #[cfg(feature = "processors")]
 pub use processor::Processor;
+#[doc(inline)]
+#[cfg(feature = "secure-boot")]
+pub use secure_boot::SecureBoot;
+#[doc(inline)]
+#[cfg(feature = "secure-boot")]
+pub use secure_boot::SecureBootCurrentBootType;
+#[doc(inline)]
+#[cfg(feature = "secure-boot")]
+pub use secure_boot::SecureBootEnable;
 #[doc(inline)]
 #[cfg(feature = "storages")]
 pub use storage::Storage;

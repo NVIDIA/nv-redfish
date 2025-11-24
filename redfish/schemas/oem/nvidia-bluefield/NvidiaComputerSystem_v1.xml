@@ -26,7 +26,11 @@ limitations under the License.
   <edmx:DataServices>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
       <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
-      <EntityType Name="NvidiaComputerSystem" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+      <!-- Don't add BaseType="Resource.v1_0_0.Resource" because
+           Bluefield doesn't provide Id/Name and all other required
+           parameters of Resource.
+      -->
+      <EntityType Name="NvidiaComputerSystem" Abstract="true">
       </EntityType>
     </Schema>
 

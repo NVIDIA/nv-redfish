@@ -92,6 +92,9 @@ pub enum Error<B: Bmc> {
     /// NVIDIA OEM extension is not availvle for the computer system.
     #[cfg(feature = "oem-nvidia-bluefield")]
     NvidiaComputerSystemNotAvailable,
+    /// Secure boot is not available for this system
+    #[cfg(feature = "secure-boot")]
+    SecureBootNotAvailable,
     /// JSON parse error.
     Json(JsonError),
 }
@@ -192,6 +195,10 @@ impl<B: Bmc> Display for Error<B> {
                     f,
                     "NVIDIA OEM extension for computer system is not available"
                 )
+            }
+            #[cfg(feature = "secure-boot")]
+            Self::SecureBootNotAvailable => {
+                write!(f, "Secure boot is not available")
             }
         }
     }

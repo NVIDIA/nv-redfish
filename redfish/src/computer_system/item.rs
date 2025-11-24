@@ -38,6 +38,8 @@ use crate::computer_system::BootOptionCollection;
 use crate::computer_system::Memory;
 #[cfg(feature = "processors")]
 use crate::computer_system::Processor;
+#[cfg(feature = "secure-boot")]
+use crate::computer_system::SecureBoot;
 #[cfg(feature = "storages")]
 use crate::computer_system::Storage;
 #[cfg(feature = "ethernet-interfaces")]
@@ -112,6 +114,7 @@ impl<B: Bmc> ComputerSystem<B> {
     pub fn raw(&self) -> Arc<ComputerSystemSchema> {
         self.data.clone()
     }
+
     /// Get hardware identifier of the network adpater.
     #[must_use]
     pub fn hardware_id(&self) -> HardwareIdRef<'_, ComputerSystemTag> {
@@ -211,6 +214,23 @@ impl<B: Bmc> ComputerSystem<B> {
         }
 
         Ok(processors)
+    }
+
+    /// Get secure boot resource associated with this system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The system does not have a secure boot resource
+    /// - Fetching of secure boot data fails
+    #[cfg(feature = "secure-boot")]
+    pub async fn secure_boot(&self) -> Result<SecureBoot<B>, Error<B>> {
+        let secure_boot_ref = self
+            .data
+            .secure_boot
+            .as_ref()
+            .ok_or(Error::SecureBootNotAvailable)?;
+        SecureBoot::new(&self.bmc, secure_boot_ref).await
     }
 
     /// Get storage controllers associated with this system.

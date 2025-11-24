@@ -37,6 +37,7 @@ std-redfish = [
     "power-supplies",
     "pcie-devices",
     "processors",
+    "secure-boot",
     "sensors",
     "storages",
     "thermal",
@@ -59,6 +60,7 @@ power = [] # Support of legacy PowerSubsystem
 power-supplies = []
 processors = []
 resource-status = []
+secure-boot = []
 sensors = []
 storages = []
 thermal = []  # Support of legacy ThermalSubsystem

@@ -29,6 +29,7 @@ all-std-features = accounts \
                    power \
                    power-supplies \
                    processors \
+                   secure-boot \
                    sensors \
                    storages \
                    thermal \
@@ -44,8 +45,9 @@ std-not-standalone-features = assembly \
              processors \
              power \
              power-supplies \
-             storages \
-             sensors
+             secure-boot \
+             sensors \
+             storages
 
 std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-features))
 

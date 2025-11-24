@@ -63,6 +63,7 @@ impl<B: Bmc> Bios<B> {
     }
 }
 
+/// Reference to a BIOS attribute.
 pub struct BiosAttributeRef<'a> {
     value: Option<&'a EdmPrimitiveType>,
 }
@@ -73,11 +74,13 @@ impl<'a> BiosAttributeRef<'a> {
     }
 
     /// Returns true if attribute is null.
+    #[must_use]
     pub const fn is_null(&self) -> bool {
         self.value.is_none()
     }
 
     /// Returns string value of the attribute if attribute is string.
+    #[must_use]
     pub const fn string_value(&self) -> Option<&String> {
         match self.value {
             Some(EdmPrimitiveType::String(v)) => Some(v),

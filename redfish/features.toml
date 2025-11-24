@@ -258,6 +258,16 @@ patterns = [
     "DriveMetrics.*",
 ]
 
+
+[[features]]
+name = "secure-boot"
+csdl_files = [
+     "SecureBoot_v1.xml"
+]
+patterns = [
+     "SecureBoot.*"
+]
+
 [[features]]
 name = "thermal"
 csdl_files = [
