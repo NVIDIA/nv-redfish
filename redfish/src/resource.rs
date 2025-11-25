@@ -18,6 +18,8 @@
 use crate::ResourceSchema;
 use tagged_types::TaggedType;
 
+#[cfg(feature = "oem")]
+use crate::oem::OemIdentifier;
 #[cfg(feature = "resource-status")]
 use crate::ResourceStatusSchema;
 #[cfg(feature = "resource-status")]
@@ -90,6 +92,18 @@ pub trait Resource {
             .as_ref()
             .and_then(|v| v.as_ref())
             .map(ResourceDescriptionRef::new)
+    }
+
+    /// OEM identifier if present in the resource.
+    #[cfg(feature = "oem")]
+    fn oem_id(&self) -> Option<OemIdentifier<&String>> {
+        self.resource_ref()
+            .base
+            .oem
+            .as_ref()
+            .and_then(|v| v.additional_properties.as_object())
+            .and_then(|v| v.keys().next())
+            .map(OemIdentifier::new)
     }
 }
 

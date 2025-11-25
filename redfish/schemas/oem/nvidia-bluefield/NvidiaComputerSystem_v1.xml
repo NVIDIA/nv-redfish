@@ -44,8 +44,8 @@ limitations under the License.
         </Property>
         <Property Name="Mode" Type="NvidiaComputerSystem.v1_0_0.Mode" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-          <Annotation Term="OData.Description" String="DPU Base MAC address."/>
-          <Annotation Term="OData.LongDescription" String="DPU Base MAC address is string that contains MAC address without colons. For example: '1070fd010203'."/>
+          <Annotation Term="OData.Description" String="Bluefield device mode."/>
+          <Annotation Term="OData.LongDescription" String="Bluefield can work as regular NIC or as DPU (bump in a wire)."/>
         </Property>
       </EntityType>
 
@@ -56,7 +56,7 @@ limitations under the License.
         </Member>
         <Member Name="DpuMode">
           <Annotation Term="OData.Description" String="This Bluefield device is in DPU mode."/>
-          <Annotation Term="OData.LongDescription" String="In this mode Bluefield device represent 'bump in the wire' device that controls packet processing."/>
+          <Annotation Term="OData.LongDescription" String="In this mode Bluefield device represent 'bump in a wire' device that controls packet processing."/>
         </Member>
       </EnumType>
     </Schema>

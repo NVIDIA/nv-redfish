@@ -15,6 +15,12 @@
 
 //! OEM-specific support.
 
+/// OEM identifier.
+mod identifier;
+
 /// Support of NVIDIA.
 #[cfg(feature = "oem-nvidia")]
 pub mod nvidia;
+
+#[doc(inline)]
+pub use identifier::Identifier as OemIdentifier;
