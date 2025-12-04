@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@master
+      with:
+        toolchain: "1.90.0"
+
+    - name: Publish Crates
+      run: |
+        # Get version from the tag (e.g., v0.2.0 -> 0.2.0)
+        VERSION=${GITHUB_REF_NAME#v}
+        echo "Publishing version $VERSION"
+        
+        # Update version in Cargo.toml
+        # The user script used sed to update the workspace version
+        sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
+        
+        echo "Publishing csdl-compiler..."
+        cargo publish -p csdl-compiler --allow-dirty
+        
+        echo "Publishing nv-redfish-core..."
+        cargo publish -p nv-redfish-core --allow-dirty
+        
+        echo "Publishing nv-redfish-bmc-http..."
+        cargo publish -p nv-redfish-bmc-http --allow-dirty
+        
+        echo "Publishing nv-redfish..."
+        cargo publish -p nv-redfish --allow-dirty
+        
+        echo "All crates published successfully!"
+
