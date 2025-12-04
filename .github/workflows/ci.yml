@@ -1,0 +1,25 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - "pull-request/[0-9]+"
+      - "feat/ci-test"
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build-and-test:
+    runs-on: linux-amd64-cpu4
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Rust
+      uses: dtolnay/rust-toolchain@cf76244e99afbae1b55057e1d471a1513fe6295c
+      
+    - name: Run CI
+      run: make ci
+
