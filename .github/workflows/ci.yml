@@ -18,7 +18,7 @@ jobs:
     - uses: actions/checkout@v4
     
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@cf76244e99afbae1b55057e1d471a1513fe6295c
+      uses: dtolnay/rust-toolchain@master
       
     - name: Run CI
       run: make ci
