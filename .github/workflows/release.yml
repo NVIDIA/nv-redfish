@@ -31,7 +31,7 @@ jobs:
         sed -i "s/^version = .*/version = \"$VERSION\"/" Cargo.toml
         
         echo "Publishing csdl-compiler..."
-        cargo publish -p csdl-compiler --allow-dirty
+        cargo publish -p nv-redfish-csdl-compiler --allow-dirty
         
         echo "Publishing nv-redfish-core..."
         cargo publish -p nv-redfish-core --allow-dirty

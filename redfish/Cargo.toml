@@ -86,4 +86,4 @@ serde_json = { workspace = true }
 tagged-types = { workspace = true }
 
 [build-dependencies]
-csdl-compiler = { workspace = true }
+nv-redfish-csdl-compiler = { workspace = true }

@@ -1,5 +1,5 @@
 [package]
-name = "csdl-compiler"
+name = "nv-redfish-csdl-compiler"
 description = "CSDL (OData) schema compiler and Rust code generatorfor nv-redfish"
 version.workspace = true
 license-file.workspace = true
