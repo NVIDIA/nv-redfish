@@ -59,6 +59,7 @@ define build-and-test
 	cargo build
 	cargo build -p nv-redfish
 	cargo build -p nv-redfish-tests --tests
+	cargo build -p nv-redfish-bmc-mock
 	cargo test $1 -- --no-capture
 	cargo clippy $1
 	cargo build  $1
