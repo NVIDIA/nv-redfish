@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use csdl_compiler::edmx::Edmx;
-use csdl_compiler::edmx::ValidateError;
+use nv_redfish_csdl_compiler::edmx::Edmx;
+use nv_redfish_csdl_compiler::edmx::ValidateError;
 use std::io::Error as IoError;
 use std::io::Read;
 

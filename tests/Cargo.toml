@@ -29,4 +29,4 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 trybuild = { workspace = true }
 
 [build-dependencies]
-csdl-compiler = { workspace = true }
+nv-redfish-csdl-compiler = { workspace = true }

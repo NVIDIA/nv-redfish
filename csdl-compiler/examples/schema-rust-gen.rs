@@ -13,15 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use csdl_compiler::compiler::Config as CompilerConfig;
-use csdl_compiler::compiler::SchemaBundle;
-use csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
-use csdl_compiler::edmx::Edmx;
-use csdl_compiler::edmx::ValidateError;
-use csdl_compiler::generator::rust::Config as GeneratorConfig;
-use csdl_compiler::generator::rust::RustGenerator;
-use csdl_compiler::optimizer::optimize;
-use csdl_compiler::optimizer::Config as OptimizerConfig;
+use nv_redfish_csdl_compiler::compiler::Config as CompilerConfig;
+use nv_redfish_csdl_compiler::compiler::SchemaBundle;
+use nv_redfish_csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
+use nv_redfish_csdl_compiler::edmx::Edmx;
+use nv_redfish_csdl_compiler::edmx::ValidateError;
+use nv_redfish_csdl_compiler::generator::rust::Config as GeneratorConfig;
+use nv_redfish_csdl_compiler::generator::rust::RustGenerator;
+use nv_redfish_csdl_compiler::optimizer::optimize;
+use nv_redfish_csdl_compiler::optimizer::Config as OptimizerConfig;
 use std::io::Error as IoError;
 use std::io::Read;
 

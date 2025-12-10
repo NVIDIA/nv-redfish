@@ -1,5 +1,5 @@
 [package]
-name = "csdl-compiler"
+name = "nv-redfish-csdl-compiler"
 version.workspace = true
 license-file.workspace = true
 repository.workspace = true

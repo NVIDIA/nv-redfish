@@ -13,18 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use csdl_compiler::compiler::Config;
-use csdl_compiler::compiler::NavProperty;
-use csdl_compiler::compiler::NavPropertyExpandable;
-use csdl_compiler::compiler::NavPropertyType;
-use csdl_compiler::compiler::PropertyType;
-use csdl_compiler::compiler::SchemaBundle;
-use csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
-use csdl_compiler::edmx::Edmx;
-use csdl_compiler::edmx::ValidateError;
-use csdl_compiler::optimizer::optimize;
-use csdl_compiler::optimizer::Config as OptimizerConfig;
-use csdl_compiler::OneOrCollection;
+use nv_redfish_csdl_compiler::compiler::Config;
+use nv_redfish_csdl_compiler::compiler::NavProperty;
+use nv_redfish_csdl_compiler::compiler::NavPropertyExpandable;
+use nv_redfish_csdl_compiler::compiler::NavPropertyType;
+use nv_redfish_csdl_compiler::compiler::PropertyType;
+use nv_redfish_csdl_compiler::compiler::SchemaBundle;
+use nv_redfish_csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
+use nv_redfish_csdl_compiler::edmx::Edmx;
+use nv_redfish_csdl_compiler::edmx::ValidateError;
+use nv_redfish_csdl_compiler::optimizer::optimize;
+use nv_redfish_csdl_compiler::optimizer::Config as OptimizerConfig;
+use nv_redfish_csdl_compiler::OneOrCollection;
 use std::io::Error as IoError;
 use std::io::Read;
 

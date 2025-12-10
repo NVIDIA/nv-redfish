@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use csdl_compiler::commands::process_command;
-use csdl_compiler::commands::Commands;
-use csdl_compiler::commands::DEFAULT_ROOT;
-use csdl_compiler::features_manifest::FeaturesManifest;
+use nv_redfish_csdl_compiler::commands::process_command;
+use nv_redfish_csdl_compiler::commands::Commands;
+use nv_redfish_csdl_compiler::commands::DEFAULT_ROOT;
+use nv_redfish_csdl_compiler::features_manifest::FeaturesManifest;
 use std::env::var;
 use std::error::Error as StdError;
 use std::fs::File;
