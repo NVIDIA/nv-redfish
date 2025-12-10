@@ -1,5 +1,6 @@
 [package]
 name = "nv-redfish-core"
+description = "Semantic-unaware foundation used by code generated from CSDL for nv-redfish"
 version.workspace = true
 license-file.workspace = true
 repository.workspace = true
