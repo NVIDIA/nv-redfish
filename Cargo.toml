@@ -22,7 +22,6 @@ readme = "README.md"
 edition = "2018"
 keywords = ["rust", "redfish", "bmc"]
 categories = ["hardware-support"]
-documentation = "TBD"
 
 [workspace.dependencies]
 clap = { version = "4.5" }
