@@ -1,5 +1,6 @@
 [package]
 name = "nv-redfish-bmc-mock"
+description = "BMC Mock skaffold for nv-redfish"
 version.workspace = true
 license-file.workspace = true
 repository.workspace = true

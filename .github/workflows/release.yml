@@ -41,6 +41,9 @@ jobs:
         
         echo "Publishing nv-redfish..."
         cargo publish -p nv-redfish --allow-dirty
-        
+
+        echo "Publishing nv-redfish-bmc-mock..."
+        cargo publish -p nv-redfish-bmc-mock --allow-dirty
+
         echo "All crates published successfully!"
 
