@@ -1,5 +1,6 @@
 [package]
 name = "nv-redfish-bmc-http"
+description = "HTTP client for nv-redfish"
 version.workspace = true
 license-file.workspace = true
 repository.workspace = true
