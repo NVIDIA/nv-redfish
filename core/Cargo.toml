@@ -11,7 +11,7 @@ categories.workspace = true
 documentation = "https://docs.rs/nv-redfish-core"
 
 [dependencies]
-serde = { workspace = true, features = ["alloc"]}
+serde = { workspace = true, features = ["alloc", "derive"] }
 serde_json = { workspace = true, features = [ "std" ] }
 uuid = { workspace = true, features = [ "serde" ] }
 time = { workspace = true, features = [ "serde", "formatting", "parsing" ] }
