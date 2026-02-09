@@ -16,6 +16,7 @@ members = [
 [workspace.package]
 version = "0.1.0"
 license-file = "LICENSE"
+license = "Apache-2.0"
 repository = "https://github.com/NVIDIA/nv-redfish"
 description = "Rust implementation of Redfish API for BMC management"
 readme = "README.md"

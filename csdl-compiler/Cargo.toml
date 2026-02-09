@@ -3,6 +3,7 @@ name = "nv-redfish-csdl-compiler"
 description = "CSDL (OData) schema compiler and Rust code generator for nv-redfish"
 version.workspace = true
 license-file.workspace = true
+license.workspace = true
 repository.workspace = true
 readme.workspace = true
 edition.workspace = true
