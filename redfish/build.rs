@@ -56,8 +56,8 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
     let output = out_dir.join("redfish.rs");
-    let redfish_schema_path = "schemas/redfish-csdl";
-    let swordfish_schema_path = "schemas/swordfish-csdl";
+    let redfish_schema_path = "schemas/redfish-csdl/csdl";
+    let swordfish_schema_path = "schemas/swordfish-csdl/csdl-schema";
     let service_root = vec!["ServiceRoot_v1.xml"]
         .into_iter()
         .map(Into::into)

@@ -24,7 +24,7 @@ fn main() -> Result<(), Error> {
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
     let output = out_dir.join("redfish_oem_contoso.rs");
 
-    let redfish_schemas = "../../redfish/schemas/redfish-csdl/*.xml";
+    let redfish_schemas = "../../redfish/schemas/redfish-csdl/csdl/*.xml";
     let oem_contoso_schemas = "../../redfish/schemas/oem/contoso/*.xml";
 
     let root_csdls = glob(oem_contoso_schemas)

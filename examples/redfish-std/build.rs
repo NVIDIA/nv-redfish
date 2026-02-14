@@ -24,8 +24,8 @@ fn main() -> Result<(), Error> {
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
     let output = out_dir.join("redfish.rs");
 
-    let redfish_schemas = "../../redfish/schemas/redfish-csdl/*.xml";
-    let swordfish_schemas = "../../redfish/schemas/swordfish-csdl/*.xml";
+    let redfish_schemas = "../../redfish/schemas/redfish-csdl/csdl/*.xml";
+    let swordfish_schemas = "../../redfish/schemas/swordfish-csdl/csdl-schema/*.xml";
 
     let mut csdls = Vec::new();
     csdls.extend(
