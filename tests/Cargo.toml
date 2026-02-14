@@ -18,7 +18,9 @@ nv-redfish-bmc-mock = { workspace = true }
 nv-redfish = { workspace = true, features = [
     "accounts",
     "bios",
+    "chassis",
     "computer-systems",
+    "oem-nvidia-baseboard",
     "update-service",
 ] }
 serde = { workspace = true, features = ["derive"] }

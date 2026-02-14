@@ -243,18 +243,40 @@ mod tests {
     fn converts_to_system_time() {
         let normal: EdmDateTimeOffset = "2021-03-04T05:06:07-00:00".parse().unwrap();
         let time: SystemTime = normal.into();
-        assert_eq!(time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), 1614834367);
+        assert_eq!(
+            time.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            1614834367
+        );
 
         let before_epoch: EdmDateTimeOffset = "1960-01-01T00:00:00-00:00".parse().unwrap();
         let time: SystemTime = before_epoch.into();
-        assert_eq!(SystemTime::UNIX_EPOCH.duration_since(time).unwrap().as_secs(), 315619200);
+        assert_eq!(
+            SystemTime::UNIX_EPOCH
+                .duration_since(time)
+                .unwrap()
+                .as_secs(),
+            315619200
+        );
 
         let very_old: EdmDateTimeOffset = "0001-01-01T00:00:00-00:00".parse().unwrap();
         let time: SystemTime = very_old.into();
-        assert_eq!(SystemTime::UNIX_EPOCH.duration_since(time).unwrap().as_secs(), 62135596800);
+        assert_eq!(
+            SystemTime::UNIX_EPOCH
+                .duration_since(time)
+                .unwrap()
+                .as_secs(),
+            62135596800
+        );
 
         let far_future: EdmDateTimeOffset = "9999-12-31T23:59:59-00:00".parse().unwrap();
         let time: SystemTime = far_future.into();
-        assert_eq!(time.duration_since(SystemTime::UNIX_EPOCH).unwrap().as_secs(), 253402300799);
+        assert_eq!(
+            time.duration_since(SystemTime::UNIX_EPOCH)
+                .unwrap()
+                .as_secs(),
+            253402300799
+        );
     }
 }

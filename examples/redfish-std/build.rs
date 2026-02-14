@@ -16,9 +16,9 @@
 use std::env::var;
 use std::path::PathBuf;
 
+use glob::glob;
 use nv_redfish_csdl_compiler::commands::{process_command, Commands, DEFAULT_ROOT};
 use nv_redfish_csdl_compiler::Error;
-use glob::glob;
 
 fn main() -> Result<(), Error> {
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());

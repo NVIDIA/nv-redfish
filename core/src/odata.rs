@@ -84,3 +84,28 @@ impl Display for ODataETag {
         self.0.fmt(f)
     }
 }
+
+/// Type for retrieving `@odata.type` from a JSON payload.
+pub struct ODataType<'a> {
+    /// Namespace of the data type. For example: `["Chassis", "v1_22_0"]`.
+    pub namespace: Vec<&'a str>,
+    /// Name of the type. For example "Chassis".
+    pub type_name: &'a str,
+}
+
+impl ODataType<'_> {
+    /// Get `@odata.type` from a JSON payload and parse it.
+    #[must_use]
+    pub fn parse_from(v: &serde_json::Value) -> Option<ODataType<'_>> {
+        v.get("@odata.type")
+            .and_then(|v| v.as_str())
+            .and_then(|v| v.starts_with('#').then_some(&v[1..]))
+            .and_then(|v| {
+                let mut all = v.split('.').collect::<Vec<_>>();
+                all.pop().map(|type_name| ODataType {
+                    namespace: all,
+                    type_name,
+                })
+            })
+    }
+}

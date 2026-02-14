@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,10 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-/// Support of NVIDIA Bluefield DPU.
-#[cfg(feature = "oem-nvidia-bluefield")]
-pub mod bluefield;
+/// NVIDIA Baseboard OEM Schema.
+pub(crate) mod schema;
 
-/// Support of NVIDIA Baseboards.
-#[cfg(feature = "oem-nvidia-baseboard")]
-pub mod baseboard;
+/// NVIDIA Bluefield OEM chassis support.
+#[cfg(feature = "chassis")]
+pub mod nvidia_cbc_chassis;
+
+#[cfg(feature = "chassis")]
+#[doc(inline)]
+pub use nvidia_cbc_chassis::NvidiaCbcChassis;

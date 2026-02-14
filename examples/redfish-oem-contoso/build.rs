@@ -13,10 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use glob::glob;
 use nv_redfish_csdl_compiler::commands::process_command;
 use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::Error;
-use glob::glob;
 use std::env::var;
 use std::path::PathBuf;
 

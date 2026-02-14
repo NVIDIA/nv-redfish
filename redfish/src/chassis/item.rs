@@ -43,6 +43,8 @@ use crate::chassis::PowerSupply;
 use crate::chassis::Thermal;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(feature = "oem-nvidia-baseboard")]
+use crate::oem::nvidia::baseboard::NvidiaCbcChassis;
 #[cfg(feature = "pcie-devices")]
 use crate::pcie_device::PcieDeviceCollection;
 #[cfg(feature = "sensors")]
@@ -323,6 +325,24 @@ impl<B: Bmc> Chassis<B> {
             .as_ref()
             .ok_or(crate::Error::PcieDevicesNotAvailable)?;
         PcieDeviceCollection::new(&self.bmc, p).await
+    }
+
+    /// NVIDIA Bluefield OEM extension
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `Error::NvidiaChassisNotAvailable` if the systems does not have / provide NVIDIA OEM extension
+    /// - Fetching data fails
+    #[cfg(feature = "oem-nvidia-baseboard")]
+    pub fn oem_nvidia_baseboard_cbc(&self) -> Result<NvidiaCbcChassis<B>, Error<B>> {
+        self.data
+            .base
+            .base
+            .oem
+            .as_ref()
+            .ok_or(Error::NvidiaCbcChassisNotAvailable)
+            .and_then(NvidiaCbcChassis::new)
     }
 }
 

@@ -79,6 +79,7 @@ oem = []
 
 # OEM product features support
 oem-nvidia-bluefield = ["oem-nvidia"]
+oem-nvidia-baseboard = ["oem-nvidia"]
 
 
 [dependencies]

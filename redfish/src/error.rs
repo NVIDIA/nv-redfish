@@ -92,6 +92,9 @@ pub enum Error<B: Bmc> {
     /// NVIDIA OEM extension is not availvle for the computer system.
     #[cfg(feature = "oem-nvidia-bluefield")]
     NvidiaComputerSystemNotAvailable,
+    /// NVIDIA OEM extension is not availvle for the chassis.
+    #[cfg(feature = "oem-nvidia-baseboard")]
+    NvidiaCbcChassisNotAvailable,
     /// Secure boot is not available for this system
     #[cfg(feature = "secure-boot")]
     SecureBootNotAvailable,
@@ -100,6 +103,7 @@ pub enum Error<B: Bmc> {
 }
 
 impl<B: Bmc> Display for Error<B> {
+    #[allow(clippy::too_many_lines)]
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
             Self::Bmc(err) => write!(f, "BMC error: {err}"),
@@ -195,6 +199,10 @@ impl<B: Bmc> Display for Error<B> {
                     f,
                     "NVIDIA OEM extension for computer system is not available"
                 )
+            }
+            #[cfg(feature = "oem-nvidia-baseboard")]
+            Self::NvidiaCbcChassisNotAvailable => {
+                write!(f, "NVIDIA OEM extension for CBC chassis is not available")
             }
             #[cfg(feature = "secure-boot")]
             Self::SecureBootNotAvailable => {
