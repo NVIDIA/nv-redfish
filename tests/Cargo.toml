@@ -16,6 +16,7 @@ nv-redfish-core = { workspace = true }
 nv-redfish-bmc-mock = { workspace = true }
 nv-redfish = { workspace = true, features = [
     "accounts",
+    "assembly",
     "bios",
     "chassis",
     "computer-systems",

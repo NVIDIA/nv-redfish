@@ -21,12 +21,16 @@ use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
 use crate::hardware_id::PartNumber as HardwareIdPartNumber;
 use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
+use crate::patch_support::JsonValue;
+use crate::patch_support::Payload;
+use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::assembly::Assembly as AssemblySchema;
 use crate::schema::redfish::assembly::AssemblyData as AssemblyDataSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
+use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::marker::PhantomData;
@@ -47,6 +51,30 @@ pub type PartNumber<T> = HardwareIdPartNumber<T, AssemblyTag>;
 /// Assembly number.
 pub type SerialNumber<T> = HardwareIdSerialNumber<T, AssemblyTag>;
 
+/// Configuration of the Assembly.
+pub struct Config {
+    read_patch_fn: Option<ReadPatchFn>,
+}
+
+impl Config {
+    /// New configuration of the assembly from parametes of the
+    /// service root.
+    pub fn new<B: Bmc>(root: &ServiceRoot<B>) -> Self {
+        let mut patches = Vec::new();
+        if root.assembly_assemblies_without_odata_type() {
+            patches.push(add_odata_type_to_assemblies);
+        }
+        let read_patch_fn = if patches.is_empty() {
+            None
+        } else {
+            let read_patch_fn: ReadPatchFn =
+                Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
+            Some(read_patch_fn)
+        };
+        Self { read_patch_fn }
+    }
+}
+
 /// Assembly.
 ///
 /// Provides functions to access assembly.
@@ -60,11 +88,17 @@ impl<B: Bmc> Assembly<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<AssemblySchema>,
+        config: &Config,
     ) -> Result<Self, Error<B>> {
         // We use expand here becuase Assembly/Assemblies are
         // navigation properties, so we want to take them using one
         // get.
-        bmc.expand_property(nav).await.map(|data| Self {
+        if let Some(read_patch_fn) = &config.read_patch_fn {
+            Payload::expand_property(bmc, nav, read_patch_fn.as_ref()).await
+        } else {
+            bmc.expand_property(nav).await
+        }
+        .map(|data| Self {
             bmc: bmc.clone(),
             data,
         })
@@ -156,4 +190,24 @@ impl<B: Bmc> AssemblyData<B> {
                 .map(SerialNumber::new),
         }
     }
+}
+
+fn add_odata_type_to_assemblies(mut v: JsonValue) -> JsonValue {
+    if let Some(assemblies) = v
+        .as_object_mut()
+        .and_then(|obj| obj.get_mut("Assemblies"))
+        .and_then(|assemblies| assemblies.as_array_mut())
+    {
+        for assembly in assemblies.iter_mut() {
+            if let Some(obj) = assembly.as_object_mut() {
+                if obj.len() > 1 && !obj.contains_key("@odata.type") {
+                    obj.insert(
+                        "@odata.type".to_string(),
+                        "#Assembly.v1_5_1.AssemblyData".into(),
+                    );
+                }
+            }
+        }
+    }
+    v
 }

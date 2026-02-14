@@ -65,8 +65,6 @@ pub use power_supply::PowerSupply;
 #[cfg(feature = "thermal")]
 pub use thermal::Thermal;
 
-use crate::patch_support::JsonValue;
-use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::chassis_collection::ChassisCollection as ChassisCollectionSchema;
 use crate::{Error, NvBmc, ServiceRoot};
 
@@ -76,7 +74,7 @@ use crate::{Error, NvBmc, ServiceRoot};
 pub struct ChassisCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<ChassisCollectionSchema>,
-    read_patch_fn: Option<ReadPatchFn>,
+    item_config: Arc<item::Config>,
 }
 
 impl<B: Bmc> ChassisCollection<B> {
@@ -86,24 +84,12 @@ impl<B: Bmc> ChassisCollection<B> {
             .chassis
             .as_ref()
             .ok_or(Error::ChassisNotSupported)?;
-
-        let mut patches = Vec::new();
-        if root.bug_invalid_contained_by_fields() {
-            patches.push(remove_invalid_contained_by_fields);
-        }
-        let read_patch_fn = if patches.is_empty() {
-            None
-        } else {
-            let read_patch_fn: ReadPatchFn =
-                Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
-            Some(read_patch_fn)
-        };
-
+        let item_config = item::Config::new(root).into();
         let collection = bmc.expand_property(collection_ref).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,
-            read_patch_fn,
+            item_config,
         })
     }
 
@@ -115,23 +101,9 @@ impl<B: Bmc> ChassisCollection<B> {
     pub async fn members(&self) -> Result<Vec<Chassis<B>>, Error<B>> {
         let mut chassis_members = Vec::new();
         for chassis in &self.collection.members {
-            chassis_members
-                .push(Chassis::new(&self.bmc, chassis, self.read_patch_fn.as_ref()).await?);
+            chassis_members.push(Chassis::new(&self.bmc, chassis, self.item_config.clone()).await?);
         }
 
         Ok(chassis_members)
     }
-}
-
-fn remove_invalid_contained_by_fields(mut v: JsonValue) -> JsonValue {
-    if let JsonValue::Object(ref mut obj) = v {
-        if let Some(JsonValue::Object(ref mut links_obj)) = obj.get_mut("Links") {
-            if let Some(JsonValue::Object(ref mut contained_by_obj)) =
-                links_obj.get_mut("ContainedBy")
-            {
-                contained_by_obj.retain(|k, _| k == "@odata.id");
-            }
-        }
-    }
-    v
 }

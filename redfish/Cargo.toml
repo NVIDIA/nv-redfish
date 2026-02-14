@@ -45,7 +45,7 @@ std-redfish = [
     "update-service",
 ]
 
-assembly = []
+assembly = ["patch-payload-expand"]
 accounts = ["patch-payload-get", "patch-payload-update", "patch-collection-create"]
 bios = []
 boot-options = []
@@ -84,6 +84,7 @@ oem-nvidia-baseboard = ["oem-nvidia"]
 patch = []
 patch-payload = ["patch"]
 patch-payload-get = ["patch-payload"]
+patch-payload-expand = ["patch-payload"]
 patch-payload-update = ["patch-payload"]
 patch-collection = ["nv-bmc-expand"]
 patch-collection-create = ["patch-collection"]

@@ -18,6 +18,7 @@ use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
 use crate::hardware_id::PartNumber as HardwareIdPartNumber;
 use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
+use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::chassis::Chassis as ChassisSchema;
@@ -25,12 +26,15 @@ use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
+use crate::ServiceRoot;
 use nv_redfish_core::bmc::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "assembly")]
 use crate::assembly::Assembly;
+#[cfg(feature = "assembly")]
+use crate::assembly::Config as AssemblyConfig;
 #[cfg(feature = "network-adapters")]
 use crate::chassis::NetworkAdapter;
 #[cfg(feature = "network-adapters")]
@@ -69,6 +73,33 @@ pub type PartNumber<T> = HardwareIdPartNumber<T, ChassisTag>;
 /// Chassis serial number.
 pub type SerialNumber<T> = HardwareIdSerialNumber<T, ChassisTag>;
 
+pub struct Config {
+    read_patch_fn: Option<ReadPatchFn>,
+    #[cfg(feature = "assembly")]
+    assembly: Arc<AssemblyConfig>,
+}
+
+impl Config {
+    pub fn new<B: Bmc>(root: &ServiceRoot<B>) -> Self {
+        let mut patches = Vec::new();
+        if root.bug_invalid_contained_by_fields() {
+            patches.push(remove_invalid_contained_by_fields);
+        }
+        let read_patch_fn = if patches.is_empty() {
+            None
+        } else {
+            let read_patch_fn: ReadPatchFn =
+                Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
+            Some(read_patch_fn)
+        };
+        Self {
+            read_patch_fn,
+            #[cfg(feature = "assembly")]
+            assembly: AssemblyConfig::new(root).into(),
+        }
+    }
+}
+
 /// Represents a chassis in the BMC.
 ///
 /// Provides access to chassis information and sub-resources such as power supplies.
@@ -76,6 +107,8 @@ pub struct Chassis<B: Bmc> {
     #[allow(dead_code)] // used if any feature enabled.
     bmc: NvBmc<B>,
     data: Arc<ChassisSchema>,
+    #[allow(dead_code)] // used when assembly feature enabled.
+    config: Arc<Config>,
 }
 
 impl<B: Bmc> Chassis<B> {
@@ -83,9 +116,9 @@ impl<B: Bmc> Chassis<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<ChassisSchema>,
-        read_patch_fn: Option<&ReadPatchFn>,
+        config: Arc<Config>,
     ) -> Result<Self, Error<B>> {
-        if let Some(read_patch_fn) = read_patch_fn {
+        if let Some(read_patch_fn) = &config.read_patch_fn {
             Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
         } else {
             nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
@@ -93,6 +126,7 @@ impl<B: Bmc> Chassis<B> {
         .map(|data| Self {
             bmc: bmc.clone(),
             data,
+            config,
         })
     }
 
@@ -148,7 +182,7 @@ impl<B: Bmc> Chassis<B> {
             .assembly
             .as_ref()
             .ok_or(Error::AssemblyNotAvailable)?;
-        Assembly::new(&self.bmc, assembly_ref).await
+        Assembly::new(&self.bmc, assembly_ref, &self.config.assembly).await
     }
 
     /// Get power supplies from this chassis.
@@ -350,4 +384,17 @@ impl<B: Bmc> Resource for Chassis<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
     }
+}
+
+fn remove_invalid_contained_by_fields(mut v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(ref mut obj) = v {
+        if let Some(JsonValue::Object(ref mut links_obj)) = obj.get_mut("Links") {
+            if let Some(JsonValue::Object(ref mut contained_by_obj)) =
+                links_obj.get_mut("ContainedBy")
+            {
+                contained_by_obj.retain(|k, _| k == "@odata.id");
+            }
+        }
+    }
+    v
 }

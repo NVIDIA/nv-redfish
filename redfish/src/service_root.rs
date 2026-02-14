@@ -13,16 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
-use crate::Error;
-use crate::NvBmc;
-use crate::ProtocolFeatures;
-use crate::Resource;
-use crate::ResourceSchema;
-use nv_redfish_core::Bmc;
-use nv_redfish_core::NavProperty;
-use nv_redfish_core::ODataId;
 use std::sync::Arc;
+
+use nv_redfish_core::{Bmc, NavProperty, ODataId};
 use tagged_types::TaggedType;
 
 #[cfg(feature = "accounts")]
@@ -35,8 +28,10 @@ use crate::chassis::ChassisCollection;
 use crate::computer_system::SystemCollection;
 #[cfg(feature = "managers")]
 use crate::manager::ManagerCollection;
+use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
 #[cfg(feature = "update-service")]
 use crate::update_service::UpdateService;
+use crate::{Error, NvBmc, ProtocolFeatures, Resource, ResourceSchema};
 
 /// The vendor or manufacturer associated with Redfish service.
 pub type Vendor<T> = TaggedType<T, VendorTag>;
@@ -238,6 +233,18 @@ impl<B: Bmc> ServiceRoot<B> {
             .as_ref()
             .and_then(Option::as_ref)
             .is_some_and(|v| v == "Dell")
+    }
+
+    /// In some implementations Assembly/Assemblies doens't
+    /// "@odata.type". This is spec violation but we support patching
+    /// such systems.
+    #[cfg(feature = "assembly")]
+    pub(crate) fn assembly_assemblies_without_odata_type(&self) -> bool {
+        self.root
+            .vendor
+            .as_ref()
+            .and_then(Option::as_ref)
+            .is_some_and(|v| v == "WIWYNN")
     }
 
     /// In some cases we expand is not working according to spec,

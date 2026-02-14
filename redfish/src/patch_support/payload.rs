@@ -32,6 +32,9 @@ use nv_redfish_core::Updatable;
 #[cfg(feature = "patch-payload-update")]
 use serde::Serialize;
 
+#[cfg(feature = "patch-payload-expand")]
+use crate::NvBmc;
+
 #[cfg(feature = "patch-payload-update")]
 pub trait UpdateWithPatch<T, V, B>
 where
@@ -86,6 +89,27 @@ impl Payload {
             NavProperty::Reference(_) => {
                 let getter = NavProperty::<Getter>::new_reference(nav.id().clone());
                 let v = getter.get(bmc).await.map_err(Error::Bmc)?;
+                v.payload.to_target(f).map(Arc::new)
+            }
+        }
+    }
+
+    #[cfg(feature = "patch-payload-expand")]
+    pub(crate) async fn expand_property<T, B, F>(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<T>,
+        f: F,
+    ) -> Result<Arc<T>, Error<B>>
+    where
+        T: EntityTypeRef + for<'a> Deserialize<'a> + Send + Sync + 'static,
+        B: Bmc,
+        F: FnOnce(JsonValue) -> JsonValue,
+    {
+        match nav {
+            NavProperty::Expanded(_) => nav.get(bmc.as_ref()).await.map_err(Error::Bmc),
+            NavProperty::Reference(_) => {
+                let getter = NavProperty::<Getter>::new_reference(nav.id().clone());
+                let v = bmc.expand_property(&getter).await?;
                 v.payload.to_target(f).map(Arc::new)
             }
         }
