@@ -1,7 +1,6 @@
 [package]
 name = "redfish-std"
 version.workspace = true
-license-file.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
