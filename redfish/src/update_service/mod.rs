@@ -147,6 +147,8 @@ impl<B: Bmc> UpdateService<B> {
     /// * `password` - Optional password for accessing the image URI
     /// * `force_update` - Whether to bypass update policies (e.g., allow downgrade)
     /// * `stage` - Whether to stage the image for later activation instead of immediate installation
+    /// * `local_image` - An indication of whether the service adds the image to the local image store
+    /// * `exclude_targets` - An array of URIs that indicate where not to apply the update image
     ///
     /// # Errors
     ///
@@ -163,6 +165,8 @@ impl<B: Bmc> UpdateService<B> {
         password: Option<String>,
         force_update: Option<bool>,
         stage: Option<bool>,
+        local_image: Option<bool>,
+        exclude_targets: Option<Vec<String>>,
     ) -> Result<(), Error<B>>
     where
         B::Error: nv_redfish_core::ActionError,
@@ -184,6 +188,8 @@ impl<B: Bmc> UpdateService<B> {
                     password,
                     force_update,
                     stage,
+                    local_image,
+                    exclude_targets,
                 },
             )
             .await
