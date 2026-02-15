@@ -1,0 +1,15 @@
+[package]
+name = "readme-minimal"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+url = { workspace = true }
+nv-redfish = { workspace = true }
+nv-redfish-bmc-http = { workspace = true }
