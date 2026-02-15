@@ -14,19 +14,25 @@
 // limitations under the License.
 
 use crate::patch_support::JsonValue;
-use crate::patch_support::ReadPatchFn;
 use crate::Error;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
-use nv_redfish_core::Updatable;
 use serde::Deserialize;
 use serde::Deserializer;
-use serde::Serialize;
 use std::sync::Arc;
 
+#[cfg(feature = "patch-payload-update")]
+use crate::patch_support::ReadPatchFn;
+#[cfg(feature = "patch-payload-update")]
+use nv_redfish_core::Updatable;
+#[cfg(feature = "patch-payload-update")]
+use serde::Serialize;
+
+#[cfg(feature = "patch-payload-update")]
 pub trait UpdateWithPatch<T, V, B>
 where
     V: Serialize + Send + Sync,
@@ -64,7 +70,7 @@ where
 pub struct Payload(JsonValue);
 
 impl Payload {
-    #[allow(dead_code)] // enabled by features
+    #[cfg(feature = "patch-payload-get")]
     pub(crate) async fn get<T, B, F>(
         bmc: &B,
         nav: &NavProperty<T>,
@@ -84,6 +90,7 @@ impl Payload {
             }
         }
     }
+
     /// Apply function `f` to the payload and then try to deserialize to the
     /// target type.
     pub(crate) fn to_target<T, B, F>(&self, f: F) -> Result<T, Error<B>>
@@ -96,7 +103,6 @@ impl Payload {
     }
 }
 
-#[allow(dead_code)] // enabled by features
 struct Getter {
     id: ODataId,
     payload: Payload,
@@ -111,6 +117,8 @@ impl EntityTypeRef for Getter {
     }
 }
 
+impl Expandable for Getter {}
+
 impl<'de> Deserialize<'de> for Getter {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -123,11 +131,13 @@ impl<'de> Deserialize<'de> for Getter {
     }
 }
 
+#[cfg(feature = "patch-payload-update")]
 struct Updator<'a> {
     id: &'a ODataId,
     etag: Option<&'a ODataETag>,
 }
 
+#[cfg(feature = "patch-payload-update")]
 impl EntityTypeRef for Updator<'_> {
     fn id(&self) -> &ODataId {
         self.id
@@ -137,6 +147,7 @@ impl EntityTypeRef for Updator<'_> {
     }
 }
 
+#[cfg(feature = "patch-payload-update")]
 impl Updator<'_> {
     async fn update<B, U, T, F>(&self, bmc: &B, update: &U, patch_fn: F) -> Result<T, Error<B>>
     where

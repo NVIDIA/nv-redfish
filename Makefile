@@ -53,7 +53,7 @@ std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-
 
 ci-features-list := $(subst $(space),$(comma),$(all-std-features))
 
-compile-one-feature = $(indent)cargo build --features $1$(new-line)
+compile-one-feature = $(indent)cargo build -p nv-redfish --features $1$(new-line)
 
 define build-and-test
 	cargo build
@@ -63,16 +63,16 @@ define build-and-test
 	cargo test $1 -- --no-capture
 	cargo clippy $1
 	cargo build  $1
-	cargo build --features computer-systems,bios,boot-options,storages,memory,processors
-	cargo build --features oem-hpe,accounts
+	cargo build -p nv-redfish --features computer-systems,bios,boot-options,storages,memory,processors
+	cargo build -p nv-redfish --features oem-hpe,accounts
 	$(maybe-lenovo-build)
-	cargo build --features oem-hpe
-	cargo build --features oem-nvidia
-	cargo build --features computer-systems,oem-nvidia-bluefield
-	cargo build --features oem-dell
-	cargo build --features oem-ami
+	cargo build -p nv-redfish --features oem-hpe
+	cargo build -p nv-redfish --features oem-nvidia
+	cargo build -p nv-redfish --features computer-systems,oem-nvidia-bluefield
+	cargo build -p nv-redfish --features oem-dell
+	cargo build -p nv-redfish --features oem-ami
 	$(foreach f,$(std-standalone-features),$(call compile-one-feature,$f))
-	cargo build --features ""
+	cargo build -p nv-redfish --features ""
 	cargo doc $1
 	cargo build
 

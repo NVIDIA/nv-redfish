@@ -45,12 +45,12 @@ std-redfish = [
     "update-service",
 ]
 
-accounts = []
 assembly = []
+accounts = ["patch-payload-get", "patch-payload-update", "patch-collection-create"]
 bios = []
 boot-options = []
-chassis = []
-computer-systems = []
+chassis = ["patch-payload-get", "nv-bmc-expand"]
+computer-systems = ["patch-payload-get", "patch-collection"]
 ethernet-interfaces = []
 network-adapters = []
 log-services = []
@@ -65,21 +65,31 @@ secure-boot = []
 sensors = []
 storages = []
 thermal = []  # Support of legacy ThermalSubsystem
-update-service = []
+update-service = ["patch-payload-get", "patch-collection"]
 
 # OEM features support
+oem = []
 oem-lenovo = ["oem"]
 oem-hpe = ["oem"]
 oem-supermicro = ["oem"]
 oem-dell = ["oem"]
 oem-ami = ["oem"]
 oem-nvidia = ["oem"]
-oem = []
 
 # OEM product features support
 oem-nvidia-bluefield = ["oem-nvidia"]
 oem-nvidia-baseboard = ["oem-nvidia"]
 
+# Patches
+patch = []
+patch-payload = ["patch"]
+patch-payload-get = ["patch-payload"]
+patch-payload-update = ["patch-payload"]
+patch-collection = ["nv-bmc-expand"]
+patch-collection-create = ["patch-collection"]
+
+# NvbBmc features
+nv-bmc-expand = []
 
 [dependencies]
 nv-redfish-core = { workspace = true }

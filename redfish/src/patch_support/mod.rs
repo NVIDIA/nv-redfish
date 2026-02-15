@@ -17,20 +17,27 @@
 //! specification. This module provides helpers to deal with that.
 
 /// Redfish collection related patches.
+#[cfg(feature = "patch-collection")]
 mod collection;
 /// Redfish payload patches.
+#[cfg(feature = "patch-payload")]
 mod payload;
 
 #[doc(inline)]
+pub use serde_json::Value as JsonValue;
+
+#[cfg(feature = "patch-collection")]
+#[doc(inline)]
 pub use collection::CollectionWithPatch;
+#[cfg(feature = "patch-collection-create")]
 #[doc(inline)]
 pub use collection::CreateWithPatch;
+#[cfg(feature = "patch-payload")]
 #[doc(inline)]
 pub use payload::Payload;
+#[cfg(feature = "patch-payload-update")]
 #[doc(inline)]
 pub use payload::UpdateWithPatch;
-#[doc(inline)]
-pub use serde_json::Value as JsonValue;
 
 use std::sync::Arc;
 

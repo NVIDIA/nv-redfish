@@ -22,15 +22,18 @@ use crate::schema::redfish::resource::ResourceCollection;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::Creatable;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use serde::Deserialize;
-use serde::Serialize;
 use std::sync::Arc;
+
+#[cfg(feature = "patch-collection-create")]
+use nv_redfish_core::Creatable;
+#[cfg(feature = "patch-collection-create")]
+use serde::Serialize;
 
 /// Trait that allows patching collection member data before it is
 /// deserialized to the member data structure. This is required when a
@@ -69,6 +72,7 @@ where
 /// response before it is deserialized to the member data structure.
 ///
 /// Example of usage is in `AccountCollection` implementation.
+#[cfg(feature = "patch-collection-create")]
 pub trait CreateWithPatch<T, M, C, B>
 where
     T: EntityTypeRef + Creatable<C, M> + Sync + Send,
@@ -107,6 +111,7 @@ struct Collection {
 }
 
 impl Collection {
+    #[cfg(feature = "patch-collection-create")]
     async fn create<T, F, C, B, V>(orig: &T, bmc: &B, create: &C, f: F) -> Result<V, Error<B>>
     where
         T: EntityTypeRef + Sync + Send,
@@ -168,10 +173,12 @@ impl Expandable for Collection {}
 
 // Helper struct that enables creating a new member of the collection
 // and applying a patch to the payload before creation.
+#[cfg(feature = "patch-collection-create")]
 struct Creator<'a> {
     id: &'a ODataId,
 }
 
+#[cfg(feature = "patch-collection-create")]
 impl EntityTypeRef for Creator<'_> {
     fn id(&self) -> &ODataId {
         self.id
@@ -181,4 +188,5 @@ impl EntityTypeRef for Creator<'_> {
     }
 }
 
+#[cfg(feature = "patch-collection-create")]
 impl<V: Serialize + Send + Sync> Creatable<V, Payload> for Creator<'_> {}

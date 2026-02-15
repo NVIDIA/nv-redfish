@@ -16,13 +16,18 @@
 //! BMC implementaion that takes in account protocol features.  That
 //! is built on top of core BMC.
 
-use crate::Error;
 use crate::ProtocolFeatures;
-use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::Expandable;
-use nv_redfish_core::NavProperty;
 use std::sync::Arc;
+
+#[cfg(feature = "nv-bmc-expand")]
+use crate::Error;
+#[cfg(feature = "nv-bmc-expand")]
+use nv_redfish_core::query::ExpandQuery;
+#[cfg(feature = "nv-bmc-expand")]
+use nv_redfish_core::Expandable;
+#[cfg(feature = "nv-bmc-expand")]
+use nv_redfish_core::NavProperty;
 
 pub struct NvBmc<B: Bmc> {
     bmc: Arc<B>,
@@ -48,7 +53,7 @@ impl<B: Bmc> NvBmc<B> {
     ///
     /// Returns `Error::Bmc` if failed to send request to the BMC.
     ///
-    #[allow(dead_code)] // feature-enabled func
+    #[cfg(feature = "nv-bmc-expand")]
     pub async fn expand_property<T>(&self, nav: &NavProperty<T>) -> Result<Arc<T>, Error<B>>
     where
         T: Expandable,

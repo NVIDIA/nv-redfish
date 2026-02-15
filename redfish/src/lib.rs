@@ -116,7 +116,7 @@ pub mod oem;
 /// Compiled Redfish schema.
 pub(crate) mod schema;
 
-#[cfg(feature = "accounts")]
+#[cfg(feature = "patch")]
 pub(crate) mod patch_support;
 
 /// Redfish protocol features.
