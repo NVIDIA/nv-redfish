@@ -52,6 +52,7 @@ impl ToTokens for StructFieldName<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         match self.to_string().as_str() {
             "type" => tokens.append(Ident::new_raw("type", Span::call_site())),
+            "crate" => tokens.append(Ident::new("crate_", Span::call_site())),
             _ => tokens.append(Ident::new(&self.to_string(), Span::call_site())),
         }
     }
