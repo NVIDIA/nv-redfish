@@ -19,10 +19,13 @@ include = [
     "oem/**/README.md",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
 
-bmc-http = [ "nv-redfish-bmc-http" ]
+bmc-http = [ "dep:nv-redfish-bmc-http" ]
 
 std-redfish = [
     "accounts",
