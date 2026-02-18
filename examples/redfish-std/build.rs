@@ -66,6 +66,7 @@ fn main() -> Result<(), Error> {
 
     process_command(&Commands::Compile {
         root: DEFAULT_ROOT.into(),
+        include_root_patterns: vec![],
         output,
         csdls,
         entity_type_patterns: [

@@ -199,10 +199,11 @@ impl SchemaBundle {
     pub fn compile(
         &self,
         singletons: &[SimpleIdentifier],
+        root_patterns: &EntityTypeFilter,
         config: Config,
     ) -> Result<Compiled<'_>, Error<'_>> {
         let schema_index = SchemaIndex::build(&self.edmx_docs);
-        let root_set = self.root_set_from_singletons(&schema_index, singletons)?;
+        let root_set = self.root_set_from_singletons(&schema_index, singletons, root_patterns)?;
         let ctx = Context {
             schema_index,
             config,
@@ -232,6 +233,7 @@ impl SchemaBundle {
         &'a self,
         schema_index: &SchemaIndex<'a>,
         singletons: &[SimpleIdentifier],
+        root_patterns: &EntityTypeFilter,
     ) -> Result<RootSet<'a>, Error<'a>> {
         // Iterate through all singletons located in
         // EDMX documents → schemas → entity containers.
@@ -264,6 +266,25 @@ impl SchemaBundle {
                         })
                 })
             })
+            .chain(self.edmx_docs.iter().flat_map(|edmx| {
+                edmx.data_services
+                    .schemas
+                    .iter()
+                    .flat_map(|s| {
+                        s.entity_types
+                            .values()
+                            .filter_map(|t| {
+                                let name = QualifiedName::new(&s.namespace, t.name.inner());
+                                if root_patterns.matches(&name) {
+                                    Some(Ok(name))
+                                } else {
+                                    None
+                                }
+                            })
+                            .collect::<Vec<_>>()
+                    })
+                    .collect::<Vec<_>>()
+            }))
             .collect::<Result<Vec<_>, _>>()?;
         Ok(RootSet {
             entity_types,
@@ -464,7 +485,11 @@ mod test {
             root_set_threshold: None,
         };
         let compiled = bundle
-            .compile(&["Service".parse().unwrap()], Config::default())
+            .compile(
+                &["Service".parse().unwrap()],
+                &EntityTypeFilter::new_restrictive(vec![]),
+                Config::default(),
+            )
             .unwrap();
         let qtypename: QualifiedTypeName = "ServiceRoot.ServiceRoot".parse().unwrap();
         let root_type: QualifiedName<'_> = (&qtypename).into();

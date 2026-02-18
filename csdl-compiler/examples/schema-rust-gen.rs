@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use nv_redfish_csdl_compiler::compiler::Config as CompilerConfig;
+use nv_redfish_csdl_compiler::compiler::EntityTypeFilter;
 use nv_redfish_csdl_compiler::compiler::SchemaBundle;
 use nv_redfish_csdl_compiler::edmx::attribute_values::Error as AttributeValuesError;
 use nv_redfish_csdl_compiler::edmx::Edmx;
@@ -60,7 +61,11 @@ fn main() -> Result<(), Error> {
                 Ok(schema_bundle)
             })?;
     let compiled = schema_bundle
-        .compile(&[root_service], CompilerConfig::default())
+        .compile(
+            &[root_service],
+            &EntityTypeFilter::new_restrictive(vec![]),
+            CompilerConfig::default(),
+        )
         .inspect_err(|e| println!("{e}"))
         .map_err(|_| Error::Compile("compilation error".into()))?;
     let compiled = optimize(compiled, &OptimizerConfig::default());

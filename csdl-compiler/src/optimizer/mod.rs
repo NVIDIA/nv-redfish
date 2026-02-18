@@ -45,7 +45,7 @@ pub struct Config {
 impl Default for Config {
     fn default() -> Self {
         Self {
-            never_prune: EntityTypeFilter::new(
+            never_prune: EntityTypeFilter::new_permissive(
                 ["Resource.Item", "Resource.ItemOrCollection"]
                     .iter()
                     .map(|f| f.parse().expect("must be correct filter"))

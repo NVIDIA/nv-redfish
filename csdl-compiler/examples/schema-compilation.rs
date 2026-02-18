@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use nv_redfish_csdl_compiler::compiler::Config;
+use nv_redfish_csdl_compiler::compiler::EntityTypeFilter;
 use nv_redfish_csdl_compiler::compiler::NavProperty;
 use nv_redfish_csdl_compiler::compiler::NavPropertyExpandable;
 use nv_redfish_csdl_compiler::compiler::NavPropertyType;
@@ -61,7 +62,11 @@ fn main() -> Result<(), Error> {
                 Ok(schema_bundle)
             })?;
     let compiled = schema_bundle
-        .compile(&[root_service], Config::default())
+        .compile(
+            &[root_service],
+            &EntityTypeFilter::new_restrictive(vec![]),
+            Config::default(),
+        )
         .inspect_err(|e| println!("{e}"))
         .map_err(|_| Error::Compile("compilation error".into()))?;
     let compiled = optimize(compiled, &OptimizerConfig::default());

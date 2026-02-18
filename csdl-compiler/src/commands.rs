@@ -55,6 +55,17 @@ pub enum Commands {
         /// the EDM document).
         #[arg(short, long, default_value = DEFAULT_ROOT)]
         root: String,
+        /// Patterns of entity types to be included to root set even
+        /// if they are not referenced from root. If empty, none
+        /// additional types are compiled.
+        ///
+        /// Pattern is a wildcard over the qualified name.
+        /// Examples:
+        /// `ServiceRoot.*.*` - any entity type in any version of the service root
+        /// `SomeNamespace.*.Entity1|Entity2` - `EntityType1` or `EntityType2` from any versions of namespace `SomeNamespace`.
+        /// `*.*.Entity1|Entity2` - `EntityType1` or `EntityType2` from any versions of any namespaces.
+        #[arg(short = 'i', long = "include-root-pattern")]
+        include_root_patterns: Vec<EntityTypeFilterPattern>,
         /// CSDL documents to compile. In most cases you should
         /// specify all schemas from the Redfish and Swordfish bundles.
         #[arg(required = true)]
@@ -108,6 +119,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
     match command {
         Commands::Compile {
             root,
+            include_root_patterns,
             csdls,
             output,
             entity_type_patterns,
@@ -120,8 +132,11 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             let compiled = schema_bundle
                 .compile(
                     &[root_service],
+                    &EntityTypeFilter::new_restrictive(include_root_patterns.clone()),
                     CompilerConfig {
-                        entity_type_filter: EntityTypeFilter::new(entity_type_patterns.clone()),
+                        entity_type_filter: EntityTypeFilter::new_permissive(
+                            entity_type_patterns.clone(),
+                        ),
                     },
                 )
                 .map_err(Error::compile_error)?;
@@ -148,7 +163,9 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             let schema_bundle = read_csdls(root_csdls, resolve_csdls)?;
             let compiled = schema_bundle
                 .compile_all(CompilerConfig {
-                    entity_type_filter: EntityTypeFilter::new(entity_type_patterns.clone()),
+                    entity_type_filter: EntityTypeFilter::new_permissive(
+                        entity_type_patterns.clone(),
+                    ),
                 })
                 .map_err(Error::compile_error)?;
             let compiled = optimize(compiled, &OptimizerConfig::default());

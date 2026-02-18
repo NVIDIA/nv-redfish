@@ -53,22 +53,48 @@ pub struct Config {
 }
 
 /// Entity type filter specified by wildcard patterns.
-#[derive(Default)]
 pub struct EntityTypeFilter {
     patterns: Vec<EntityTypeFilterPattern>,
+    permissive: bool,
+}
+
+impl Default for EntityTypeFilter {
+    fn default() -> Self {
+        Self {
+            patterns: Vec::default(),
+            permissive: true,
+        }
+    }
 }
 
 impl EntityTypeFilter {
-    /// Create a new filter from a list of patterns.
+    /// Create a new filter from a list of patterns. If patterns empty
+    /// then matches anything.
     #[must_use]
-    pub const fn new(patterns: Vec<EntityTypeFilterPattern>) -> Self {
-        Self { patterns }
+    pub const fn new_restrictive(patterns: Vec<EntityTypeFilterPattern>) -> Self {
+        Self {
+            patterns,
+            permissive: false,
+        }
+    }
+    /// Create a new filter from a list of patterns. If patterns empty
+    /// then matches nothing.
+    #[must_use]
+    pub const fn new_permissive(patterns: Vec<EntityTypeFilterPattern>) -> Self {
+        Self {
+            patterns,
+            permissive: true,
+        }
     }
 
     /// Check whether the filter matches a qualified entity type name.
     #[must_use]
     pub fn matches(&self, typename: &QualifiedName<'_>) -> bool {
-        self.patterns.is_empty() || self.patterns.iter().any(|p| p.matches(typename))
+        if self.permissive {
+            self.patterns.is_empty() || self.patterns.iter().any(|p| p.matches(typename))
+        } else {
+            self.patterns.iter().any(|p| p.matches(typename))
+        }
     }
 }
 

@@ -143,7 +143,9 @@ patterns = [
     "LogServiceCollection.*",
     "LogEntry.*",
     "LogEntryCollection.*",
+    "Event.*.*"
 ]
+root_patterns = [ "Event.v1_0_0.Event" ]
 
 [[features]]
 name = "managers"

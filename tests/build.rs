@@ -40,6 +40,7 @@ fn main() -> Result<(), Error> {
         output: base_output,
         csdls: base_csdls,
         entity_type_patterns: vec![],
+        include_root_patterns: vec![],
     })?;
     Ok(())
 }

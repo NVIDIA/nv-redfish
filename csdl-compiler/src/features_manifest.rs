@@ -68,16 +68,18 @@ impl FeaturesManifest {
         Vec<&'a String>,
         Vec<&'a String>,
         Vec<&'a EntityTypeFilterPattern>,
+        Vec<&'a EntityTypeFilterPattern>,
     ) {
         self.features.iter().fold(
-            (Vec::new(), Vec::new(), Vec::new()),
-            |(mut files, mut swordfish_files, mut patterns), f| {
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            |(mut files, mut swordfish_files, mut patterns, mut root_patterns), f| {
                 if features.contains(&&f.name) {
                     files.extend(f.csdl_files.iter());
                     swordfish_files.extend(f.swordfish_csdl_files.iter());
                     patterns.extend(f.patterns.iter());
+                    root_patterns.extend(f.root_patterns.iter());
                 }
-                (files, swordfish_files, patterns)
+                (files, swordfish_files, patterns, root_patterns)
             },
         )
     }
@@ -136,6 +138,8 @@ pub struct Feature {
     #[serde(default)]
     pub swordfish_csdl_files: Vec<String>,
     pub patterns: Vec<EntityTypeFilterPattern>,
+    #[serde(default)]
+    pub root_patterns: Vec<EntityTypeFilterPattern>,
 }
 
 /// OEM-specific feature.
