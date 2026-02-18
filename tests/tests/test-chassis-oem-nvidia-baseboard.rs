@@ -43,7 +43,6 @@ async fn oem_nvidia_baseboard_cbc_real_payload() -> Result<(), Box<dyn StdError>
         &ids,
         json!({
             "Oem": {
-                ODATA_TYPE: "#NvidiaChassis.v1_4_0.NvidiaCBCChassis",
                 "Nvidia": {
                     ODATA_TYPE: "#NvidiaChassis.v1_4_0.NvidiaCBCChassis",
                     "ChassisPhysicalSlotNumber": 24,
@@ -92,7 +91,6 @@ async fn oem_nvidia_baseboard_cbc_wrong_odata_type_returns_not_available(
         &ids,
         json!({
             "Oem": {
-                ODATA_TYPE: "#NvidiaChassis.v1_4_0.NvidiaChassis",
                 "Nvidia": {
                     ODATA_TYPE: "#NvidiaChassis.v1_4_0.NvidiaChassis",
                     "ChassisPhysicalSlotNumber": 24,

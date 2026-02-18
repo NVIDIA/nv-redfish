@@ -129,6 +129,13 @@ pub(crate) mod protocol_features;
 pub(crate) mod bmc;
 
 #[doc(inline)]
+pub use nv_redfish_core as core;
+
+#[cfg(feature = "bmc-http")]
+#[doc(inline)]
+pub use nv_redfish_bmc_http as bmc_http;
+
+#[doc(inline)]
 pub use error::Error;
 #[doc(inline)]
 pub use nv_redfish_core::Bmc;

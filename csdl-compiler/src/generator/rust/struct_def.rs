@@ -152,6 +152,10 @@ impl<'a> StructDef<'a> {
                             #[serde(flatten)]
                             pub dynamic_properties: #top::DynamicProperties<#top::edm::PrimitiveType>,
                         },
+                        "Edm.String" => quote! {
+                            #[serde(flatten)]
+                            pub dynamic_properties: #top::DynamicProperties<#top::edm::String>,
+                        },
                         v => quote! { not_supported_type: compile_error!(#v) },
                     },
                 )

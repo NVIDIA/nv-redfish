@@ -73,7 +73,10 @@ pub struct NvidiaCbcChassis<B: Bmc> {
 impl<B: Bmc> NvidiaCbcChassis<B> {
     /// Create a new computer system handle.
     pub(crate) fn new(oem: &ResourceOemSchema) -> Result<Self, Error<B>> {
-        let is_cbc_chassis = ODataType::parse_from(&oem.additional_properties)
+        let is_cbc_chassis = oem
+            .additional_properties
+            .get("Nvidia")
+            .and_then(ODataType::parse_from)
             .and_then(|odata_type| {
                 let type_name = odata_type.type_name;
                 odata_type

@@ -19,8 +19,13 @@ include = [
     "oem/**/README.md",
 ]
 
+[package.metadata.docs.rs]
+all-features = true
+
 [features]
 default = []
+
+bmc-http = [ "dep:nv-redfish-bmc-http" ]
 
 std-redfish = [
     "accounts",
@@ -96,6 +101,7 @@ nv-bmc-expand = []
 
 [dependencies]
 nv-redfish-core = { workspace = true }
+nv-redfish-bmc-http = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 futures-core = { workspace = true }
