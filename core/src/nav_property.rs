@@ -134,14 +134,14 @@ where
             .is_some_and(|obj| obj.len() == 1 && obj.contains_key("@odata.id"));
 
         if is_reference {
-            let reference =
-                serde_json::from_value::<Reference>(value).map_err(|err| de::Error::custom(err.to_string()))?;
-            Ok(NavProperty::Reference(reference))
+            let reference = serde_json::from_value::<Reference>(value)
+                .map_err(|err| de::Error::custom(err.to_string()))?;
+            Ok(Self::Reference(reference))
         } else {
             // Non-reference payloads are always parsed as expanded `T`.
-            let expanded =
-                serde_json::from_value::<T>(value).map_err(|err| de::Error::custom(err.to_string()))?;
-            Ok(NavProperty::Expanded(Expanded(Arc::new(expanded))))
+            let expanded = serde_json::from_value::<T>(value)
+                .map_err(|err| de::Error::custom(err.to_string()))?;
+            Ok(Self::Expanded(Expanded(Arc::new(expanded))))
         }
     }
 }
@@ -299,7 +299,10 @@ mod tests {
 
         match parsed {
             NavProperty::Reference(reference) => {
-                assert_eq!(reference.odata_id.to_string(), "/redfish/v1/Systems/System_1");
+                assert_eq!(
+                    reference.odata_id.to_string(),
+                    "/redfish/v1/Systems/System_1"
+                );
             }
             NavProperty::Expanded(_) => panic!("expected reference variant"),
         }
