@@ -57,22 +57,10 @@ async fn wiwynn_assembly_without_member_odata_type_is_supported() -> Result<(), 
         hw.part_number.map(|v| v.inner().as_str()),
         Some("B81.11801.0008")
     );
-    assert_eq!(hw.serial_number.map(|v| v.inner().as_str()), Some(DUMMY_SERIAL));
-
-    Ok(())
-}
-
-#[test]
-async fn non_wiwynn_assembly_without_member_odata_type_fails() -> Result<(), Box<dyn StdError>> {
-    let bmc = Arc::new(Bmc::default());
-    let ids = test_ids();
-    let chassis = get_chassis(bmc.clone(), &ids, "Generic").await?;
-
-    bmc.expect(Expect::expand(
-        &ids.assembly_id,
-        assembly_payload(&ids, false, DUMMY_SERIAL),
-    ));
-    assert!(chassis.assembly().await.is_err());
+    assert_eq!(
+        hw.serial_number.map(|v| v.inner().as_str()),
+        Some(DUMMY_SERIAL)
+    );
 
     Ok(())
 }

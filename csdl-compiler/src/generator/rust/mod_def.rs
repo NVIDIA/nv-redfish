@@ -332,7 +332,6 @@ impl<'a> ModDef<'a> {
         }
     }
 
-    #[allow(clippy::too_many_arguments)]
     fn add_struct_def(mut self, st: StructDef<'a>) -> Result<Self, Error<'a>> {
         match self.structs.entry(st.name) {
             Entry::Occupied(_) => Err(Error::NameConflict),

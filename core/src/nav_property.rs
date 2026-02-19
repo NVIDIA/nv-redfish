@@ -42,8 +42,9 @@ use crate::FilterQuery;
 use crate::ODataETag;
 use crate::ODataId;
 use crate::Updatable;
+use serde::de;
+use serde::de::Deserializer;
 use serde::Deserialize;
-use serde::Deserializer;
 use serde::Serialize;
 use std::sync::Arc;
 
@@ -109,8 +110,7 @@ where
 
 /// Navigation property variants. All navigation properties in
 /// generated code are wrapped with this type.
-#[derive(Deserialize, Debug)]
-#[serde(untagged)]
+#[derive(Debug)]
 pub enum NavProperty<T: EntityTypeRef> {
     /// Expanded property variant (content included in the
     /// response).
@@ -118,6 +118,32 @@ pub enum NavProperty<T: EntityTypeRef> {
     /// Reference variant (only `@odata.id` is included in the
     /// response).
     Reference(Reference),
+}
+
+impl<'de, T> Deserialize<'de> for NavProperty<T>
+where
+    T: EntityTypeRef + for<'a> Deserialize<'a>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let value = serde_json::Value::deserialize(deserializer)?;
+        let is_reference = value
+            .as_object()
+            .is_some_and(|obj| obj.len() == 1 && obj.contains_key("@odata.id"));
+
+        if is_reference {
+            let reference =
+                serde_json::from_value::<Reference>(value).map_err(|err| de::Error::custom(err.to_string()))?;
+            Ok(NavProperty::Reference(reference))
+        } else {
+            // Non-reference payloads are always parsed as expanded `T`.
+            let expanded =
+                serde_json::from_value::<T>(value).map_err(|err| de::Error::custom(err.to_string()))?;
+            Ok(NavProperty::Expanded(Expanded(Arc::new(expanded))))
+        }
+    }
 }
 
 impl<T: EntityTypeRef> EntityTypeRef for NavProperty<T> {
@@ -196,5 +222,137 @@ impl<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>
     #[allow(missing_docs)]
     pub async fn filter<B: Bmc>(&self, bmc: &B, query: FilterQuery) -> Result<Arc<T>, B::Error> {
         bmc.filter::<T>(self.id(), query).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::NavProperty;
+    use crate::EntityTypeRef;
+    use crate::ODataETag;
+    use crate::ODataId;
+    use serde::Deserialize;
+
+    #[derive(Debug, Deserialize)]
+    struct DummyEntity {
+        #[serde(rename = "@odata.id")]
+        id: ODataId,
+        #[serde(rename = "Name")]
+        name: String,
+    }
+
+    impl EntityTypeRef for DummyEntity {
+        fn id(&self) -> &ODataId {
+            &self.id
+        }
+
+        fn etag(&self) -> Option<&ODataETag> {
+            None
+        }
+    }
+
+    #[derive(Debug, Deserialize)]
+    struct DefaultIdEntity {
+        #[serde(rename = "@odata.id", default = "default_id")]
+        id: ODataId,
+        #[serde(rename = "Name")]
+        name: String,
+    }
+
+    impl EntityTypeRef for DefaultIdEntity {
+        fn id(&self) -> &ODataId {
+            &self.id
+        }
+
+        fn etag(&self) -> Option<&ODataETag> {
+            None
+        }
+    }
+
+    fn default_id() -> ODataId {
+        "/default/id".to_string().into()
+    }
+
+    #[allow(dead_code)]
+    #[derive(Debug, Deserialize)]
+    struct StrictNameEntity {
+        #[serde(rename = "@odata.id")]
+        id: ODataId,
+        #[serde(rename = "Name")]
+        name: u64,
+    }
+
+    impl EntityTypeRef for StrictNameEntity {
+        fn id(&self) -> &ODataId {
+            &self.id
+        }
+
+        fn etag(&self) -> Option<&ODataETag> {
+            None
+        }
+    }
+
+    #[test]
+    fn nav_property_reference_for_odata_id_only_object() {
+        let parsed: NavProperty<DummyEntity> =
+            serde_json::from_str(r#"{ "@odata.id": "/redfish/v1/Systems/System_1" }"#).unwrap();
+
+        match parsed {
+            NavProperty::Reference(reference) => {
+                assert_eq!(reference.odata_id.to_string(), "/redfish/v1/Systems/System_1");
+            }
+            NavProperty::Expanded(_) => panic!("expected reference variant"),
+        }
+    }
+
+    #[test]
+    fn nav_property_expanded_for_object_with_extra_fields() {
+        let parsed: NavProperty<DummyEntity> = serde_json::from_str(
+            r#"{
+                "@odata.id": "/redfish/v1/Systems/System_1",
+                "Name": "System_1"
+            }"#,
+        )
+        .unwrap();
+
+        match parsed {
+            NavProperty::Expanded(expanded) => {
+                assert_eq!(expanded.0.id.to_string(), "/redfish/v1/Systems/System_1");
+                assert_eq!(expanded.0.name, "System_1");
+            }
+            NavProperty::Reference(_) => panic!("expected expanded variant"),
+        }
+    }
+
+    #[test]
+    fn nav_property_object_without_odata_id_uses_expanded_path() {
+        let parsed: NavProperty<DefaultIdEntity> =
+            serde_json::from_str(r#"{ "Name": "NoIdObject" }"#).unwrap();
+
+        match parsed {
+            NavProperty::Expanded(expanded) => {
+                assert_eq!(expanded.0.id.to_string(), "/default/id");
+                assert_eq!(expanded.0.name, "NoIdObject");
+            }
+            NavProperty::Reference(_) => panic!("expected expanded variant"),
+        }
+    }
+
+    #[test]
+    fn nav_property_parse_error_for_non_reference_comes_from_t() {
+        let err = serde_json::from_str::<NavProperty<StrictNameEntity>>(
+            r#"{
+                "@odata.id": "/redfish/v1/Systems/System_1",
+                "Name": "not-a-number"
+            }"#,
+        )
+        .unwrap_err()
+        .to_string();
+
+        assert!(
+            err.contains("invalid type: string") && err.contains("u64"),
+            "unexpected error: {}",
+            err
+        );
     }
 }

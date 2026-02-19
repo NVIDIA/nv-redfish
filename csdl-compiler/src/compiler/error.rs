@@ -40,6 +40,10 @@ pub enum Error<'a> {
     SettingsTypeNotFound,
     /// Settings.PreferredApplyTime type was not found.
     SettingsPreferredApplyTimeTypeNotFound,
+    /// Resource.Resource type was not found.
+    ResourceTypeNotFound,
+    /// Resource.ResourceCollection type was not found.
+    ResourceCollectionTypeNotFound,
     /// Error while compiling an entity type.
     EntityType(QualifiedName<'a>, Box<Error<'a>>),
     /// Type was not found.
@@ -67,17 +71,19 @@ pub enum Error<'a> {
 impl Display for Error<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         match self {
-            Self::Unimplemented => writeln!(f, "unimplemented"),
-            Self::EntityTypeNotFound(v) => writeln!(f, "entity type not found: {v}"),
-            Self::ComplexTypeNotFound(v) => writeln!(f, "complex type not found: {v}"),
-            Self::SettingsTypeNotFound => writeln!(
+            Self::Unimplemented => write!(f, "unimplemented"),
+            Self::EntityTypeNotFound(v) => write!(f, "entity type not found: {v}"),
+            Self::ComplexTypeNotFound(v) => write!(f, "complex type not found: {v}"),
+            Self::SettingsTypeNotFound => write!(
                 f,
                 "cannot find type for Redfish settings (Settings.Settings)"
             ),
-            Self::SettingsPreferredApplyTimeTypeNotFound => writeln!(
+            Self::SettingsPreferredApplyTimeTypeNotFound => write!(
                 f,
                 "cannot find type for Redfish settings preferred apply time (Settings.PreferredApplyTime)"
             ),
+            Self::ResourceTypeNotFound => write!(f, "Resource.Resource type was not found"),
+            Self::ResourceCollectionTypeNotFound => write!(f, "Resource.ResourceCollection type was not found"),
             Self::NotBoundAction => {
                 write!(f, "unbound action is not supported")
             }
@@ -87,7 +93,7 @@ impl Display for Error<'_> {
             Self::EntityType(name, err) => {
                 write!(f, "while compiling entity type: {name}\n{err}")
             }
-            Self::TypeNotFound(v) => writeln!(f, "type not found: {v}"),
+            Self::TypeNotFound(v) => write!(f, "type not found: {v}"),
             Self::TypeDefinitionOfNotPrimitiveType(v) => {
                 write!(f, "type definition is not a primitive type: {v}")
             }

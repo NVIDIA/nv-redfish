@@ -250,6 +250,15 @@ impl<'a> StructDef<'a> {
         odata_etag: &Ident,
         config: &Config,
     ) -> (TokenStream, ImplType) {
+        let maybe_odata_type = if *self.odata.must_have_type.inner() {
+            quote! {
+                /// Type of the resource
+                #[serde(rename="@odata.type")]
+                pub odata_type: String,
+            }
+        } else {
+            quote! {}
+        };
         self.base.map_or_else(
             || {
                 if *self.odata.must_have_id.inner() {
@@ -263,8 +272,7 @@ impl<'a> StructDef<'a> {
                             pub #odata_id: ODataId,
                             #[serde(rename="@odata.etag")]
                             pub #odata_etag: Option<ODataETag>,
-                            #[serde(rename="@odata.type")]
-                            pub odata_type: String,
+                            #maybe_odata_type
                             #[serde(rename = "@Redfish.Settings")]
                             pub redfish_settings: Option<#top::settings::Settings>,
                             #[serde(rename = "@Redfish.SettingsApplyTime")]
@@ -281,6 +289,7 @@ impl<'a> StructDef<'a> {
                 let typename = FullTypeName::new(base, config);
                 (
                     quote! {
+                        #maybe_odata_type
                         /// Base type
                         #[serde(flatten)]
                         pub #base_pname: #typename,

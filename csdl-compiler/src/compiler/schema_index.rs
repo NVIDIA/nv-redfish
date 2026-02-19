@@ -210,6 +210,62 @@ impl<'a> SchemaIndex<'a> {
         self.find_child_complex_type(qtype)
     }
 
+    /// Find the `Resource.Resource` type corresponding that is base
+    /// type for all Redfish resources
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the type is not found.
+    ///
+    /// # Panics
+    ///
+    /// Should never panic unless the EDMX `SimpleIdentifier` parser is broken.
+    #[allow(clippy::unwrap_in_result)]
+    pub fn redfish_resource_type(&self) -> Result<(QualifiedName<'a>, &'a EntityType), Error<'a>> {
+        let ns: EdmxNamespace = "Resource".parse().expect("must be parsed");
+        let id: SimpleIdentifier = "Resource".parse().expect("must be parsed");
+        let schema = self
+            .get(&Namespace::new(&ns))
+            .ok_or(Error::ResourceTypeNotFound)?;
+        let (name, _) = schema
+            .entity_types
+            .get_key_value(&id)
+            .ok_or(Error::ResourceTypeNotFound)?;
+        let qtype = QualifiedName::new(&schema.namespace, name);
+        self.find_entity_type_by_qname(&qtype)
+            .map(|v| (qtype, v))
+            .ok_or(Error::ResourceTypeNotFound)
+    }
+
+    /// Find the `Resource.ResourceCollection` type corresponding that is base
+    /// type for all Redfish resources collection
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the type is not found.
+    ///
+    /// # Panics
+    ///
+    /// Should never panic unless the EDMX `SimpleIdentifier` parser is broken.
+    #[allow(clippy::unwrap_in_result)]
+    pub fn redfish_resource_collection_type(
+        &self,
+    ) -> Result<(QualifiedName<'a>, &'a EntityType), Error<'a>> {
+        let ns: EdmxNamespace = "Resource".parse().expect("must be parsed");
+        let id: SimpleIdentifier = "ResourceCollection".parse().expect("must be parsed");
+        let schema = self
+            .get(&Namespace::new(&ns))
+            .ok_or(Error::ResourceCollectionTypeNotFound)?;
+        let (name, _) = schema
+            .entity_types
+            .get_key_value(&id)
+            .ok_or(Error::ResourceCollectionTypeNotFound)?;
+        let qtype = QualifiedName::new(&schema.namespace, name);
+        self.find_entity_type_by_qname(&qtype)
+            .map(|v| (qtype, v))
+            .ok_or(Error::ResourceTypeNotFound)
+    }
+
     #[must_use]
     fn find_entity_type_by_qname(&self, qtype: &QualifiedName<'a>) -> Option<&'a EntityType> {
         self.get(&qtype.namespace)

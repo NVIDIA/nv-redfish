@@ -235,18 +235,6 @@ impl<B: Bmc> ServiceRoot<B> {
             .is_some_and(|v| v == "Dell")
     }
 
-    /// In some implementations Assembly/Assemblies doens't
-    /// "@odata.type". This is spec violation but we support patching
-    /// such systems.
-    #[cfg(feature = "assembly")]
-    pub(crate) fn assembly_assemblies_without_odata_type(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "WIWYNN")
-    }
-
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
     /// expand api
