@@ -39,6 +39,7 @@ use crate::compiler::Action;
 use crate::compiler::ComplexType;
 use crate::compiler::EntityType;
 use crate::compiler::EnumType;
+use crate::compiler::MustHaveType;
 use crate::compiler::QualifiedName;
 use crate::compiler::TypeDefinition;
 use crate::edmx::ActionName;
@@ -153,6 +154,15 @@ impl<'a> Compiled<'a> {
                 .collect(),
             ..Default::default()
         }
+    }
+
+    /// Add @data.type field marker to the type.
+    #[must_use]
+    pub fn mark_odata_type(mut self, qtype: QualifiedName<'a>) -> Self {
+        if let Some(et) = self.entity_types.get_mut(&qtype) {
+            et.odata.must_have_type = MustHaveType::new(true);
+        }
+        self
     }
 
     /// Merge two compiled structures.

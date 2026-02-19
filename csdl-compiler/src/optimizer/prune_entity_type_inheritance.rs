@@ -142,7 +142,10 @@ pub fn prune_entity_type_inheritance<'a>(input: Compiled<'a>, config: &Config) -
     }
 }
 
-const fn merge_odata<'a>(odata: &mut OData<'a>, parent_odata: OData<'a>) {
+fn merge_odata<'a>(odata: &mut OData<'a>, parent_odata: OData<'a>) {
+    if !odata.must_have_type.inner() {
+        odata.must_have_type = parent_odata.must_have_type;
+    }
     if odata.description.is_none() {
         odata.description = parent_odata.description;
     }

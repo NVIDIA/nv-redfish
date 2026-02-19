@@ -34,11 +34,22 @@ pub type MustHaveId = TaggedType<bool, MustHaveIdTag>;
 #[capability(inner_access)]
 pub enum MustHaveIdTag {}
 
+/// Whether the type must include `@odata.id` in generated code.
+pub type MustHaveType = TaggedType<bool, MustHaveTypeTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Debug)]
+#[capability(inner_access)]
+pub enum MustHaveTypeTag {}
+
 /// `OData` attributes attached to compiled entities.
 #[derive(Debug, Clone, Copy)]
 pub struct OData<'a> {
     /// Whether `@odata.id` must be present.
     pub must_have_id: MustHaveId,
+    /// Whether `@odata.type` must be present.
+    pub must_have_type: MustHaveType,
     /// Short description.
     pub description: Option<DescriptionRef<'a>>,
     /// Long description.
@@ -60,6 +71,7 @@ impl<'a> OData<'a> {
     pub fn new(must_have_id: MustHaveId, src: &'a impl ODataAnnotations) -> Self {
         Self {
             must_have_id,
+            must_have_type: MustHaveType::new(false),
             description: src.odata_description(),
             long_description: src.odata_long_description(),
             permissions: src.odata_permissions(),

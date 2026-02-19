@@ -33,8 +33,6 @@ use std::sync::Arc;
 
 #[cfg(feature = "assembly")]
 use crate::assembly::Assembly;
-#[cfg(feature = "assembly")]
-use crate::assembly::Config as AssemblyConfig;
 #[cfg(feature = "network-adapters")]
 use crate::chassis::NetworkAdapter;
 #[cfg(feature = "network-adapters")]
@@ -75,8 +73,6 @@ pub type SerialNumber<T> = HardwareIdSerialNumber<T, ChassisTag>;
 
 pub struct Config {
     read_patch_fn: Option<ReadPatchFn>,
-    #[cfg(feature = "assembly")]
-    assembly: Arc<AssemblyConfig>,
 }
 
 impl Config {
@@ -92,11 +88,7 @@ impl Config {
                 Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
             Some(read_patch_fn)
         };
-        Self {
-            read_patch_fn,
-            #[cfg(feature = "assembly")]
-            assembly: AssemblyConfig::new(root).into(),
-        }
+        Self { read_patch_fn }
     }
 }
 
@@ -182,7 +174,7 @@ impl<B: Bmc> Chassis<B> {
             .assembly
             .as_ref()
             .ok_or(Error::AssemblyNotAvailable)?;
-        Assembly::new(&self.bmc, assembly_ref, &self.config.assembly).await
+        Assembly::new(&self.bmc, assembly_ref).await
     }
 
     /// Get power supplies from this chassis.

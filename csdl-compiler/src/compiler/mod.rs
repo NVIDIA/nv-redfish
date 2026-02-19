@@ -151,6 +151,7 @@ pub use traits::MapType;
 pub use traits::PropertiesManipulation;
 
 use crate::compiler::odata::MustHaveId;
+use crate::compiler::odata::MustHaveType;
 use crate::edmx::Edmx;
 use crate::edmx::Schema;
 use crate::edmx::SimpleIdentifier;
@@ -364,6 +365,15 @@ impl SchemaBundle {
             .redfish_settings_preferred_apply_time_type()?;
         let (compiled, _) = ensure_type(name, ctx, &stack)?;
         let stack = stack.merge(compiled);
+
+        let (resource_name, _) = ctx.schema_index.redfish_resource_type()?;
+        let compiled = EntityType::ensure(resource_name, ctx, &stack)?;
+        let stack = stack.merge(compiled);
+
+        let (collection_name, _) = ctx.schema_index.redfish_resource_collection_type()?;
+        let compiled = EntityType::ensure(collection_name, ctx, &stack)?;
+        let stack = stack.merge(compiled);
+
         // Compile actions for all extracted types
         self.edmx_docs
             .iter()
@@ -380,7 +390,12 @@ impl SchemaBundle {
                     .done();
                 Ok(stack.merge(compiled))
             })
-            .map(Stack::done)
+            .map(|stack| {
+                stack
+                    .done()
+                    .mark_odata_type(resource_name)
+                    .mark_odata_type(collection_name)
+            })
     }
 
     fn compile_schema_actions<'a>(
@@ -455,6 +470,7 @@ mod test {
                  <EntityType Name="ItemOrCollection" Abstract="true"/>
                  <EntityType Name="Item" BaseType="Resource.ItemOrCollection" Abstract="true"/>
                  <EntityType Name="Resource" BaseType="Resource.Item" Abstract="true"/>
+                 <EntityType Name="ResourceCollection" BaseType="Resource.ItemOrCollection" Abstract="true"/>
                </Schema>
                <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Resource.v1_0_0">
                  <EntityType Name="Resource" BaseType="Resource.Resource" Abstract="true">
