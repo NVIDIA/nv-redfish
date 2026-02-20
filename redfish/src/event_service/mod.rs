@@ -96,36 +96,27 @@ impl<B: Bmc> EventService<B> {
         let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
         let mut sse_read_patches = Vec::new();
-        let mut sse_event_record_patches = Vec::new();
+        let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
+        
         if root.event_service_sse_no_member_id() {
-            let patch: ReadPatchFn =
-                Arc::new(patch::patch_missing_event_record_member_id as fn(JsonValue) -> JsonValue);
-            sse_event_record_patches.push(patch);
+            sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
         }
         if root.event_service_sse_wrong_event_type() {
-            let patch: ReadPatchFn =
-                Arc::new(patch::patch_unknown_event_type_to_other as fn(JsonValue) -> JsonValue);
-            sse_event_record_patches.push(patch);
+            sse_event_record_patches.push(patch::patch_unknown_event_type_to_other);
         }
         if root.event_service_sse_no_odata_id() {
             let patch_event_id: ReadPatchFn =
                 Arc::new(patch::patch_missing_event_odata_id as fn(JsonValue) -> JsonValue);
             sse_read_patches.push(patch_event_id);
-            let patch_record_id: ReadPatchFn =
-                Arc::new(patch::patch_missing_event_record_odata_id as fn(JsonValue) -> JsonValue);
-            sse_event_record_patches.push(patch_record_id);
+            sse_event_record_patches.push(patch::patch_missing_event_record_odata_id);
         }
         if root.event_service_sse_wrong_timestamp_offset() {
-            let patch: ReadPatchFn =
-                Arc::new(patch::patch_compact_event_timestamp_offset as fn(JsonValue) -> JsonValue);
-            sse_event_record_patches.push(patch);
+            sse_event_record_patches.push(patch::patch_compact_event_timestamp_offset);
         }
 
         if !sse_event_record_patches.is_empty() {
             let patch_event_records: ReadPatchFn = Arc::new(move |payload| {
-                sse_event_record_patches
-                    .iter()
-                    .fold(payload, |acc, patch| patch(acc))
+                patch::patch_event_records(payload, &sse_event_record_patches)
             });
             sse_read_patches.push(patch_event_records);
         }
