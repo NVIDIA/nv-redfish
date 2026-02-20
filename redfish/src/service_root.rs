@@ -31,6 +31,8 @@ use crate::event_service::EventService;
 #[cfg(feature = "managers")]
 use crate::manager::ManagerCollection;
 use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
+#[cfg(feature = "telemetry-service")]
+use crate::telemetry_service::TelemetryService;
 #[cfg(feature = "update-service")]
 use crate::update_service::UpdateService;
 use crate::{Error, NvBmc, ProtocolFeatures, Resource, ResourceSchema};
@@ -154,6 +156,16 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "event-service")]
     pub async fn event_service(&self) -> Result<EventService<B>, Error<B>> {
         EventService::new(&self.bmc, self).await
+    }
+    
+    /// Get telemetry service in BMC
+    ///
+    /// # Errors
+    ///
+    /// Returns error if telemetry service is not available in BMC
+    #[cfg(feature = "telemetry-service")]
+    pub async fn telemetry_service(&self) -> Result<TelemetryService<B>, Error<B>> {
+        TelemetryService::new(&self.bmc, self).await
     }
 
     /// Get manager collection in BMC

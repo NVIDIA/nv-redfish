@@ -47,6 +47,7 @@ std-redfish = [
     "secure-boot",
     "sensors",
     "storages",
+    "telemetry-service",
     "thermal",
     "update-service",
 ]
@@ -60,6 +61,7 @@ computer-systems = ["patch-payload-get", "patch-collection"]
 ethernet-interfaces = []
 network-adapters = []
 event-service = []
+telemetry-service = []
 log-services = []
 managers = []
 memory = []

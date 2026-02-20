@@ -150,6 +150,36 @@ patterns = [
 ]
 root_patterns = [ "Event.v1_0_0.Event", "MetricReport.v1_0_0.MetricReport" ]
 
+
+[[features]]
+name = "telemetry-service"
+csdl_files = [
+    "TelemetryService_v1.xml",
+    "MetricDefinition_v1.xml",
+    "MetricDefinitionCollection_v1.xml",
+    "MetricReportDefinition_v1.xml",
+    "MetricReportDefinitionCollection_v1.xml",
+    "MetricReport_v1.xml",
+    "MetricReportCollection_v1.xml",
+    "PhysicalContext_v1.xml",
+    "Schedule_v1.xml",
+    "TelemetryData_v1.xml",
+    "TelemetryDataCollection_v1.xml",
+    "Triggers_v1.xml",
+    "TriggersCollection_v1.xml",
+]
+patterns = [
+    "TelemetryService.*",
+    "MetricDefinition.*",
+    "MetricDefinitionCollection.*",
+    "MetricReportDefinition.*",
+    "MetricReportDefinitionCollection.*",
+    "MetricReport.*",
+    "MetricReportCollection.*",
+    "PhysicalContext.*",
+    "Schedule.*",
+]
+
 [[features]]
 name = "log-services"
 csdl_files = [

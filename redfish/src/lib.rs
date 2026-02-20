@@ -111,6 +111,9 @@ pub mod pcie_device;
 /// Metrics and sensor abstraction.
 #[cfg(feature = "sensors")]
 pub mod sensor;
+/// Telemetry Service.
+#[cfg(feature = "telemetry-service")]
+pub mod telemetry_service;
 
 /// Individual OEM extensions support.
 #[cfg(feature = "oem")]

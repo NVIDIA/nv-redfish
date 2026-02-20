@@ -71,6 +71,18 @@ pub enum Error<B: Bmc> {
     /// Event service does not provide `ServerSentEventUri`
     #[cfg(feature = "event-service")]
     EventServiceServerSentEventUriNotAvailable,
+    /// Telemetry service not supported by BMC
+    #[cfg(feature = "telemetry-service")]
+    TelemetryServiceNotSupported,
+    /// Metric reports are not available for telemetry service
+    #[cfg(feature = "telemetry-service")]
+    MetricReportsNotAvailable,
+    /// Metric definitions are not available for telemetry service
+    #[cfg(feature = "telemetry-service")]
+    MetricDefinitionsNotAvailable,
+    /// Metric report definitions are not available for telemetry service
+    #[cfg(feature = "telemetry-service")]
+    MetricReportDefinitionsNotAvailable,
     /// Log service not available for this resource
     #[cfg(feature = "log-services")]
     LogServiceNotAvailable,
@@ -174,6 +186,22 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "event-service")]
             Self::EventServiceServerSentEventUriNotAvailable => {
                 write!(f, "Event service does not provide ServerSentEventUri")
+            }
+            #[cfg(feature = "telemetry-service")]
+            Self::TelemetryServiceNotSupported => {
+                write!(f, "Telemetry service is not supported by system")
+            }
+            #[cfg(feature = "telemetry-service")]
+            Self::MetricReportsNotAvailable => {
+                write!(f, "Metric reports are not available")
+            }
+            #[cfg(feature = "telemetry-service")]
+            Self::MetricDefinitionsNotAvailable => {
+                write!(f, "Metric definitions are not available")
+            }
+            #[cfg(feature = "telemetry-service")]
+            Self::MetricReportDefinitionsNotAvailable => {
+                write!(f, "Metric report definitions are not available")
             }
             #[cfg(feature = "log-services")]
             Self::LogServiceNotAvailable => {
