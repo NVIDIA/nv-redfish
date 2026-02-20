@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -17,6 +17,8 @@
 //!
 //! This module provides typed access to Redfish `EventService`.
 
+mod patch;
+
 use crate::schema::redfish::event_service::EventService as EventServiceSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -26,6 +28,7 @@ use crate::ServiceRoot;
 use nv_redfish_core::odata::ODataType;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::BoxTryStream;
+use serde::de;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde_json::Value as JsonValue;
@@ -51,20 +54,20 @@ impl<'de> Deserialize<'de> for EventStreamPayload {
     where
         D: Deserializer<'de>,
     {
-        let value = JsonValue::deserialize(deserializer)?;
+        let mut value = JsonValue::deserialize(deserializer)?;
         let odata_type = ODataType::parse_from(&value)
-            .ok_or_else(|| serde::de::Error::missing_field("missing @odata.type in SSE payload"))?;
+            .ok_or_else(|| de::Error::missing_field("missing @odata.type in SSE payload"))?;
 
         if odata_type.type_name == "MetricReport" {
             let payload =
-                serde_json::from_value::<MetricReport>(value).map_err(serde::de::Error::custom)?;
+                serde_json::from_value::<MetricReport>(value).map_err(de::Error::custom)?;
             Ok(Self::MetricReport(payload))
         } else if odata_type.type_name == "Event" {
-            let payload =
-                serde_json::from_value::<Event>(value).map_err(serde::de::Error::custom)?;
+            patch::normalize_event_payload(&mut value);
+            let payload = serde_json::from_value::<Event>(value).map_err(de::Error::custom)?;
             Ok(Self::Event(payload))
         } else {
-            Err(serde::de::Error::custom(format!(
+            Err(de::Error::custom(format!(
                 "unsupported @odata.type in SSE payload: {}, should be either Event or MetricReport", odata_type.type_name
             )))
         }
@@ -106,6 +109,12 @@ impl<B: Bmc> EventService<B> {
     /// Payload kind is selected by `@odata.type`:
     /// - `Event` -> [`EventStreamPayload::Event`]
     /// - `MetricReport` -> [`EventStreamPayload::MetricReport`]
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `ServerSentEventUri` is not present in `EventService`
+    /// - opening or consuming the SSE stream through the underlying BMC transport fails
     pub async fn events(&self) -> Result<BoxTryStream<EventStreamPayload, B::Error>, Error<B>> {
         let stream_uri = self
             .data
@@ -134,32 +143,25 @@ mod tests {
     #[test]
     fn event_stream_payload_deserializes_event_record() {
         let value = serde_json::json!({
-            "@odata.id": "/redfish/v1/SSE",
             "@odata.type": "#Event.v1_6_0.Event",
             "Id": "1",
             "Name": "Event Array",
             "Context": "ABCDEFGH",
             "Events": [
-                {
-                    "@odata.type": "#Event.v1_0_0.EventRecord",
-                    "@odata.id": "/redfish/v1/Systems/SomeSystem/Events/1",
-                    "MemberId": "1",
-                    "EventType": "Alert",
-                    "EventId": "1",
-                    "Severity": "Warning",
-                    "MessageSeverity": "Warning",
-                    "EventTimestamp": "2017-11-23T17:17:42-0600",
-                    "Message": "The LAN has been disconnected",
-                    "MessageId": "Alert.1.0.LanDisconnect",
-                    "MessageArgs": [
-                        "EthernetInterface 1",
-                        "/redfish/v1/Systems/1"
-                    ],
-                    "OriginOfCondition": {
-                        "@odata.id": "/redfish/v1/Systems/1/EthernetInterfaces/1"
+                    {
+                    "EventId": "88",
+                    "EventTimestamp": "2026-02-19T03:55:29+00:00",
+                    "EventType": "Event",
+                    "LogEntry": {
+                        "@odata.id": "/redfish/v1/Systems/System_0/LogServices/EventLog/Entries/1674"
                     },
-                    "Context": "ABCDEFGH"
-                }
+                    "Message": "The resource has been removed successfully.",
+                    "MessageId": "ResourceEvent.1.2.ResourceRemoved",
+                    "MessageSeverity": "OK",
+                    "OriginOfCondition": {
+                        "@odata.id": "/redfish/v1/AccountService/Accounts/1"
+                    }
+            }
             ]
         });
 

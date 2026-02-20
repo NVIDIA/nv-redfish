@@ -25,6 +25,7 @@ reqwest = { workspace = true, optional = true, features = [
     "json",
     "rustls-tls",
     "stream",
+    "socks"
 ] }
 serde = { workspace = true }
 serde_json = { workspace = true }
