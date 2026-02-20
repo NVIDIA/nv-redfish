@@ -41,7 +41,7 @@ pub use metric_definition::MetricDefinitionCreate;
 #[doc(inline)]
 pub use metric_definition::MetricDefinitionUpdate;
 #[doc(inline)]
-pub use metric_report::MetricReport;
+pub use metric_report::MetricReportRef;
 #[doc(inline)]
 pub use metric_report_definition::MetricReportDefinition;
 #[doc(inline)]
@@ -109,17 +109,17 @@ impl<B: Bmc> TelemetryService<B> {
         })
     }
 
-    /// Get `Vec<MetricReport>` associated with this telemetry service.
+    /// Get `Vec<MetricReportRef>` associated with this telemetry service.
     ///
     /// Fetches the metric report collection and returns a list of
-    /// [`MetricReport`] handles.
+    /// [`MetricReportRef`] handles.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - the telemetry service does not expose a `MetricReports` collection
     /// - retrieving the collection fails
-    pub async fn metric_reports(&self) -> Result<Vec<MetricReport<B>>, Error<B>> {
+    pub async fn metric_reports(&self) -> Result<Vec<MetricReportRef<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_reports
@@ -132,7 +132,7 @@ impl<B: Bmc> TelemetryService<B> {
 
         let mut items = Vec::with_capacity(collection.members.len());
         for m in &collection.members {
-            items.push(MetricReport::new(
+            items.push(MetricReportRef::new(
                 &self.bmc,
                 NavProperty::new_reference(m.id().clone()),
             ));

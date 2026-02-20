@@ -20,19 +20,28 @@ use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
 
 /// Metric report entity wrapper.
-pub struct MetricReport<B: Bmc> {
+pub struct MetricReportRef<B: Bmc> {
     bmc: NvBmc<B>,
-    nav: NavProperty<MetricReportSchema>,
+    metric_report_ref: NavProperty<MetricReportSchema>,
 }
 
-impl<B: Bmc> MetricReport<B> {
-    pub(crate) fn new(bmc: &NvBmc<B>, nav: NavProperty<MetricReportSchema>) -> Self {
+impl<B: Bmc> MetricReportRef<B> {
+    pub(crate) fn new(bmc: &NvBmc<B>, metric_report_ref: NavProperty<MetricReportSchema>) -> Self {
         Self {
             bmc: bmc.clone(),
-            nav,
+            metric_report_ref,
         }
+    }
+
+    /// `OData` identifier of the `NavProperty<MetricReport>` in Redfish.
+    ///
+    /// Typically `/redfish/v1/TelemetryService/MetricReports/{Id}`.
+    #[must_use]
+    pub fn odata_id(&self) -> &ODataId {
+        self.metric_report_ref.id()
     }
 
     /// Fetch latest data for this metric report.
@@ -41,7 +50,7 @@ impl<B: Bmc> MetricReport<B> {
     ///
     /// Returns an error if fetching the entity fails.
     pub async fn fetch(&self) -> Result<Arc<MetricReportSchema>, Error<B>> {
-        self.nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+        self.metric_report_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
     }
 
     /// Delete this metric report.
@@ -52,7 +61,7 @@ impl<B: Bmc> MetricReport<B> {
     pub async fn delete(&self) -> Result<(), Error<B>> {
         self.bmc
             .as_ref()
-            .delete(self.nav.id())
+            .delete(self.metric_report_ref.id())
             .await
             .map_err(Error::Bmc)
             .map(|_| ())
