@@ -1,0 +1,16 @@
+[package]
+name = "event-stream-console"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+clap = { workspace = true, features = ["derive"] }
+futures-util = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal"] }
+url = { workspace = true }
+nv-redfish = { workspace = true, features = ["event-service", "bmc-http"] }
