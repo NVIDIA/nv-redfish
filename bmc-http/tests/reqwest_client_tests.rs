@@ -281,7 +281,7 @@ mod reqwest_client_tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-        assert!(matches!(error, BmcError::InvalidResponse(_, _)));
+        assert!(matches!(error, BmcError::InvalidResponse { .. }));
     }
 
     #[tokio::test]
@@ -308,7 +308,7 @@ mod reqwest_client_tests {
 
         assert!(result.is_err());
         let error = result.unwrap_err();
-        assert!(matches!(error, BmcError::InvalidResponse(_, _)));
+        assert!(matches!(error, BmcError::InvalidResponse { .. }));
     }
 
     #[tokio::test]
