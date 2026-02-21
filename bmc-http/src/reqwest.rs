@@ -31,7 +31,11 @@ use url::Url;
 pub enum BmcError {
     ReqwestError(reqwest::Error),
     JsonError(serde_path_to_error::Error<serde_json::Error>),
-    InvalidResponse(reqwest::StatusCode, String),
+    InvalidResponse {
+        url: url::Url,
+        status: reqwest::StatusCode,
+        text: String,
+    },
     SseStreamError(sse_stream::Error),
     CacheMiss,
     CacheError(String),
@@ -46,7 +50,7 @@ impl From<reqwest::Error> for BmcError {
 impl CacheableError for BmcError {
     fn is_cached(&self) -> bool {
         match self {
-            Self::InvalidResponse(status, _) => status == &reqwest::StatusCode::NOT_MODIFIED,
+            Self::InvalidResponse { status, .. } => status == &reqwest::StatusCode::NOT_MODIFIED,
             _ => false,
         }
     }
@@ -65,11 +69,10 @@ impl std::fmt::Display for BmcError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::ReqwestError(e) => write!(f, "HTTP client error: {e:?}"),
-            Self::InvalidResponse(status, text) => {
+            Self::InvalidResponse { url, status, text } => {
                 write!(
                     f,
-                    "Invalid HTTP response - status: {} text: {}",
-                    status, text
+                    "Invalid HTTP response - url: {url} status: {status} text: {text}"
                 )
             }
             Self::CacheMiss => write!(f, "Resource not found in cache"),
@@ -327,10 +330,11 @@ impl Client {
         T: DeserializeOwned,
     {
         if !response.status().is_success() {
-            return Err(BmcError::InvalidResponse(
-                response.status(),
-                response.text().await.unwrap_or_else(|_| "<no data>".into()),
-            ));
+            return Err(BmcError::InvalidResponse {
+                url: response.url().clone(),
+                status: response.status(),
+                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
+            });
         }
 
         let etag_header = response.headers().get("etag").cloned();
@@ -443,10 +447,11 @@ impl HttpClient for Client {
             .await?;
 
         if !response.status().is_success() {
-            return Err(BmcError::InvalidResponse(
-                response.status(),
-                response.text().await.unwrap_or_else(|_| "<no data>".into()),
-            ));
+            return Err(BmcError::InvalidResponse {
+                url: response.url().clone(),
+                status: response.status(),
+                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
+            });
         }
 
         Ok(Empty {})
@@ -468,10 +473,11 @@ impl HttpClient for Client {
             .await?;
 
         if !response.status().is_success() {
-            return Err(BmcError::InvalidResponse(
-                response.status(),
-                response.text().await.unwrap_or_else(|_| "<no data>".into()),
-            ));
+            return Err(BmcError::InvalidResponse {
+                url: response.url().clone(),
+                status: response.status(),
+                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
+            });
         }
 
         let stream = sse_stream::SseStream::from_byte_stream(response.bytes_stream()).filter_map(
@@ -503,7 +509,11 @@ mod tests {
                 .body("")
                 .expect("Valid empty body"),
         );
-        let error = BmcError::InvalidResponse(mock_response.status(), "".into());
+        let error = BmcError::InvalidResponse {
+            url: "http://example.com/redfish/v1".parse().unwrap(),
+            status: mock_response.status(),
+            text: "".into(),
+        };
         assert!(error.is_cached());
 
         let cache_miss = BmcError::CacheMiss;
