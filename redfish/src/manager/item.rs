@@ -26,11 +26,14 @@ use std::sync::Arc;
 use crate::ethernet_interface::EthernetInterfaceCollection;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(feature = "oem-dell-attributes")]
+use crate::oem::dell::attributes::DellAttributes;
 
 /// Represents a manager (BMC) in the system.
 ///
 /// Provides access to manager information and associated services.
 pub struct Manager<B: Bmc> {
+    #[allow(dead_code)] // enabled by features
     bmc: NvBmc<B>,
     data: Arc<ManagerSchema>,
 }
@@ -104,6 +107,18 @@ impl<B: Bmc> Manager<B> {
         }
 
         Ok(log_services)
+    }
+
+    /// Get Dell Manager attributes for this manager.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The manager does not have dell attributes (not a Dell)
+    /// - Fetching manager attributes data fails
+    #[cfg(feature = "oem-dell-attributes")]
+    pub async fn oem_dell_attributes(&self) -> Result<DellAttributes<B>, Error<B>> {
+        DellAttributes::manager_attributes(&self.bmc, &self.data).await
     }
 }
 

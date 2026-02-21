@@ -63,7 +63,7 @@ network-adapters = []
 event-service = ["patch"]
 telemetry-service = []
 log-services = []
-managers = []
+managers = ["nv-bmc-expand"]
 memory = []
 pcie-devices = ["resource-status"]
 power = [] # Support of legacy PowerSubsystem
@@ -88,6 +88,8 @@ oem-nvidia = ["oem"]
 # OEM product features support
 oem-nvidia-bluefield = ["oem-nvidia"]
 oem-nvidia-baseboard = ["oem-nvidia"]
+
+oem-dell-attributes = ["oem-dell"]
 
 # Patches
 patch = []
