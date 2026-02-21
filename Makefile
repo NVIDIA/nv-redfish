@@ -33,7 +33,8 @@ all-std-features = accounts \
                    sensors \
                    storages \
                    thermal \
-                   update-service
+                   update-service \
+                   event-service
 
 # Features that cannot be compiled standalone (no references from the tree).
 std-not-standalone-features = assembly \
@@ -71,7 +72,7 @@ define build-and-test
 	cargo build -p nv-redfish --features computer-systems,oem-nvidia-bluefield
 	cargo build -p nv-redfish --features oem-dell
 	cargo build -p nv-redfish --features oem-ami
-	cargo build -p nv-redfish --features event-service
+	cargo build -p nv-redfish --features managers,oem-dell-attributes
 	$(foreach f,$(std-standalone-features),$(call compile-one-feature,$f))
 	cargo build -p nv-redfish --features ""
 	cargo doc $1

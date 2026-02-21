@@ -20,6 +20,8 @@ nv-redfish = { workspace = true, features = [
     "bios",
     "chassis",
     "computer-systems",
+    "managers",
+    "oem-dell-attributes",
     "oem-nvidia-baseboard",
     "update-service",
 ] }

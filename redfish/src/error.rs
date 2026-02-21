@@ -116,6 +116,9 @@ pub enum Error<B: Bmc> {
     /// Secure boot is not available for this system
     #[cfg(feature = "secure-boot")]
     SecureBootNotAvailable,
+    /// Dell Attributes are not available for this system
+    #[cfg(feature = "oem-dell-attributes")]
+    DellAttributesNotAvailable,
     /// JSON parse error.
     Json(JsonError),
 }
@@ -249,6 +252,10 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "secure-boot")]
             Self::SecureBootNotAvailable => {
                 write!(f, "Secure boot is not available")
+            }
+            #[cfg(feature = "oem-dell-attributes")]
+            Self::DellAttributesNotAvailable => {
+                write!(f, "Dell OEM Attibutes are not available")
             }
         }
     }
