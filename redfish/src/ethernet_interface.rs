@@ -66,15 +66,6 @@ impl<B: Bmc> EthernetInterfaceCollection<B> {
     }
 }
 
-/// Ethernet interface enabled.
-pub type Enabled = TaggedType<bool, EnabledTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
-#[capability(inner_access)]
-pub enum EnabledTag {}
-
 /// Mac address of the ethernet interface.
 ///
 /// Nv-redfish keeps open underlying type for `MacAddress` because it
@@ -131,13 +122,12 @@ impl<B: Bmc> EthernetInterface<B> {
     /// State of the interface. `None` means that BMC hasn't reported
     /// interface state or reported null.
     #[must_use]
-    pub fn interface_enabled(&self) -> Option<Enabled> {
+    pub fn interface_enabled(&self) -> Option<bool> {
         self.data
             .interface_enabled
             .as_ref()
             .and_then(Option::as_ref)
             .copied()
-            .map(Enabled::new)
     }
 
     /// Link status of the interface.

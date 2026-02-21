@@ -102,6 +102,9 @@ pub mod ethernet_interface;
 /// Event Service.
 #[cfg(feature = "event-service")]
 pub mod event_service;
+/// Host interfaces.
+#[cfg(feature = "host-interfaces")]
+pub mod host_interface;
 /// Log Service.
 #[cfg(feature = "log-services")]
 pub mod log_service;

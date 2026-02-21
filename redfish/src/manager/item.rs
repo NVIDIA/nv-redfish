@@ -24,6 +24,8 @@ use std::sync::Arc;
 
 #[cfg(feature = "ethernet-interfaces")]
 use crate::ethernet_interface::EthernetInterfaceCollection;
+#[cfg(feature = "host-interfaces")]
+use crate::host_interface::HostInterfaceCollection;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
 #[cfg(feature = "oem-dell-attributes")]
@@ -68,7 +70,7 @@ impl<B: Bmc> Manager<B> {
     ///
     /// Returns an error if:
     /// - The manager does not have / provide ethernet interfaces
-    /// - Fetching log ethernet internet data fails
+    /// - Fetching ethernet interfaces data fails
     #[cfg(feature = "ethernet-interfaces")]
     pub async fn ethernet_interfaces(
         &self,
@@ -79,6 +81,23 @@ impl<B: Bmc> Manager<B> {
             .as_ref()
             .ok_or(crate::Error::EthernetInterfacesNotAvailable)?;
         EthernetInterfaceCollection::new(&self.bmc, p).await
+    }
+
+    /// Get host interfaces for this manager.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The manager does not have / provide host interfaces
+    /// - Fetching host interfaces data fails
+    #[cfg(feature = "host-interfaces")]
+    pub async fn host_interfaces(&self) -> Result<HostInterfaceCollection<B>, crate::Error<B>> {
+        let p = self
+            .data
+            .host_interfaces
+            .as_ref()
+            .ok_or(crate::Error::HostInterfacesNotAvailable)?;
+        HostInterfaceCollection::new(&self.bmc, p).await
     }
 
     /// Get log services for this manager.
