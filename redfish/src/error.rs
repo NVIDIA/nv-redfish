@@ -95,6 +95,9 @@ pub enum Error<B: Bmc> {
     /// Ethernet interfaces not available for this resource
     #[cfg(feature = "ethernet-interfaces")]
     EthernetInterfacesNotAvailable,
+    /// Host interfaces not available for this resource
+    #[cfg(feature = "host-interfaces")]
+    HostInterfacesNotAvailable,
     /// Network adapters not available for this resource
     #[cfg(feature = "network-adapters")]
     NetworkAdaptersNotAvailable,
@@ -217,6 +220,10 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "ethernet-interfaces")]
             Self::EthernetInterfacesNotAvailable => {
                 write!(f, "Ethernet interfaces are not available")
+            }
+            #[cfg(feature = "host-interfaces")]
+            Self::HostInterfacesNotAvailable => {
+                write!(f, "Host interfaces are not available")
             }
             #[cfg(feature = "managers")]
             Self::ManagerNotSupported => {
