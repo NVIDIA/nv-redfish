@@ -29,6 +29,7 @@ use crate::compiler::Redfish;
 use crate::compiler::Stack;
 use crate::compiler::TypeInfo;
 use crate::edmx::ComplexType as EdmxComplexType;
+use crate::IsAbstract;
 
 /// Compiled complex type.
 #[derive(Debug)]
@@ -43,6 +44,8 @@ pub struct ComplexType<'a> {
     pub odata: OData<'a>,
     /// Attached Redfish annotations.
     pub redfish: Redfish<'a>,
+    /// Whether the type is abstract.
+    pub is_abstract: IsAbstract,
 }
 
 impl<'a> PropertiesManipulation<'a> for ComplexType<'a> {
@@ -99,6 +102,7 @@ pub(crate) fn compile<'a>(
         properties,
         odata: OData::new(MustHaveId::new(false), ct),
         redfish: Redfish::new(ct),
+        is_abstract: ct.is_abstract,
     };
     let typeinfo = TypeInfo::complex_type(&complex_type);
     Ok((

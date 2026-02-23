@@ -122,6 +122,15 @@ pub enum Error<B: Bmc> {
     /// Dell Attributes are not available for this system
     #[cfg(feature = "oem-dell-attributes")]
     DellAttributesNotAvailable,
+    /// Lenovo Manager is not available for this system
+    #[cfg(all(feature = "oem-lenovo", feature = "managers"))]
+    LenovoManagerNotAvailable,
+    /// Lenovo Security Service is not available for this system
+    #[cfg(all(feature = "oem-lenovo", feature = "managers"))]
+    LenovoSecurityServiceNotAvailable,
+    /// Lenovo computer system is not available for this system
+    #[cfg(all(feature = "oem-lenovo", feature = "computer-systems"))]
+    LenovoComputerSystemNotAvailable,
     /// JSON parse error.
     Json(JsonError),
 }
@@ -263,6 +272,18 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "oem-dell-attributes")]
             Self::DellAttributesNotAvailable => {
                 write!(f, "Dell OEM Attibutes are not available")
+            }
+            #[cfg(all(feature = "oem-lenovo", feature = "managers"))]
+            Self::LenovoManagerNotAvailable => {
+                write!(f, "Lenovo OEM manager is not available")
+            }
+            #[cfg(all(feature = "oem-lenovo", feature = "managers"))]
+            Self::LenovoSecurityServiceNotAvailable => {
+                write!(f, "Lenovo security service is not available")
+            }
+            #[cfg(all(feature = "oem-lenovo", feature = "computer-systems"))]
+            Self::LenovoComputerSystemNotAvailable => {
+                write!(f, "Lenovo computer system is not available")
             }
         }
     }

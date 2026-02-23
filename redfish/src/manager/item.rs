@@ -30,6 +30,8 @@ use crate::host_interface::HostInterfaceCollection;
 use crate::log_service::LogService;
 #[cfg(feature = "oem-dell-attributes")]
 use crate::oem::dell::attributes::DellAttributes;
+#[cfg(feature = "oem-lenovo")]
+use crate::oem::lenovo::manager::LenovoManager;
 
 /// Represents a manager (BMC) in the system.
 ///
@@ -138,6 +140,18 @@ impl<B: Bmc> Manager<B> {
     #[cfg(feature = "oem-dell-attributes")]
     pub async fn oem_dell_attributes(&self) -> Result<DellAttributes<B>, Error<B>> {
         DellAttributes::manager_attributes(&self.bmc, &self.data).await
+    }
+
+    /// Get Lenovo Manager OEM.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - The manager does not have Oem/Lenovo (not a Lenovo)
+    /// - Fetching manager attributes data fails
+    #[cfg(feature = "oem-lenovo")]
+    pub fn oem_lenovo(&self) -> Result<LenovoManager<B>, Error<B>> {
+        LenovoManager::new(&self.bmc, &self.data)
     }
 }
 
