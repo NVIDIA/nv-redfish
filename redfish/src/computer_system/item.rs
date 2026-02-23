@@ -48,6 +48,8 @@ use crate::computer_system::Storage;
 use crate::ethernet_interface::EthernetInterfaceCollection;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(feature = "oem-lenovo")]
+use crate::oem::lenovo::computer_system::LenovoComputerSystem;
 #[cfg(feature = "oem-nvidia-bluefield")]
 use crate::oem::nvidia::bluefield::nvidia_computer_system::NvidiaComputerSystem;
 
@@ -370,6 +372,18 @@ impl<B: Bmc> ComputerSystem<B> {
             .as_ref()
             .ok_or(Error::NvidiaComputerSystemNotAvailable)?;
         NvidiaComputerSystem::new(&self.bmc, oem).await
+    }
+
+    /// Lenovo OEM extension
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if:
+    /// - `Error::LenovoComputerSystemNotAvailable` if the systems does not have / provide Lenovo OEM extension
+    /// - Fetching data fails
+    #[cfg(feature = "oem-lenovo")]
+    pub fn oem_lenovo(&self) -> Result<LenovoComputerSystem<B>, Error<B>> {
+        LenovoComputerSystem::new(&self.bmc, &self.data)
     }
 }
 

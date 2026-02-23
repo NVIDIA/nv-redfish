@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,22 +13,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OEM-specific support.
+/// Support of Lenovo Manager OEM attributes.
+#[cfg(feature = "managers")]
+pub mod manager;
 
-/// OEM identifier.
-mod identifier;
+/// Support of Lenovo Security service.
+#[cfg(feature = "managers")]
+pub mod security_service;
 
-/// Support of NVIDIA.
-#[cfg(feature = "oem-nvidia")]
-pub mod nvidia;
+/// Support of Lenovo Computer System service.
+#[cfg(feature = "computer-systems")]
+pub mod computer_system;
 
-/// Support of Dell.
-#[cfg(feature = "oem-dell")]
-pub mod dell;
-
-/// Support of Lenovo.
-#[cfg(feature = "oem-lenovo")]
-pub mod lenovo;
-
-#[doc(inline)]
-pub use identifier::Identifier as OemIdentifier;
+/// Lenovo OEM Schema.
+pub(crate) mod schema;

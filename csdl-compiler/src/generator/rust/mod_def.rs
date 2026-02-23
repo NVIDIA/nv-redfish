@@ -118,6 +118,7 @@ impl<'a> ModDef<'a> {
             let builder = if TypeInfo::complex_type(&ct)
                 .permissions
                 .is_none_or(|v| v != Permissions::Read)
+                || ct.is_abstract.into_inner()
             {
                 builder.with_generate_type(vec![GenerateType::Read, GenerateType::Update])
             } else {

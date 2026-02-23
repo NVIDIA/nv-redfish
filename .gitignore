@@ -1,3 +1,2 @@
 target/**
-redfish/schemas/oem/lenovo/*.xml
 Cargo.lock
