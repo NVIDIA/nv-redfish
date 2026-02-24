@@ -21,6 +21,8 @@ mod metric_definition;
 mod metric_report;
 mod metric_report_definition;
 
+use crate::schema::redfish::metric_definition::MetricDefinition as MetricDefinitionSchema;
+use crate::schema::redfish::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
 use crate::schema::redfish::telemetry_service::TelemetryService as TelemetryServiceSchema;
 use crate::schema::redfish::telemetry_service::TelemetryServiceUpdate;
 use crate::Error;
@@ -218,18 +220,25 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_definition(
         &self,
         create: &MetricDefinitionCreate,
-    ) -> Result<ModificationResponse<()>, Error<B>> {
+    ) -> Result<Option<MetricDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_definitions
             .as_ref()
             .ok_or(Error::MetricDefinitionsNotAvailable)?;
 
-        self.bmc
+        match self
+            .bmc
             .as_ref()
-            .create::<_, ()>(collection_ref.id(), create)
+            .create::<_, NavProperty<MetricDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                MetricDefinition::new(&self.bmc, &nav).await.map(Some)
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Create a metric report definition.
@@ -242,18 +251,25 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_report_definition(
         &self,
         create: &MetricReportDefinitionCreate,
-    ) -> Result<ModificationResponse<()>, Error<B>> {
+    ) -> Result<Option<MetricReportDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_report_definitions
             .as_ref()
             .ok_or(Error::MetricReportDefinitionsNotAvailable)?;
 
-        self.bmc
+        match self
+            .bmc
             .as_ref()
-            .create::<_, ()>(collection_ref.id(), create)
+            .create::<_, NavProperty<MetricReportDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                MetricReportDefinition::new(&self.bmc, &nav).await.map(Some)
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 }
 

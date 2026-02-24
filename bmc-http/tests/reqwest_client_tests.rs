@@ -263,12 +263,7 @@ mod reqwest_client_tests {
         let result = bmc.action(&action, &action_request).await;
 
         assert!(result.is_ok());
-        let response = match result.unwrap() {
-            ModificationResponse::Entity(response) => response,
-            _ => panic!("expected entity response"),
-        };
-        assert_eq!(response.result, "Reset initiated");
-        assert!(response.success);
+        assert!(matches!(result.unwrap(), ModificationResponse::Empty));
     }
 
     #[tokio::test]

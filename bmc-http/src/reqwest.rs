@@ -397,12 +397,15 @@ impl Client {
                     let value: serde_json::Value =
                         serde_json::from_slice(&bytes).map_err(BmcError::DecodeError)?;
                     let mut value = value;
-                    if let Some(etag) = etag {
-                        inject_etag(etag, &mut value);
+
+                    if value.get("@odata.id").is_some() {
+                        if let Some(etag) = etag {
+                            inject_etag(etag, &mut value);
+                        }
+                        return serde_path_to_error::deserialize(value)
+                            .map(ModificationResponse::Entity)
+                            .map_err(BmcError::JsonError);
                     }
-                    return serde_path_to_error::deserialize(value)
-                        .map(ModificationResponse::Entity)
-                        .map_err(BmcError::JsonError);
                 }
 
                 if let Some(location) = location {

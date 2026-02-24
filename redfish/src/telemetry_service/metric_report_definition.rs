@@ -49,13 +49,6 @@ impl<B: Bmc> MetricReportDefinition<B> {
             })
     }
 
-    pub(crate) fn from_data(bmc: NvBmc<B>, data: MetricReportDefinitionSchema) -> Self {
-        Self {
-            bmc,
-            data: Arc::new(data),
-        }
-    }
-
     /// Get raw metric report definition schema data.
     #[must_use]
     pub fn raw(&self) -> Arc<MetricReportDefinitionSchema> {
