@@ -19,7 +19,6 @@
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::oem::lenovo::computer_system::FpMode;
 use nv_redfish::oem::lenovo::computer_system::PortSwitchingTo;
-use nv_redfish::Error as RedfishError;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -57,7 +56,7 @@ async fn lenovo_computer_system_usb_management_fields() -> Result<(), Box<dyn St
     )
     .await?;
 
-    let lenovo = system.oem_lenovo()?;
+    let lenovo = system.oem_lenovo()?.unwrap();
     assert_eq!(lenovo.front_panel_mode(), Some(FpMode::Server));
     assert_eq!(lenovo.port_switching_to(), Some(PortSwitchingTo::Server));
 
@@ -70,10 +69,7 @@ async fn system_without_lenovo_oem_returns_not_available() -> Result<(), Box<dyn
     let ids = ids();
     let system = get_system(bmc.clone(), &ids, system_payload(&ids, None)).await?;
 
-    assert!(matches!(
-        system.oem_lenovo(),
-        Err(RedfishError::LenovoComputerSystemNotAvailable)
-    ));
+    assert!(system.oem_lenovo()?.is_none());
 
     Ok(())
 }
@@ -95,7 +91,7 @@ async fn get_system(
         }),
     ));
 
-    let systems = root.systems().await?;
+    let systems = root.systems().await?.unwrap();
     let members = systems.members().await?;
     assert_eq!(members.len(), 1);
     Ok(members

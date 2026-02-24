@@ -17,7 +17,6 @@
 #![recursion_limit = "256"]
 
 use nv_redfish::manager::Manager;
-use nv_redfish::Error as RedfishError;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -47,7 +46,7 @@ async fn manager_dell_attributes_lean_payload() -> Result<(), Box<dyn StdError>>
         dell_attributes_payload(&ids),
     ));
 
-    let attrs = manager.oem_dell_attributes().await?;
+    let attrs = manager.oem_dell_attributes().await?.unwrap();
     assert!(attrs
         .attribute("CurrentNIC.1.MTU")
         .is_some_and(|v| v.integer_value() == Some(1500)));
@@ -71,10 +70,7 @@ async fn manager_without_dell_oem_returns_not_available() -> Result<(), Box<dyn 
     let ids = manager_ids();
     let manager = get_manager(bmc.clone(), &ids, manager_payload(&ids, false)).await?;
 
-    assert!(matches!(
-        manager.oem_dell_attributes().await,
-        Err(RedfishError::DellAttributesNotAvailable)
-    ));
+    assert!(manager.oem_dell_attributes().await?.is_none());
 
     Ok(())
 }
@@ -95,10 +91,13 @@ async fn get_manager(
             "Members": [manager]
         }),
     ));
-    let collection = root.managers().await?;
+    let collection = root.managers().await?.unwrap();
     let members = collection.members().await?;
     assert_eq!(members.len(), 1);
-    Ok(members.into_iter().next().expect("single manager must exist"))
+    Ok(members
+        .into_iter()
+        .next()
+        .expect("single manager must exist"))
 }
 
 async fn expect_service_root(

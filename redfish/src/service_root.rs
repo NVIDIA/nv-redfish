@@ -110,71 +110,85 @@ impl<B: Bmc> ServiceRoot<B> {
 
     /// Get the account service belonging to the BMC.
     ///
+    /// Returns `Ok(None)` when the BMC does not expose AccountService.
+    ///
     /// # Errors
     ///
     /// Returns error if retrieving account service data fails.
     #[cfg(feature = "accounts")]
-    pub async fn account_service(&self) -> Result<AccountService<B>, Error<B>> {
+    pub async fn account_service(&self) -> Result<Option<AccountService<B>>, Error<B>> {
         AccountService::new(&self.bmc, self).await
     }
 
     /// Get chassis collection in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose Chassis.
+    ///
     /// # Errors
     ///
-    /// Returns error if chassis list is not avaiable in BMC
+    /// Returns error if retrieving chassis collection data fails.
     #[cfg(feature = "chassis")]
-    pub async fn chassis(&self) -> Result<ChassisCollection<B>, Error<B>> {
+    pub async fn chassis(&self) -> Result<Option<ChassisCollection<B>>, Error<B>> {
         ChassisCollection::new(&self.bmc, self).await
     }
 
     /// Get computer system collection in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose Systems.
+    ///
     /// # Errors
     ///
-    /// Returns error if system list is not available in BMC
+    /// Returns error if retrieving system collection data fails.
     #[cfg(feature = "computer-systems")]
-    pub async fn systems(&self) -> Result<SystemCollection<B>, Error<B>> {
+    pub async fn systems(&self) -> Result<Option<SystemCollection<B>>, Error<B>> {
         SystemCollection::new(&self.bmc, self).await
     }
 
     /// Get update service in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose UpdateService.
+    ///
     /// # Errors
     ///
-    /// Returns error if update service is not available in BMC
+    /// Returns error if retrieving update service data fails.
     #[cfg(feature = "update-service")]
-    pub async fn update_service(&self) -> Result<UpdateService<B>, Error<B>> {
+    pub async fn update_service(&self) -> Result<Option<UpdateService<B>>, Error<B>> {
         UpdateService::new(&self.bmc, self).await
     }
 
     /// Get event service in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose EventService.
+    ///
     /// # Errors
     ///
-    /// Returns error if event service is not available in BMC
+    /// Returns error if retrieving event service data fails.
     #[cfg(feature = "event-service")]
-    pub async fn event_service(&self) -> Result<EventService<B>, Error<B>> {
+    pub async fn event_service(&self) -> Result<Option<EventService<B>>, Error<B>> {
         EventService::new(&self.bmc, self).await
     }
 
     /// Get telemetry service in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose TelemetryService.
+    ///
     /// # Errors
     ///
-    /// Returns error if telemetry service is not available in BMC
+    /// Returns error if retrieving telemetry service data fails.
     #[cfg(feature = "telemetry-service")]
-    pub async fn telemetry_service(&self) -> Result<TelemetryService<B>, Error<B>> {
+    pub async fn telemetry_service(&self) -> Result<Option<TelemetryService<B>>, Error<B>> {
         TelemetryService::new(&self.bmc, self).await
     }
 
     /// Get manager collection in BMC
     ///
+    /// Returns `Ok(None)` when the BMC does not expose Managers.
+    ///
     /// # Errors
     ///
-    /// Returns error if manager list is not available in BMC
+    /// Returns error if retrieving manager collection data fails.
     #[cfg(feature = "managers")]
-    pub async fn managers(&self) -> Result<ManagerCollection<B>, Error<B>> {
+    pub async fn managers(&self) -> Result<Option<ManagerCollection<B>>, Error<B>> {
         ManagerCollection::new(&self.bmc, self).await
     }
 }

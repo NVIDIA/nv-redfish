@@ -54,18 +54,22 @@ pub struct NvidiaComputerSystem<B: Bmc> {
 
 impl<B: Bmc> NvidiaComputerSystem<B> {
     /// Create a new computer system handle.
-    pub(crate) async fn new(bmc: &NvBmc<B>, oem: &ResourceOemSchema) -> Result<Self, Error<B>> {
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        oem: &ResourceOemSchema,
+    ) -> Result<Option<Self>, Error<B>> {
         let oem: Oem =
             serde_json::from_value(oem.additional_properties.clone()).map_err(Error::Json)?;
-        oem.nvidia
-            .ok_or(Error::NvidiaComputerSystemNotAvailable)?
-            .get(bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)
-            .map(|data| Self {
-                data,
-                _marker: PhantomData,
+        if let Some(p) = oem.nvidia {
+            p.get(bmc.as_ref()).await.map_err(Error::Bmc).map(|data| {
+                Some(Self {
+                    data,
+                    _marker: PhantomData,
+                })
             })
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the raw schema data for this NVIDIA computer system.

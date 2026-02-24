@@ -72,7 +72,13 @@ pub struct NvidiaCbcChassis<B: Bmc> {
 
 impl<B: Bmc> NvidiaCbcChassis<B> {
     /// Create a new computer system handle.
-    pub(crate) fn new(oem: &ResourceOemSchema) -> Result<Self, Error<B>> {
+    ///
+    /// Returns `Ok(None)` when the OEM payload does not contain NVIDIA CBC chassis data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing NVIDIA CBC chassis OEM data fails.
+    pub(crate) fn new(oem: &ResourceOemSchema) -> Result<Option<Self>, Error<B>> {
         let is_cbc_chassis = oem
             .additional_properties
             .get("Nvidia")
@@ -89,12 +95,12 @@ impl<B: Bmc> NvidiaCbcChassis<B> {
         if is_cbc_chassis.is_some_and(identity) {
             let oem: CbcOem =
                 serde_json::from_value(oem.additional_properties.clone()).map_err(Error::Json)?;
-            Ok(Self {
+            Ok(Some(Self {
                 data: oem.nvidia.into(),
                 _marker: PhantomData,
-            })
+            }))
         } else {
-            Err(Error::NvidiaCbcChassisNotAvailable)
+            Ok(None)
         }
     }
 

@@ -68,7 +68,7 @@ async fn list_dell_fw_inventores() -> Result<(), Box<dyn StdError>> {
             ]
         }),
     ));
-    let inventories = update_service.firmware_inventories().await?;
+    let inventories = update_service.firmware_inventories().await?.unwrap();
     assert_eq!(inventories.len(), 1);
     assert!(inventories[0].raw().release_date.is_none());
     Ok(())
@@ -115,5 +115,5 @@ async fn get_update_service(
             },
         }),
     ));
-    Ok(service_root.update_service().await?)
+    Ok(service_root.update_service().await?.unwrap())
 }

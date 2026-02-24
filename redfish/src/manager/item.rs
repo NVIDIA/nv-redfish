@@ -68,89 +68,89 @@ impl<B: Bmc> Manager<B> {
 
     /// Get ethernet interfaces for this manager.
     ///
+    /// Returns `Ok(None)` when the ethernet interfaces link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have / provide ethernet interfaces
-    /// - Fetching ethernet interfaces data fails
+    /// Returns an error if fetching ethernet interfaces data fails.
     #[cfg(feature = "ethernet-interfaces")]
     pub async fn ethernet_interfaces(
         &self,
-    ) -> Result<EthernetInterfaceCollection<B>, crate::Error<B>> {
-        let p = self
-            .data
-            .ethernet_interfaces
-            .as_ref()
-            .ok_or(crate::Error::EthernetInterfacesNotAvailable)?;
-        EthernetInterfaceCollection::new(&self.bmc, p).await
+    ) -> Result<Option<EthernetInterfaceCollection<B>>, crate::Error<B>> {
+        if let Some(p) = &self.data.ethernet_interfaces {
+            EthernetInterfaceCollection::new(&self.bmc, p)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get host interfaces for this manager.
     ///
+    /// Returns `Ok(None)` when the host interfaces link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have / provide host interfaces
-    /// - Fetching host interfaces data fails
+    /// Returns an error if fetching host interfaces data fails.
     #[cfg(feature = "host-interfaces")]
-    pub async fn host_interfaces(&self) -> Result<HostInterfaceCollection<B>, crate::Error<B>> {
-        let p = self
-            .data
-            .host_interfaces
-            .as_ref()
-            .ok_or(crate::Error::HostInterfacesNotAvailable)?;
-        HostInterfaceCollection::new(&self.bmc, p).await
+    pub async fn host_interfaces(
+        &self,
+    ) -> Result<Option<HostInterfaceCollection<B>>, crate::Error<B>> {
+        if let Some(p) = &self.data.host_interfaces {
+            HostInterfaceCollection::new(&self.bmc, p).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get log services for this manager.
     ///
+    /// Returns `Ok(None)` when the log services link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have log services
-    /// - Fetching log service data fails
+    /// Returns an error if fetching log service data fails.
     #[cfg(feature = "log-services")]
-    pub async fn log_services(&self) -> Result<Vec<LogService<B>>, crate::Error<B>> {
-        let log_services_ref = self
-            .data
-            .log_services
-            .as_ref()
-            .ok_or(crate::Error::LogServiceNotAvailable)?;
+    pub async fn log_services(&self) -> Result<Option<Vec<LogService<B>>>, crate::Error<B>> {
+        if let Some(log_services_ref) = &self.data.log_services {
+            let log_services_collection = log_services_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(crate::Error::Bmc)?;
 
-        let log_services_collection = log_services_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(crate::Error::Bmc)?;
+            let mut log_services = Vec::new();
+            for m in &log_services_collection.members {
+                log_services.push(LogService::new(&self.bmc, m).await?);
+            }
 
-        let mut log_services = Vec::new();
-        for m in &log_services_collection.members {
-            log_services.push(LogService::new(&self.bmc, m).await?);
+            Ok(Some(log_services))
+        } else {
+            Ok(None)
         }
-
-        Ok(log_services)
     }
 
     /// Get Dell Manager attributes for this manager.
     ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Dell`.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have dell attributes (not a Dell)
-    /// - Fetching manager attributes data fails
+    /// Returns an error if fetching manager attributes data fails.
     #[cfg(feature = "oem-dell-attributes")]
-    pub async fn oem_dell_attributes(&self) -> Result<DellAttributes<B>, Error<B>> {
+    pub async fn oem_dell_attributes(&self) -> Result<Option<DellAttributes<B>>, Error<B>> {
         DellAttributes::manager_attributes(&self.bmc, &self.data).await
     }
 
     /// Get Lenovo Manager OEM.
     ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Lenovo`.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have Oem/Lenovo (not a Lenovo)
-    /// - Fetching manager attributes data fails
+    /// Returns an error if parsing Lenovo manager OEM data fails.
     #[cfg(feature = "oem-lenovo")]
-    pub fn oem_lenovo(&self) -> Result<LenovoManager<B>, Error<B>> {
+    pub fn oem_lenovo(&self) -> Result<Option<LenovoManager<B>>, Error<B>> {
         LenovoManager::new(&self.bmc, &self.data)
     }
 }

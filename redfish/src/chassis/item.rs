@@ -55,6 +55,8 @@ use crate::schema::redfish::sensor::Sensor as SchemaSensor;
 use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]
 use crate::sensor::SensorRef;
+#[cfg(feature = "oem-nvidia-baseboard")]
+use std::convert::identity;
 
 #[doc(hidden)]
 pub enum ChassisTag {}
@@ -164,17 +166,18 @@ impl<B: Bmc> Chassis<B> {
 
     /// Get assembly of this chassis
     ///
+    /// Returns `Ok(None)` when the assembly link is absent.
+    ///
     /// # Errors
     ///
     /// Returns an error if fetching assembly data fails.
     #[cfg(feature = "assembly")]
-    pub async fn assembly(&self) -> Result<Assembly<B>, Error<B>> {
-        let assembly_ref = self
-            .data
-            .assembly
-            .as_ref()
-            .ok_or(Error::AssemblyNotAvailable)?;
-        Assembly::new(&self.bmc, assembly_ref).await
+    pub async fn assembly(&self) -> Result<Option<Assembly<B>>, Error<B>> {
+        if let Some(assembly_ref) = &self.data.assembly {
+            Assembly::new(&self.bmc, assembly_ref).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get power supplies from this chassis.
@@ -240,50 +243,49 @@ impl<B: Bmc> Chassis<B> {
 
     /// Get network adapter resources
     ///
-    /// Returns the `Chassis/NetworkAdapter` resources if available.
+    /// Returns the `Chassis/NetworkAdapter` resources if available, and `Ok(None)` when
+    /// the network adapters link is absent.
     ///
     /// # Errors
     ///
     /// Returns an error if fetching network adapters data fails.
     #[cfg(feature = "network-adapters")]
-    pub async fn network_adapters(&self) -> Result<Vec<NetworkAdapter<B>>, Error<B>> {
-        let network_adapters_collection_ref = &self
-            .data
-            .network_adapters
-            .as_ref()
-            .ok_or(Error::NetworkAdaptersNotAvailable)?;
-        NetworkAdapterCollection::new(&self.bmc, network_adapters_collection_ref)
-            .await?
-            .members()
-            .await
+    pub async fn network_adapters(&self) -> Result<Option<Vec<NetworkAdapter<B>>>, Error<B>> {
+        if let Some(network_adapters_collection_ref) = &self.data.network_adapters {
+            NetworkAdapterCollection::new(&self.bmc, network_adapters_collection_ref)
+                .await?
+                .members()
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get log services for this chassis.
     ///
+    /// Returns `Ok(None)` when the log services link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The chassis does not have log services
-    /// - Fetching log service data fails
+    /// Returns an error if fetching log service data fails.
     #[cfg(feature = "log-services")]
-    pub async fn log_services(&self) -> Result<Vec<LogService<B>>, Error<B>> {
-        let log_services_ref = self
-            .data
-            .log_services
-            .as_ref()
-            .ok_or(Error::LogServiceNotAvailable)?;
+    pub async fn log_services(&self) -> Result<Option<Vec<LogService<B>>>, Error<B>> {
+        if let Some(log_services_ref) = &self.data.log_services {
+            let log_services_collection = log_services_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
 
-        let log_services_collection = log_services_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+            let mut log_services = Vec::new();
+            for m in &log_services_collection.members {
+                log_services.push(LogService::new(&self.bmc, m).await?);
+            }
 
-        let mut log_services = Vec::new();
-        for m in &log_services_collection.members {
-            log_services.push(LogService::new(&self.bmc, m).await?);
+            Ok(Some(log_services))
+        } else {
+            Ok(None)
         }
-
-        Ok(log_services)
     }
 
     /// Get the environment sensors for this chassis.
@@ -309,15 +311,14 @@ impl<B: Bmc> Chassis<B> {
 
     /// Get the sensors collection for this chassis.
     ///
-    /// Returns all available sensors associated with the chassis.
+    /// Returns all available sensors associated with the chassis, and `Ok(None)`
+    /// when the sensors link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The chassis does not have sensors
-    /// - Fetching sensors data fails
+    /// Returns an error if fetching sensors data fails.
     #[cfg(feature = "sensors")]
-    pub async fn sensors(&self) -> Result<Vec<SensorRef<B>>, Error<B>> {
+    pub async fn sensors(&self) -> Result<Option<Vec<SensorRef<B>>>, Error<B>> {
         if let Some(sensors_collection) = &self.data.sensors {
             let sc = sensors_collection
                 .get(self.bmc.as_ref())
@@ -330,45 +331,45 @@ impl<B: Bmc> Chassis<B> {
                     NavProperty::<SchemaSensor>::new_reference(sensor.id().clone()),
                 ));
             }
-            Ok(sensor_data)
+            Ok(Some(sensor_data))
         } else {
-            Err(Error::SensorsNotAvailable)
+            Ok(None)
         }
     }
 
     /// Get `PCIe` devices for this computer system.
     ///
+    /// Returns `Ok(None)` when the `PCIeDevices` link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The systems does not have / provide pcie devices
-    /// - Fetching pcie devices data fails
+    /// Returns an error if fetching `PCIe` devices data fails.
     #[cfg(feature = "pcie-devices")]
-    pub async fn pcie_devices(&self) -> Result<PcieDeviceCollection<B>, crate::Error<B>> {
-        let p = self
-            .data
-            .pcie_devices
-            .as_ref()
-            .ok_or(crate::Error::PcieDevicesNotAvailable)?;
-        PcieDeviceCollection::new(&self.bmc, p).await
+    pub async fn pcie_devices(&self) -> Result<Option<PcieDeviceCollection<B>>, crate::Error<B>> {
+        if let Some(p) = &self.data.pcie_devices {
+            PcieDeviceCollection::new(&self.bmc, p).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// NVIDIA Bluefield OEM extension
     ///
+    /// Returns `Ok(None)` when the chassis does not include NVIDIA OEM extension data.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - `Error::NvidiaChassisNotAvailable` if the systems does not have / provide NVIDIA OEM extension
-    /// - Fetching data fails
+    /// Returns an error if NVIDIA OEM data parsing fails.
     #[cfg(feature = "oem-nvidia-baseboard")]
-    pub fn oem_nvidia_baseboard_cbc(&self) -> Result<NvidiaCbcChassis<B>, Error<B>> {
+    pub fn oem_nvidia_baseboard_cbc(&self) -> Result<Option<NvidiaCbcChassis<B>>, Error<B>> {
         self.data
             .base
             .base
             .oem
             .as_ref()
-            .ok_or(Error::NvidiaCbcChassisNotAvailable)
-            .and_then(NvidiaCbcChassis::new)
+            .map(NvidiaCbcChassis::new)
+            .transpose()
+            .map(|v| v.and_then(identity))
     }
 }
 

@@ -71,7 +71,11 @@ async fn get_systems(
         }),
     ));
 
-    service_root.systems().await.map_err(Into::into)
+    service_root
+        .systems()
+        .await
+        .map(Option::unwrap)
+        .map_err(Into::into)
 }
 
 async fn expect_service_root(

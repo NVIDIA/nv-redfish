@@ -51,7 +51,13 @@ pub struct LenovoManager<B: Bmc> {
 
 impl<B: Bmc> LenovoManager<B> {
     /// Create a new manager handle.
-    pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Result<Self, Error<B>> {
+    ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Lenovo`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing Lenovo manager OEM data fails.
+    pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Result<Option<Self>, Error<B>> {
         if let Some(oem) = manager
             .base
             .base
@@ -60,12 +66,12 @@ impl<B: Bmc> LenovoManager<B> {
             .and_then(|oem| oem.additional_properties.get("Lenovo"))
         {
             let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Self {
+            Ok(Some(Self {
                 data,
                 bmc: bmc.clone(),
-            })
+            }))
         } else {
-            Err(Error::LenovoManagerNotAvailable)
+            Ok(None)
         }
     }
 
@@ -95,18 +101,17 @@ impl<B: Bmc> LenovoManager<B> {
 
     /// Get lenovo security for the manager.
     ///
+    /// Returns `Ok(None)` when Lenovo Security service link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The manager does not have / provide security service
-    /// - Fetching security service data fails
-    pub async fn security(&self) -> Result<LenovoSecurityService<B>, Error<B>> {
-        let p = self
-            .base()
-            .security
-            .as_ref()
-            .ok_or(Error::LenovoSecurityServiceNotAvailable)?;
-        LenovoSecurityService::new(&self.bmc, p).await
+    /// Returns an error if fetching Lenovo Security service data fails.
+    pub async fn security(&self) -> Result<Option<LenovoSecurityService<B>>, Error<B>> {
+        if let Some(p) = &self.base().security {
+            LenovoSecurityService::new(&self.bmc, p).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Host-side IPMI access via KCS protocol.

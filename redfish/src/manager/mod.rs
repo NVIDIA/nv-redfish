@@ -38,18 +38,19 @@ pub struct ManagerCollection<B: Bmc> {
 
 impl<B: Bmc> ManagerCollection<B> {
     /// Create a new manager collection handle.
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let collection_ref = root
-            .root
-            .managers
-            .as_ref()
-            .ok_or(Error::ManagerNotSupported)?;
-
-        let collection = bmc.expand_property(collection_ref).await?;
-        Ok(Self {
-            bmc: bmc.clone(),
-            collection,
-        })
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(collection_ref) = &root.root.managers {
+            let collection = bmc.expand_property(collection_ref).await?;
+            Ok(Some(Self {
+                bmc: bmc.clone(),
+                collection,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     /// List all managers available in this BMC.
