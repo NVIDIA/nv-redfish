@@ -78,9 +78,6 @@ pub use secure_boot::SecureBoot;
 #[cfg(feature = "secure-boot")]
 pub use secure_boot::SecureBootCurrentBootType;
 #[doc(inline)]
-#[cfg(feature = "secure-boot")]
-pub use secure_boot::SecureBootEnable;
-#[doc(inline)]
 #[cfg(feature = "storages")]
 pub use storage::Storage;
 

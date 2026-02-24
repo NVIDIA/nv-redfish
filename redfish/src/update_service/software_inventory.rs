@@ -32,8 +32,8 @@ use tagged_types::TaggedType;
 
 /// Version of the software.
 pub type Version = TaggedType<String, VersionTag>;
-/// Reference to the version of softeare.
-pub type VersionRef<'a> = TaggedType<&'a String, VersionTag>;
+/// Reference to the version of software.
+pub type VersionRef<'a> = TaggedType<&'a str, VersionTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -92,7 +92,7 @@ impl<B: Bmc> SoftwareInventory<B> {
         self.data
             .version
             .as_ref()
-            .and_then(Option::as_ref)
+            .and_then(Option::as_deref)
             .map(VersionRef::new)
     }
 

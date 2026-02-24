@@ -17,6 +17,9 @@
 #![recursion_limit = "256"]
 
 use nv_redfish::chassis::Chassis;
+use nv_redfish::hardware_id::Model;
+use nv_redfish::hardware_id::PartNumber;
+use nv_redfish::hardware_id::SerialNumber;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -52,15 +55,9 @@ async fn wiwynn_assembly_without_member_odata_type_is_supported() -> Result<(), 
     assert_eq!(members.len(), 1);
 
     let hw = members[0].hardware_id();
-    assert_eq!(hw.model.map(|v| v.inner().as_str()), Some("GB200 NVL"));
-    assert_eq!(
-        hw.part_number.map(|v| v.inner().as_str()),
-        Some("B81.11801.0008")
-    );
-    assert_eq!(
-        hw.serial_number.map(|v| v.inner().as_str()),
-        Some(DUMMY_SERIAL)
-    );
+    assert_eq!(hw.model, Some(Model::new("GB200 NVL")));
+    assert_eq!(hw.part_number, Some(PartNumber::new("B81.11801.0008")));
+    assert_eq!(hw.serial_number, Some(SerialNumber::new(DUMMY_SERIAL)));
 
     Ok(())
 }

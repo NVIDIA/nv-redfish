@@ -83,8 +83,8 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
 
     /// Get base MAC address of the device.
     #[must_use]
-    pub fn base_mac(&self) -> Option<BaseMac<&String>> {
-        self.data.base_mac.as_ref().map(BaseMac::new)
+    pub fn base_mac(&self) -> Option<BaseMac<&str>> {
+        self.data.base_mac.as_deref().map(BaseMac::new)
     }
 
     /// Get mode of the Bluefield device.

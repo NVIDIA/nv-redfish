@@ -131,36 +131,37 @@ impl<B: Bmc> PcieDevice<B> {
                 .data
                 .manufacturer
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Manufacturer::new),
             model: self
                 .data
                 .model
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Model::new),
             part_number: self
                 .data
                 .part_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(PartNumber::new),
             serial_number: self
                 .data
                 .serial_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(SerialNumber::new),
         }
     }
 
     /// The version of firmware for this PCIe device.
     #[must_use]
-    pub fn firmware_version(&self) -> Option<FirmwareVersion<&String>> {
+    pub fn firmware_version(&self) -> Option<FirmwareVersion<&str>> {
         self.data
             .firmware_version
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(FirmwareVersion::new)
     }
 }

@@ -142,21 +142,23 @@ impl<B: Bmc> EthernetInterface<B> {
 
     /// MAC address of the interface.
     #[must_use]
-    pub fn mac_address(&self) -> Option<MacAddress<&String>> {
+    pub fn mac_address(&self) -> Option<MacAddress<&str>> {
         self.data
             .mac_address
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(MacAddress::new)
     }
 
     /// UEFI device path for the interface.
     #[must_use]
-    pub fn uefi_device_path(&self) -> Option<UefiDevicePath<&String>> {
+    pub fn uefi_device_path(&self) -> Option<UefiDevicePath<&str>> {
         self.data
             .uefi_device_path
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(UefiDevicePath::new)
     }
 }

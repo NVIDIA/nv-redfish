@@ -22,19 +22,9 @@ use nv_redfish_core::NavProperty;
 use std::convert::identity;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use tagged_types::TaggedType;
 
 #[doc(inline)]
 pub use crate::schema::redfish::secure_boot::SecureBootCurrentBootType;
-
-/// An indication of whether state of secure boot enable
-pub type SecureBootEnable = TaggedType<bool, SecureBootEnableTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[transparent(Debug, Display, Serialize, Deserialize)]
-#[capability(inner_access)]
-pub enum SecureBootEnableTag {}
 
 /// Secure boot.
 ///
@@ -67,11 +57,8 @@ impl<B: Bmc> SecureBoot<B> {
 
     /// Get an indication of whether UEFI Secure Boot is enabled.
     #[must_use]
-    pub fn secure_boot_enable(&self) -> Option<SecureBootEnable> {
-        self.data
-            .secure_boot_enable
-            .and_then(identity)
-            .map(SecureBootEnable::new)
+    pub fn secure_boot_enable(&self) -> Option<bool> {
+        self.data.secure_boot_enable.and_then(identity)
     }
 
     /// The UEFI Secure Boot state during the current boot cycle.

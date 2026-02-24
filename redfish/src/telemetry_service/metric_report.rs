@@ -50,7 +50,10 @@ impl<B: Bmc> MetricReportRef<B> {
     ///
     /// Returns an error if fetching the entity fails.
     pub async fn fetch(&self) -> Result<Arc<MetricReportSchema>, Error<B>> {
-        self.metric_report_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+        self.metric_report_ref
+            .get(self.bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Delete this metric report.

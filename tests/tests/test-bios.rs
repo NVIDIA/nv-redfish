@@ -120,12 +120,12 @@ async fn bios_attribute_string_value() -> Result<(), Box<dyn StdError>> {
     let boot_mode = bios
         .attribute("BootMode")
         .ok_or("BootMode attribute must exist")?;
-    assert_eq!(boot_mode.string_value(), Some(&"Uefi".to_string()));
+    assert_eq!(boot_mode.str_value(), Some("Uefi"));
 
     let watchdog = bios
         .attribute("WatchdogTimeout")
         .ok_or("WatchdogTimeout attribute must exist")?;
-    assert!(watchdog.string_value().is_none());
+    assert!(watchdog.str_value().is_none());
 
     Ok(())
 }

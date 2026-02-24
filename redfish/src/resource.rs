@@ -42,7 +42,7 @@ pub use crate::schema::redfish::resource::PowerState;
 /// Redfish resource identifier.
 pub type ResourceId = TaggedType<String, ResourceIdTag>;
 /// Reference to Redfish resource identifier.
-pub type ResourceIdRef<'a> = TaggedType<&'a String, ResourceIdTag>;
+pub type ResourceIdRef<'a> = TaggedType<&'a str, ResourceIdTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -53,7 +53,7 @@ pub enum ResourceIdTag {}
 /// Redfish resource name.
 pub type ResourceName = TaggedType<String, ResourceNameTag>;
 /// Reference to Redfish resource name.
-pub type ResourceNameRef<'a> = TaggedType<&'a String, ResourceNameTag>;
+pub type ResourceNameRef<'a> = TaggedType<&'a str, ResourceNameTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
@@ -64,7 +64,7 @@ pub enum ResourceNameTag {}
 /// Redfish resource description.
 pub type ResourceDescription = TaggedType<String, ResourceDescriptionTag>;
 /// Reference to Redfish resource description.
-pub type ResourceDescriptionRef<'a> = TaggedType<&'a String, ResourceDescriptionTag>;
+pub type ResourceDescriptionRef<'a> = TaggedType<&'a str, ResourceDescriptionTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone)]
@@ -92,19 +92,20 @@ pub trait Resource {
         self.resource_ref()
             .description
             .as_ref()
-            .and_then(|v| v.as_ref())
+            .and_then(Option::as_deref)
             .map(ResourceDescriptionRef::new)
     }
 
     /// OEM identifier if present in the resource.
     #[cfg(feature = "oem")]
-    fn oem_id(&self) -> Option<OemIdentifier<&String>> {
+    fn oem_id(&self) -> Option<OemIdentifier<&str>> {
         self.resource_ref()
             .base
             .oem
             .as_ref()
             .and_then(|v| v.additional_properties.as_object())
             .and_then(|v| v.keys().next())
+            .map(String::as_str)
             .map(OemIdentifier::new)
     }
 

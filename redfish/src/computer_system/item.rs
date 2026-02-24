@@ -130,36 +130,37 @@ impl<B: Bmc> ComputerSystem<B> {
                 .data
                 .manufacturer
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Manufacturer::new),
             model: self
                 .data
                 .model
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Model::new),
             part_number: self
                 .data
                 .part_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(PartNumber::new),
             serial_number: self
                 .data
                 .serial_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(SerialNumber::new),
         }
     }
 
     /// The manufacturer SKU for this system.
     #[must_use]
-    pub fn sku(&self) -> Option<Sku<&String>> {
+    pub fn sku(&self) -> Option<Sku<&str>> {
         self.data
             .sku
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(Sku::new)
     }
 
@@ -172,13 +173,18 @@ impl<B: Bmc> ComputerSystem<B> {
     /// An array of `BootOptionReference` strings that represent the persistent boot order for with this
     /// computer system.
     #[must_use]
-    pub fn boot_order(&self) -> Option<Vec<BootOptionReference<&String>>> {
+    pub fn boot_order(&self) -> Option<Vec<BootOptionReference<&str>>> {
         self.data
             .as_ref()
             .boot
             .as_ref()
             .and_then(|boot| boot.boot_order.as_ref().and_then(Option::as_ref))
-            .map(|v| v.iter().map(BootOptionReference::new).collect::<Vec<_>>())
+            .map(|v| {
+                v.iter()
+                    .map(String::as_str)
+                    .map(BootOptionReference::new)
+                    .collect::<Vec<_>>()
+            })
     }
 
     /// Bios associated with this system.
