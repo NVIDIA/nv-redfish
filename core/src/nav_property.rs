@@ -147,9 +147,9 @@ where
 }
 
 impl<T: EntityTypeRef> EntityTypeRef for NavProperty<T> {
-    fn id(&self) -> &ODataId {
+    fn odata_id(&self) -> &ODataId {
         match self {
-            Self::Expanded(v) => v.0.id(),
+            Self::Expanded(v) => v.0.odata_id(),
             Self::Reference(r) => &r.odata_id,
         }
     }
@@ -193,7 +193,7 @@ impl<T: EntityTypeRef> NavProperty<T> {
     pub fn id(&self) -> &ODataId {
         match self {
             Self::Reference(v) => &v.odata_id,
-            Self::Expanded(v) => v.0.id(),
+            Self::Expanded(v) => v.0.odata_id(),
         }
     }
 }
@@ -236,14 +236,14 @@ mod tests {
     #[derive(Debug, Deserialize)]
     struct DummyEntity {
         #[serde(rename = "@odata.id")]
-        id: ODataId,
+        odata_id: ODataId,
         #[serde(rename = "Name")]
         name: String,
     }
 
     impl EntityTypeRef for DummyEntity {
-        fn id(&self) -> &ODataId {
-            &self.id
+        fn odata_id(&self) -> &ODataId {
+            &self.odata_id
         }
 
         fn etag(&self) -> Option<&ODataETag> {
@@ -254,14 +254,14 @@ mod tests {
     #[derive(Debug, Deserialize)]
     struct DefaultIdEntity {
         #[serde(rename = "@odata.id", default = "default_id")]
-        id: ODataId,
+        odata_id: ODataId,
         #[serde(rename = "Name")]
         name: String,
     }
 
     impl EntityTypeRef for DefaultIdEntity {
-        fn id(&self) -> &ODataId {
-            &self.id
+        fn odata_id(&self) -> &ODataId {
+            &self.odata_id
         }
 
         fn etag(&self) -> Option<&ODataETag> {
@@ -277,14 +277,14 @@ mod tests {
     #[derive(Debug, Deserialize)]
     struct StrictNameEntity {
         #[serde(rename = "@odata.id")]
-        id: ODataId,
+        odata_id: ODataId,
         #[serde(rename = "Name")]
         name: u64,
     }
 
     impl EntityTypeRef for StrictNameEntity {
-        fn id(&self) -> &ODataId {
-            &self.id
+        fn odata_id(&self) -> &ODataId {
+            &self.odata_id
         }
 
         fn etag(&self) -> Option<&ODataETag> {
@@ -320,7 +320,10 @@ mod tests {
 
         match parsed {
             NavProperty::Expanded(expanded) => {
-                assert_eq!(expanded.0.id.to_string(), "/redfish/v1/Systems/System_1");
+                assert_eq!(
+                    expanded.0.odata_id.to_string(),
+                    "/redfish/v1/Systems/System_1"
+                );
                 assert_eq!(expanded.0.name, "System_1");
             }
             NavProperty::Reference(_) => panic!("expected expanded variant"),
@@ -334,7 +337,7 @@ mod tests {
 
         match parsed {
             NavProperty::Expanded(expanded) => {
-                assert_eq!(expanded.0.id.to_string(), "/default/id");
+                assert_eq!(expanded.0.odata_id.to_string(), "/default/id");
                 assert_eq!(expanded.0.name, "NoIdObject");
             }
             NavProperty::Reference(_) => panic!("expected expanded variant"),

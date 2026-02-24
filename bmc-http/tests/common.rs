@@ -37,7 +37,7 @@ pub mod test_utils {
     }
 
     impl EntityTypeRef for TestResource {
-        fn id(&self) -> &ODataId {
+        fn odata_id(&self) -> &ODataId {
             &self.id
         }
 

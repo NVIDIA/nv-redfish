@@ -58,7 +58,7 @@ impl<B: Bmc> DellAttributes<B> {
             // for it.
             let odata_id = ODataId::from(format!(
                 "{}/Oem/DellAttributes/{}",
-                manager.id(),
+                manager.odata_id(),
                 manager.base.id
             ));
             bmc.expand_property(&NavProperty::new_reference(odata_id))

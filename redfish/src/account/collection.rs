@@ -139,7 +139,7 @@ impl<B: Bmc> AccountCollection<B> {
     /// Typically `/redfish/v1/AccountService/Accounts`.
     #[must_use]
     pub fn odata_id(&self) -> &ODataId {
-        self.collection.as_ref().id()
+        self.collection.as_ref().odata_id()
     }
 
     /// Create a new account.

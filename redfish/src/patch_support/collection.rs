@@ -120,11 +120,13 @@ impl Collection {
         C: Serialize + Sync + Send,
         F: FnOnce(JsonValue) -> JsonValue + Sync + Send,
     {
-        Creator { id: orig.id() }
-            .create(bmc, create)
-            .await
-            .map_err(Error::Bmc)?
-            .to_target(f)
+        Creator {
+            id: orig.odata_id(),
+        }
+        .create(bmc, create)
+        .await
+        .map_err(Error::Bmc)?
+        .to_target(f)
     }
 
     fn base(&self) -> ResourceCollection {
@@ -161,8 +163,8 @@ impl Collection {
 }
 
 impl EntityTypeRef for Collection {
-    fn id(&self) -> &ODataId {
-        self.base.id()
+    fn odata_id(&self) -> &ODataId {
+        self.base.odata_id()
     }
     fn etag(&self) -> Option<&ODataETag> {
         self.base.etag()
@@ -180,7 +182,7 @@ struct Creator<'a> {
 
 #[cfg(feature = "patch-collection-create")]
 impl EntityTypeRef for Creator<'_> {
-    fn id(&self) -> &ODataId {
+    fn odata_id(&self) -> &ODataId {
         self.id
     }
     fn etag(&self) -> Option<&ODataETag> {

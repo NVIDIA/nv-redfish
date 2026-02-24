@@ -40,7 +40,7 @@ async fn list_dell_fw_inventores() -> Result<(), Box<dyn StdError>> {
     let root_id = ODataId::service_root();
     let update_service = get_update_service(bmc.clone(), &root_id, "Dell").await?;
     let update_service_raw = update_service.raw();
-    let update_service_id = update_service_raw.id();
+    let update_service_id = update_service_raw.odata_id();
     let fw_inventories_id = format!("{update_service_id}/FirmwareInventory");
     let fw_inventory_id =
         format!("{fw_inventories_id}/Installed-0-2.1.3__Disk.Bay.0:Enclosure.Internal.0-1");

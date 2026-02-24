@@ -53,7 +53,7 @@ async fn get_service_root_test() -> Result<(), Error> {
         }),
     ));
     let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
-    assert_eq!(service_root.id(), &root_id);
+    assert_eq!(service_root.odata_id(), &root_id);
     assert_eq!(service_root.redfish_version, Some(redfish_version.into()));
     Ok(())
 }
@@ -391,7 +391,7 @@ async fn create_collection_member_test() -> Result<(), Error> {
         .create(&bmc, &TestCollectionMemberCreate {})
         .await
         .map_err(Error::Bmc)?;
-    assert_eq!(member.id().to_string(), collection_member_id);
+    assert_eq!(member.odata_id().to_string(), collection_member_id);
     Ok(())
 }
 

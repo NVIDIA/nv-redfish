@@ -150,13 +150,13 @@ async fn main() -> Result<(), BmcError> {
         .await?;
     println!("{account:?}");
 
-    let acc = NavProperty::<ManagerAccount>::new_reference(account.id().clone())
+    let acc = NavProperty::<ManagerAccount>::new_reference(account.odata_id().clone())
         .get(&bmc)
         .await?;
 
     acc.delete(&bmc).await?;
 
-    let _ = NavProperty::<ManagerAccount>::new_reference(account.id().clone())
+    let _ = NavProperty::<ManagerAccount>::new_reference(account.odata_id().clone())
         .get(&bmc)
         .await?;
 

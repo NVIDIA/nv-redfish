@@ -66,7 +66,7 @@ impl<B: Bmc> MetricDefinition<B> {
         let updated = self
             .bmc
             .as_ref()
-            .update(self.data.id(), self.data.etag(), update)
+            .update(self.data.odata_id(), self.data.etag(), update)
             .await
             .map_err(Error::Bmc)?;
         Ok(Self::from_data(self.bmc.clone(), updated))
@@ -80,7 +80,7 @@ impl<B: Bmc> MetricDefinition<B> {
     pub async fn delete(&self) -> Result<(), Error<B>> {
         self.bmc
             .as_ref()
-            .delete(self.data.id())
+            .delete(self.data.odata_id())
             .await
             .map_err(Error::Bmc)
             .map(|_| ())
