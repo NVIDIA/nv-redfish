@@ -133,7 +133,7 @@ pub use uuid::Uuid as EdmGuid;
 /// `T` is a struct for an entity type.
 pub trait EntityTypeRef {
     /// Value of `@odata.id` field of the Entity.
-    fn id(&self) -> &ODataId;
+    fn odata_id(&self) -> &ODataId;
 
     /// Value of `@odata.etag` field of the Entity.
     fn etag(&self) -> Option<&ODataETag>;
@@ -143,7 +143,7 @@ pub trait EntityTypeRef {
     where
         Self: Sync + Send + 'static + Sized + for<'de> Deserialize<'de>,
     {
-        bmc.get::<Self>(self.id())
+        bmc.get::<Self>(self.odata_id())
     }
 }
 
@@ -157,7 +157,7 @@ pub trait Expandable:
         bmc: &B,
         query: ExpandQuery,
     ) -> impl Future<Output = Result<Arc<Self>, B::Error>> + Send {
-        bmc.expand::<Self>(self.id(), query)
+        bmc.expand::<Self>(self.odata_id(), query)
     }
 }
 
@@ -190,7 +190,7 @@ pub trait Creatable<V: Sync + Send + Serialize, R: Sync + Send + Sized + for<'de
         bmc: &B,
         create: &V,
     ) -> impl Future<Output = Result<R, B::Error>> + Send {
-        bmc.create::<V, R>(self.id(), create)
+        bmc.create::<V, R>(self.odata_id(), create)
     }
 }
 
@@ -206,7 +206,7 @@ where
         bmc: &B,
         update: &V,
     ) -> impl Future<Output = Result<Self, B::Error>> + Send {
-        bmc.update::<V, Self>(self.id(), self.etag(), update)
+        bmc.update::<V, Self>(self.odata_id(), self.etag(), update)
     }
 }
 
@@ -215,7 +215,7 @@ where
 pub trait Deletable: EntityTypeRef + Sized {
     /// Delete current entity.
     fn delete<B: Bmc>(&self, bmc: &B) -> impl Future<Output = Result<Empty, B::Error>> + Send {
-        bmc.delete(self.id())
+        bmc.delete(self.odata_id())
     }
 }
 

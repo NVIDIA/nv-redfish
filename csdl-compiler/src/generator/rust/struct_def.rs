@@ -183,7 +183,7 @@ impl<'a> StructDef<'a> {
         let entity_type_impl = |fn_id_impl, fn_etag_impl| {
             quote! {
                 impl #top::EntityTypeRef for #name {
-                    #[inline] fn id(&self) -> &ODataId { #fn_id_impl }
+                    #[inline] fn odata_id(&self) -> &ODataId { #fn_id_impl }
                     #[inline] fn etag(&self) -> Option<&ODataETag> { #fn_etag_impl }
                 }
             }
@@ -195,7 +195,7 @@ impl<'a> StructDef<'a> {
                 quote! { self.#odata_etag.as_ref() },
             ),
             ImplType::Child => {
-                entity_type_impl(quote! { self.base.id() }, quote! { self.base.etag() })
+                entity_type_impl(quote! { self.base.odata_id() }, quote! { self.base.etag() })
             }
             ImplType::None => TokenStream::new(),
         });

@@ -101,7 +101,7 @@ impl<B: Bmc> TelemetryService<B> {
         let updated = self
             .bmc
             .as_ref()
-            .update(self.data.id(), self.data.etag(), &update)
+            .update(self.data.odata_id(), self.data.etag(), &update)
             .await
             .map_err(Error::Bmc)?;
 
