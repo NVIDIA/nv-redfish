@@ -22,6 +22,7 @@ nv-redfish = { workspace = true, features = [
     "computer-systems",
     "managers",
     "oem-dell-attributes",
+    "oem-hpe",
     "oem-lenovo",
     "oem-nvidia-baseboard",
     "oem-supermicro",

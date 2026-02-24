@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,30 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! OEM-specific support.
+/// Support of HPE Manager OEM extension.
+#[cfg(feature = "managers")]
+pub mod manager;
 
-/// OEM identifier.
-mod identifier;
+/// HPE OEM Schema.
+pub(crate) mod schema;
 
-/// Support of NVIDIA.
-#[cfg(feature = "oem-nvidia")]
-pub mod nvidia;
-
-/// Support of Dell.
-#[cfg(feature = "oem-dell")]
-pub mod dell;
-
-/// Support of Lenovo.
-#[cfg(feature = "oem-lenovo")]
-pub mod lenovo;
-
-/// Support of HPE.
-#[cfg(feature = "oem-hpe")]
-pub mod hpe;
-
-/// Support of Supermicro.
-#[cfg(feature = "oem-supermicro")]
-pub mod supermicro;
-
+#[cfg(feature = "managers")]
 #[doc(inline)]
-pub use identifier::Identifier as OemIdentifier;
+pub use manager::HpeManager;
