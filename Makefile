@@ -57,6 +57,7 @@ ci-features-list := $(subst $(space),$(comma),$(all-std-features))
 compile-one-feature = $(indent)cargo build -p nv-redfish --features $1$(new-line)
 
 define build-and-test
+	cargo build -p nv-redfish --features managers,oem-hpe
 	cargo build -p nv-redfish --features managers,oem-supermicro
 	cargo build
 	cargo build -p nv-redfish

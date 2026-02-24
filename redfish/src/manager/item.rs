@@ -30,6 +30,8 @@ use crate::host_interface::HostInterfaceCollection;
 use crate::log_service::LogService;
 #[cfg(feature = "oem-dell-attributes")]
 use crate::oem::dell::attributes::DellAttributes;
+#[cfg(feature = "oem-hpe")]
+use crate::oem::hpe::manager::HpeManager;
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::manager::LenovoManager;
 #[cfg(feature = "oem-supermicro")]
@@ -154,6 +156,18 @@ impl<B: Bmc> Manager<B> {
     #[cfg(feature = "oem-lenovo")]
     pub fn oem_lenovo(&self) -> Result<Option<LenovoManager<B>>, Error<B>> {
         LenovoManager::new(&self.bmc, &self.data)
+    }
+
+    /// Get HPE Manager OEM.
+    ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Hpe`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing HPE manager OEM data fails.
+    #[cfg(feature = "oem-hpe")]
+    pub fn oem_hpe(&self) -> Result<Option<HpeManager<B>>, Error<B>> {
+        HpeManager::new(&self.bmc, &self.data)
     }
 
     /// Get Supermicro Manager OEM.
