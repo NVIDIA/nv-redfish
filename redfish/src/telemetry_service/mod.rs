@@ -67,17 +67,19 @@ pub struct TelemetryService<B: Bmc> {
 
 impl<B: Bmc> TelemetryService<B> {
     /// Create a new telemetry service handle.
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let service_ref = root
-            .root
-            .telemetry_service
-            .as_ref()
-            .ok_or(Error::TelemetryServiceNotSupported)?;
-        let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
-        Ok(Self {
-            data,
-            bmc: bmc.clone(),
-        })
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(service_ref) = &root.root.telemetry_service {
+            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+            Ok(Some(Self {
+                data,
+                bmc: bmc.clone(),
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the raw schema data for this telemetry service.
@@ -119,26 +121,25 @@ impl<B: Bmc> TelemetryService<B> {
     /// Returns an error if:
     /// - the telemetry service does not expose a `MetricReports` collection
     /// - retrieving the collection fails
-    pub async fn metric_reports(&self) -> Result<Vec<MetricReportRef<B>>, Error<B>> {
-        let collection_ref = self
-            .data
-            .metric_reports
-            .as_ref()
-            .ok_or(Error::MetricReportsNotAvailable)?;
-        let collection = collection_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+    pub async fn metric_reports(&self) -> Result<Option<Vec<MetricReportRef<B>>>, Error<B>> {
+        if let Some(collection_ref) = &self.data.metric_reports {
+            let collection = collection_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
 
-        let mut items = Vec::with_capacity(collection.members.len());
-        for m in &collection.members {
-            items.push(MetricReportRef::new(
-                &self.bmc,
-                NavProperty::new_reference(m.id().clone()),
-            ));
+            let mut items = Vec::with_capacity(collection.members.len());
+            for m in &collection.members {
+                items.push(MetricReportRef::new(
+                    &self.bmc,
+                    NavProperty::new_reference(m.id().clone()),
+                ));
+            }
+
+            Ok(Some(items))
+        } else {
+            Ok(None)
         }
-
-        Ok(items)
     }
 
     /// Get `Vec<MetricDefinition>` associated with this telemetry service.
@@ -150,23 +151,22 @@ impl<B: Bmc> TelemetryService<B> {
     /// Returns an error if:
     /// - the telemetry service does not expose a `MetricDefinitions` collection
     /// - retrieving the collection fails
-    pub async fn metric_definitions(&self) -> Result<Vec<MetricDefinition<B>>, Error<B>> {
-        let collection_ref = self
-            .data
-            .metric_definitions
-            .as_ref()
-            .ok_or(Error::MetricDefinitionsNotAvailable)?;
-        let collection = collection_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+    pub async fn metric_definitions(&self) -> Result<Option<Vec<MetricDefinition<B>>>, Error<B>> {
+        if let Some(collection_ref) = &self.data.metric_definitions {
+            let collection = collection_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
 
-        let mut items = Vec::with_capacity(collection.members.len());
-        for m in &collection.members {
-            items.push(MetricDefinition::new(&self.bmc, m).await?);
+            let mut items = Vec::with_capacity(collection.members.len());
+            for m in &collection.members {
+                items.push(MetricDefinition::new(&self.bmc, m).await?);
+            }
+
+            Ok(Some(items))
+        } else {
+            Ok(None)
         }
-
-        Ok(items)
     }
 
     /// Get `Vec<MetricReportDefinition>` associated with this telemetry service.
@@ -181,23 +181,22 @@ impl<B: Bmc> TelemetryService<B> {
     /// - retrieving the collection fails
     pub async fn metric_report_definitions(
         &self,
-    ) -> Result<Vec<MetricReportDefinition<B>>, Error<B>> {
-        let collection_ref = self
-            .data
-            .metric_report_definitions
-            .as_ref()
-            .ok_or(Error::MetricReportDefinitionsNotAvailable)?;
-        let collection = collection_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+    ) -> Result<Option<Vec<MetricReportDefinition<B>>>, Error<B>> {
+        if let Some(collection_ref) = &self.data.metric_report_definitions {
+            let collection = collection_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
 
-        let mut items = Vec::with_capacity(collection.members.len());
-        for m in &collection.members {
-            items.push(MetricReportDefinition::new(&self.bmc, m).await?);
+            let mut items = Vec::with_capacity(collection.members.len());
+            for m in &collection.members {
+                items.push(MetricReportDefinition::new(&self.bmc, m).await?);
+            }
+
+            Ok(Some(items))
+        } else {
+            Ok(None)
         }
-
-        Ok(items)
     }
 
     /// Create a metric definition.

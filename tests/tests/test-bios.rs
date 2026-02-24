@@ -59,7 +59,7 @@ async fn bios_basic_retrieval_and_types() -> Result<(), Box<dyn StdError>> {
         }),
     ));
 
-    let bios: Bios<Bmc> = system.bios().await?;
+    let bios: Bios<Bmc> = system.bios().await?.unwrap();
     let raw = bios.raw();
     let attrs = raw
         .attributes
@@ -115,7 +115,7 @@ async fn bios_attribute_string_value() -> Result<(), Box<dyn StdError>> {
         }),
     ));
 
-    let bios: Bios<Bmc> = system.bios().await?;
+    let bios: Bios<Bmc> = system.bios().await?.unwrap();
 
     let boot_mode = bios
         .attribute("BootMode")
@@ -147,7 +147,7 @@ async fn bios_missing_or_empty_attributes() -> Result<(), Box<dyn StdError>> {
             "Name": "BIOS Settings"
         }),
     ));
-    let bios_no_attrs: Bios<Bmc> = system.bios().await?;
+    let bios_no_attrs: Bios<Bmc> = system.bios().await?.unwrap();
     assert!(bios_no_attrs.raw().attributes.is_none());
     assert!(bios_no_attrs.attribute("Anything").is_none());
 
@@ -162,7 +162,7 @@ async fn bios_missing_or_empty_attributes() -> Result<(), Box<dyn StdError>> {
             "Attributes": {}
         }),
     ));
-    let bios_empty_attrs: Bios<Bmc> = system.bios().await?;
+    let bios_empty_attrs: Bios<Bmc> = system.bios().await?.unwrap();
     let raw = bios_empty_attrs.raw();
     let attrs = raw.attributes.as_ref().unwrap();
     assert!(attrs.dynamic_properties.is_empty());
@@ -234,7 +234,7 @@ async fn get_computer_system(
         }),
     ));
 
-    let systems = service_root.systems().await?;
+    let systems = service_root.systems().await?.unwrap();
 
     // Individual computer system with Bios nav property.
     bmc.expect(Expect::get(

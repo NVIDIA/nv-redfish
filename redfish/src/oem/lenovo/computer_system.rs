@@ -37,10 +37,16 @@ pub struct LenovoComputerSystem<B: Bmc> {
 
 impl<B: Bmc> LenovoComputerSystem<B> {
     /// Create Lenovo OEM computer system.
+    ///
+    /// Returns `Ok(None)` when the system does not include `Oem.Lenovo`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing Lenovo computer system OEM data fails.
     pub(crate) fn new(
         _bmc: &NvBmc<B>,
         computer_system: &ComputerSystemSchema,
-    ) -> Result<Self, Error<B>> {
+    ) -> Result<Option<Self>, Error<B>> {
         if let Some(oem) = computer_system
             .base
             .base
@@ -49,12 +55,12 @@ impl<B: Bmc> LenovoComputerSystem<B> {
             .and_then(|oem| oem.additional_properties.get("Lenovo"))
         {
             let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Self {
+            Ok(Some(Self {
                 data,
                 _marker: PhantomData,
-            })
+            }))
         } else {
-            Err(Error::LenovoComputerSystemNotAvailable)
+            Ok(None)
         }
     }
 

@@ -64,19 +64,17 @@ impl<B: Bmc> Storage<B> {
     /// Returns an error if:
     /// - The storage controller does not have drives
     /// - Fetching drive data fails
-    pub async fn drives(&self) -> Result<Vec<Drive<B>>, Error<B>> {
-        let drives_ref = self
-            .data
-            .drives
-            .as_ref()
-            .ok_or(Error::StorageNotAvailable)?;
+    pub async fn drives(&self) -> Result<Option<Vec<Drive<B>>>, Error<B>> {
+        if let Some(drives_ref) = &self.data.drives {
+            let mut drives = Vec::new();
+            for d in drives_ref {
+                drives.push(Drive::new(&self.bmc, d).await?);
+            }
 
-        let mut drives = Vec::new();
-        for d in drives_ref {
-            drives.push(Drive::new(&self.bmc, d).await?);
+            Ok(Some(drives))
+        } else {
+            Ok(None)
         }
-
-        Ok(drives)
     }
 }
 

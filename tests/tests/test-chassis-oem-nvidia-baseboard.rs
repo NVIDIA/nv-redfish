@@ -17,7 +17,6 @@
 #![recursion_limit = "256"]
 
 use nv_redfish::chassis::Chassis;
-use nv_redfish::Error as RedfishError;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -55,7 +54,7 @@ async fn oem_nvidia_baseboard_cbc_real_payload() -> Result<(), Box<dyn StdError>
     );
     let chassis = get_chassis(bmc.clone(), &ids, chassis).await?;
 
-    let oem = chassis.oem_nvidia_baseboard_cbc()?;
+    let oem = chassis.oem_nvidia_baseboard_cbc()?.unwrap();
     assert_eq!(
         oem.chassis_physical_slot_number().map(|v| *v.inner()),
         Some(24)
@@ -74,10 +73,7 @@ async fn oem_nvidia_baseboard_cbc_missing_oem_returns_not_available(
     let ids = chassis_ids();
     let chassis = get_chassis(bmc.clone(), &ids, chassis_member(&ids, json!({}))).await?;
 
-    assert!(matches!(
-        chassis.oem_nvidia_baseboard_cbc(),
-        Err(RedfishError::NvidiaCbcChassisNotAvailable)
-    ));
+    assert!(chassis.oem_nvidia_baseboard_cbc()?.is_none());
 
     Ok(())
 }
@@ -103,10 +99,7 @@ async fn oem_nvidia_baseboard_cbc_wrong_odata_type_returns_not_available(
     );
     let chassis = get_chassis(bmc.clone(), &ids, chassis).await?;
 
-    assert!(matches!(
-        chassis.oem_nvidia_baseboard_cbc(),
-        Err(RedfishError::NvidiaCbcChassisNotAvailable)
-    ));
+    assert!(chassis.oem_nvidia_baseboard_cbc()?.is_none());
 
     Ok(())
 }
@@ -128,7 +121,7 @@ async fn get_chassis(
             "Members": [member]
         }),
     ));
-    let collection = service_root.chassis().await?;
+    let collection = service_root.chassis().await?.unwrap();
     let members = collection.members().await?;
     assert_eq!(members.len(), 1);
     Ok(members

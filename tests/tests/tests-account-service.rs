@@ -160,7 +160,7 @@ async fn get_account_service(
             },
         }),
     ));
-    Ok(service_root.account_service().await?)
+    Ok(service_root.account_service().await?.unwrap())
 }
 
 async fn get_account_collection(
@@ -178,7 +178,7 @@ async fn get_account_collection(
             "Members": members,
         }),
     ));
-    Ok(account_service.accounts().await?)
+    Ok(account_service.accounts().await.map(Option::unwrap)?)
 }
 
 fn slot_member(accounts_id: &str, id: u32, enabled: bool, user_name: &str) -> JsonValue {

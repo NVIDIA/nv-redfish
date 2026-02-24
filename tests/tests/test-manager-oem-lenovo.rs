@@ -19,7 +19,6 @@
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::lenovo::manager::KcsState;
 use nv_redfish::oem::lenovo::security_service::FwRollbackState;
-use nv_redfish::Error as RedfishError;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -49,7 +48,7 @@ async fn lenovo_kcs_enabled_string_disabled_maps_state() -> Result<(), Box<dyn S
     )
     .await?;
 
-    let lenovo = manager.oem_lenovo()?;
+    let lenovo = manager.oem_lenovo()?.unwrap();
     assert_eq!(lenovo.kcs_enabled(), Some(KcsState::Disabled));
 
     Ok(())
@@ -59,9 +58,14 @@ async fn lenovo_kcs_enabled_string_disabled_maps_state() -> Result<(), Box<dyn S
 async fn lenovo_kcs_enabled_boolean_true_maps_state() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let manager = get_manager(bmc.clone(), &ids, manager_payload(&ids, Some(json!(true)), true)).await?;
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload(&ids, Some(json!(true)), true),
+    )
+    .await?;
 
-    let lenovo = manager.oem_lenovo()?;
+    let lenovo = manager.oem_lenovo()?.unwrap();
     assert_eq!(lenovo.kcs_enabled(), Some(KcsState::Enabled));
 
     Ok(())
@@ -80,8 +84,8 @@ async fn lenovo_security_fw_rollback_disabled() -> Result<(), Box<dyn StdError>>
 
     bmc.expect(Expect::get(&ids.security_id, security_payload(&ids)));
 
-    let lenovo = manager.oem_lenovo()?;
-    let security = lenovo.security().await?;
+    let lenovo = manager.oem_lenovo()?.unwrap();
+    let security = lenovo.security().await?.unwrap();
     assert_eq!(security.fw_rollback(), Some(FwRollbackState::Disabled));
 
     Ok(())
@@ -91,17 +95,9 @@ async fn lenovo_security_fw_rollback_disabled() -> Result<(), Box<dyn StdError>>
 async fn manager_without_lenovo_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let manager = get_manager(
-        bmc.clone(),
-        &ids,
-        manager_payload_without_lenovo(&ids),
-    )
-    .await?;
+    let manager = get_manager(bmc.clone(), &ids, manager_payload_without_lenovo(&ids)).await?;
 
-    assert!(matches!(
-        manager.oem_lenovo(),
-        Err(RedfishError::LenovoManagerNotAvailable)
-    ));
+    assert!(manager.oem_lenovo()?.is_none());
 
     Ok(())
 }
@@ -117,11 +113,8 @@ async fn lenovo_oem_without_security_returns_not_available() -> Result<(), Box<d
     )
     .await?;
 
-    let lenovo = manager.oem_lenovo()?;
-    assert!(matches!(
-        lenovo.security().await,
-        Err(RedfishError::LenovoSecurityServiceNotAvailable)
-    ));
+    let lenovo = manager.oem_lenovo()?.unwrap();
+    assert!(lenovo.security().await?.is_none());
 
     Ok(())
 }
@@ -143,13 +136,19 @@ async fn get_manager(
         }),
     ));
 
-    let collection = root.managers().await?;
+    let collection = root.managers().await?.unwrap();
     let members = collection.members().await?;
     assert_eq!(members.len(), 1);
-    Ok(members.into_iter().next().expect("single manager must exist"))
+    Ok(members
+        .into_iter()
+        .next()
+        .expect("single manager must exist"))
 }
 
-async fn expect_service_root(bmc: Arc<Bmc>, ids: &Ids) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+async fn expect_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
     bmc.expect(Expect::get(
         &ids.root_id,
         json!({

@@ -94,32 +94,33 @@ pub struct SystemCollection<B: Bmc> {
 }
 
 impl<B: Bmc> SystemCollection<B> {
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let collection_ref = root
-            .root
-            .systems
-            .as_ref()
-            .ok_or(Error::SystemNotSupported)?;
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(collection_ref) = &root.root.systems {
+            let mut patches = Vec::new();
+            if root.computer_systems_wrong_last_reset_time() {
+                patches.push(computer_systems_wrong_last_reset_time);
+            }
+            let read_patch_fn = if patches.is_empty() {
+                None
+            } else {
+                let patches_fn: ReadPatchFn =
+                    Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
+                Some(patches_fn)
+            };
+            let collection =
+                Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref()).await?;
 
-        let mut patches = Vec::new();
-        if root.computer_systems_wrong_last_reset_time() {
-            patches.push(computer_systems_wrong_last_reset_time);
-        }
-        let read_patch_fn = if patches.is_empty() {
-            None
+            Ok(Some(Self {
+                bmc: bmc.clone(),
+                collection,
+                read_patch_fn,
+            }))
         } else {
-            let patches_fn: ReadPatchFn =
-                Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
-            Some(patches_fn)
-        };
-        let collection =
-            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref()).await?;
-
-        Ok(Self {
-            bmc: bmc.clone(),
-            collection,
-            read_patch_fn,
-        })
+            Ok(None)
+        }
     }
 
     /// List all computer systems available in this BMC.

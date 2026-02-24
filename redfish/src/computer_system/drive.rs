@@ -69,14 +69,16 @@ impl<B: Bmc> Drive<B> {
     /// Returns an error if:
     /// - The drive does not have metrics
     /// - Fetching metrics data fails
-    pub async fn metrics(&self) -> Result<Arc<DriveMetrics>, Error<B>> {
-        let metrics_ref = self
-            .data
-            .metrics
-            .as_ref()
-            .ok_or(Error::MetricsNotAvailable)?;
-
-        metrics_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+    pub async fn metrics(&self) -> Result<Option<Arc<DriveMetrics>>, Error<B>> {
+        if let Some(metrics_ref) = &self.data.metrics {
+            metrics_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the environment sensors for this drive.
