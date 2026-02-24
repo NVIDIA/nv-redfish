@@ -24,6 +24,7 @@ nv-redfish = { workspace = true, features = [
     "oem-dell-attributes",
     "oem-lenovo",
     "oem-nvidia-baseboard",
+    "oem-supermicro",
     "update-service",
 ] }
 serde = { workspace = true, features = ["derive"] }

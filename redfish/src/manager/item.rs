@@ -32,6 +32,8 @@ use crate::log_service::LogService;
 use crate::oem::dell::attributes::DellAttributes;
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::manager::LenovoManager;
+#[cfg(feature = "oem-supermicro")]
+use crate::oem::supermicro::manager::SupermicroManager;
 
 /// Represents a manager (BMC) in the system.
 ///
@@ -152,6 +154,18 @@ impl<B: Bmc> Manager<B> {
     #[cfg(feature = "oem-lenovo")]
     pub fn oem_lenovo(&self) -> Result<Option<LenovoManager<B>>, Error<B>> {
         LenovoManager::new(&self.bmc, &self.data)
+    }
+
+    /// Get Supermicro Manager OEM.
+    ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Supermicro`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing Supermicro manager OEM data fails.
+    #[cfg(feature = "oem-supermicro")]
+    pub fn oem_supermicro(&self) -> Result<Option<SupermicroManager<B>>, Error<B>> {
+        SupermicroManager::new(&self.bmc, &self.data)
     }
 }
 
