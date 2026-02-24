@@ -44,7 +44,7 @@ async fn list_accounts() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Contoso").await?;
-    let maccount_id = format!("{}/Accounts/1", account_service.raw().id());
+    let maccount_id = format!("{}/Accounts/1", account_service.raw().odata_id());
     let accounts = get_account_collection(
         bmc.clone(),
         &account_service,
@@ -74,7 +74,7 @@ async fn list_hpe_accounts() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "HPE").await?;
-    let maccount_id = format!("{}/Accounts/1", account_service.raw().id());
+    let maccount_id = format!("{}/Accounts/1", account_service.raw().odata_id());
     let accounts = get_account_collection(
         bmc.clone(),
         &account_service,
@@ -101,7 +101,7 @@ async fn list_no_patch_accounts() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Contoso").await?;
-    let maccount_id = format!("{}/Accounts/1", account_service.raw().id());
+    let maccount_id = format!("{}/Accounts/1", account_service.raw().odata_id());
     assert!(get_account_collection(
         bmc.clone(),
         &account_service,
@@ -160,7 +160,7 @@ async fn get_account_service(
             },
         }),
     ));
-    Ok(service_root.account_service().await?)
+    Ok(service_root.account_service().await?.unwrap())
 }
 
 async fn get_account_collection(
@@ -168,7 +168,7 @@ async fn get_account_collection(
     account_service: &AccountService<Bmc>,
     members: JsonValue,
 ) -> Result<AccountCollection<Bmc>, Box<dyn StdError>> {
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     bmc.expect(Expect::expand(
         &accounts_id,
         json!({
@@ -178,7 +178,7 @@ async fn get_account_collection(
             "Members": members,
         }),
     ));
-    Ok(account_service.accounts().await?)
+    Ok(account_service.accounts().await.map(Option::unwrap)?)
 }
 
 fn slot_member(accounts_id: &str, id: u32, enabled: bool, user_name: &str) -> JsonValue {
@@ -201,7 +201,7 @@ async fn create_account_standard() -> Result<(), Box<dyn StdError>> {
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Contoso").await?;
     let accounts = get_account_collection(bmc.clone(), &account_service, json!([])).await?;
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     let maccount_id = format!("{accounts_id}/1");
     let create_req =
         ManagerAccountCreate::builder("password".into(), "user".into(), "Operator".into()).build();
@@ -238,7 +238,7 @@ async fn create_account_hpe_patched() -> Result<(), Box<dyn StdError>> {
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "HPE").await?;
     let accounts = get_account_collection(bmc.clone(), &account_service, json!([])).await?;
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     let maccount_id = format!("{accounts_id}/1");
     let create_req =
         ManagerAccountCreate::builder("password".into(), "user".into(), "Operator".into()).build();
@@ -270,7 +270,7 @@ async fn create_account_dell_slot_defined_first_available() -> Result<(), Box<dy
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Dell").await?;
 
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     let members = json!([
         slot_member(&accounts_id, 1, true, "root"), // below min_slot, enabled
         slot_member(&accounts_id, 2, false, ""),    // below min_slot, disabled (must be skipped)
@@ -316,7 +316,7 @@ async fn create_account_dell_slot_defined_no_slot_available() -> Result<(), Box<
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Dell").await?;
 
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     // All eligible (>=3) are enabled; no disabled slots available.
     let members = json!([
         slot_member(&accounts_id, 1, false, ""),
@@ -339,7 +339,7 @@ async fn list_dell_accounts_hide_disabled() -> Result<(), Box<dyn StdError>> {
     let root_id = ODataId::service_root();
     let account_service = get_account_service(bmc.clone(), &root_id, "Dell").await?;
 
-    let accounts_id = format!("{}/Accounts", account_service.raw().id());
+    let accounts_id = format!("{}/Accounts", account_service.raw().odata_id());
     let members = json!([
         slot_member(&accounts_id, 1, true, "root"),
         slot_member(&accounts_id, 3, false, ""),

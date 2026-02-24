@@ -15,6 +15,8 @@
 
 //! Redfish resource
 
+use crate::core::EntityTypeRef as _;
+use crate::core::ODataId;
 use crate::ResourceSchema;
 use tagged_types::TaggedType;
 
@@ -104,6 +106,11 @@ pub trait Resource {
             .and_then(|v| v.additional_properties.as_object())
             .and_then(|v| v.keys().next())
             .map(OemIdentifier::new)
+    }
+
+    /// OData identifier of the resource.
+    fn odata_id(&self) -> &ODataId {
+        self.resource_ref().odata_id()
     }
 }
 

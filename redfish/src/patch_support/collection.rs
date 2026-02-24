@@ -126,10 +126,11 @@ impl Collection {
         C: Serialize + Sync + Send,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        let result = bmc
-            .create::<C, Payload>(orig.id(), create)
-            .await
-            .map_err(Error::Bmc)?;
+        let result =  Creator {
+            id: orig.odata_id(),
+        }
+        .create(bmc, create).await?;
+    
         match result {
             ModificationResponse::Entity(payload) => payload
                 .to_target::<V, B, _>(&f)
@@ -173,8 +174,8 @@ impl Collection {
 }
 
 impl EntityTypeRef for Collection {
-    fn id(&self) -> &ODataId {
-        self.base.id()
+    fn odata_id(&self) -> &ODataId {
+        self.base.odata_id()
     }
     fn etag(&self) -> Option<&ODataETag> {
         self.base.etag()
@@ -182,3 +183,23 @@ impl EntityTypeRef for Collection {
 }
 
 impl Expandable for Collection {}
+
+// Helper struct that enables creating a new member of the collection
+// and applying a patch to the payload before creation.
+#[cfg(feature = "patch-collection-create")]
+struct Creator<'a> {
+    id: &'a ODataId,
+}
+
+#[cfg(feature = "patch-collection-create")]
+impl EntityTypeRef for Creator<'_> {
+    fn odata_id(&self) -> &ODataId {
+        self.id
+    }
+    fn etag(&self) -> Option<&ODataETag> {
+        None
+    }
+}
+
+#[cfg(feature = "patch-collection-create")]
+impl<V: Serialize + Send + Sync> Creatable<V, Payload> for Creator<'_> {}

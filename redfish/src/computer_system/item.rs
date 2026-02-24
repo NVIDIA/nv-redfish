@@ -48,6 +48,8 @@ use crate::computer_system::Storage;
 use crate::ethernet_interface::EthernetInterfaceCollection;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(feature = "oem-lenovo")]
+use crate::oem::lenovo::computer_system::LenovoComputerSystem;
 #[cfg(feature = "oem-nvidia-bluefield")]
 use crate::oem::nvidia::bluefield::nvidia_computer_system::NvidiaComputerSystem;
 
@@ -181,195 +183,201 @@ impl<B: Bmc> ComputerSystem<B> {
 
     /// Bios associated with this system.
     ///
-    /// Fetches the BIOS settings.
+    /// Fetches the BIOS settings. Returns `Ok(None)` when the BIOS link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The system does not provide bios settings
-    /// - Fetching bios data fails
+    /// Returns an error if fetching BIOS data fails.
     #[cfg(feature = "bios")]
-    pub async fn bios(&self) -> Result<Bios<B>, Error<B>> {
-        let bios_ref = self.data.bios.as_ref().ok_or(Error::BiosNotAvailable)?;
-        Bios::new(&self.bmc, bios_ref).await
+    pub async fn bios(&self) -> Result<Option<Bios<B>>, Error<B>> {
+        if let Some(bios_ref) = &self.data.bios {
+            Bios::new(&self.bmc, bios_ref).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get processors associated with this system.
     ///
     /// Fetches the processor collection and returns a list of [`Processor`] handles.
+    /// Returns `Ok(None)` when the processors link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The system does not have a processors collection
-    /// - Fetching processor data fails
+    /// Returns an error if fetching processor data fails.
     #[cfg(feature = "processors")]
-    pub async fn processors(&self) -> Result<Vec<Processor<B>>, Error<B>> {
-        let processors_ref = self
-            .data
-            .processors
-            .as_ref()
-            .ok_or(Error::ProcessorsNotAvailable)?;
+    pub async fn processors(&self) -> Result<Option<Vec<Processor<B>>>, Error<B>> {
+        if let Some(processors_ref) = &self.data.processors {
+            let processors_collection = self.bmc.expand_property(processors_ref).await?;
 
-        let processors_collection = self.bmc.expand_property(processors_ref).await?;
+            let mut processors = Vec::new();
+            for m in &processors_collection.members {
+                processors.push(Processor::new(&self.bmc, m).await?);
+            }
 
-        let mut processors = Vec::new();
-        for m in &processors_collection.members {
-            processors.push(Processor::new(&self.bmc, m).await?);
+            Ok(Some(processors))
+        } else {
+            Ok(None)
         }
-
-        Ok(processors)
     }
 
     /// Get secure boot resource associated with this system.
     ///
+    /// Returns `Ok(None)` when the secure boot link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The system does not have a secure boot resource
-    /// - Fetching of secure boot data fails
+    /// Returns an error if fetching secure boot data fails.
     #[cfg(feature = "secure-boot")]
-    pub async fn secure_boot(&self) -> Result<SecureBoot<B>, Error<B>> {
-        let secure_boot_ref = self
-            .data
-            .secure_boot
-            .as_ref()
-            .ok_or(Error::SecureBootNotAvailable)?;
-        SecureBoot::new(&self.bmc, secure_boot_ref).await
+    pub async fn secure_boot(&self) -> Result<Option<SecureBoot<B>>, Error<B>> {
+        if let Some(secure_boot_ref) = &self.data.secure_boot {
+            SecureBoot::new(&self.bmc, secure_boot_ref).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get storage controllers associated with this system.
     ///
     /// Fetches the storage collection and returns a list of [`Storage`] handles.
+    /// Returns `Ok(None)` when the storage link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The system does not have a storage collection
-    /// - Fetching storage data fails
+    /// Returns an error if fetching storage data fails.
     #[cfg(feature = "storages")]
-    pub async fn storage_controllers(&self) -> Result<Vec<Storage<B>>, Error<B>> {
-        let storage_ref = self
-            .data
-            .storage
-            .as_ref()
-            .ok_or(Error::StorageNotAvailable)?;
+    pub async fn storage_controllers(&self) -> Result<Option<Vec<Storage<B>>>, Error<B>> {
+        if let Some(storage_ref) = &self.data.storage {
+            let storage_collection = self.bmc.expand_property(storage_ref).await?;
 
-        let storage_collection = self.bmc.expand_property(storage_ref).await?;
+            let mut storage_controllers = Vec::new();
+            for m in &storage_collection.members {
+                storage_controllers.push(Storage::new(&self.bmc, m).await?);
+            }
 
-        let mut storage_controllers = Vec::new();
-        for m in &storage_collection.members {
-            storage_controllers.push(Storage::new(&self.bmc, m).await?);
+            Ok(Some(storage_controllers))
+        } else {
+            Ok(None)
         }
-
-        Ok(storage_controllers)
     }
 
     /// Get memory modules associated with this system.
     ///
     /// Fetches the memory collection and returns a list of [`Memory`] handles.
+    /// Returns `Ok(None)` when the memory link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The system does not have a memory collection
-    /// - Fetching memory data fails
+    /// Returns an error if fetching memory data fails.
     #[cfg(feature = "memory")]
-    pub async fn memory_modules(&self) -> Result<Vec<Memory<B>>, Error<B>> {
-        let memory_ref = self.data.memory.as_ref().ok_or(Error::MemoryNotAvailable)?;
+    pub async fn memory_modules(&self) -> Result<Option<Vec<Memory<B>>>, Error<B>> {
+        if let Some(memory_ref) = &self.data.memory {
+            let memory_collection = self.bmc.expand_property(memory_ref).await?;
 
-        let memory_collection = self.bmc.expand_property(memory_ref).await?;
+            let mut memory_modules = Vec::new();
+            for m in &memory_collection.members {
+                memory_modules.push(Memory::new(&self.bmc, m).await?);
+            }
 
-        let mut memory_modules = Vec::new();
-        for m in &memory_collection.members {
-            memory_modules.push(Memory::new(&self.bmc, m).await?);
+            Ok(Some(memory_modules))
+        } else {
+            Ok(None)
         }
-
-        Ok(memory_modules)
     }
 
     /// Get log services for this computer system.
     ///
+    /// Returns `Ok(None)` when the log services link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The computer system does not have log services
-    /// - Fetching log service data fails
+    /// Returns an error if fetching log service data fails.
     #[cfg(feature = "log-services")]
-    pub async fn log_services(&self) -> Result<Vec<LogService<B>>, Error<B>> {
-        let log_services_ref = self
-            .data
-            .log_services
-            .as_ref()
-            .ok_or(Error::LogServiceNotAvailable)?;
+    pub async fn log_services(&self) -> Result<Option<Vec<LogService<B>>>, Error<B>> {
+        if let Some(log_services_ref) = &self.data.log_services {
+            let log_services_collection = log_services_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
 
-        let log_services_collection = log_services_ref
-            .get(self.bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+            let mut log_services = Vec::new();
+            for m in &log_services_collection.members {
+                log_services.push(LogService::new(&self.bmc, m).await?);
+            }
 
-        let mut log_services = Vec::new();
-        for m in &log_services_collection.members {
-            log_services.push(LogService::new(&self.bmc, m).await?);
+            Ok(Some(log_services))
+        } else {
+            Ok(None)
         }
-
-        Ok(log_services)
     }
 
     /// Get ethernet interfaces for this computer system.
     ///
+    /// Returns `Ok(None)` when the ethernet interfaces link is absent.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The systems does not have / provide ethernet interfaces
-    /// - Fetching ethernet internet data fails
+    /// Returns an error if fetching ethernet interface data fails.
     #[cfg(feature = "ethernet-interfaces")]
-    pub async fn ethernet_interfaces(&self) -> Result<EthernetInterfaceCollection<B>, Error<B>> {
-        let p = self
-            .data
-            .ethernet_interfaces
-            .as_ref()
-            .ok_or(Error::EthernetInterfacesNotAvailable)?;
-        EthernetInterfaceCollection::new(&self.bmc, p).await
+    pub async fn ethernet_interfaces(
+        &self,
+    ) -> Result<Option<EthernetInterfaceCollection<B>>, Error<B>> {
+        if let Some(p) = &self.data.ethernet_interfaces {
+            EthernetInterfaceCollection::new(&self.bmc, p)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get collection of the UEFI boot options associated with this computer system.
     ///
+    /// Returns `Ok(None)` when boot options are not exposed.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The systems does not have / provide boot options
-    /// - Fetching boot options data fails
+    /// Returns an error if fetching boot options data fails.
     #[cfg(feature = "boot-options")]
-    pub async fn boot_options(&self) -> Result<BootOptionCollection<B>, Error<B>> {
-        let p = self
+    pub async fn boot_options(&self) -> Result<Option<BootOptionCollection<B>>, Error<B>> {
+        if let Some(p) = &self
             .data
             .boot
             .as_ref()
-            .ok_or(Error::BootOptionsNotAvailable)?
-            .boot_options
-            .as_ref()
-            .ok_or(Error::BootOptionsNotAvailable)?;
-        BootOptionCollection::new(&self.bmc, p).await
+            .and_then(|v| v.boot_options.as_ref())
+        {
+            BootOptionCollection::new(&self.bmc, p).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// NVIDIA Bluefield OEM extension
     ///
+    /// Returns `Ok(None)` when the system does not include NVIDIA OEM extension data.
+    ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - `Error::NvidiaComputerSystemNotAvailable` if the systems does not have / provide NVIDIA OEM extension
-    /// - Fetching data fails
+    /// Returns an error if NVIDIA OEM data parsing/fetching fails.
     #[cfg(feature = "oem-nvidia-bluefield")]
-    pub async fn oem_nvidia_bluefield(&self) -> Result<NvidiaComputerSystem<B>, Error<B>> {
-        let oem = self
-            .data
-            .base
-            .base
-            .oem
-            .as_ref()
-            .ok_or(Error::NvidiaComputerSystemNotAvailable)?;
-        NvidiaComputerSystem::new(&self.bmc, oem).await
+    pub async fn oem_nvidia_bluefield(&self) -> Result<Option<NvidiaComputerSystem<B>>, Error<B>> {
+        if let Some(oem) = self.data.base.base.oem.as_ref() {
+            NvidiaComputerSystem::new(&self.bmc, oem).await
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Lenovo OEM extension
+    ///
+    /// Returns `Ok(None)` when the system does not include Lenovo OEM extension data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if Lenovo OEM data parsing fails.
+    #[cfg(feature = "oem-lenovo")]
+    pub fn oem_lenovo(&self) -> Result<Option<LenovoComputerSystem<B>>, Error<B>> {
+        LenovoComputerSystem::new(&self.bmc, &self.data)
     }
 }
 

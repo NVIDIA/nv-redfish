@@ -47,7 +47,7 @@ async fn wiwynn_assembly_without_member_odata_type_is_supported() -> Result<(), 
         &ids.assembly_id,
         assembly_payload(&ids, false, DUMMY_SERIAL),
     ));
-    let assembly = chassis.assembly().await?;
+    let assembly = chassis.assembly().await?.unwrap();
     let members = assembly.assemblies().await?;
     assert_eq!(members.len(), 1);
 
@@ -75,7 +75,7 @@ async fn wiwynn_assembly_with_member_odata_type_still_supported() -> Result<(), 
         &ids.assembly_id,
         assembly_payload(&ids, true, DUMMY_SERIAL),
     ));
-    let assembly = chassis.assembly().await?;
+    let assembly = chassis.assembly().await?.unwrap();
     let members = assembly.assemblies().await?;
     assert_eq!(members.len(), 1);
 
@@ -98,7 +98,7 @@ async fn get_chassis(
             "Members": [chassis_member(ids)]
         }),
     ));
-    let collection = service_root.chassis().await?;
+    let collection = service_root.chassis().await?.unwrap();
     let members = collection.members().await?;
     assert_eq!(members.len(), 1);
     Ok(members

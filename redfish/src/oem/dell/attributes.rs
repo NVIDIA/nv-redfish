@@ -35,11 +35,17 @@ pub struct DellAttributes<B: Bmc> {
 
 impl<B: Bmc> DellAttributes<B> {
     /// Create Dell OEM Manager attributes.
+    ///
+    /// Returns `Ok(None)` when the manager does not include `Oem.Dell`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching or parsing Dell attributes data fails.
     #[cfg(feature = "managers")]
     pub(crate) async fn manager_attributes(
         bmc: &NvBmc<B>,
         manager: &ManagerSchema,
-    ) -> Result<Self, Error<B>> {
+    ) -> Result<Option<Self>, Error<B>> {
         if manager
             .base
             .base
@@ -52,7 +58,7 @@ impl<B: Bmc> DellAttributes<B> {
             // for it.
             let odata_id = ODataId::from(format!(
                 "{}/Oem/DellAttributes/{}",
-                manager.id(),
+                manager.odata_id(),
                 manager.base.id
             ));
             bmc.expand_property(&NavProperty::new_reference(odata_id))
@@ -61,8 +67,9 @@ impl<B: Bmc> DellAttributes<B> {
                     data,
                     _marker: PhantomData,
                 })
+                .map(Some)
         } else {
-            Err(Error::DellAttributesNotAvailable)
+            Ok(None)
         }
     }
 

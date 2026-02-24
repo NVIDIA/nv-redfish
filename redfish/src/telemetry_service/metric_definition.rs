@@ -68,7 +68,7 @@ impl<B: Bmc> MetricDefinition<B> {
             .bmc
             .as_ref()
             .update::<_, NavProperty<MetricDefinitionSchema>>(
-                self.data.id(),
+                self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
@@ -89,7 +89,7 @@ impl<B: Bmc> MetricDefinition<B> {
         match self
             .bmc
             .as_ref()
-            .delete::<NavProperty<MetricDefinitionSchema>>(self.data.id())
+            .delete::<NavProperty<MetricDefinitionSchema>>(self.data.odata_id())
             .await
             .map_err(Error::Bmc)?
         {

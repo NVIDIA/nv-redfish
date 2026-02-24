@@ -88,45 +88,47 @@ pub struct EventService<B: Bmc> {
 
 impl<B: Bmc> EventService<B> {
     /// Create a new event service handle.
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let service_ref = root
-            .root
-            .event_service
-            .as_ref()
-            .ok_or(Error::EventServiceNotSupported)?;
-        let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(service_ref) = &root.root.event_service {
+            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
-        let mut sse_read_patches = Vec::new();
-        let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
+            let mut sse_read_patches = Vec::new();
+            let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
 
-        if root.event_service_sse_no_member_id() {
-            sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
-        }
-        if root.event_service_sse_wrong_event_type() {
-            sse_event_record_patches.push(patch::patch_unknown_event_type_to_other);
-        }
-        if root.event_service_sse_no_odata_id() {
-            let patch_event_id: ReadPatchFn =
-                Arc::new(patch::patch_missing_event_odata_id as fn(JsonValue) -> JsonValue);
-            sse_read_patches.push(patch_event_id);
-            sse_event_record_patches.push(patch::patch_missing_event_record_odata_id);
-        }
-        if root.event_service_sse_wrong_timestamp_offset() {
-            sse_event_record_patches.push(patch::patch_compact_event_timestamp_offset);
-        }
+            if root.event_service_sse_no_member_id() {
+                sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
+            }
+            if root.event_service_sse_wrong_event_type() {
+                sse_event_record_patches.push(patch::patch_unknown_event_type_to_other);
+            }
+            if root.event_service_sse_no_odata_id() {
+                let patch_event_id: ReadPatchFn =
+                    Arc::new(patch::patch_missing_event_odata_id as fn(JsonValue) -> JsonValue);
+                sse_read_patches.push(patch_event_id);
+                sse_event_record_patches.push(patch::patch_missing_event_record_odata_id);
+            }
+            if root.event_service_sse_wrong_timestamp_offset() {
+                sse_event_record_patches.push(patch::patch_compact_event_timestamp_offset);
+            }
 
-        if !sse_event_record_patches.is_empty() {
-            let patch_event_records: ReadPatchFn = Arc::new(move |payload| {
-                patch::patch_event_records(payload, &sse_event_record_patches)
-            });
-            sse_read_patches.push(patch_event_records);
-        }
+            if !sse_event_record_patches.is_empty() {
+                let patch_event_records: ReadPatchFn = Arc::new(move |payload| {
+                    patch::patch_event_records(payload, &sse_event_record_patches)
+                });
+                sse_read_patches.push(patch_event_records);
+            }
 
-        Ok(Self {
-            data,
-            bmc: bmc.clone(),
-            sse_read_patches,
-        })
+            Ok(Some(Self {
+                data,
+                bmc: bmc.clone(),
+                sse_read_patches,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the raw schema data for this event service.

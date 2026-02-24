@@ -54,30 +54,32 @@ pub struct UpdateService<B: Bmc> {
 
 impl<B: Bmc> UpdateService<B> {
     /// Create a new update service handle.
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let service_ref = root
-            .root
-            .update_service
-            .as_ref()
-            .ok_or(Error::UpdateServiceNotSupported)?;
-        let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(service_ref) = &root.root.update_service {
+            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
-        let mut fw_inventory_patches = Vec::new();
-        if root.fw_inventory_wrong_release_date() {
-            fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
-        }
-        let fw_inventory_read_patch_fn = if fw_inventory_patches.is_empty() {
-            None
+            let mut fw_inventory_patches = Vec::new();
+            if root.fw_inventory_wrong_release_date() {
+                fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
+            }
+            let fw_inventory_read_patch_fn = if fw_inventory_patches.is_empty() {
+                None
+            } else {
+                let fw_inventory_patches_fn: ReadPatchFn =
+                    Arc::new(move |v| fw_inventory_patches.iter().fold(v, |acc, f| f(acc)));
+                Some(fw_inventory_patches_fn)
+            };
+            Ok(Some(Self {
+                bmc: bmc.clone(),
+                data,
+                fw_inventory_read_patch_fn,
+            }))
         } else {
-            let fw_inventory_patches_fn: ReadPatchFn =
-                Arc::new(move |v| fw_inventory_patches.iter().fold(v, |acc, f| f(acc)));
-            Some(fw_inventory_patches_fn)
-        };
-        Ok(Self {
-            bmc: bmc.clone(),
-            data,
-            fw_inventory_read_patch_fn,
-        })
+            Ok(None)
+        }
     }
 
     /// Get the raw schema data for this update service.
@@ -96,21 +98,22 @@ impl<B: Bmc> UpdateService<B> {
     /// Returns an error if:
     /// - The update service does not have a firmware inventory collection
     /// - Fetching firmware inventory data fails
-    pub async fn firmware_inventories(&self) -> Result<Vec<SoftwareInventory<B>>, Error<B>> {
-        let collection_ref = self
-            .data
-            .firmware_inventory
-            .as_ref()
-            .ok_or(Error::FirmwareInventoryNotAvailable)?;
-
-        SoftwareInventoryCollection::new(
-            &self.bmc,
-            collection_ref,
-            self.fw_inventory_read_patch_fn.clone(),
-        )
-        .await?
-        .members()
-        .await
+    pub async fn firmware_inventories(
+        &self,
+    ) -> Result<Option<Vec<SoftwareInventory<B>>>, Error<B>> {
+        if let Some(collection_ref) = &self.data.firmware_inventory {
+            SoftwareInventoryCollection::new(
+                &self.bmc,
+                collection_ref,
+                self.fw_inventory_read_patch_fn.clone(),
+            )
+            .await?
+            .members()
+            .await
+            .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// List all software inventory items.
@@ -120,18 +123,19 @@ impl<B: Bmc> UpdateService<B> {
     /// Returns an error if:
     /// - The update service does not have a software inventory collection
     /// - Fetching software inventory data fails
-    pub async fn software_inventories(&self) -> Result<Vec<SoftwareInventory<B>>, Error<B>> {
-        let collection_ref = self
-            .data
-            .software_inventory
-            .as_ref()
-            .ok_or(Error::SoftwareInventoryNotAvailable)?;
-        let collection = self.bmc.expand_property(collection_ref).await?;
-        let mut items = Vec::new();
-        for item_ref in &collection.members {
-            items.push(SoftwareInventory::new(&self.bmc, item_ref, None).await?);
+    pub async fn software_inventories(
+        &self,
+    ) -> Result<Option<Vec<SoftwareInventory<B>>>, Error<B>> {
+        if let Some(collection_ref) = &self.data.software_inventory {
+            let collection = self.bmc.expand_property(collection_ref).await?;
+            let mut items = Vec::new();
+            for item_ref in &collection.members {
+                items.push(SoftwareInventory::new(&self.bmc, item_ref, None).await?);
+            }
+            Ok(Some(items))
+        } else {
+            Ok(None)
         }
-        Ok(items)
     }
 
     /// Perform a simple update with the specified image URI.

@@ -78,19 +78,21 @@ pub struct ChassisCollection<B: Bmc> {
 }
 
 impl<B: Bmc> ChassisCollection<B> {
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let collection_ref = root
-            .root
-            .chassis
-            .as_ref()
-            .ok_or(Error::ChassisNotSupported)?;
-        let item_config = item::Config::new(root).into();
-        let collection = bmc.expand_property(collection_ref).await?;
-        Ok(Self {
-            bmc: bmc.clone(),
-            collection,
-            item_config,
-        })
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        if let Some(collection_ref) = &root.root.chassis {
+            let item_config = item::Config::new(root).into();
+            let collection = bmc.expand_property(collection_ref).await?;
+            Ok(Some(Self {
+                bmc: bmc.clone(),
+                collection,
+                item_config,
+            }))
+        } else {
+            Ok(None)
+        }
     }
 
     /// List all chassis avaiable in this BMC

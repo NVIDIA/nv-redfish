@@ -68,15 +68,15 @@ impl<B: Bmc> LogService<B> {
     /// Returns an error if:
     /// - The log service does not have a log entries collection
     /// - Fetching log entries data fails
-    pub async fn entries(&self) -> Result<Vec<Arc<LogEntry>>, Error<B>> {
-        let entries_ref = self
-            .data
-            .entries
-            .as_ref()
-            .ok_or(Error::LogEntriesNotAvailable)?;
-
-        let entries_collection = self.bmc.expand_property(entries_ref).await?;
-        self.expand_entries(&entries_collection.members).await
+    pub async fn entries(&self) -> Result<Option<Vec<Arc<LogEntry>>>, Error<B>> {
+        if let Some(entries_ref) = &self.data.entries {
+            let entries_collection = self.bmc.expand_property(entries_ref).await?;
+            self.expand_entries(&entries_collection.members)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Filter log entries using `OData` filter query.
@@ -89,19 +89,19 @@ impl<B: Bmc> LogService<B> {
     pub async fn filter_entries(
         &self,
         filter: nv_redfish_core::FilterQuery,
-    ) -> Result<Vec<Arc<LogEntry>>, Error<B>> {
-        let entries_ref = self
-            .data
-            .entries
-            .as_ref()
-            .ok_or(Error::LogEntriesNotAvailable)?;
+    ) -> Result<Option<Vec<Arc<LogEntry>>>, Error<B>> {
+        if let Some(entries_ref) = &self.data.entries {
+            let entries_collection = entries_ref
+                .filter(self.bmc.as_ref(), filter)
+                .await
+                .map_err(Error::Bmc)?;
 
-        let entries_collection = entries_ref
-            .filter(self.bmc.as_ref(), filter)
-            .await
-            .map_err(Error::Bmc)?;
-
-        self.expand_entries(&entries_collection.members).await
+            self.expand_entries(&entries_collection.members)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Clear all log entries.

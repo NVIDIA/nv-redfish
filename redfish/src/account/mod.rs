@@ -69,15 +69,14 @@ pub struct AccountService<B: Bmc> {
 impl<B: Bmc> AccountService<B> {
     /// Create a new account service. This is always done by
     /// `ServiceRoot` object.
-    pub(crate) async fn new(bmc: &NvBmc<B>, root: &ServiceRoot<B>) -> Result<Self, Error<B>> {
-        let service = root
-            .root
-            .account_service
-            .as_ref()
-            .ok_or(Error::AccountServiceNotSupported)?
-            .get(bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)?;
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        root: &ServiceRoot<B>,
+    ) -> Result<Option<Self>, Error<B>> {
+        let Some(service_nav) = root.root.account_service.as_ref() else {
+            return Ok(None);
+        };
+        let service = service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
         let mut patches = Vec::new();
         if root.bug_no_account_type_in_accounts() {
@@ -91,7 +90,7 @@ impl<B: Bmc> AccountService<B> {
             Some(account_read_patch_fn)
         };
         let slot_defined_user_accounts = root.slot_defined_user_accounts();
-        Ok(Self {
+        Ok(Some(Self {
             collection_config: collection::Config {
                 account: AccountConfig {
                     read_patch_fn: account_read_patch_fn,
@@ -103,7 +102,7 @@ impl<B: Bmc> AccountService<B> {
             },
             service,
             bmc: bmc.clone(),
-        })
+        }))
     }
 
     /// Get the raw schema data for this account service.
@@ -122,19 +121,18 @@ impl<B: Bmc> AccountService<B> {
     /// # Errors
     ///
     /// Returns an error if expanding the collection fails.
-    pub async fn accounts(&self) -> Result<AccountCollection<B>, Error<B>> {
-        let collection_ref = self
-            .service
-            .accounts
-            .as_ref()
-            .ok_or(Error::AccountServiceNotSupported)?;
-
-        AccountCollection::new(
-            self.bmc.clone(),
-            collection_ref,
-            self.collection_config.clone(),
-        )
-        .await
+    pub async fn accounts(&self) -> Result<Option<AccountCollection<B>>, Error<B>> {
+        if let Some(collection_ref) = self.service.accounts.as_ref() {
+            AccountCollection::new(
+                self.bmc.clone(),
+                collection_ref,
+                self.collection_config.clone(),
+            )
+            .await
+            .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 }
 

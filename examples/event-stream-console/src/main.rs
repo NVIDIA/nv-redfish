@@ -64,7 +64,10 @@ async fn main() -> Result<(), Box<dyn StdError>> {
 
     let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
 
-    let event_service = root.event_service().await?;
+    let event_service = root
+        .event_service()
+        .await?
+        .expect("Event service is returned by BMC");
     let mut stream = event_service.events().await?;
 
     println!("Connected to EventService stream. Waiting for events...");

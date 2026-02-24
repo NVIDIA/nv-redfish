@@ -69,14 +69,16 @@ impl<B: Bmc> PowerSupply<B> {
     /// Returns an error if:
     /// - The power supply does not have metrics
     /// - Fetching metrics data fails
-    pub async fn metrics(&self) -> Result<Arc<PowerSupplyMetrics>, Error<B>> {
-        let metrics_ref = self
-            .data
-            .metrics
-            .as_ref()
-            .ok_or(Error::MetricsNotAvailable)?;
-
-        metrics_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+    pub async fn metrics(&self) -> Result<Option<Arc<PowerSupplyMetrics>>, Error<B>> {
+        if let Some(metrics_ref) = &self.data.metrics {
+            metrics_ref
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the metrics sensors for this power supply.
