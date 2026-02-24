@@ -819,7 +819,7 @@ async fn main() -> Result<(), Error> {
         .await?;
     let account = bmc
         .create::<_, ManagerAccount>(
-            accounts.id(),
+            accounts.odata_id(),
             &ManagerAccountCreate::builder(
                 "secret_password".into(),
                 "Administrator".into(),

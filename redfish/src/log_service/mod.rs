@@ -131,7 +131,7 @@ impl<B: Bmc> LogService<B> {
         actions
             .clear_log(self.bmc.as_ref(), log_entry_codes)
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::Bmc)
     }
 
     /// This unwraps `NavProperty`, usually all BMC already have them expanded, so we do not expect network IO here

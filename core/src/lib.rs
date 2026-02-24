@@ -179,7 +179,7 @@ pub struct AsyncTask {
 pub enum ModificationResponse<T> {
     /// Request completed synchronously
     Entity(T),
-    /// Requst completed asynchronously, with the provided `ODataId`` to poll for completion
+    /// Requst completed asynchronously, with the provided `ODataId` to poll for completion
     Task(AsyncTask),
     /// Request completed successfully with no response body
     Empty,

@@ -18,7 +18,6 @@ use crate::Error;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
-use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
@@ -32,6 +31,8 @@ use crate::patch_support::ReadPatchFn;
 use nv_redfish_core::Updatable;
 #[cfg(feature = "patch-payload-update")]
 use serde::Serialize;
+#[cfg(feature = "patch-payload-update")]
+use nv_redfish_core::ModificationResponse;
 
 #[cfg(feature = "patch-payload-update")]
 pub trait UpdateWithPatch<T, V, B>

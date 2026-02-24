@@ -24,7 +24,6 @@ use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
-use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
@@ -35,6 +34,8 @@ use std::sync::Arc;
 use nv_redfish_core::Creatable;
 #[cfg(feature = "patch-collection-create")]
 use serde::Serialize;
+#[cfg(feature = "patch-collection-create")]
+use nv_redfish_core::ModificationResponse;
 
 /// Trait that allows patching collection member data before it is
 /// deserialized to the member data structure. This is required when a
@@ -126,11 +127,13 @@ impl Collection {
         C: Serialize + Sync + Send,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        let result =  Creator {
+        let result = Creator {
             id: orig.odata_id(),
         }
-        .create(bmc, create).await?;
-    
+        .create(bmc, create)
+        .await
+        .map_err(Error::Bmc)?;
+
         match result {
             ModificationResponse::Entity(payload) => payload
                 .to_target::<V, B, _>(&f)

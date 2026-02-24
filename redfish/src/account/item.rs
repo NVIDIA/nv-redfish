@@ -126,7 +126,7 @@ impl<B: Bmc> Account<B> {
     /// response cannot be parsed.
     pub async fn update(&self, update: &ManagerAccountUpdate) -> Result<Option<Self>, Error<B>> {
         match self.update_with_patch(update).await? {
-            ModificationResponse::Entity(ma) => Ok(Some(Account::from_data(
+            ModificationResponse::Entity(ma) => Ok(Some(Self::from_data(
                 self.bmc.clone(),
                 ma,
                 self.config.clone(),
@@ -182,12 +182,12 @@ impl<B: Bmc> Account<B> {
             match self
                 .bmc
                 .as_ref()
-                .delete::<NavProperty<ManagerAccount>>(self.data.id())
+                .delete::<NavProperty<ManagerAccount>>(self.data.odata_id())
                 .await
                 .map_err(Error::Bmc)?
             {
                 ModificationResponse::Entity(nav) => {
-                    Account::new(&self.bmc, &nav, &self.config).await.map(Some)
+                    Self::new(&self.bmc, &nav, &self.config).await.map(Some)
                 }
                 ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
             }
