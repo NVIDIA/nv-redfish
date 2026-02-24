@@ -102,9 +102,9 @@ impl<'a> DellAttributeRef<'a> {
 
     /// Returns string value of the attribute if attribute is string.
     #[must_use]
-    pub const fn string_value(&self) -> Option<&String> {
+    pub const fn str_value(&self) -> Option<&str> {
         match self.value {
-            Some(EdmPrimitiveType::String(v)) => Some(v),
+            Some(EdmPrimitiveType::String(v)) => Some(v.as_str()),
             _ => None,
         }
     }

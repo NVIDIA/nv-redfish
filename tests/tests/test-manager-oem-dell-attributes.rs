@@ -52,7 +52,7 @@ async fn manager_dell_attributes_lean_payload() -> Result<(), Box<dyn StdError>>
         .is_some_and(|v| v.integer_value() == Some(1500)));
     assert!(attrs
         .attribute("CurrentNIC.1.Hostname")
-        .is_some_and(|v| v.string_value().is_some_and(|s| s == "idrac-embedded")));
+        .is_some_and(|v| v.str_value().is_some_and(|s| s == "idrac-embedded")));
     assert!(attrs
         .attribute("CurrentNIC.1.ProxyEnabled")
         .is_some_and(|v| v.bool_value() == Some(true)));

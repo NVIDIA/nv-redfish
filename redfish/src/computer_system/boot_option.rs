@@ -64,15 +64,6 @@ impl<B: Bmc> BootOptionCollection<B> {
     }
 }
 
-/// An indication of whether the boot option is enabled.
-pub type Enabled = TaggedType<bool, EnabledTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
-#[capability(inner_access)]
-pub enum EnabledTag {}
-
 /// The UEFI device path to access this UEFI boot option.
 ///
 /// Nv-redfish keeps open underlying type for `UefiDevicePath` because it
@@ -127,37 +118,36 @@ impl<B: Bmc> BootOption<B> {
     ///
     /// Boot option reference.
     #[must_use]
-    pub fn boot_reference(&self) -> BootOptionReference<&String> {
+    pub fn boot_reference(&self) -> BootOptionReference<&str> {
         BootOptionReference::new(self.id().inner())
     }
 
     /// An indication of whether the boot option is enabled.
     #[must_use]
-    pub fn enabled(&self) -> Option<Enabled> {
-        self.data
-            .boot_option_enabled
-            .and_then(identity)
-            .map(Enabled::new)
+    pub fn enabled(&self) -> Option<bool> {
+        self.data.boot_option_enabled.and_then(identity)
     }
 
     /// The user-readable display name of the boot option that appears
     /// in the boot order list in the user interface.
     #[must_use]
-    pub fn display_name(&self) -> Option<DisplayName<&String>> {
+    pub fn display_name(&self) -> Option<DisplayName<&str>> {
         self.data
             .display_name
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(DisplayName::new)
     }
 
     /// The UEFI device path to access this UEFI boot option.
     #[must_use]
-    pub fn uefi_device_path(&self) -> Option<UefiDevicePath<&String>> {
+    pub fn uefi_device_path(&self) -> Option<UefiDevicePath<&str>> {
         self.data
             .uefi_device_path
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(UefiDevicePath::new)
     }
 }

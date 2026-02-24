@@ -91,20 +91,22 @@ impl<B: Bmc> ServiceRoot<B> {
     }
 
     /// The vendor or manufacturer associated with this Redfish service.
-    pub fn vendor(&self) -> Option<Vendor<&String>> {
+    pub fn vendor(&self) -> Option<Vendor<&str>> {
         self.root
             .vendor
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(Vendor::new)
     }
 
     /// The product associated with this Redfish service.
-    pub fn product(&self) -> Option<Product<&String>> {
+    pub fn product(&self) -> Option<Product<&str>> {
         self.root
             .product
             .as_ref()
             .and_then(Option::as_ref)
+            .map(String::as_str)
             .map(Product::new)
     }
 

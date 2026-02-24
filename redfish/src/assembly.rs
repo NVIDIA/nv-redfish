@@ -134,25 +134,25 @@ impl<B: Bmc> AssemblyData<B> {
                 .data
                 .producer
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Manufacturer::new),
             model: self
                 .data
                 .model
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(Model::new),
             part_number: self
                 .data
                 .part_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(PartNumber::new),
             serial_number: self
                 .data
                 .serial_number
                 .as_ref()
-                .and_then(Option::as_ref)
+                .and_then(Option::as_deref)
                 .map(SerialNumber::new),
         }
     }
