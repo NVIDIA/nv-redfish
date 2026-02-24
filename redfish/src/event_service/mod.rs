@@ -62,7 +62,8 @@ impl<'de> Deserialize<'de> for EventStreamPayload {
             .ok_or_else(|| de::Error::missing_field("missing @odata.type in SSE payload"))?;
 
         if odata_type.type_name == "MetricReport" {
-            let payload = serde_json::from_value::<MetricReport>(value).map_err(de::Error::custom)?;
+            let payload =
+                serde_json::from_value::<MetricReport>(value).map_err(de::Error::custom)?;
             Ok(Self::MetricReport(payload))
         } else if odata_type.type_name == "Event" {
             let payload = serde_json::from_value::<Event>(value).map_err(de::Error::custom)?;
@@ -97,7 +98,7 @@ impl<B: Bmc> EventService<B> {
 
         let mut sse_read_patches = Vec::new();
         let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
-        
+
         if root.event_service_sse_no_member_id() {
             sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
         }
@@ -170,7 +171,9 @@ impl<B: Bmc> EventService<B> {
                 .iter()
                 .fold(payload, |acc, patch| patch(acc));
 
-            future::ready(serde_json::from_value::<EventStreamPayload>(patched).map_err(Error::Json))
+            future::ready(
+                serde_json::from_value::<EventStreamPayload>(patched).map_err(Error::Json),
+            )
         });
 
         Ok(Box::pin(stream))

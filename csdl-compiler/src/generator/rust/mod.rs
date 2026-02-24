@@ -175,7 +175,6 @@ impl<'a> RustGenerator<'a> {
                 Creatable,
                 RedfishSettings,
                 Bmc,
-                Empty,
                 ActionError,
                 Reference,
                 NavProperty,

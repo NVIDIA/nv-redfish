@@ -24,6 +24,7 @@ use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
@@ -84,7 +85,7 @@ where
     fn patch(&self) -> Option<&ReadPatchFn>;
     fn bmc(&self) -> &B;
 
-    async fn create_with_patch(&self, create: &C) -> Result<M, Error<B>> {
+    async fn create_with_patch(&self, create: &C) -> Result<ModificationResponse<M>, Error<B>> {
         if let Some(patch_fn) = &self.patch() {
             Collection::create(self.entity_ref(), self.bmc(), create, patch_fn.as_ref()).await
         } else {
@@ -112,19 +113,30 @@ struct Collection {
 
 impl Collection {
     #[cfg(feature = "patch-collection-create")]
-    async fn create<T, F, C, B, V>(orig: &T, bmc: &B, create: &C, f: F) -> Result<V, Error<B>>
+    async fn create<T, F, C, B, V>(
+        orig: &T,
+        bmc: &B,
+        create: &C,
+        f: F,
+    ) -> Result<ModificationResponse<V>, Error<B>>
     where
         T: EntityTypeRef + Sync + Send,
         V: for<'de> Deserialize<'de>,
         B: Bmc,
         C: Serialize + Sync + Send,
-        F: FnOnce(JsonValue) -> JsonValue + Sync + Send,
+        F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        Creator { id: orig.id() }
-            .create(bmc, create)
+        let result = bmc
+            .create::<C, Payload>(orig.id(), create)
             .await
-            .map_err(Error::Bmc)?
-            .to_target(f)
+            .map_err(Error::Bmc)?;
+        match result {
+            ModificationResponse::Entity(payload) => payload
+                .to_target::<V, B, _>(&f)
+                .map(ModificationResponse::Entity),
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
+        }
     }
 
     fn base(&self) -> ResourceCollection {
@@ -170,23 +182,3 @@ impl EntityTypeRef for Collection {
 }
 
 impl Expandable for Collection {}
-
-// Helper struct that enables creating a new member of the collection
-// and applying a patch to the payload before creation.
-#[cfg(feature = "patch-collection-create")]
-struct Creator<'a> {
-    id: &'a ODataId,
-}
-
-#[cfg(feature = "patch-collection-create")]
-impl EntityTypeRef for Creator<'_> {
-    fn id(&self) -> &ODataId {
-        self.id
-    }
-    fn etag(&self) -> Option<&ODataETag> {
-        None
-    }
-}
-
-#[cfg(feature = "patch-collection-create")]
-impl<V: Serialize + Send + Sync> Creatable<V, Payload> for Creator<'_> {}

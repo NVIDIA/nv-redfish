@@ -18,6 +18,7 @@ use crate::Error;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
@@ -43,7 +44,7 @@ where
     fn patch(&self) -> Option<&ReadPatchFn>;
     fn bmc(&self) -> &B;
 
-    async fn update_with_patch(&self, update: &V) -> Result<T, Error<B>> {
+    async fn update_with_patch(&self, update: &V) -> Result<ModificationResponse<T>, Error<B>> {
         if let Some(patch_fn) = self.patch() {
             Updator {
                 id: self.entity_ref().id(),
@@ -149,16 +150,28 @@ impl EntityTypeRef for Updator<'_> {
 
 #[cfg(feature = "patch-payload-update")]
 impl Updator<'_> {
-    async fn update<B, U, T, F>(&self, bmc: &B, update: &U, patch_fn: F) -> Result<T, Error<B>>
+    async fn update<B, U, T, F>(
+        &self,
+        bmc: &B,
+        update: &U,
+        patch_fn: F,
+    ) -> Result<ModificationResponse<T>, Error<B>>
     where
         B: Bmc,
         T: EntityTypeRef + for<'de> Deserialize<'de> + Sync + Send,
         U: Serialize + Send + Sync,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        bmc.update::<U, Payload>(self.id(), self.etag(), update)
+        let result = bmc
+            .update::<U, Payload>(self.id(), self.etag(), update)
             .await
-            .map_err(Error::Bmc)?
-            .to_target(patch_fn)
+            .map_err(Error::Bmc)?;
+        match result {
+            ModificationResponse::Entity(payload) => payload
+                .to_target::<T, B, _>(&patch_fn)
+                .map(ModificationResponse::Entity),
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
+        }
     }
 }

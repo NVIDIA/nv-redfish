@@ -25,10 +25,10 @@ use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Action;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::BoxTryStream;
-use nv_redfish_core::Empty;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
 use nv_redfish_core::FilterQuery;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
@@ -64,7 +64,7 @@ pub trait HttpClient: Send + Sync {
         body: &B,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> impl Future<Output = Result<T, Self::Error>> + Send
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
     where
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync;
@@ -77,18 +77,20 @@ pub trait HttpClient: Send + Sync {
         body: &B,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> impl Future<Output = Result<T, Self::Error>> + Send
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
     where
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync;
 
     /// Perform an HTTP DELETE request.
-    fn delete(
+    fn delete<T>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> impl Future<Output = Result<Empty, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
+    where
+        T: DeserializeOwned + Send + Sync;
 
     /// Open an SSE stream
     fn sse<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
@@ -431,7 +433,7 @@ where
         &self,
         id: &ODataId,
         v: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
         self.client
             .post(endpoint_url, v, &self.credentials, &self.custom_headers)
@@ -443,7 +445,7 @@ where
         id: &ODataId,
         etag: Option<&ODataETag>,
         v: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
         let etag = etag
             .cloned()
@@ -459,7 +461,10 @@ where
             .await
     }
 
-    async fn delete(&self, id: &ODataId) -> Result<Empty, Self::Error> {
+    async fn delete<T: Sync + Send + for<'de> Deserialize<'de>>(
+        &self,
+        id: &ODataId,
+    ) -> Result<ModificationResponse<T>, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
         self.client
             .delete(endpoint_url, &self.credentials, &self.custom_headers)
@@ -473,7 +478,7 @@ where
         &self,
         action: &Action<T, R>,
         params: &T,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_path(&action.target.to_string());
         self.client
             .post(

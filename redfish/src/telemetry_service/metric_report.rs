@@ -19,6 +19,7 @@ use crate::schema::redfish::metric_report::MetricReport as MetricReportSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 
@@ -50,7 +51,10 @@ impl<B: Bmc> MetricReportRef<B> {
     ///
     /// Returns an error if fetching the entity fails.
     pub async fn fetch(&self) -> Result<Arc<MetricReportSchema>, Error<B>> {
-        self.metric_report_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+        self.metric_report_ref
+            .get(self.bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Delete this metric report.
@@ -58,12 +62,11 @@ impl<B: Bmc> MetricReportRef<B> {
     /// # Errors
     ///
     /// Returns an error if deleting the entity fails.
-    pub async fn delete(&self) -> Result<(), Error<B>> {
+    pub async fn delete(&self) -> Result<ModificationResponse<MetricReportSchema>, Error<B>> {
         self.bmc
             .as_ref()
             .delete(self.metric_report_ref.id())
             .await
             .map_err(Error::Bmc)
-            .map(|_| ())
     }
 }

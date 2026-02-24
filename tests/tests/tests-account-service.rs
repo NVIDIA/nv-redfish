@@ -220,6 +220,7 @@ async fn create_account_standard() -> Result<(), Box<dyn StdError>> {
         }),
     ));
     let account = accounts.create_account(create_req).await?;
+    let account = account.expect("create_account should return account entity");
     let account = account.raw();
     assert_eq!(account.user_name, Some("user".into()));
     assert_eq!(account.role_id, Some("Operator".into()));
@@ -255,6 +256,7 @@ async fn create_account_hpe_patched() -> Result<(), Box<dyn StdError>> {
         }),
     ));
     let account = accounts.create_account(create_req).await?;
+    let account = account.expect("create_account should return account entity");
     let account = account.raw();
     assert_eq!(account.user_name, Some("user".into()));
     assert_eq!(account.account_types, Some(vec![AccountTypes::Redfish]));
@@ -298,6 +300,7 @@ async fn create_account_dell_slot_defined_first_available() -> Result<(), Box<dy
     let create_req =
         ManagerAccountCreate::builder("password".into(), "user".into(), "Operator".into()).build();
     let account = accounts.create_account(create_req).await?;
+    let account = account.expect("create_account should return account entity");
     let account = account.raw();
     assert_eq!(account.base.id, "3");
     assert_eq!(account.user_name, Some("user".into()));

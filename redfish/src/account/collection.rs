@@ -150,7 +150,7 @@ impl<B: Bmc> AccountCollection<B> {
     pub async fn create_account(
         &self,
         create: ManagerAccountCreate,
-    ) -> Result<Account<B>, Error<B>> {
+    ) -> Result<Option<Account<B>>, Error<B>> {
         if let Some(cfg) = &self.config.slot_defined_user_accounts {
             // For slot-defined configuration, find the first account
             // that is disabled (and whose id is >= `min_slot`, if defined)
@@ -199,12 +199,16 @@ impl<B: Bmc> AccountCollection<B> {
             // No available slot found
             Err(Error::AccountSlotNotAvailable)
         } else {
-            let account = self.create_with_patch(&create).await?;
-            Ok(Account::from_data(
-                self.bmc.clone(),
-                account,
-                self.config.account.clone(),
-            ))
+            let outcome = self.create_with_patch(&create).await?;
+            Ok(match outcome {
+                nv_redfish_core::ModificationResponse::Entity(account) => Some(Account::from_data(
+                    self.bmc.clone(),
+                    account,
+                    self.config.account.clone(),
+                )),
+                nv_redfish_core::ModificationResponse::Task(_)
+                | nv_redfish_core::ModificationResponse::Empty => None,
+            })
         }
     }
 

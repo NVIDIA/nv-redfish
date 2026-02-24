@@ -25,6 +25,7 @@ use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -114,7 +115,10 @@ impl<B: Bmc> LogService<B> {
     /// Returns an error if:
     /// - The log service does not support the `ClearLog` action
     /// - The action execution fails
-    pub async fn clear_log(&self, log_entry_codes: Option<String>) -> Result<(), Error<B>>
+    pub async fn clear_log(
+        &self,
+        log_entry_codes: Option<String>,
+    ) -> Result<ModificationResponse<()>, Error<B>>
     where
         B::Error: nv_redfish_core::ActionError,
     {
@@ -127,9 +131,7 @@ impl<B: Bmc> LogService<B> {
         actions
             .clear_log(self.bmc.as_ref(), log_entry_codes)
             .await
-            .map_err(Error::Bmc)?;
-
-        Ok(())
+            .map_err(Error::Bmc)?
     }
 
     /// This unwraps `NavProperty`, usually all BMC already have them expanded, so we do not expect network IO here

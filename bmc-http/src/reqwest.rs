@@ -19,9 +19,11 @@ use crate::HttpClient;
 use futures_util::StreamExt;
 use http::header;
 use http::HeaderMap;
+use nv_redfish_core::AsyncTask;
 use nv_redfish_core::BoxTryStream;
-use nv_redfish_core::Empty;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
+use nv_redfish_core::ODataId;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use std::time::Duration;
@@ -39,6 +41,7 @@ pub enum BmcError {
     SseStreamError(sse_stream::Error),
     CacheMiss,
     CacheError(String),
+    DecodeError(serde_json::Error),
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -85,6 +88,7 @@ impl std::fmt::Display for BmcError {
                 e.path(),
             ),
             Self::SseStreamError(e) => write!(f, "SSE stream decode error: {e}"),
+            Self::DecodeError(e) => write!(f, "JSON Decode error: {e}"),
         }
     }
 }
@@ -96,6 +100,7 @@ impl std::error::Error for BmcError {
             Self::ReqwestError(e) => Some(e),
             Self::JsonError(e) => Some(e.inner()),
             Self::SseStreamError(e) => Some(e),
+            Self::DecodeError(e) => Some(e),
             _ => None,
         }
     }
@@ -337,24 +342,127 @@ impl Client {
             });
         }
 
-        let etag_header = response.headers().get("etag").cloned();
+        let headers = response.headers().clone();
+
+        let etag_header = etag_from_headers(&headers);
 
         let mut value: serde_json::Value = response.json().await.map_err(BmcError::ReqwestError)?;
 
-        if let Some(header) = etag_header {
-            if let Ok(etag_value) = header.to_str() {
-                if let Some(obj) = value.as_object_mut() {
-                    let etag_value = serde_json::Value::String(etag_value.to_string());
-
-                    // Handles both absent and null values
-                    obj.entry("@odata.etag")
-                        .and_modify(|v| *v = etag_value.clone())
-                        .or_insert(etag_value);
-                }
-            }
+        if let Some(etag) = etag_header {
+            inject_etag(etag, &mut value);
         }
 
         serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)
+    }
+
+    async fn handle_modification_response<T>(
+        &self,
+        response: reqwest::Response,
+    ) -> Result<ModificationResponse<T>, BmcError>
+    where
+        T: DeserializeOwned + Send + Sync,
+    {
+        let status = response.status();
+        let url = response.url().clone();
+        let headers = response.headers().clone();
+        if !status.is_success() {
+            return Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
+            });
+        }
+
+        let etag = etag_from_headers(&headers);
+        let location = location_from_headers(&headers);
+
+        match status {
+            reqwest::StatusCode::NO_CONTENT => Ok(ModificationResponse::Empty),
+            reqwest::StatusCode::ACCEPTED => {
+                let Some(task_monitor_id) = location else {
+                    return Err(BmcError::InvalidResponse {
+                        url,
+                        status,
+                        text: String::from("202 Accepted without Location header"),
+                    });
+                };
+                Ok(ModificationResponse::Task(AsyncTask {
+                    id: task_monitor_id,
+                    retry_after_secs: retry_after_from_headers(&headers),
+                }))
+            }
+            reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {
+                let bytes = response.bytes().await.map_err(BmcError::ReqwestError)?;
+                if !bytes.is_empty() {
+                    let value: serde_json::Value =
+                        serde_json::from_slice(&bytes).map_err(BmcError::DecodeError)?;
+                    let mut value = value;
+                    if let Some(etag) = etag {
+                        inject_etag(etag, &mut value);
+                    }
+                    return serde_path_to_error::deserialize(value)
+                        .map(ModificationResponse::Entity)
+                        .map_err(BmcError::JsonError);
+                }
+
+                if let Some(location) = location {
+                    let value = serde_json::json!({ "@odata.id": location });
+                    return serde_path_to_error::deserialize(value)
+                        .map(ModificationResponse::Entity)
+                        .map_err(BmcError::JsonError);
+                }
+
+                Ok(ModificationResponse::Empty)
+            }
+            _ => Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: format!("Unexpected successful status code: {status}"),
+            }),
+        }
+    }
+}
+
+fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
+    headers
+        .get(header::LOCATION)
+        .and_then(|value| value.to_str().ok())
+        .map(|raw| {
+            if let Ok(url) = Url::parse(raw) {
+                let mut path = url.path().to_string();
+                if let Some(query) = url.query() {
+                    path.push('?');
+                    path.push_str(query);
+                }
+                path.into()
+            } else {
+                raw.to_string().into()
+            }
+        })
+}
+
+fn etag_from_headers(headers: &HeaderMap) -> Option<ODataETag> {
+    headers
+        .get(header::ETAG)
+        .and_then(|value| value.to_str().ok())
+        .map(|v| v.to_string().into())
+}
+
+fn retry_after_from_headers(headers: &HeaderMap) -> Option<u64> {
+    headers
+        .get(header::RETRY_AFTER)
+        .and_then(|value| value.to_str().ok())
+        .and_then(|v| v.trim().parse::<u64>().ok())
+}
+
+fn inject_etag(etag: ODataETag, body: &mut serde_json::Value) {
+    if let Some(obj) = body.as_object_mut() {
+        let etag_value = serde_json::Value::String(etag.to_string());
+
+        // Handles both absent and null values
+        obj.entry("@odata.etag")
+            .and_modify(|v| *v = etag_value.clone())
+            .or_insert(etag_value);
     }
 }
 
@@ -391,7 +499,7 @@ impl HttpClient for Client {
         body: &B,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> Result<T, Self::Error>
+    ) -> Result<ModificationResponse<T>, Self::Error>
     where
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
@@ -405,7 +513,7 @@ impl HttpClient for Client {
             .send()
             .await?;
 
-        self.handle_response(response).await
+        self.handle_modification_response(response).await
     }
 
     async fn patch<B, T>(
@@ -415,7 +523,7 @@ impl HttpClient for Client {
         body: &B,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> Result<T, Self::Error>
+    ) -> Result<ModificationResponse<T>, Self::Error>
     where
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
@@ -429,15 +537,18 @@ impl HttpClient for Client {
         request = request.header(header::IF_MATCH, etag.to_string());
 
         let response = request.json(body).send().await?;
-        self.handle_response(response).await
+        self.handle_modification_response(response).await
     }
 
-    async fn delete(
+    async fn delete<T>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
-    ) -> Result<Empty, Self::Error> {
+    ) -> Result<ModificationResponse<T>, Self::Error>
+    where
+        T: DeserializeOwned + Send + Sync,
+    {
         let response = self
             .client
             .delete(url)
@@ -446,15 +557,7 @@ impl HttpClient for Client {
             .send()
             .await?;
 
-        if !response.status().is_success() {
-            return Err(BmcError::InvalidResponse {
-                url: response.url().clone(),
-                status: response.status(),
-                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
-            });
-        }
-
-        Ok(Empty {})
+        self.handle_modification_response(response).await
     }
 
     async fn sse<T: Sized + for<'a> serde::Deserialize<'a> + Send + 'static>(

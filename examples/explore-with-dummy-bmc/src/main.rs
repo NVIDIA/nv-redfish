@@ -20,12 +20,13 @@ use std::sync::Arc;
 use futures_util::StreamExt;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::{
-    Action, ActionError, Bmc, Creatable, Empty, EntityTypeRef, Expandable, NavProperty, ODataETag,
-    ODataId, Updatable,
+    Action, ActionError, Bmc, EntityTypeRef, Expandable, ModificationResponse, NavProperty,
+    ODataETag, ODataId, Updatable,
 };
 use redfish_oem_contoso::redfish::contoso_turboencabulator_service::{
     ContosoTurboencabulatorServiceUpdate, TurboencabulatorMode,
 };
+use redfish_std::redfish::manager_account::ManagerAccount;
 use redfish_std::redfish::manager_account::ManagerAccountCreate;
 use redfish_std::redfish::resource::ResetType;
 use redfish_std::redfish::service_root::ServiceRoot;
@@ -521,7 +522,7 @@ impl Bmc for MockBmc {
         id: &ODataId,
         _etag: Option<&ODataETag>,
         update: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         println!(
             "BMC Update {}: {}",
             id,
@@ -529,7 +530,7 @@ impl Bmc for MockBmc {
         );
         let mock_json = self.get_mock_json_for_uri(&id.to_string());
         let result: R = serde_json::from_str(&mock_json).map_err(Error::ParseError)?;
-        Ok(result)
+        Ok(ModificationResponse::Entity(result))
     }
 
     async fn create<
@@ -539,7 +540,7 @@ impl Bmc for MockBmc {
         &self,
         id: &ODataId,
         create: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         println!(
             "BMC create {}: {}",
             id,
@@ -547,11 +548,14 @@ impl Bmc for MockBmc {
         );
         let mock_json = self.get_mock_json_for_uri("/redfish/v1/AccountService/Accounts/1");
         let result: R = serde_json::from_str(&mock_json).map_err(Error::ParseError)?;
-        Ok(result)
+        Ok(ModificationResponse::Entity(result))
     }
 
-    async fn delete(&self, _id: &ODataId) -> Result<Empty, Self::Error> {
-        todo!("unimplimented")
+    async fn delete<R: EntityTypeRef + Sync + Send + for<'de> Deserialize<'de>>(
+        &self,
+        _id: &ODataId,
+    ) -> Result<ModificationResponse<R>, Self::Error> {
+        Ok(ModificationResponse::Empty)
     }
 
     async fn action<
@@ -561,14 +565,14 @@ impl Bmc for MockBmc {
         &self,
         _action: &Action<T, R>,
         _params: &T,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         //println!(
         //    "BMC Action {}: {}",
         //    action.target,
         //    serde_json::to_string(params).expect("serializable")
         //);
-        let result: R = serde_json::from_str("").map_err(Error::ParseError)?;
-        Ok(result)
+        let result: R = serde_json::from_str("null").map_err(Error::ParseError)?;
+        Ok(ModificationResponse::Entity(result))
     }
 
     async fn stream<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
@@ -795,10 +799,14 @@ async fn main() -> Result<(), Error> {
         .with_turboencabulator_mode(TurboencabulatorMode::Turbo);
 
     let updated = turboencabulator_service.update(&bmc, &update).await?;
+    let updated = match updated {
+        ModificationResponse::Entity(updated) => updated,
+        _ => return Err(Error::ExpectedField("typed update payload")),
+    };
     let _ = updated.refresh(&bmc).await?;
 
     println!("Create account");
-    let account = service_root
+    let accounts = service_root
         .account_service
         .as_ref()
         .ok_or(Error::ExpectedField("account_service"))?
@@ -808,9 +816,10 @@ async fn main() -> Result<(), Error> {
         .as_ref()
         .ok_or(Error::ExpectedField("accounts"))?
         .get(&bmc)
-        .await?
-        .create(
-            &bmc,
+        .await?;
+    let account = bmc
+        .create::<_, ManagerAccount>(
+            accounts.id(),
             &ManagerAccountCreate::builder(
                 "secret_password".into(),
                 "Administrator".into(),
@@ -821,6 +830,10 @@ async fn main() -> Result<(), Error> {
         .await?;
     println!("  Ok!");
     println!("Returned account:");
+    let account = match account {
+        ModificationResponse::Entity(account) => account,
+        _ => return Err(Error::ExpectedField("typed account payload")),
+    };
     println!(
         "  User name: {}",
         account.user_name.as_ref().unwrap_or(&"-".to_string())

@@ -18,6 +18,7 @@ use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -62,14 +63,21 @@ impl<B: Bmc> MetricDefinition<B> {
     /// # Errors
     ///
     /// Returns an error if updating the entity fails.
-    pub async fn update(&self, update: &MetricDefinitionUpdate) -> Result<Self, Error<B>> {
-        let updated = self
+    pub async fn update(&self, update: &MetricDefinitionUpdate) -> Result<Option<Self>, Error<B>> {
+        match self
             .bmc
             .as_ref()
-            .update(self.data.id(), self.data.etag(), update)
+            .update::<_, NavProperty<MetricDefinitionSchema>>(
+                self.data.id(),
+                self.data.etag(),
+                update,
+            )
             .await
-            .map_err(Error::Bmc)?;
-        Ok(Self::from_data(self.bmc.clone(), updated))
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav).await.map(Some),
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Delete this metric definition.
@@ -77,12 +85,16 @@ impl<B: Bmc> MetricDefinition<B> {
     /// # Errors
     ///
     /// Returns an error if deleting the entity fails.
-    pub async fn delete(&self) -> Result<(), Error<B>> {
-        self.bmc
+    pub async fn delete(&self) -> Result<Option<Self>, Error<B>> {
+        match self
+            .bmc
             .as_ref()
-            .delete(self.data.id())
+            .delete::<NavProperty<MetricDefinitionSchema>>(self.data.id())
             .await
-            .map_err(Error::Bmc)
-            .map(|_| ())
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav).await.map(Some),
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 }
