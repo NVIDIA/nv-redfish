@@ -246,20 +246,44 @@ impl<B: Bmc> ServiceRoot<B> {
             .is_some_and(|v| v == "Dell")
     }
 
-    /// In some cases thre is addtional fields in Links.ContainedBy in
+    /// In some cases there is addtional fields in Links.ContainedBy in
     /// Chassis resource, this flag aims to patch this invalid links
     #[cfg(feature = "chassis")]
     pub(crate) fn bug_invalid_contained_by_fields(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "AMI")
-            && self
-                .root
-                .redfish_version
-                .as_ref()
-                .is_some_and(|version| version == "1.11.0")
+        Self::is_ami_viking(&self.root)
+    }
+
+    /// Missing navigation properties in root object.
+    #[cfg(any(
+        feature = "chassis",
+        feature = "computer-systems",
+        feature = "managers",
+        feature = "update-service",
+    ))]
+    pub(crate) fn bug_missing_root_nav_properties(&self) -> bool {
+        Self::is_ami_viking(&self.root)
+    }
+
+    /// Missing chassis type property in Chassis resource. This
+    /// property is Required in according to specification but some
+    /// systems doesn't provide it.
+    #[cfg(feature = "chassis")]
+    pub(crate) fn bug_missing_chassis_type_field(&self) -> bool {
+        Self::is_ami_viking(&self.root)
+    }
+
+    /// Missing Name property in Chassis resource. This property is
+    /// required in any resource.
+    #[cfg(feature = "chassis")]
+    pub(crate) fn bug_missing_chassis_name_field(&self) -> bool {
+        Self::is_ami_viking(&self.root)
+    }
+
+    /// Missing Name property in Chassis resource. This property is
+    /// required in any resource.
+    #[cfg(feature = "update-service")]
+    pub(crate) fn bug_missing_update_service_name_field(&self) -> bool {
+        Self::is_ami_viking(&self.root)
     }
 
     /// In some implementations BMC ReleaseDate is incorrectly set to
@@ -318,6 +342,10 @@ impl<B: Bmc> ServiceRoot<B> {
     /// if it is the case for specific chassis, we would disable
     /// expand api
     fn expand_is_not_working_properly(root: &SchemaServiceRoot) -> bool {
+        Self::is_ami_viking(root)
+    }
+
+    fn is_ami_viking(root: &SchemaServiceRoot) -> bool {
         root.vendor
             .as_ref()
             .and_then(Option::as_ref)

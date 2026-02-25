@@ -25,6 +25,7 @@ use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
+use nv_redfish_tests::ami_viking_service_root;
 use serde_json::json;
 use std::error::Error as StdError;
 use std::sync::Arc;
@@ -71,6 +72,72 @@ async fn list_dell_fw_inventores() -> Result<(), Box<dyn StdError>> {
     let inventories = update_service.firmware_inventories().await?.unwrap();
     assert_eq!(inventories.len(), 1);
     assert!(inventories[0].raw().release_date.is_none());
+    Ok(())
+}
+
+#[test]
+async fn ami_viking_missing_root_update_service_nav_workaround() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let update_service_id = format!("{root_id}/UpdateService");
+    let fw_inventory_id = format!("{update_service_id}/FirmwareInventory");
+
+    bmc.expect(Expect::get(
+        &root_id,
+        ami_viking_service_root(&root_id, json!({})),
+    ));
+    let service_root = ServiceRoot::new(bmc.clone()).await?;
+
+    bmc.expect(Expect::get(
+        &update_service_id,
+        json!({
+            ODATA_ID: &update_service_id,
+            ODATA_TYPE: &UPDATE_SERVICE_DATA_TYPE,
+            "Id": "UpdateService",
+            "Name": "UpdateService",
+            "FirmwareInventory": {
+                ODATA_ID: &fw_inventory_id,
+            },
+        }),
+    ));
+
+    let update_service = service_root.update_service().await?;
+    assert!(update_service.is_some());
+
+    Ok(())
+}
+
+#[test]
+async fn ami_viking_missing_update_service_name_workaround() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let update_service_id = format!("{root_id}/UpdateService");
+
+    bmc.expect(Expect::get(
+        &root_id,
+        ami_viking_service_root(
+            &root_id,
+            json!({
+                "UpdateService": {
+                    ODATA_ID: &update_service_id,
+                }
+            }),
+        ),
+    ));
+    let service_root = ServiceRoot::new(bmc.clone()).await?;
+
+    bmc.expect(Expect::get(
+        &update_service_id,
+        json!({
+            ODATA_ID: &update_service_id,
+            ODATA_TYPE: &UPDATE_SERVICE_DATA_TYPE,
+            "Id": "UpdateService",
+        }),
+    ));
+
+    let update_service = service_root.update_service().await?.unwrap();
+    assert_eq!(update_service.raw().base.name, "Unnamed update service");
+
     Ok(())
 }
 

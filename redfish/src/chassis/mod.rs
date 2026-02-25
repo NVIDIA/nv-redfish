@@ -65,6 +65,8 @@ pub use power_supply::PowerSupply;
 #[cfg(feature = "thermal")]
 pub use thermal::Thermal;
 
+use crate::core::NavProperty;
+use crate::resource::Resource as _;
 use crate::schema::redfish::chassis_collection::ChassisCollection as ChassisCollectionSchema;
 use crate::{Error, NvBmc, ServiceRoot};
 
@@ -83,16 +85,26 @@ impl<B: Bmc> ChassisCollection<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(collection_ref) = &root.root.chassis {
-            let item_config = item::Config::new(root).into();
-            let collection = bmc.expand_property(collection_ref).await?;
-            Ok(Some(Self {
-                bmc: bmc.clone(),
-                collection,
-                item_config,
-            }))
+            bmc.expand_property(collection_ref).await.map(Some)
+        } else if root.bug_missing_root_nav_properties() {
+            bmc.expand_property(&NavProperty::new_reference(
+                format!("{}/Chassis", root.odata_id()).into(),
+            ))
+            .await
+            .map(Some)
         } else {
             Ok(None)
         }
+        .map(|c| {
+            c.map(|collection| {
+                let item_config = item::Config::new(root).into();
+                Self {
+                    bmc: bmc.clone(),
+                    collection,
+                    item_config,
+                }
+            })
+        })
     }
 
     /// List all chassis avaiable in this BMC

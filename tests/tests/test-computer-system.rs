@@ -20,6 +20,7 @@ use nv_redfish::computer_system::SystemCollection;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
+use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -48,6 +49,30 @@ async fn dell_wrong_last_reset_time_workaround() -> Result<(), Box<dyn StdError>
     assert_eq!(members.len(), 1);
     let system = &members[0];
     assert!(system.raw().last_reset_time.is_none());
+
+    Ok(())
+}
+
+#[test]
+async fn ami_viking_missing_root_systems_nav_workaround() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let computer_system = computer_system(&ids, json!({}));
+    let service_root = expect_viking_service_root_without_systems(bmc.clone(), &ids).await?;
+    bmc.expect(Expect::get(
+        &ids.systems_id,
+        json!({
+            ODATA_ID: &ids.systems_id,
+            ODATA_TYPE: &SYSTEM_COLLECTION_DATA_TYPE,
+            "Id": resource_name(&ids.systems_id),
+            "Name": "Computer System Collection",
+            "Members": [computer_system]
+        }),
+    ));
+
+    let systems = service_root.systems().await?.unwrap();
+    let members = systems.members().await?;
+    assert_eq!(members.len(), 1);
 
     Ok(())
 }
@@ -101,6 +126,17 @@ async fn expect_service_root(
         }),
     ));
 
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_viking_service_root_without_systems(
+    bmc: Arc<Bmc>,
+    ids: &ComputerSystemIds,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        ami_viking_service_root(&ids.root_id, json!({})),
+    ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
 

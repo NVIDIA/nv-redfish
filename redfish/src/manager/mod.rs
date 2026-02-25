@@ -19,6 +19,8 @@
 
 mod item;
 
+use crate::core::NavProperty;
+use crate::resource::Resource as _;
 use crate::schema::redfish::manager_collection::ManagerCollection as ManagerCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -43,14 +45,22 @@ impl<B: Bmc> ManagerCollection<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(collection_ref) = &root.root.managers {
-            let collection = bmc.expand_property(collection_ref).await?;
-            Ok(Some(Self {
-                bmc: bmc.clone(),
-                collection,
-            }))
+            bmc.expand_property(collection_ref).await.map(Some)
+        } else if root.bug_missing_root_nav_properties() {
+            bmc.expand_property(&NavProperty::new_reference(
+                format!("{}/Managers", root.odata_id()).into(),
+            ))
+            .await
+            .map(Some)
         } else {
             Ok(None)
         }
+        .map(|c| {
+            c.map(|collection| Self {
+                bmc: bmc.clone(),
+                collection,
+            })
+        })
     }
 
     /// List all managers available in this BMC.
