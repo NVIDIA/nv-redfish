@@ -38,6 +38,7 @@ mod storage;
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::JsonValue;
 use crate::patch_support::ReadPatchFn;
+use crate::resource::Resource as _;
 use crate::schema::redfish::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::schema::redfish::computer_system_collection::ComputerSystemCollection as ComputerSystemCollectionSchema;
 use crate::schema::redfish::resource::ResourceCollection;
@@ -95,29 +96,33 @@ impl<B: Bmc> SystemCollection<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
-        if let Some(collection_ref) = &root.root.systems {
-            let mut patches = Vec::new();
-            if root.computer_systems_wrong_last_reset_time() {
-                patches.push(computer_systems_wrong_last_reset_time);
-            }
-            let read_patch_fn = if patches.is_empty() {
-                None
-            } else {
-                let patches_fn: ReadPatchFn =
-                    Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
-                Some(patches_fn)
-            };
-            let collection =
-                Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref()).await?;
+        let mut patches = Vec::new();
+        if root.computer_systems_wrong_last_reset_time() {
+            patches.push(computer_systems_wrong_last_reset_time);
+        }
+        let read_patch_fn = (!patches.is_empty())
+            .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
 
-            Ok(Some(Self {
-                bmc: bmc.clone(),
-                collection,
-                read_patch_fn,
-            }))
+        if let Some(collection_ref) = &root.root.systems {
+            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref())
+                .await
+                .map(Some)
+        } else if root.bug_missing_root_nav_properties() {
+            bmc.expand_property(&NavProperty::new_reference(
+                format!("{}/Systems", root.odata_id()).into(),
+            ))
+            .await
+            .map(Some)
         } else {
             Ok(None)
         }
+        .map(|c| {
+            c.map(|collection| Self {
+                bmc: bmc.clone(),
+                collection,
+                read_patch_fn,
+            })
+        })
     }
 
     /// List all computer systems available in this BMC.

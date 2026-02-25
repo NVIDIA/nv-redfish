@@ -20,6 +20,8 @@
 
 mod software_inventory;
 
+use crate::core::NavProperty;
+use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::update_service::UpdateService as UpdateServiceSchema;
 use crate::schema::redfish::update_service::UpdateServiceSimpleUpdateAction;
@@ -57,28 +59,48 @@ impl<B: Bmc> UpdateService<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
-        if let Some(service_ref) = &root.root.update_service {
-            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+        let mut service_patches = Vec::new();
+        if root.bug_missing_update_service_name_field() {
+            service_patches.push(add_default_update_service_name);
+        }
+        let service_patch_fn = (!service_patches.is_empty()).then(|| {
+            Arc::new(move |v| service_patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn
+        });
 
-            let mut fw_inventory_patches = Vec::new();
-            if root.fw_inventory_wrong_release_date() {
-                fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
-            }
-            let fw_inventory_read_patch_fn = if fw_inventory_patches.is_empty() {
-                None
+        let mut fw_inventory_patches = Vec::new();
+        if root.fw_inventory_wrong_release_date() {
+            fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
+        }
+        let fw_inventory_read_patch_fn = (!fw_inventory_patches.is_empty()).then(|| {
+            Arc::new(move |v| fw_inventory_patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn
+        });
+
+        if let Some(nav) = &root.root.update_service {
+            if let Some(service_patch_fn) = service_patch_fn {
+                Payload::get(bmc.as_ref(), nav, service_patch_fn.as_ref()).await
             } else {
-                let fw_inventory_patches_fn: ReadPatchFn =
-                    Arc::new(move |v| fw_inventory_patches.iter().fold(v, |acc, f| f(acc)));
-                Some(fw_inventory_patches_fn)
-            };
-            Ok(Some(Self {
-                bmc: bmc.clone(),
-                data,
-                fw_inventory_read_patch_fn,
-            }))
+                nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+            }
+            .map(Some)
+        } else if root.bug_missing_root_nav_properties() {
+            let nav =
+                NavProperty::new_reference(format!("{}/UpdateService", root.odata_id()).into());
+            if let Some(service_patch_fn) = service_patch_fn {
+                Payload::get(bmc.as_ref(), &nav, service_patch_fn.as_ref()).await
+            } else {
+                nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+            }
+            .map(Some)
         } else {
             Ok(None)
         }
+        .map(|d| {
+            d.map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+                fw_inventory_read_patch_fn,
+            })
+        })
     }
 
     /// Get the raw schema data for this update service.
@@ -244,6 +266,16 @@ fn fw_inventory_patch_wrong_release_date(v: JsonValue) -> JsonValue {
                 obj.remove("ReleaseDate");
             }
         }
+        JsonValue::Object(obj)
+    } else {
+        v
+    }
+}
+
+fn add_default_update_service_name(v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(mut obj) = v {
+        obj.entry("Name")
+            .or_insert(JsonValue::String("Unnamed update service".into()));
         JsonValue::Object(obj)
     } else {
         v

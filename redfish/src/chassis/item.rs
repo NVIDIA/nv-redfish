@@ -81,15 +81,16 @@ impl Config {
     pub fn new<B: Bmc>(root: &ServiceRoot<B>) -> Self {
         let mut patches = Vec::new();
         if root.bug_invalid_contained_by_fields() {
-            patches.push(remove_invalid_contained_by_fields);
+            patches.push(remove_invalid_contained_by_fields as fn(JsonValue) -> JsonValue);
         }
-        let read_patch_fn = if patches.is_empty() {
-            None
-        } else {
-            let read_patch_fn: ReadPatchFn =
-                Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
-            Some(read_patch_fn)
-        };
+        if root.bug_missing_chassis_type_field() {
+            patches.push(add_default_chassis_type);
+        }
+        if root.bug_missing_chassis_name_field() {
+            patches.push(add_default_chassis_name);
+        }
+        let read_patch_fn = (!patches.is_empty())
+            .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
         Self { read_patch_fn }
     }
 }
@@ -390,4 +391,24 @@ fn remove_invalid_contained_by_fields(mut v: JsonValue) -> JsonValue {
         }
     }
     v
+}
+
+fn add_default_chassis_type(v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(mut obj) = v {
+        obj.entry("ChassisType")
+            .or_insert(JsonValue::String("Other".into()));
+        JsonValue::Object(obj)
+    } else {
+        v
+    }
+}
+
+fn add_default_chassis_name(v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(mut obj) = v {
+        obj.entry("Name")
+            .or_insert(JsonValue::String("Unnamed chassis".into()));
+        JsonValue::Object(obj)
+    } else {
+        v
+    }
 }

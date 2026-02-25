@@ -35,6 +35,29 @@ pub const ODATA_TYPE: &str = "@odata.type";
 use error::TestError;
 use nv_redfish_bmc_mock::Bmc as MockBmc;
 use nv_redfish_bmc_mock::Expect as MockExpect;
+use nv_redfish_core::ODataId;
+use serde_json::json;
+use serde_json::Value;
 
 pub type Bmc = MockBmc<TestError>;
 pub type Expect = MockExpect<TestError>;
+
+/// Build a ServiceRoot payload for AMI Viking (`Vendor=AMI`, `RedfishVersion=1.11.0`)
+/// merged with the provided `fields`.
+pub fn ami_viking_service_root(root_id: &ODataId, fields: Value) -> Value {
+    let base = json!({
+        ODATA_ID: root_id,
+        ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+        "Id": "RootService",
+        "Name": "RootService",
+        "ProtocolFeaturesSupported": {
+            "ExpandQuery": {
+                "NoLinks": true
+            }
+        },
+        "Vendor": "AMI",
+        "RedfishVersion": "1.11.0",
+        "Links": {},
+    });
+    json_merge([&base, &fields])
+}
