@@ -42,7 +42,7 @@ async fn manager_dell_attributes_lean_payload() -> Result<(), Box<dyn StdError>>
     let manager = get_manager(bmc.clone(), &ids, manager_payload(&ids, true)).await?;
 
     bmc.expect(Expect::expand(
-        &ids.dell_attrs_lookup_id,
+        &ids.dell_attrs_id,
         dell_attributes_payload(&ids),
     ));
 
@@ -128,22 +128,19 @@ struct ManagerIds {
     root_id: ODataId,
     manager_collection_id: String,
     manager_id: String,
-    dell_attrs_response_id: String,
-    dell_attrs_lookup_id: String,
+    dell_attrs_id: String,
 }
 
 fn manager_ids() -> ManagerIds {
     let root_id = ODataId::service_root();
     let manager_collection_id = format!("{root_id}/Managers");
     let manager_id = format!("{manager_collection_id}/iDRAC.Embedded.1");
-    let dell_attrs_response_id = format!("{manager_id}/Oem/Dell/DellAttributes/iDRAC.Embedded.1");
-    let dell_attrs_lookup_id = format!("{manager_id}/Oem/DellAttributes/iDRAC.Embedded.1");
+    let dell_attrs_id = format!("{manager_id}/Oem/Dell/DellAttributes/iDRAC.Embedded.1");
     ManagerIds {
         root_id,
         manager_collection_id,
         manager_id,
-        dell_attrs_response_id,
-        dell_attrs_lookup_id,
+        dell_attrs_id,
     }
 }
 
@@ -172,7 +169,7 @@ fn manager_payload(ids: &ManagerIds, with_dell_oem: bool) -> Value {
 
 fn dell_attributes_payload(ids: &ManagerIds) -> Value {
     json!({
-        ODATA_ID: &ids.dell_attrs_response_id,
+        ODATA_ID: &ids.dell_attrs_id,
         ODATA_TYPE: DELL_ATTRS_DATA_TYPE,
         "AttributeRegistry": "ManagerAttributeRegistry.v1_0_0",
         "Attributes": {

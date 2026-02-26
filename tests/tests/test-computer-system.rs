@@ -19,8 +19,8 @@
 use nv_redfish::computer_system::SystemCollection;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
-use nv_redfish_tests::json_merge;
 use nv_redfish_tests::ami_viking_service_root;
+use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;

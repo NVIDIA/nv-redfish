@@ -54,11 +54,17 @@ async fn supermicro_kcs_and_sys_lockdown_supported() -> Result<(), Box<dyn StdEr
     .await?;
 
     let supermicro = manager.oem_supermicro()?.unwrap();
-    bmc.expect(Expect::get(&ids.kcs_interface_id, kcs_interface_payload(&ids)));
+    bmc.expect(Expect::get(
+        &ids.kcs_interface_id,
+        kcs_interface_payload(&ids),
+    ));
     let kcs = supermicro.kcs_interface().await?.unwrap();
     assert_eq!(kcs.privilege(), Some(Privilege::Administrator));
 
-    bmc.expect(Expect::get(&ids.sys_lockdown_id, sys_lockdown_payload(&ids)));
+    bmc.expect(Expect::get(
+        &ids.sys_lockdown_id,
+        sys_lockdown_payload(&ids),
+    ));
     let lockdown = supermicro.sys_lockdown().await?.unwrap();
     assert_eq!(lockdown.sys_lockdown_enabled(), Some(false));
 
@@ -66,7 +72,8 @@ async fn supermicro_kcs_and_sys_lockdown_supported() -> Result<(), Box<dyn StdEr
 }
 
 #[test]
-async fn supermicro_manager_without_kcs_still_supports_sys_lockdown() -> Result<(), Box<dyn StdError>> {
+async fn supermicro_manager_without_kcs_still_supports_sys_lockdown(
+) -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let manager = get_manager(
@@ -76,7 +83,10 @@ async fn supermicro_manager_without_kcs_still_supports_sys_lockdown() -> Result<
     )
     .await?;
 
-    bmc.expect(Expect::get(&ids.sys_lockdown_id, sys_lockdown_payload(&ids)));
+    bmc.expect(Expect::get(
+        &ids.sys_lockdown_id,
+        sys_lockdown_payload(&ids),
+    ));
 
     let supermicro = manager.oem_supermicro()?.unwrap();
     assert!(supermicro.kcs_interface().await?.is_none());
