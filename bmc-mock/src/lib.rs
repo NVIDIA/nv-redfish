@@ -23,8 +23,8 @@ use nv_redfish_core::action::ActionTarget;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc as NvRedfishBmc;
-use nv_redfish_core::Empty;
 use nv_redfish_core::Expandable;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use serde::Serialize;
@@ -51,6 +51,7 @@ pub enum Error {
     UnexpectedExpand(ODataId, ExpectedRequest),
     UnexpectedUpdate(ODataId, String, ExpectedRequest),
     UnexpectedCreate(ODataId, String, ExpectedRequest),
+    UnexpectedDelete(ODataId, ExpectedRequest),
     UnexpectedAction(ActionTarget, String, ExpectedRequest),
     UnexpectedStream(String, ExpectedRequest),
 }
@@ -82,6 +83,9 @@ impl Display for Error {
                     f,
                     "unexpected create: {id}; json: {json} expected: {expected:?}"
                 )
+            }
+            Self::UnexpectedDelete(id, expected) => {
+                write!(f, "unexpected delete: {id}; expected: {expected:?}")
             }
             Self::UnexpectedAction(id, json, expected) => {
                 write!(
@@ -185,7 +189,7 @@ where
         in_id: &ODataId,
         _etag: Option<&ODataETag>,
         update: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let expect = self
             .expect
             .lock()
@@ -200,7 +204,7 @@ where
             } if id == *in_id && request == in_request => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
-                Ok(result)
+                Ok(ModificationResponse::Entity(result))
             }
             _ => Err(Error::UnexpectedUpdate(
                 in_id.clone(),
@@ -217,7 +221,7 @@ where
         &self,
         in_id: &ODataId,
         create: &V,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let expect = self
             .expect
             .lock()
@@ -232,7 +236,7 @@ where
             } if id == *in_id && request == in_request => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
-                Ok(result)
+                Ok(ModificationResponse::Entity(result))
             }
             _ => Err(Error::UnexpectedCreate(
                 in_id.clone(),
@@ -242,8 +246,25 @@ where
         }
     }
 
-    async fn delete(&self, _id: &ODataId) -> Result<Empty, Self::Error> {
-        todo!("unimplemented")
+    async fn delete<
+        R: nv_redfish_core::EntityTypeRef + Sync + Send + for<'de> serde::Deserialize<'de>,
+    >(
+        &self,
+        in_id: &ODataId,
+    ) -> Result<ModificationResponse<R>, Self::Error> {
+        let expect = self
+            .expect
+            .lock()
+            .map_err(Error::mutex_lock)?
+            .pop_front()
+            .ok_or(Error::NothingIsExpected)?;
+        match expect {
+            Expect {
+                request: ExpectedRequest::Delete { id },
+                ..
+            } if id == *in_id => Ok(ModificationResponse::Empty),
+            _ => Err(Error::UnexpectedDelete(in_id.clone(), expect.request)),
+        }
     }
 
     async fn action<
@@ -253,7 +274,7 @@ where
         &self,
         action: &nv_redfish_core::Action<T, R>,
         params: &T,
-    ) -> Result<R, Self::Error> {
+    ) -> Result<ModificationResponse<R>, Self::Error> {
         let expect = self
             .expect
             .lock()
@@ -268,7 +289,7 @@ where
             } if target == action.target && request == in_request => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
-                Ok(result)
+                Ok(ModificationResponse::Entity(result))
             }
             _ => Err(Error::UnexpectedAction(
                 action.target.clone(),

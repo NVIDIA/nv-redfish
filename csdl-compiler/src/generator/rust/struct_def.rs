@@ -702,7 +702,7 @@ impl<'a> StructDef<'a> {
                 let typename = FullTypeName::new(v, config);
                 quote! { Vec<#typename> }
             }
-            None => quote! { #top::Empty },
+            None => quote! { () },
         };
         quote! {
             #[serde(rename=#rename)]
@@ -775,7 +775,7 @@ impl<'a> StructDef<'a> {
                 let typename = FullTypeName::new(v, config);
                 quote! { Vec<#typename> }
             }
-            None => quote! { #top::Empty },
+            None => quote! { () },
         };
         if a.parameters.len() <= config.action_fn_max_param_number_threshold {
             let mut arglist = TokenStream::new();
@@ -806,7 +806,7 @@ impl<'a> StructDef<'a> {
             content.extend([
                 doc_format_and_generate(a.name, &a.odata),
                 quote! {
-                    pub async fn #name<B: #top::Bmc>(&self, bmc: &B #arglist) -> Result<#ret_type, B::Error>
+                    pub async fn #name<B: #top::Bmc>(&self, bmc: &B #arglist) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
                     where B::Error: #top::ActionError,
                     {
                         if let Some(a) = &self.#name  {
@@ -823,7 +823,7 @@ impl<'a> StructDef<'a> {
             content.extend([
                 doc_format_and_generate(a.name, &a.odata),
                 quote! {
-                    pub async fn #name<B: #top::Bmc>(&self, bmc: &B, t: &#typename) -> Result<#ret_type, B::Error>
+                    pub async fn #name<B: #top::Bmc>(&self, bmc: &B, t: &#typename) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
                     where B::Error: #top::ActionError,
                     {
                         if let Some(a) = &self.#name  {

@@ -17,6 +17,7 @@
 
 use nv_redfish_core::Creatable;
 use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::RedfishSettings;
@@ -272,6 +273,10 @@ async fn update_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+    let service_root = match service_root {
+        ModificationResponse::Entity(service_root) => service_root,
+        _ => return Err(Error::ExpectedProperty("service_root")),
+    };
     assert_eq!(service_root.updatable, Some(value));
     assert_eq!(service_root.updatable_guid, Some(uuid_value));
 
@@ -326,6 +331,10 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+    let nav_service_root = match nav_service_root {
+        ModificationResponse::Entity(nav_service_root) => nav_service_root,
+        _ => return Err(Error::ExpectedProperty("nav_service_root")),
+    };
     assert_eq!(
         nav_service_root
             .get(&bmc)
@@ -391,6 +400,10 @@ async fn create_collection_member_test() -> Result<(), Error> {
         .create(&bmc, &TestCollectionMemberCreate {})
         .await
         .map_err(Error::Bmc)?;
+    let member = match member {
+        ModificationResponse::Entity(member) => member,
+        _ => return Err(Error::ExpectedProperty("member")),
+    };
     assert_eq!(member.odata_id().to_string(), collection_member_id);
     Ok(())
 }
@@ -448,7 +461,7 @@ async fn action_method_test() -> Result<(), Error> {
         &json!({
             "ActionType": "Option1"
         }),
-        &json!({}),
+        &json!(null),
     ));
     service_actions
         .test_action(&bmc, Some(ActionType::Option1))
@@ -568,6 +581,10 @@ async fn redfish_settings_update_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+    let updated = match updated {
+        ModificationResponse::Entity(updated) => updated,
+        _ => return Err(Error::ExpectedProperty("updated")),
+    };
     assert_eq!(updated.setting_value, Some(Some(new_value)));
     Ok(())
 }

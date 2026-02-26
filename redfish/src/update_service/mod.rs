@@ -31,6 +31,7 @@ use crate::Resource;
 use crate::ResourceSchema;
 use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use serde_json::Value as JsonValue;
 use software_inventory::SoftwareInventoryCollection;
 use std::sync::Arc;
@@ -193,7 +194,7 @@ impl<B: Bmc> UpdateService<B> {
         stage: Option<bool>,
         local_image: Option<bool>,
         exclude_targets: Option<Vec<String>>,
-    ) -> Result<(), Error<B>>
+    ) -> Result<ModificationResponse<()>, Error<B>>
     where
         B::Error: nv_redfish_core::ActionError,
     {
@@ -219,9 +220,7 @@ impl<B: Bmc> UpdateService<B> {
                 },
             )
             .await
-            .map_err(Error::Bmc)?;
-
-        Ok(())
+            .map_err(Error::Bmc)
     }
 
     /// Start updates that have been previously invoked with an `OperationApplyTime` of `OnStartUpdateRequest`.
@@ -231,7 +230,7 @@ impl<B: Bmc> UpdateService<B> {
     /// Returns an error if:
     /// - The update service does not support the `StartUpdate` action
     /// - The action execution fails
-    pub async fn start_update(&self) -> Result<(), Error<B>>
+    pub async fn start_update(&self) -> Result<ModificationResponse<()>, Error<B>>
     where
         B::Error: nv_redfish_core::ActionError,
     {
@@ -244,9 +243,7 @@ impl<B: Bmc> UpdateService<B> {
         actions
             .start_update(self.bmc.as_ref())
             .await
-            .map_err(Error::Bmc)?;
-
-        Ok(())
+            .map_err(Error::Bmc)
     }
 }
 

@@ -28,6 +28,8 @@ use std::sync::Arc;
 #[cfg(feature = "patch-payload-update")]
 use crate::patch_support::ReadPatchFn;
 #[cfg(feature = "patch-payload-update")]
+use nv_redfish_core::ModificationResponse;
+#[cfg(feature = "patch-payload-update")]
 use nv_redfish_core::Updatable;
 #[cfg(feature = "patch-payload-update")]
 use serde::Serialize;
@@ -43,7 +45,7 @@ where
     fn patch(&self) -> Option<&ReadPatchFn>;
     fn bmc(&self) -> &B;
 
-    async fn update_with_patch(&self, update: &V) -> Result<T, Error<B>> {
+    async fn update_with_patch(&self, update: &V) -> Result<ModificationResponse<T>, Error<B>> {
         if let Some(patch_fn) = self.patch() {
             Updator {
                 id: self.entity_ref().odata_id(),
@@ -149,16 +151,28 @@ impl EntityTypeRef for Updator<'_> {
 
 #[cfg(feature = "patch-payload-update")]
 impl Updator<'_> {
-    async fn update<B, U, T, F>(&self, bmc: &B, update: &U, patch_fn: F) -> Result<T, Error<B>>
+    async fn update<B, U, T, F>(
+        &self,
+        bmc: &B,
+        update: &U,
+        patch_fn: F,
+    ) -> Result<ModificationResponse<T>, Error<B>>
     where
         B: Bmc,
         T: EntityTypeRef + for<'de> Deserialize<'de> + Sync + Send,
         U: Serialize + Send + Sync,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        bmc.update::<U, Payload>(self.odata_id(), self.etag(), update)
+        match bmc
+            .update::<U, Payload>(self.odata_id(), self.etag(), update)
             .await
             .map_err(Error::Bmc)?
-            .to_target(patch_fn)
+        {
+            ModificationResponse::Entity(payload) => payload
+                .to_target::<T, B, _>(&patch_fn)
+                .map(ModificationResponse::Entity),
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
+        }
     }
 }

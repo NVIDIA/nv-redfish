@@ -21,6 +21,8 @@ mod metric_definition;
 mod metric_report;
 mod metric_report_definition;
 
+use crate::schema::redfish::metric_definition::MetricDefinition as MetricDefinitionSchema;
+use crate::schema::redfish::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
 use crate::schema::redfish::telemetry_service::TelemetryService as TelemetryServiceSchema;
 use crate::schema::redfish::telemetry_service::TelemetryServiceUpdate;
 use crate::Error;
@@ -29,8 +31,8 @@ use crate::Resource;
 use crate::ResourceSchema;
 use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::Empty;
 use nv_redfish_core::EntityTypeRef as _;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -93,22 +95,31 @@ impl<B: Bmc> TelemetryService<B> {
     /// # Errors
     ///
     /// Returns an error if updating telemetry service fails.
-    pub async fn set_enabled(&self, enabled: bool) -> Result<Self, Error<B>> {
+    pub async fn set_enabled(&self, enabled: bool) -> Result<Option<Self>, Error<B>> {
         let update = TelemetryServiceUpdate::builder()
             .with_service_enabled(enabled)
             .build();
 
-        let updated = self
+        match self
             .bmc
             .as_ref()
-            .update(self.data.odata_id(), self.data.etag(), &update)
+            .update::<_, NavProperty<TelemetryServiceSchema>>(
+                self.data.odata_id(),
+                self.data.etag(),
+                &update,
+            )
             .await
-            .map_err(Error::Bmc)?;
-
-        Ok(Self {
-            data: Arc::new(updated),
-            bmc: self.bmc.clone(),
-        })
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                Ok(Some(Self {
+                    data,
+                    bmc: self.bmc.clone(),
+                }))
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Get `Vec<MetricReportRef>` associated with this telemetry service.
@@ -153,10 +164,7 @@ impl<B: Bmc> TelemetryService<B> {
     /// - retrieving the collection fails
     pub async fn metric_definitions(&self) -> Result<Option<Vec<MetricDefinition<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.metric_definitions {
-            let collection = collection_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
+            let collection = self.bmc.expand_property(collection_ref).await?;
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {
@@ -183,10 +191,7 @@ impl<B: Bmc> TelemetryService<B> {
         &self,
     ) -> Result<Option<Vec<MetricReportDefinition<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.metric_report_definitions {
-            let collection = collection_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
+            let collection = self.bmc.expand_property(collection_ref).await?;
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {
@@ -209,18 +214,25 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_definition(
         &self,
         create: &MetricDefinitionCreate,
-    ) -> Result<Empty, Error<B>> {
+    ) -> Result<Option<MetricDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_definitions
             .as_ref()
             .ok_or(Error::MetricDefinitionsNotAvailable)?;
 
-        self.bmc
+        match self
+            .bmc
             .as_ref()
-            .create(collection_ref.id(), create)
+            .create::<_, NavProperty<MetricDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                MetricDefinition::new(&self.bmc, &nav).await.map(Some)
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Create a metric report definition.
@@ -233,18 +245,25 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_report_definition(
         &self,
         create: &MetricReportDefinitionCreate,
-    ) -> Result<Empty, Error<B>> {
+    ) -> Result<Option<MetricReportDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_report_definitions
             .as_ref()
             .ok_or(Error::MetricReportDefinitionsNotAvailable)?;
 
-        self.bmc
+        match self
+            .bmc
             .as_ref()
-            .create(collection_ref.id(), create)
+            .create::<_, NavProperty<MetricReportDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                MetricReportDefinition::new(&self.bmc, &nav).await.map(Some)
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 }
 

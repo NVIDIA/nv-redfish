@@ -33,6 +33,8 @@ use std::sync::Arc;
 #[cfg(feature = "patch-collection-create")]
 use nv_redfish_core::Creatable;
 #[cfg(feature = "patch-collection-create")]
+use nv_redfish_core::ModificationResponse;
+#[cfg(feature = "patch-collection-create")]
 use serde::Serialize;
 
 /// Trait that allows patching collection member data before it is
@@ -84,7 +86,7 @@ where
     fn patch(&self) -> Option<&ReadPatchFn>;
     fn bmc(&self) -> &B;
 
-    async fn create_with_patch(&self, create: &C) -> Result<M, Error<B>> {
+    async fn create_with_patch(&self, create: &C) -> Result<ModificationResponse<M>, Error<B>> {
         if let Some(patch_fn) = &self.patch() {
             Collection::create(self.entity_ref(), self.bmc(), create, patch_fn.as_ref()).await
         } else {
@@ -112,21 +114,33 @@ struct Collection {
 
 impl Collection {
     #[cfg(feature = "patch-collection-create")]
-    async fn create<T, F, C, B, V>(orig: &T, bmc: &B, create: &C, f: F) -> Result<V, Error<B>>
+    async fn create<T, F, C, B, V>(
+        orig: &T,
+        bmc: &B,
+        create: &C,
+        f: F,
+    ) -> Result<ModificationResponse<V>, Error<B>>
     where
         T: EntityTypeRef + Sync + Send,
         V: for<'de> Deserialize<'de>,
         B: Bmc,
         C: Serialize + Sync + Send,
-        F: FnOnce(JsonValue) -> JsonValue + Sync + Send,
+        F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        Creator {
+        let result = Creator {
             id: orig.odata_id(),
         }
         .create(bmc, create)
         .await
-        .map_err(Error::Bmc)?
-        .to_target(f)
+        .map_err(Error::Bmc)?;
+
+        match result {
+            ModificationResponse::Entity(payload) => payload
+                .to_target::<V, B, _>(&f)
+                .map(ModificationResponse::Entity),
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
+        }
     }
 
     fn base(&self) -> ResourceCollection {

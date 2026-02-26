@@ -24,6 +24,7 @@ use nv_redfish_core::Creatable;
 use nv_redfish_core::Deletable;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use redfish_std::redfish::manager_account::ManagerAccount;
@@ -149,6 +150,10 @@ async fn main() -> Result<(), BmcError> {
         )
         .await?;
     println!("{account:?}");
+    let account = match account {
+        ModificationResponse::Entity(account) => account,
+        other => panic!("Unexpected create outcome: {:?}", other),
+    };
 
     let acc = NavProperty::<ManagerAccount>::new_reference(account.odata_id().clone())
         .get(&bmc)

@@ -20,7 +20,7 @@ mod reqwest_client_tests {
     use nv_redfish_bmc_http::reqwest::BmcError;
     use nv_redfish_core::{
         query::{ExpandQuery, FilterQuery},
-        Bmc,
+        Bmc, ModificationResponse,
     };
     use wiremock::{
         matchers::{body_json, header, method, path, query_param},
@@ -144,7 +144,10 @@ mod reqwest_client_tests {
             .await;
 
         assert!(result.is_ok());
-        let created = result.unwrap();
+        let created = match result.unwrap() {
+            ModificationResponse::Entity(created) => created,
+            _ => panic!("expected entity response"),
+        };
         assert_eq!(created.name, names::TEST_SYSTEM);
         assert_eq!(created.value, 999);
     }
@@ -196,7 +199,10 @@ mod reqwest_client_tests {
             .await;
 
         assert!(result.is_ok());
-        let updated = result.unwrap();
+        let updated = match result.unwrap() {
+            ModificationResponse::Entity(updated) => updated,
+            _ => panic!("expected entity response"),
+        };
         assert_eq!(updated.name, "Updated System");
         assert_eq!(updated.value, 42);
 
@@ -223,7 +229,7 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc(&mock_server);
 
         let resource_id = create_odata_id(resource_path);
-        let result = bmc.delete(&resource_id).await;
+        let result = bmc.delete::<TestResource>(&resource_id).await;
 
         assert!(result.is_ok());
     }
@@ -257,9 +263,7 @@ mod reqwest_client_tests {
         let result = bmc.action(&action, &action_request).await;
 
         assert!(result.is_ok());
-        let response = result.unwrap();
-        assert_eq!(response.result, "Reset initiated");
-        assert!(response.success);
+        assert!(matches!(result.unwrap(), ModificationResponse::Empty));
     }
 
     #[tokio::test]
@@ -380,7 +384,10 @@ mod reqwest_client_tests {
             .await;
 
         assert!(result.is_ok());
-        let created = result.unwrap();
+        let created = match result.unwrap() {
+            ModificationResponse::Entity(created) => created,
+            _ => panic!("expected entity response"),
+        };
         assert_eq!(created.name, names::TEST_SYSTEM);
         assert_eq!(created.value, 999);
     }
@@ -405,7 +412,7 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
 
         let resource_id = create_odata_id(resource_path);
-        let result = bmc.delete(&resource_id).await;
+        let result = bmc.delete::<TestResource>(&resource_id).await;
 
         assert!(result.is_ok());
     }

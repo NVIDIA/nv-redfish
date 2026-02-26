@@ -87,7 +87,7 @@ pub mod query;
 
 use crate::query::ExpandQuery;
 use futures_core::TryStream;
-use serde::{Deserialize, Deserializer, Serialize};
+use serde::{Deserialize, Serialize};
 use std::pin::Pin;
 use std::{future::Future, sync::Arc};
 
@@ -165,18 +165,24 @@ pub trait Expandable:
 pub type BoxTryStream<T, E> =
     Pin<Box<dyn TryStream<Ok = T, Error = E, Item = Result<T, E>> + Send>>;
 
-/// Empty struct denoting a unit return type, used for Redfish responses that
-/// do not return any JSON data.
+/// Outcome of a mutating Redfish operation that can complete asynchronously.
 #[derive(Debug)]
-pub struct Empty {}
+pub struct AsyncTask {
+    /// Request completed successfully with no response body
+    pub id: ODataId,
+    /// The recommended number of seconds to wait before polling again
+    pub retry_after_secs: Option<u64>,
+}
 
-impl<'de> Deserialize<'de> for Empty {
-    fn deserialize<D>(_deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        Ok(Self {})
-    }
+/// Outcome of a mutating Redfish operation.
+#[derive(Debug)]
+pub enum ModificationResponse<T> {
+    /// Request completed synchronously
+    Entity(T),
+    /// Requst completed asynchronously, with the provided `ODataId` to poll for completion
+    Task(AsyncTask),
+    /// Request completed successfully with no response body
+    Empty,
 }
 
 /// This trait is assigned to the collections that are marked as
@@ -189,7 +195,7 @@ pub trait Creatable<V: Sync + Send + Serialize, R: Sync + Send + Sized + for<'de
         &self,
         bmc: &B,
         create: &V,
-    ) -> impl Future<Output = Result<R, B::Error>> + Send {
+    ) -> impl Future<Output = Result<ModificationResponse<R>, B::Error>> + Send {
         bmc.create::<V, R>(self.odata_id(), create)
     }
 }
@@ -205,17 +211,20 @@ where
         &self,
         bmc: &B,
         update: &V,
-    ) -> impl Future<Output = Result<Self, B::Error>> + Send {
+    ) -> impl Future<Output = Result<ModificationResponse<Self>, B::Error>> + Send {
         bmc.update::<V, Self>(self.odata_id(), self.etag(), update)
     }
 }
 
 /// This trait is assigned to entity types that are marked as
 /// deletable in the CSDL specification.
-pub trait Deletable: EntityTypeRef + Sized {
+pub trait Deletable: EntityTypeRef + Sized + Sync + Send + for<'de> Deserialize<'de> {
     /// Delete current entity.
-    fn delete<B: Bmc>(&self, bmc: &B) -> impl Future<Output = Result<Empty, B::Error>> + Send {
-        bmc.delete(self.odata_id())
+    fn delete<B: Bmc>(
+        &self,
+        bmc: &B,
+    ) -> impl Future<Output = Result<ModificationResponse<Self>, B::Error>> + Send {
+        bmc.delete::<Self>(self.odata_id())
     }
 }
 

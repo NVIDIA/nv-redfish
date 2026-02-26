@@ -55,10 +55,10 @@ use serde::Serialize;
 use crate::query::ExpandQuery;
 use crate::Action;
 use crate::BoxTryStream;
-use crate::Empty;
 use crate::EntityTypeRef;
 use crate::Expandable;
 use crate::FilterQuery;
+use crate::ModificationResponse;
 use crate::ODataETag;
 use crate::ODataId;
 use std::error::Error as StdError;
@@ -105,7 +105,7 @@ pub trait Bmc: Send + Sync {
         &self,
         id: &ODataId,
         query: &V,
-    ) -> impl Future<Output = Result<R, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Update entity.
     ///
@@ -115,11 +115,14 @@ pub trait Bmc: Send + Sync {
         &self,
         id: &ODataId,
         etag: Option<&ODataETag>,
-        query: &V,
-    ) -> impl Future<Output = Result<R, Self::Error>> + Send;
+        update: &V,
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Delete entity.
-    fn delete(&self, id: &ODataId) -> impl Future<Output = Result<Empty, Self::Error>> + Send;
+    fn delete<R: EntityTypeRef + Sync + Send + for<'de> Deserialize<'de>>(
+        &self,
+        id: &ODataId,
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Run action.
     ///
@@ -129,7 +132,7 @@ pub trait Bmc: Send + Sync {
         &self,
         action: &Action<T, R>,
         params: &T,
-    ) -> impl Future<Output = Result<R, Self::Error>> + Send;
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Stream data for the URI.
     ///

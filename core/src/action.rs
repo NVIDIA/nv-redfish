@@ -48,6 +48,7 @@
 //!
 
 use crate::Bmc;
+use crate::ModificationResponse;
 use core::fmt::Display;
 use core::fmt::Formatter;
 use core::fmt::Result as FmtResult;
@@ -106,7 +107,11 @@ impl<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'a> Deserialize<'a
     /// # Errors
     ///
     /// Return error if BMC returned error on action.
-    pub async fn run<B: Bmc>(&self, bmc: &B, params: &T) -> Result<R, B::Error> {
+    pub async fn run<B: Bmc>(
+        &self,
+        bmc: &B,
+        params: &T,
+    ) -> Result<ModificationResponse<R>, B::Error> {
         bmc.action::<T, R>(self, params).await
     }
 }

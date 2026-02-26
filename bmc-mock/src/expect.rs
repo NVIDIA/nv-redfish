@@ -39,6 +39,8 @@ pub enum ExpectedRequest {
         target: ActionTarget,
         request: JsonValue,
     },
+    /// Expected Delete.
+    Delete { id: ODataId },
     /// Expected Stream.
     Stream { uri: String },
 }
@@ -92,6 +94,15 @@ impl<E> Expect<E> {
                 request: from_str(&request.to_string()).expect("invalid json"),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
+        }
+    }
+
+    pub fn delete(uri: impl Display) -> Self {
+        Expect {
+            request: ExpectedRequest::Delete {
+                id: uri.to_string().into(),
+            },
+            response: Ok(JsonValue::Null),
         }
     }
 

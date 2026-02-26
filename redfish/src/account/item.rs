@@ -42,7 +42,8 @@ use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::Deletable as _;
+use nv_redfish_core::EntityTypeRef as _;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::convert::identity;
 use std::sync::Arc;
@@ -123,13 +124,15 @@ impl<B: Bmc> Account<B> {
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update(&self, update: &ManagerAccountUpdate) -> Result<Self, Error<B>> {
-        let account = self.update_with_patch(update).await?;
-        Ok(Self {
-            config: self.config.clone(),
-            bmc: self.bmc.clone(),
-            data: Arc::new(account),
-        })
+    pub async fn update(&self, update: &ManagerAccountUpdate) -> Result<Option<Self>, Error<B>> {
+        match self.update_with_patch(update).await? {
+            ModificationResponse::Entity(ma) => Ok(Some(Self::from_data(
+                self.bmc.clone(),
+                ma,
+                self.config.clone(),
+            ))),
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Update the account's password.
@@ -140,7 +143,7 @@ impl<B: Bmc> Account<B> {
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update_password(&self, password: String) -> Result<Self, Error<B>> {
+    pub async fn update_password(&self, password: String) -> Result<Option<Self>, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
                 .with_password(password)
@@ -157,7 +160,7 @@ impl<B: Bmc> Account<B> {
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update_user_name(&self, user_name: String) -> Result<Self, Error<B>> {
+    pub async fn update_user_name(&self, user_name: String) -> Result<Option<Self>, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
                 .with_user_name(user_name)
@@ -171,17 +174,23 @@ impl<B: Bmc> Account<B> {
     /// # Errors
     ///
     /// Returns an error if deletion fails.
-    pub async fn delete(&self) -> Result<(), Error<B>> {
+    pub async fn delete(&self) -> Result<Option<Self>, Error<B>> {
         if self.config.disable_account_on_delete {
             self.update(&ManagerAccountUpdate::builder().with_enabled(false).build())
                 .await
-                .map(|_| ())
         } else {
-            self.data
-                .delete(self.bmc.as_ref())
+            match self
+                .bmc
+                .as_ref()
+                .delete::<NavProperty<ManagerAccount>>(self.data.odata_id())
                 .await
-                .map_err(Error::Bmc)
-                .map(|_| ())
+                .map_err(Error::Bmc)?
+            {
+                ModificationResponse::Entity(nav) => {
+                    Self::new(&self.bmc, &nav, &self.config).await.map(Some)
+                }
+                ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+            }
         }
     }
 }
