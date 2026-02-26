@@ -33,9 +33,9 @@ use std::sync::Arc;
 #[cfg(feature = "patch-collection-create")]
 use nv_redfish_core::Creatable;
 #[cfg(feature = "patch-collection-create")]
-use serde::Serialize;
-#[cfg(feature = "patch-collection-create")]
 use nv_redfish_core::ModificationResponse;
+#[cfg(feature = "patch-collection-create")]
+use serde::Serialize;
 
 /// Trait that allows patching collection member data before it is
 /// deserialized to the member data structure. This is required when a

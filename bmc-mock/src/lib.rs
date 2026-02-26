@@ -246,7 +246,9 @@ where
         }
     }
 
-    async fn delete<R: nv_redfish_core::EntityTypeRef + Sync + Send + for<'de> serde::Deserialize<'de>>(
+    async fn delete<
+        R: nv_redfish_core::EntityTypeRef + Sync + Send + for<'de> serde::Deserialize<'de>,
+    >(
         &self,
         in_id: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {

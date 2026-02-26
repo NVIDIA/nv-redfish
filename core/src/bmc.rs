@@ -115,7 +115,7 @@ pub trait Bmc: Send + Sync {
         &self,
         id: &ODataId,
         etag: Option<&ODataETag>,
-        query: &V,
+        update: &V,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Delete entity.

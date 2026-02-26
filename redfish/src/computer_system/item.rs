@@ -27,7 +27,11 @@ use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::EntityTypeRef as _;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
+use nv_redfish_core::RedfishSettings as _;
+use serde::Serialize;
 use std::convert::identity;
 use std::sync::Arc;
 use tagged_types::TaggedType;
@@ -85,6 +89,18 @@ pub type BootOptionReference<T> = TaggedType<T, BootOptionReferenceTag>;
 #[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
 #[capability(inner_access, cloned)]
 pub enum BootOptionReferenceTag {}
+
+#[derive(Serialize)]
+struct BootPatch {
+    #[serde(rename = "BootOrder")]
+    boot_order: Vec<BootOptionReference<String>>,
+}
+
+#[derive(Serialize)]
+struct ComputerSystemBootOrderUpdate {
+    #[serde(rename = "Boot")]
+    boot: BootPatch,
+}
 
 /// Represents a computer system in the BMC.
 ///
@@ -179,6 +195,43 @@ impl<B: Bmc> ComputerSystem<B> {
             .as_ref()
             .and_then(|boot| boot.boot_order.as_ref().and_then(Option::as_ref))
             .map(|v| v.iter().map(BootOptionReference::new).collect::<Vec<_>>())
+    }
+
+    /// Update the persistent boot order for this computer system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating the system fails.
+    pub async fn set_boot_order(
+        &self,
+        boot_order: Vec<BootOptionReference<String>>,
+    ) -> Result<Option<Self>, Error<B>> {
+        let update = ComputerSystemBootOrderUpdate {
+            boot: BootPatch { boot_order },
+        };
+
+        let settings = self.data.settings_object();
+
+        let update_odata = settings
+            .as_ref()
+            .map_or_else(|| self.data.odata_id(), |settings| settings.odata_id());
+
+        match self
+            .bmc
+            .as_ref()
+            .update::<_, NavProperty<ComputerSystemSchema>>(update_odata, None, &update)
+            .await
+            .map_err(Error::Bmc)?
+        {
+            ModificationResponse::Entity(nav) => {
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                Ok(Some(Self {
+                    bmc: self.bmc.clone(),
+                    data,
+                }))
+            }
+            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+        }
     }
 
     /// Bios associated with this system.

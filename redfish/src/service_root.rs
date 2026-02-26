@@ -208,6 +208,20 @@ impl<B: Bmc> ServiceRoot<B> {
             .is_some_and(|v| v == "HPE")
     }
 
+    #[cfg(feature = "accounts")]
+    pub(crate) fn bug_null_in_remote_role_mapping(&self) -> bool {
+        self.root
+            .vendor
+            .as_ref()
+            .and_then(Option::as_ref)
+            .is_some_and(|v| v == "AMI")
+            && self
+                .root
+                .redfish_version
+                .as_ref()
+                .is_some_and(|version| version == "1.11.0")
+    }
+
     // In some implementations BMC cannot create / delete Redfish
     // accounts but have pre-created accounts (slots). Workflow is as
     // following: to "create" new account user should update

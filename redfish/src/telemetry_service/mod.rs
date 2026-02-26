@@ -164,10 +164,7 @@ impl<B: Bmc> TelemetryService<B> {
     /// - retrieving the collection fails
     pub async fn metric_definitions(&self) -> Result<Option<Vec<MetricDefinition<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.metric_definitions {
-            let collection = collection_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
+            let collection = self.bmc.expand_property(collection_ref).await?;
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {
@@ -194,10 +191,7 @@ impl<B: Bmc> TelemetryService<B> {
         &self,
     ) -> Result<Option<Vec<MetricReportDefinition<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.metric_report_definitions {
-            let collection = collection_ref
-                .get(self.bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?;
+            let collection = self.bmc.expand_property(collection_ref).await?;
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {

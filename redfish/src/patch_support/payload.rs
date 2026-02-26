@@ -28,11 +28,11 @@ use std::sync::Arc;
 #[cfg(feature = "patch-payload-update")]
 use crate::patch_support::ReadPatchFn;
 #[cfg(feature = "patch-payload-update")]
+use nv_redfish_core::ModificationResponse;
+#[cfg(feature = "patch-payload-update")]
 use nv_redfish_core::Updatable;
 #[cfg(feature = "patch-payload-update")]
 use serde::Serialize;
-#[cfg(feature = "patch-payload-update")]
-use nv_redfish_core::ModificationResponse;
 
 #[cfg(feature = "patch-payload-update")]
 pub trait UpdateWithPatch<T, V, B>
