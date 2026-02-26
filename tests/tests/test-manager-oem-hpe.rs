@@ -39,12 +39,7 @@ const HPE_ILO_DATA_TYPE: &str = "#HpeiLO.v2_11_0.HpeiLO";
 async fn hpe_virtual_nic_enabled_supported() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let manager = get_manager(
-        bmc.clone(),
-        &ids,
-        manager_payload(&ids, Some(json!(true))),
-    )
-    .await?;
+    let manager = get_manager(bmc.clone(), &ids, manager_payload(&ids, Some(json!(true)))).await?;
 
     let hpe = manager.oem_hpe()?.unwrap();
     assert_eq!(hpe.virtual_nic_enabled(), Some(true));

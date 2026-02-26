@@ -57,7 +57,7 @@ impl<B: Bmc> DellAttributes<B> {
             // Attributes from the Manager. So we just craft @odata.id
             // for it.
             let odata_id = ODataId::from(format!(
-                "{}/Oem/DellAttributes/{}",
+                "{}/Oem/Dell/DellAttributes/{}",
                 manager.odata_id(),
                 manager.base.id
             ));

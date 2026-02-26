@@ -19,8 +19,8 @@
 //! <https://docs.oasis-open.org/odata/odata/v4.01/os/abnf/odata-abnf-construction-rules.txt>
 
 use crate::schema::redfish::event::EventType;
-use serde_json::Value as JsonValue;
 use serde_json::map::Map as JsonMap;
+use serde_json::Value as JsonValue;
 
 const SSE_EVENT_BASE_ID: &str = "/redfish/v1/EventService/SSE";
 
@@ -150,11 +150,11 @@ fn fix_timestamp_offset(input: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::EventRecordPatchFn;
     use super::fix_timestamp_offset;
     use super::patch_event_records;
     use super::patch_missing_event_record_member_id;
     use super::patch_unknown_event_type_to_other;
+    use super::EventRecordPatchFn;
     use serde_json::json;
 
     #[test]
