@@ -30,6 +30,8 @@
 use crate::compiler::Config as CompilerConfig;
 use crate::compiler::EntityTypeFilter;
 use crate::compiler::EntityTypeFilterPattern;
+use crate::compiler::PropertyFilter;
+use crate::compiler::PropertyPattern;
 use crate::compiler::SchemaBundle;
 use crate::edmx::Edmx;
 use crate::generator::rust::Config as GeneratorConfig;
@@ -83,6 +85,13 @@ pub enum Commands {
         /// `*.*.Entity1|Entity2` - `EntityType1` or `EntityType2` from any versions of any namespaces.
         #[arg(short = 'p', long = "pattern")]
         entity_type_patterns: Vec<EntityTypeFilterPattern>,
+        /// Patterns of properties that must be compiled with rigid array support
+        ///
+        /// Pattern is a wildcard over the qualified name.
+        /// Examples:
+        /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
+        #[arg(short = 'r', long = "rigid-arrays")]
+        rigid_array_patterns: Vec<PropertyPattern>,
     },
     /// Compile OEM CSDL schemas.
     CompileOem {
@@ -106,6 +115,13 @@ pub enum Commands {
         /// `*.*.Entity1|Entity2` - `EntityType1` or `EntityType2` from any versions of any namespaces.
         #[arg(short = 'p', long = "pattern")]
         entity_type_patterns: Vec<EntityTypeFilterPattern>,
+        /// Patterns of properties that must be compiled with rigid array support
+        ///
+        /// Pattern is a wildcard over the qualified name.
+        /// Examples:
+        /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
+        #[arg(short = 'r', long = "rigid-arrays")]
+        rigid_array_patterns: Vec<PropertyPattern>,
     },
 }
 
@@ -123,6 +139,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             csdls,
             output,
             entity_type_patterns,
+            rigid_array_patterns,
         } => {
             let root_service = root.parse().map_err(Error::WrongRootService)?;
             if csdls.is_empty() {
@@ -137,6 +154,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
                         entity_type_filter: EntityTypeFilter::new_permissive(
                             entity_type_patterns.clone(),
                         ),
+                        rigid_array_filter: PropertyFilter::new(rigid_array_patterns.clone()),
                     },
                 )
                 .map_err(Error::compile_error)?;
@@ -156,6 +174,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             resolve_csdls,
             output,
             entity_type_patterns,
+            rigid_array_patterns,
         } => {
             if root_csdls.is_empty() {
                 return Err(Error::AtLeastOneCSDLFileNeeded);
@@ -166,6 +185,7 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
                     entity_type_filter: EntityTypeFilter::new_permissive(
                         entity_type_patterns.clone(),
                     ),
+                    rigid_array_filter: PropertyFilter::new(rigid_array_patterns.clone()),
                 })
                 .map_err(Error::compile_error)?;
             let compiled = optimize(compiled, &OptimizerConfig::default());

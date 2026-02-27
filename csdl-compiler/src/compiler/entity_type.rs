@@ -72,7 +72,7 @@ impl<'a> EntityType<'a> {
 
         // Compile navigation and regular properties
         let (compiled, properties) =
-            Properties::compile(&schema_entity_type.properties, ctx, stack.new_frame())?;
+            Properties::compile(name, &schema_entity_type.properties, ctx, stack.new_frame())?;
 
         let entity_type = EntityType {
             name,

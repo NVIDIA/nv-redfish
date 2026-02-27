@@ -17,11 +17,14 @@
 
 use crate::compiler::QualifiedName;
 use crate::compiler::SchemaIndex;
+use crate::edmx::attribute_values;
+use crate::edmx::PropertyName;
 use crate::edmx::SimpleIdentifier;
 use serde::de::Error as DeError;
 use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
+use std::collections::HashMap;
 use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::fmt::Display;
@@ -50,6 +53,8 @@ pub struct Context<'a> {
 pub struct Config {
     /// Entity type filter applied during compilation.
     pub entity_type_filter: EntityTypeFilter,
+    /// Array properties that should be generated as rigid.
+    pub rigid_array_filter: PropertyFilter,
 }
 
 /// Entity type filter specified by wildcard patterns.
@@ -201,6 +206,105 @@ impl Display for FilterPatternError {
         match self {
             Self::EmptyPattern => write!(f, "empty pattern is forbidden"),
             Self::InvalidIdentifier(v) => write!(f, "invalid pattern: {v}"),
+        }
+    }
+}
+
+/// Property filter is aggregation of property filters patterns for
+/// faster match.
+#[derive(Default)]
+pub struct PropertyFilter {
+    search_index: HashMap<PropertyName, EntityTypeFilter>,
+}
+
+impl PropertyFilter {
+    /// Create a new filter from a list of patterns.
+    #[must_use]
+    pub fn new(patterns: Vec<PropertyPattern>) -> Self {
+        let search_index = patterns
+            .into_iter()
+            .map(|p| (p.property_name, p.type_filter))
+            .fold(HashMap::<_, Vec<_>>::new(), |mut m, (k, v)| {
+                m.entry(k).or_default().push(v);
+                m
+            })
+            .into_iter()
+            .map(|(name, vec)| (name, EntityTypeFilter::new_restrictive(vec)))
+            .collect();
+        Self { search_index }
+    }
+    /// Check if propety with pname of type with qualified name qtype
+    /// matches filter.
+    #[must_use]
+    pub fn matches(&self, qtype: QualifiedName, pname: &PropertyName) -> bool {
+        self.search_index
+            .get(pname)
+            .is_some_and(|f| f.matches(&qtype))
+    }
+}
+
+/// Property pattern is
+/// `QualifiedTypePattern/PropertyName`
+/// Where
+///   `QualifiedTypePattern` is `EntityTypeFilterPattern`.
+#[derive(Clone, Debug)]
+pub struct PropertyPattern {
+    type_filter: EntityTypeFilterPattern,
+    property_name: PropertyName,
+}
+
+impl FromStr for PropertyPattern {
+    type Err = PropetyPatternError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        if let Some((type_filter, property_name)) = s.rsplit_once('/') {
+            let type_filter = type_filter.parse().map_err(Self::Err::TypeFilterPattern)?;
+            let property_name = property_name.parse().map_err(Self::Err::PropertyName)?;
+            Ok(Self {
+                type_filter,
+                property_name,
+            })
+        } else {
+            Err(Self::Err::NoPropertyNameDefined)
+        }
+    }
+}
+
+impl<'de> Deserialize<'de> for PropertyPattern {
+    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+        struct ValVisitor {}
+        impl Visitor<'_> for ValVisitor {
+            type Value = PropertyPattern;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> FmtResult {
+                formatter.write_str("property filter pattern string")
+            }
+            fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
+                value.parse().map_err(DeError::custom)
+            }
+        }
+        de.deserialize_string(ValVisitor {})
+    }
+}
+
+/// Errors that can occur while parsing filter patterns.
+#[derive(Debug)]
+pub enum PropetyPatternError {
+    /// No property name defined in pattern.
+    NoPropertyNameDefined,
+    /// Type pattern error.
+    TypeFilterPattern(FilterPatternError),
+    /// Property name error.
+    PropertyName(attribute_values::Error),
+}
+
+impl StdError for PropetyPatternError {}
+
+impl Display for PropetyPatternError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::NoPropertyNameDefined => write!(f, "no property name defined"),
+            Self::TypeFilterPattern(v) => write!(f, "type filter error: {v}"),
+            Self::PropertyName(v) => write!(f, "property name error: {v}"),
         }
     }
 }

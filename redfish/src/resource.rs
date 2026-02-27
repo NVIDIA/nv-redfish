@@ -108,6 +108,7 @@ pub trait Resource {
     }
 }
 
+#[cfg(feature = "oem")]
 pub(crate) fn oem_id_from_resource(r: &ResourceSchema) -> Option<&str> {
     r.base
         .oem

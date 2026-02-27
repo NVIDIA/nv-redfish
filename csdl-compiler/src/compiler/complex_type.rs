@@ -94,7 +94,8 @@ pub(crate) fn compile<'a>(
 
     let stack = stack.new_frame().merge(compiled);
 
-    let (compiled, properties) = Properties::compile(&ct.properties, ctx, stack.new_frame())?;
+    let (compiled, properties) =
+        Properties::compile(qtype, &ct.properties, ctx, stack.new_frame())?;
 
     let complex_type = ComplexType {
         name,

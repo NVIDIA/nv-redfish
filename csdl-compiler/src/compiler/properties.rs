@@ -24,6 +24,7 @@ use crate::compiler::MapType;
 use crate::compiler::MustHaveId;
 use crate::compiler::OData;
 use crate::compiler::QualifiedName;
+use crate::compiler::RigidArraySupport;
 use crate::compiler::Stack;
 use crate::compiler::TypeClass;
 use crate::edmx::property::Property as EdmxProperty;
@@ -51,6 +52,7 @@ impl<'a> Properties<'a> {
     ///
     /// Returns an error if a property or its dependency fails to compile.
     pub fn compile(
+        qtype: QualifiedName<'_>,
         props: &'a [EdmxProperty],
         ctx: &Context<'a>,
         stack: Stack<'a, '_>,
@@ -74,6 +76,9 @@ impl<'a> Properties<'a> {
                             odata: OData::new(MustHaveId::new(false), v),
                             redfish: RedfishProperty::new(v),
                             nullable: v.nullable.unwrap_or(IsNullable::new(true)),
+                            rigid_array_support: RigidArraySupport::new(
+                                ctx.config.rigid_array_filter.matches(qtype, &v.name),
+                            ),
                         });
                         stack.merge(compiled)
                     }
@@ -258,6 +263,12 @@ pub struct Property<'a> {
     pub redfish: RedfishProperty,
     /// Whether the property is nullable.
     pub nullable: IsNullable,
+    /// Redfish specification is not very specific about which
+    /// properties can be rigid and which cannot be. Rigid arrays
+    /// (collections) can contain null in JSON representation. In
+    /// practice only handful of properties used as rigid by BMC
+    /// implementors. This flag defines
+    pub rigid_array_support: RigidArraySupport,
 }
 
 impl<'a> MapType<'a> for Property<'a> {

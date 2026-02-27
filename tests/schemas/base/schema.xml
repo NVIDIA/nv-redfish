@@ -48,6 +48,10 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
         </Property>
 
+        <Property Name="RigidArrayValues" Type="Collection(Edm.String)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+        </Property>
+
         <Property Name="UpdatableGuid" Type="Edm.Guid" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
         </Property>
