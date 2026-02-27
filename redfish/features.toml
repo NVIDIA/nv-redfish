@@ -109,6 +109,17 @@ patterns = [
 ]
 
 [[features]]
+name = "network-device-functions"
+csdl_files = [
+    "NetworkDeviceFunctionCollection_v1.xml",
+    "NetworkDeviceFunction_v1.xml"
+]
+patterns = [
+    "NetworkDeviceFunctionCollection.*",
+    "NetworkDeviceFunction.*"
+]
+
+[[features]]
 name = "computer-systems"
 csdl_files = [
     "ComputerSystem_v1.xml",

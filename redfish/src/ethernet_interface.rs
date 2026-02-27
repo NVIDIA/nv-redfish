@@ -16,6 +16,7 @@
 //! Ethernet interfaces
 //!
 
+use crate::mac_address::MacAddress;
 use crate::schema::redfish::ethernet_interface::EthernetInterface as EthernetInterfaceSchema;
 use crate::schema::redfish::ethernet_interface_collection::EthernetInterfaceCollection as EthernetInterfaceCollectionSchema;
 use crate::Error;
@@ -65,18 +66,6 @@ impl<B: Bmc> EthernetInterfaceCollection<B> {
         Ok(members)
     }
 }
-
-/// Mac address of the ethernet interface.
-///
-/// Nv-redfish keeps open underlying type for `MacAddress` because it
-/// can be converted to `mac_address::MacAddress`.
-pub type MacAddress<T> = TaggedType<T, MacAddressTag>;
-#[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
-#[capability(inner_access)]
-pub enum MacAddressTag {}
 
 /// Uefi device path for the interface.
 ///
@@ -142,7 +131,7 @@ impl<B: Bmc> EthernetInterface<B> {
 
     /// MAC address of the interface.
     #[must_use]
-    pub fn mac_address(&self) -> Option<MacAddress<&str>> {
+    pub fn mac_address(&self) -> Option<MacAddress<'_>> {
         self.data
             .mac_address
             .as_ref()

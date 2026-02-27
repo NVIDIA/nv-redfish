@@ -78,6 +78,9 @@ pub mod resource;
 /// Number).
 pub mod hardware_id;
 
+/// MAC addresses returned by the crate.
+pub mod mac_address;
+
 /// Accounts Service.
 #[cfg(feature = "accounts")]
 pub mod account;
@@ -108,6 +111,8 @@ pub mod host_interface;
 /// Log Service.
 #[cfg(feature = "log-services")]
 pub mod log_service;
+#[cfg(feature = "network-device-functions")]
+pub mod network_device_function;
 /// `PCIe` devices.
 #[cfg(feature = "pcie-devices")]
 pub mod pcie_device;
