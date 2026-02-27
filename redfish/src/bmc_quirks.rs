@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::resource::oem_id_from_resource;
 use crate::schema::redfish::service_root::ServiceRoot;
 
 #[cfg(feature = "accounts")]
@@ -34,18 +33,15 @@ enum Platform {
     Dell,
     AmiViking,
     Nvidia,
-    LenovoAmi,
 }
 
 impl BmcQuirks {
     pub fn new(root: &ServiceRoot) -> Self {
         let vendor_str = root.vendor.as_ref().and_then(Option::as_deref);
-        let oem_id_str = oem_id_from_resource(&root.base);
         let redfish_version_str = root.redfish_version.as_deref();
         let platform = match vendor_str {
             Some("HPE") => Some(Platform::Hpe),
             Some("Dell") => Some(Platform::Dell),
-            Some("Lenovo") if oem_id_str == Some("Ami") => Some(Platform::LenovoAmi),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("NVIDIA") => Some(Platform::Nvidia),
             _ => None,
@@ -60,11 +56,6 @@ impl BmcQuirks {
     #[cfg(feature = "accounts")]
     pub(crate) fn bug_no_account_type_in_accounts(&self) -> bool {
         self.platform == Some(Platform::Hpe)
-    }
-
-    #[cfg(feature = "accounts")]
-    pub(crate) fn bug_null_in_remote_role_mapping(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
     }
 
     // In some implementations BMC cannot create / delete Redfish

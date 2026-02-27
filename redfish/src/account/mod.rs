@@ -35,7 +35,6 @@ mod collection;
 mod item;
 
 use crate::patch_support::JsonValue;
-use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::redfish::account_service::AccountService as SchemaAccountService;
 use crate::Error;
@@ -77,11 +76,7 @@ impl<B: Bmc> AccountService<B> {
         let Some(service_nav) = root.root.account_service.as_ref() else {
             return Ok(None);
         };
-        let service = if bmc.quirks.bug_null_in_remote_role_mapping() {
-            Payload::get(bmc.as_ref(), service_nav, remove_nulls_from_account).await?
-        } else {
-            service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?
-        };
+        let service = service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
         let mut patches = Vec::new();
         if bmc.quirks.bug_no_account_type_in_accounts() {
@@ -151,27 +146,6 @@ fn append_default_account_type(v: JsonValue) -> JsonValue {
     if let JsonValue::Object(mut obj) = v {
         obj.entry("AccountTypes")
             .or_insert(JsonValue::Array(vec![JsonValue::String("Redfish".into())]));
-        JsonValue::Object(obj)
-    } else {
-        v
-    }
-}
-
-fn remove_nulls_from_account(v: JsonValue) -> JsonValue {
-    fn patch_external_account_provider(provider: &mut JsonValue) {
-        if let JsonValue::Object(provider_obj) = provider {
-            if let Some(JsonValue::Array(mapping)) = provider_obj.get_mut("RemoteRoleMapping") {
-                mapping.retain(|entry| !entry.is_null());
-            }
-        }
-    }
-
-    if let JsonValue::Object(mut obj) = v {
-        for provider in ["ActiveDirectory", "LDAP", "TACACSplus", "OAuth2"] {
-            if let Some(provider_obj) = obj.get_mut(provider) {
-                patch_external_account_provider(provider_obj);
-            }
-        }
         JsonValue::Object(obj)
     } else {
         v

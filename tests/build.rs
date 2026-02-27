@@ -41,6 +41,9 @@ fn main() -> Result<(), Error> {
         csdls: base_csdls,
         entity_type_patterns: vec![],
         include_root_patterns: vec![],
+        rigid_array_patterns: vec!["ServiceRoot.*.ServiceRoot/RigidArrayValues"
+            .parse()
+            .expect("valid rigid array pattern")],
     })?;
     Ok(())
 }

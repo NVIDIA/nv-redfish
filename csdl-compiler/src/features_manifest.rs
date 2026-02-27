@@ -20,6 +20,7 @@
 //! tailor generated code per product or vendor.
 
 use crate::compiler::EntityTypeFilterPattern;
+use crate::compiler::PropertyPattern;
 use serde::Deserialize;
 use std::error::Error as StdError;
 use std::fmt::Display;
@@ -37,6 +38,15 @@ pub struct FeaturesManifest {
     pub features: Vec<Feature>,
     #[serde(rename = "oem-features")]
     pub oem_features: Vec<OemFeature>,
+}
+
+#[derive(Default)]
+pub struct Collected<'a> {
+    pub csdl_files: Vec<&'a String>,
+    pub swordfish_csdl_files: Vec<&'a String>,
+    pub patterns: Vec<&'a EntityTypeFilterPattern>,
+    pub root_patterns: Vec<&'a EntityTypeFilterPattern>,
+    pub rigid_array_patterns: Vec<&'a PropertyPattern>,
 }
 
 impl FeaturesManifest {
@@ -61,27 +71,20 @@ impl FeaturesManifest {
 
     /// Collect standard CSDLs and patterns for selected features.
     #[must_use]
-    pub fn collect<'a>(
-        &'a self,
-        features: &[&String],
-    ) -> (
-        Vec<&'a String>,
-        Vec<&'a String>,
-        Vec<&'a EntityTypeFilterPattern>,
-        Vec<&'a EntityTypeFilterPattern>,
-    ) {
-        self.features.iter().fold(
-            (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
-            |(mut files, mut swordfish_files, mut patterns, mut root_patterns), f| {
+    pub fn collect<'a>(&'a self, features: &[&String]) -> Collected<'a> {
+        self.features
+            .iter()
+            .fold(Collected::default(), |mut acc, f| {
                 if features.contains(&&f.name) {
-                    files.extend(f.csdl_files.iter());
-                    swordfish_files.extend(f.swordfish_csdl_files.iter());
-                    patterns.extend(f.patterns.iter());
-                    root_patterns.extend(f.root_patterns.iter());
+                    acc.csdl_files.extend(f.csdl_files.iter());
+                    acc.swordfish_csdl_files
+                        .extend(f.swordfish_csdl_files.iter());
+                    acc.patterns.extend(f.patterns.iter());
+                    acc.root_patterns.extend(f.root_patterns.iter());
+                    acc.rigid_array_patterns.extend(f.rigid_arrays.iter());
                 }
-                (files, swordfish_files, patterns, root_patterns)
-            },
-        )
+                acc
+            })
     }
 
     /// All vendors defined by the manifest.
@@ -140,6 +143,8 @@ pub struct Feature {
     pub patterns: Vec<EntityTypeFilterPattern>,
     #[serde(default)]
     pub root_patterns: Vec<EntityTypeFilterPattern>,
+    #[serde(default)]
+    pub rigid_arrays: Vec<PropertyPattern>,
 }
 
 /// OEM-specific feature.

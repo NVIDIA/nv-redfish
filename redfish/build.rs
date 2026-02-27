@@ -62,20 +62,20 @@ fn main() -> Result<(), Box<dyn StdError>> {
         .into_iter()
         .map(Into::into)
         .collect::<Vec<String>>();
-    let service_root_pattens = vec!["ServiceRoot.*.*"]
+    let service_root_patterns = vec!["ServiceRoot.*.*"]
         .into_iter()
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed");
-    let (features_csdls, features_swordfish_csdls, features_patterns, root_patterns) =
-        manifest.collect(&target_features);
+    let features = manifest.collect(&target_features);
     let csdls = redfish_csdl
         .iter()
         .chain(service_root.iter())
-        .chain(features_csdls)
+        .chain(features.csdl_files)
         .map(|f| format!("{redfish_schema_path}/{f}"))
         .chain(
-            features_swordfish_csdls
+            features
+                .swordfish_csdl_files
                 .iter()
                 .map(|f| format!("{swordfish_schema_path}/{f}")),
         )
@@ -89,14 +89,15 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     process_command(&Commands::Compile {
         root: DEFAULT_ROOT.into(),
-        include_root_patterns: root_patterns.into_iter().cloned().collect(),
+        include_root_patterns: features.root_patterns.into_iter().cloned().collect(),
         output,
         csdls,
-        entity_type_patterns: service_root_pattens
+        entity_type_patterns: service_root_patterns
             .iter()
-            .chain(features_patterns)
+            .chain(features.patterns)
             .cloned()
             .collect(),
+        rigid_array_patterns: features.rigid_array_patterns.into_iter().cloned().collect(),
     })?;
 
     // ================================================================================
@@ -157,6 +158,7 @@ fn main() -> Result<(), Box<dyn StdError>> {
             root_csdls,
             resolve_csdls,
             entity_type_patterns: patterns.into_iter().cloned().collect(),
+            rigid_array_patterns: vec![],
         })?;
     }
     Ok(())

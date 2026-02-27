@@ -23,6 +23,7 @@ use crate::compiler::Properties;
 use crate::compiler::Property;
 use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
+use crate::compiler::RigidArraySupport;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
@@ -337,7 +338,13 @@ impl<'a> StructDef<'a> {
                     let full_type = FullTypeName::new(*v, config).for_update(Some(typeinfo.class));
                     let prop_type = match p.ptype {
                         PropertyType::One(_) => quote! { #full_type },
-                        PropertyType::Collection(_) => quote! { Vec<#full_type> },
+                        PropertyType::Collection(_) => {
+                            if p.rigid_array_support.into_inner() {
+                                quote! { Vec<Option<#full_type>> }
+                            } else {
+                                quote! { Vec<#full_type> }
+                            }
+                        }
                     };
                     let rename = Literal::string(p.name.inner().inner());
                     let name = StructFieldName::new_property(p.name);
@@ -423,7 +430,13 @@ impl<'a> StructDef<'a> {
                     let required = p.redfish.is_required_on_create.into_inner();
                     let prop_type = match p.ptype {
                         PropertyType::One(_) => quote! { #full_type },
-                        PropertyType::Collection(_) => quote! { Vec<#full_type> },
+                        PropertyType::Collection(_) => {
+                            if p.rigid_array_support.into_inner() {
+                                quote! { Vec<Option<#full_type>> }
+                            } else {
+                                quote! { Vec<#full_type> }
+                            }
+                        }
                     };
                     let rename = Literal::string(p.name.inner().inner());
                     let name = StructFieldName::new_property(p.name);
@@ -537,6 +550,7 @@ impl<'a> StructDef<'a> {
             Literal::string(p.name.inner().inner()),
             p.nullable,
             p.redfish.is_required,
+            p.rigid_array_support,
         );
         let name = StructFieldName::new_property(p.name);
         quote! {
@@ -552,10 +566,17 @@ impl<'a> StructDef<'a> {
         rename: impl ToTokens,
         nullable: IsNullable,
         required: IsRequired,
+        rigid_array_support: RigidArraySupport,
     ) -> (TokenStream, TokenStream) {
         (
             Self::gen_de_struct_field_serde_annot(rename, nullable, required),
-            Self::gen_de_struct_field_type(cardinality, ftype, nullable, required),
+            Self::gen_de_struct_field_type(
+                cardinality,
+                ftype,
+                nullable,
+                required,
+                rigid_array_support,
+            ),
         )
     }
 
@@ -581,6 +602,7 @@ impl<'a> StructDef<'a> {
         ftype: impl ToTokens,
         nullable: IsNullable,
         required: IsRequired,
+        rigid_array_support: RigidArraySupport,
     ) -> TokenStream {
         match cardinality {
             OneOrCollection::One(_) => {
@@ -595,6 +617,12 @@ impl<'a> StructDef<'a> {
                 }
             }
             OneOrCollection::Collection(_) => {
+                let ftype = if rigid_array_support.into_inner() {
+                    quote! { Option<#ftype> }
+                } else {
+                    quote! { #ftype }
+                };
+
                 if required.into_inner() && nullable.into_inner() {
                     quote! { Option<Vec<#ftype>> }
                 } else if required.into_inner() {
@@ -634,6 +662,7 @@ impl<'a> StructDef<'a> {
                     rename,
                     p.nullable,
                     p.redfish.is_required,
+                    RigidArraySupport::new(false),
                 );
                 (doc, sa, t)
             }
@@ -647,6 +676,7 @@ impl<'a> StructDef<'a> {
                     rename,
                     IsNullable::new(false),
                     IsRequired::new(false),
+                    RigidArraySupport::new(false),
                 );
                 (doc, sa, t)
             }
@@ -671,7 +701,14 @@ impl<'a> StructDef<'a> {
                     return quote! {};
                 }
                 let full_type = FullTypeName::new(v, config).for_update(Some(typeinfo.class));
-                Self::gen_de_struct_field(&ptype, full_type, rename, p.nullable, p.required)
+                Self::gen_de_struct_field(
+                    &ptype,
+                    full_type,
+                    rename,
+                    p.nullable,
+                    p.required,
+                    RigidArraySupport::new(false),
+                )
             }
             ParameterType::Entity(e) => {
                 let top = &config.top_module_alias;
@@ -681,6 +718,7 @@ impl<'a> StructDef<'a> {
                     rename,
                     p.nullable,
                     p.required,
+                    RigidArraySupport::new(false),
                 )
             }
         };
@@ -793,11 +831,23 @@ impl<'a> StructDef<'a> {
                         }
                         let full_type =
                             FullTypeName::new(v, config).for_update(Some(typeinfo.class));
-                        Self::gen_de_struct_field_type(&ptype, full_type, p.nullable, p.required)
+                        Self::gen_de_struct_field_type(
+                            &ptype,
+                            full_type,
+                            p.nullable,
+                            p.required,
+                            RigidArraySupport::new(false),
+                        )
                     }
                     ParameterType::Entity(e) => {
                         let full_type = quote! { #top::Reference };
-                        Self::gen_de_struct_field_type(&e, full_type, p.nullable, p.required)
+                        Self::gen_de_struct_field_type(
+                            &e,
+                            full_type,
+                            p.nullable,
+                            p.required,
+                            RigidArraySupport::new(false),
+                        )
                     }
                 };
                 params.extend(quote! { #name, });

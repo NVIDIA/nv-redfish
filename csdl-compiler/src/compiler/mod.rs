@@ -108,6 +108,10 @@ pub use context::EntityTypeFilter;
 #[doc(inline)]
 pub use context::EntityTypeFilterPattern;
 #[doc(inline)]
+pub use context::PropertyFilter;
+#[doc(inline)]
+pub use context::PropertyPattern;
+#[doc(inline)]
 pub use entity_type::EntityType;
 #[doc(inline)]
 pub use enum_type::EnumType;
@@ -158,6 +162,22 @@ use crate::edmx::SimpleIdentifier;
 use crate::edmx::Type;
 use schema_index::SchemaIndex;
 use stack::Stack;
+use tagged_types::TaggedType;
+
+/// Support of Rigid Arrays.
+///
+/// Redfish specification is not very specific about which properties
+/// can be rigid and which cannot be. Rigid arrays (collections) can
+/// contain null in JSON representation. In practice only handful of
+/// properties used as rigid by BMC implementors. This flag defined
+/// per property basis and provided to compiler as config.
+pub type RigidArraySupport = TaggedType<bool, RigidArraySupportTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Copy, Clone)]
+#[transparent(Debug, Deserialize)]
+#[capability(inner_access)]
+pub enum RigidArraySupportTag {}
 
 /// Type class for property attributes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

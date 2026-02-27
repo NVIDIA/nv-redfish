@@ -136,7 +136,7 @@ pub type PropertyName = TaggedType<SimpleIdentifier, PropertyNameTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
 #[implement(Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
-#[transparent(Debug, Display, Deserialize)]
+#[transparent(Debug, Display, Deserialize, FromStr)]
 #[capability(inner_access)]
 pub enum PropertyNameTag {}
 

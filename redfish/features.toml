@@ -12,6 +12,9 @@ patterns = [
     "ManagerAccountCollection.*",
     "ManagerAccount.*",
 ]
+rigid_arrays = [
+    "AccountService.*.ExternalAccountProvider/RemoteRoleMapping"
+]
 
 [[features]]
 name = "assembly"
@@ -71,6 +74,9 @@ csdl_files = [
 patterns = [
     "EthernetInterfaceCollection.*",
     "EthernetInterface.*"
+]
+rigid_arrays = [
+    "EthernetInterface.*.EthernetInterface/StaticNameServers"
 ]
 
 [[features]]

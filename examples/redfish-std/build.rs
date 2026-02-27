@@ -101,6 +101,7 @@ fn main() -> Result<(), Error> {
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed"),
+        rigid_array_patterns: vec![],
     })?;
     Ok(())
 }

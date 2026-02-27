@@ -93,6 +93,41 @@ async fn optional_nullable_property_test() -> Result<(), Error> {
     Ok(())
 }
 
+// Check that rigid array property accepts both regular and null-containing arrays.
+#[test]
+async fn rigid_array_read_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let data_type = "ServiceRoot.v1_0_0.ServiceRoot";
+    let property_name = "RigidArrayValues";
+    let root_id = ODataId::service_root();
+    let root_json = json!({
+        ODATA_ID: &root_id,
+        ODATA_TYPE: &data_type,
+    });
+
+    bmc.expect(Expect::get(
+        root_id.clone(),
+        json_merge([&root_json, &json!({ property_name: ["a", "b", "c"] })]),
+    ));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+    assert_eq!(
+        service_root.rigid_array_values,
+        Some(vec![Some("a".into()), Some("b".into()), Some("c".into())])
+    );
+
+    bmc.expect(Expect::get(
+        root_id.clone(),
+        json_merge([&root_json, &json!({ property_name: ["a", null, "c"] })]),
+    ));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+    assert_eq!(
+        service_root.rigid_array_values,
+        Some(vec![Some("a".into()), None, Some("c".into())])
+    );
+
+    Ok(())
+}
+
 // Check service with required property.
 #[test]
 async fn required_non_nullable_property_test() -> Result<(), Error> {
@@ -267,6 +302,7 @@ async fn update_property_test() -> Result<(), Error> {
                 //
                 // If this code compiles then check passed.
                 updatable: Some(value.clone()),
+                rigid_array_values: None,
                 updatable_guid: Some(uuid_value),
                 write_only: None,
             },
@@ -292,6 +328,7 @@ async fn update_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: None,
+                rigid_array_values: None,
                 updatable_guid: None,
                 write_only: Some(value.clone()),
             },
@@ -325,6 +362,7 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: Some(value.clone()),
+                rigid_array_values: None,
                 updatable_guid: None,
                 write_only: None,
             },
@@ -343,6 +381,76 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
             .updatable,
         Some(value)
     );
+    Ok(())
+}
+
+// Check update payload and refresh behavior for rigid arrays.
+#[test]
+async fn update_rigid_array_property_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let data_type = "ServiceRoot.v1_0_0.ServiceRoot";
+    let property_name = "RigidArrayValues";
+    let root_id = ODataId::service_root();
+    let root_json = json!({
+        ODATA_ID: &root_id,
+        ODATA_TYPE: &data_type,
+    });
+    bmc.expect(expect_root());
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+
+    let updated_payload = vec![Some("a".to_string()), None];
+    bmc.expect(Expect::update(
+        root_id.clone(),
+        json!({ property_name: ["a", null] }),
+        &json_merge([&root_json, &json!({ property_name: ["a", null] })]),
+    ));
+    let service_root = service_root
+        .update(
+            &bmc,
+            &ServiceRootUpdate {
+                updatable: None,
+                rigid_array_values: Some(updated_payload.clone()),
+                updatable_guid: None,
+                write_only: None,
+            },
+        )
+        .await
+        .map_err(Error::Bmc)?;
+    let service_root = match service_root {
+        ModificationResponse::Entity(service_root) => service_root,
+        _ => return Err(Error::ExpectedProperty("service_root")),
+    };
+    assert_eq!(
+        service_root.rigid_array_values,
+        Some(updated_payload.clone())
+    );
+
+    // Ensure field is omitted when not set in update struct.
+    bmc.expect(Expect::update(root_id.clone(), json!({}), &root_json));
+    service_root
+        .update(
+            &bmc,
+            &ServiceRootUpdate {
+                updatable: None,
+                rigid_array_values: None,
+                updatable_guid: None,
+                write_only: None,
+            },
+        )
+        .await
+        .map_err(Error::Bmc)?;
+
+    // Refresh keeps null element in rigid array payload.
+    bmc.expect(Expect::get(
+        root_id.clone(),
+        json_merge([&root_json, &json!({ property_name: ["a", null] })]),
+    ));
+    let refreshed = service_root.refresh(&bmc).await.map_err(Error::Bmc)?;
+    assert_eq!(
+        refreshed.rigid_array_values,
+        Some(vec![Some("a".into()), None])
+    );
+
     Ok(())
 }
 
