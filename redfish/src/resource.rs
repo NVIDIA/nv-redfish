@@ -99,20 +99,22 @@ pub trait Resource {
     /// OEM identifier if present in the resource.
     #[cfg(feature = "oem")]
     fn oem_id(&self) -> Option<OemIdentifier<&str>> {
-        self.resource_ref()
-            .base
-            .oem
-            .as_ref()
-            .and_then(|v| v.additional_properties.as_object())
-            .and_then(|v| v.keys().next())
-            .map(String::as_str)
-            .map(OemIdentifier::new)
+        oem_id_from_resource(self.resource_ref()).map(OemIdentifier::new)
     }
 
     /// OData identifier of the resource.
     fn odata_id(&self) -> &ODataId {
         self.resource_ref().odata_id()
     }
+}
+
+pub(crate) fn oem_id_from_resource(r: &ResourceSchema) -> Option<&str> {
+    r.base
+        .oem
+        .as_ref()
+        .and_then(|v| v.additional_properties.as_object())
+        .and_then(|v| v.keys().next())
+        .map(String::as_str)
 }
 
 /// The status and health of a resource and its children.

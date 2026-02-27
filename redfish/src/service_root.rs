@@ -13,15 +13,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::bmc_quirks::BmcQuirks;
+use crate::core::Bmc;
+use crate::core::NavProperty;
+use crate::core::ODataId;
+use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
+use crate::Error;
+use crate::NvBmc;
+use crate::ProtocolFeatures;
+use crate::Resource;
+use crate::ResourceSchema;
 use std::sync::Arc;
-
-use nv_redfish_core::{Bmc, NavProperty, ODataId};
 use tagged_types::TaggedType;
 
 #[cfg(feature = "accounts")]
 use crate::account::AccountService;
-#[cfg(feature = "accounts")]
-use crate::account::SlotDefinedConfig as SlotDefinedUserAccountsConfig;
 #[cfg(feature = "chassis")]
 use crate::chassis::ChassisCollection;
 #[cfg(feature = "computer-systems")]
@@ -30,12 +36,10 @@ use crate::computer_system::SystemCollection;
 use crate::event_service::EventService;
 #[cfg(feature = "managers")]
 use crate::manager::ManagerCollection;
-use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
 #[cfg(feature = "telemetry-service")]
 use crate::telemetry_service::TelemetryService;
 #[cfg(feature = "update-service")]
 use crate::update_service::UpdateService;
-use crate::{Error, NvBmc, ProtocolFeatures, Resource, ResourceSchema};
 
 /// The vendor or manufacturer associated with Redfish service.
 pub type Vendor<T> = TaggedType<T, VendorTag>;
@@ -75,18 +79,19 @@ impl<B: Bmc> ServiceRoot<B> {
             .get(bmc.as_ref())
             .await
             .map_err(Error::Bmc)?;
+        let quirks = BmcQuirks::new(&root);
         let mut protocol_features = root
             .protocol_features_supported
             .as_ref()
             .map(ProtocolFeatures::new)
             .unwrap_or_default();
 
-        if Self::expand_is_not_working_properly(&root) {
+        if quirks.expand_is_not_working_properly() {
             protocol_features.expand.expand_all = false;
             protocol_features.expand.no_links = false;
         }
 
-        let bmc = NvBmc::new(bmc, protocol_features);
+        let bmc = NvBmc::new(bmc, protocol_features, quirks);
         Ok(Self { root, bmc })
     }
 
@@ -192,182 +197,6 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "managers")]
     pub async fn managers(&self) -> Result<Option<ManagerCollection<B>>, Error<B>> {
         ManagerCollection::new(&self.bmc, self).await
-    }
-}
-
-// Known Redfish implementation bug checks.
-impl<B: Bmc> ServiceRoot<B> {
-    // Account type is required according to schema specification
-    // (marked with Redfish.Required annotation) but some vendors
-    // ignores this flag. A workaround for this bug is supported by
-    // `nv-redfish`.
-    #[cfg(feature = "accounts")]
-    pub(crate) fn bug_no_account_type_in_accounts(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "HPE")
-    }
-
-    #[cfg(feature = "accounts")]
-    pub(crate) fn bug_null_in_remote_role_mapping(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "AMI")
-            && self
-                .root
-                .redfish_version
-                .as_ref()
-                .is_some_and(|version| version == "1.11.0")
-    }
-
-    // In some implementations BMC cannot create / delete Redfish
-    // accounts but have pre-created accounts (slots). Workflow is as
-    // following: to "create" new account user should update
-    // precreated account with new parameters and enable it. To delete
-    // account user should just disable it.
-    #[cfg(feature = "accounts")]
-    pub(crate) fn slot_defined_user_accounts(&self) -> Option<SlotDefinedUserAccountsConfig> {
-        if self
-            .root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "Dell")
-        {
-            Some(SlotDefinedUserAccountsConfig {
-                min_slot: Some(3),
-                hide_disabled: true,
-                disable_account_on_delete: true,
-            })
-        } else {
-            None
-        }
-    }
-
-    // In some implementations BMC ReleaseDate is incorrectly set to
-    // 00:00:00Z in FirmwareInventory (which is
-    // SoftwareInventoryCollection).
-    #[cfg(feature = "update-service")]
-    pub(crate) fn fw_inventory_wrong_release_date(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "Dell")
-    }
-
-    /// In some cases there is addtional fields in Links.ContainedBy in
-    /// Chassis resource, this flag aims to patch this invalid links
-    #[cfg(feature = "chassis")]
-    pub(crate) fn bug_invalid_contained_by_fields(&self) -> bool {
-        Self::is_ami_viking(&self.root)
-    }
-
-    /// Missing navigation properties in root object.
-    #[cfg(any(
-        feature = "chassis",
-        feature = "computer-systems",
-        feature = "managers",
-        feature = "update-service",
-    ))]
-    pub(crate) fn bug_missing_root_nav_properties(&self) -> bool {
-        Self::is_ami_viking(&self.root)
-    }
-
-    /// Missing chassis type property in Chassis resource. This
-    /// property is Required in according to specification but some
-    /// systems doesn't provide it.
-    #[cfg(feature = "chassis")]
-    pub(crate) fn bug_missing_chassis_type_field(&self) -> bool {
-        Self::is_ami_viking(&self.root)
-    }
-
-    /// Missing Name property in Chassis resource. This property is
-    /// required in any resource.
-    #[cfg(feature = "chassis")]
-    pub(crate) fn bug_missing_chassis_name_field(&self) -> bool {
-        Self::is_ami_viking(&self.root)
-    }
-
-    /// Missing Name property in Chassis resource. This property is
-    /// required in any resource.
-    #[cfg(feature = "update-service")]
-    pub(crate) fn bug_missing_update_service_name_field(&self) -> bool {
-        Self::is_ami_viking(&self.root)
-    }
-
-    /// In some implementations BMC ReleaseDate is incorrectly set to
-    /// "0000-00-00T00:00:00+00:00" in ComputerSystem/LastResetTime
-    /// This prevents ComputerSystem to be correctly parsed because
-    /// this is invalid Edm.DateTimeOffset.
-    #[cfg(feature = "computer-systems")]
-    pub(crate) fn computer_systems_wrong_last_reset_time(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "Dell")
-    }
-
-    /// In some implementations, Event records in SSE payload do not include
-    /// `MemberId`.
-    #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_no_member_id(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "NVIDIA")
-    }
-
-    /// In some implementations, Event records in SSE payload use compact
-    /// timezone offsets in `EventTimestamp` (for example, `-0600`).
-    #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_wrong_timestamp_offset(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "Dell")
-    }
-
-    /// In some implementations, Event records in SSE payload use unsupported
-    /// values in `EventType`.
-    #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_wrong_event_type(&self) -> bool {
-        self.root
-            .vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "NVIDIA")
-    }
-
-    /// SSE payload does not include `@odata.id`.
-    #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_no_odata_id(&self) -> bool {
-        self.root.vendor.as_ref().and_then(Option::as_ref).is_some()
-    }
-
-    /// In some cases we expand is not working according to spec,
-    /// if it is the case for specific chassis, we would disable
-    /// expand api
-    fn expand_is_not_working_properly(root: &SchemaServiceRoot) -> bool {
-        Self::is_ami_viking(root)
-    }
-
-    fn is_ami_viking(root: &SchemaServiceRoot) -> bool {
-        root.vendor
-            .as_ref()
-            .and_then(Option::as_ref)
-            .is_some_and(|v| v == "AMI")
-            && root
-                .redfish_version
-                .as_ref()
-                .is_some_and(|version| version == "1.11.0")
     }
 }
 

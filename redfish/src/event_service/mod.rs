@@ -98,19 +98,19 @@ impl<B: Bmc> EventService<B> {
             let mut sse_read_patches = Vec::new();
             let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
 
-            if root.event_service_sse_no_member_id() {
+            if bmc.quirks.event_service_sse_no_member_id() {
                 sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
             }
-            if root.event_service_sse_wrong_event_type() {
+            if bmc.quirks.event_service_sse_wrong_event_type() {
                 sse_event_record_patches.push(patch::patch_unknown_event_type_to_other);
             }
-            if root.event_service_sse_no_odata_id() {
+            if bmc.quirks.event_service_sse_no_odata_id() {
                 let patch_event_id: ReadPatchFn =
                     Arc::new(patch::patch_missing_event_odata_id as fn(JsonValue) -> JsonValue);
                 sse_read_patches.push(patch_event_id);
                 sse_event_record_patches.push(patch::patch_missing_event_record_odata_id);
             }
-            if root.event_service_sse_wrong_timestamp_offset() {
+            if bmc.quirks.event_service_sse_wrong_timestamp_offset() {
                 sse_event_record_patches.push(patch::patch_compact_event_timestamp_offset);
             }
 

@@ -46,7 +46,7 @@ impl<B: Bmc> ManagerCollection<B> {
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(collection_ref) = &root.root.managers {
             bmc.expand_property(collection_ref).await.map(Some)
-        } else if root.bug_missing_root_nav_properties() {
+        } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Managers", root.odata_id()).into(),
             ))

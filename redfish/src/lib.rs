@@ -139,6 +139,9 @@ pub(crate) mod protocol_features;
 /// Bmc wrapper used in nv-redfish.
 pub(crate) mod bmc;
 
+/// BMC quirks support.
+pub(crate) mod bmc_quirks;
+
 #[doc(inline)]
 pub use nv_redfish_core as core;
 

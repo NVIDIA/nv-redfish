@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::bmc_quirks::BmcQuirks;
 use crate::hardware_id::HardwareIdRef;
 use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
@@ -26,7 +27,6 @@ use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
-use crate::ServiceRoot;
 use nv_redfish_core::bmc::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -78,15 +78,15 @@ pub struct Config {
 }
 
 impl Config {
-    pub fn new<B: Bmc>(root: &ServiceRoot<B>) -> Self {
+    pub fn new(quirks: &BmcQuirks) -> Self {
         let mut patches = Vec::new();
-        if root.bug_invalid_contained_by_fields() {
+        if quirks.bug_invalid_contained_by_fields() {
             patches.push(remove_invalid_contained_by_fields as fn(JsonValue) -> JsonValue);
         }
-        if root.bug_missing_chassis_type_field() {
+        if quirks.bug_missing_chassis_type_field() {
             patches.push(add_default_chassis_type);
         }
-        if root.bug_missing_chassis_name_field() {
+        if quirks.bug_missing_chassis_name_field() {
             patches.push(add_default_chassis_name);
         }
         let read_patch_fn = (!patches.is_empty())
