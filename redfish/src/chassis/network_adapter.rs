@@ -14,7 +14,6 @@
 // limitations under the License.
 
 //! Network adapters
-//!
 
 use crate::hardware_id::HardwareIdRef;
 use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
@@ -29,8 +28,10 @@ use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
-use std::marker::PhantomData;
 use std::sync::Arc;
+
+#[cfg(feature = "network-device-functions")]
+use crate::network_device_function::NetworkDeviceFunctionCollection;
 
 /// Network adapters collection.
 ///
@@ -86,8 +87,9 @@ pub type SerialNumber<T> = HardwareIdSerialNumber<T, NetworkAdapterTag>;
 ///
 /// Provides functions to access log entries and perform log operations.
 pub struct NetworkAdapter<B: Bmc> {
+    #[allow(dead_code)] // used if any feature enabled.
+    bmc: NvBmc<B>,
     data: Arc<NetworkAdapterSchema>,
-    _marker: PhantomData<B>,
 }
 
 impl<B: Bmc> NetworkAdapter<B> {
@@ -100,8 +102,8 @@ impl<B: Bmc> NetworkAdapter<B> {
             .await
             .map_err(crate::Error::Bmc)
             .map(|data| Self {
+                bmc: bmc.clone(),
                 data,
-                _marker: PhantomData,
             })
     }
 
@@ -139,6 +141,26 @@ impl<B: Bmc> NetworkAdapter<B> {
                 .as_ref()
                 .and_then(Option::as_deref)
                 .map(SerialNumber::new),
+        }
+    }
+
+    /// Get network device functions for this adapter.
+    ///
+    /// Returns `Ok(None)` when the network device functions link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching network device functions data fails.
+    #[cfg(feature = "network-device-functions")]
+    pub async fn network_device_functions(
+        &self,
+    ) -> Result<Option<NetworkDeviceFunctionCollection<B>>, Error<B>> {
+        if let Some(p) = &self.data.network_device_functions {
+            NetworkDeviceFunctionCollection::new(&self.bmc, p)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
         }
     }
 }

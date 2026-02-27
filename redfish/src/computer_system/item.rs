@@ -13,6 +13,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::core::Bmc;
+use crate::core::EntityTypeRef as _;
+use crate::core::ModificationResponse;
+use crate::core::NavProperty;
+use crate::core::RedfishSettings as _;
 use crate::hardware_id::HardwareIdRef;
 use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
@@ -26,11 +31,7 @@ use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
-use nv_redfish_core::Bmc;
-use nv_redfish_core::EntityTypeRef as _;
-use nv_redfish_core::ModificationResponse;
-use nv_redfish_core::NavProperty;
-use nv_redfish_core::RedfishSettings as _;
+
 use serde::Serialize;
 use std::convert::identity;
 use std::sync::Arc;
@@ -85,7 +86,7 @@ pub enum ComputerSystemSkuTag {}
 pub type BootOptionReference<T> = TaggedType<T, BootOptionReferenceTag>;
 #[doc(hidden)]
 #[derive(tagged_types::Tag)]
-#[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[implement(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord)]
 #[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
 #[capability(inner_access, cloned)]
 pub enum BootOptionReferenceTag {}
