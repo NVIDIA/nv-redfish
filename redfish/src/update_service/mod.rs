@@ -61,7 +61,7 @@ impl<B: Bmc> UpdateService<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         let mut service_patches = Vec::new();
-        if root.bug_missing_update_service_name_field() {
+        if bmc.quirks.bug_missing_update_service_name_field() {
             service_patches.push(add_default_update_service_name);
         }
         let service_patch_fn = (!service_patches.is_empty()).then(|| {
@@ -69,7 +69,7 @@ impl<B: Bmc> UpdateService<B> {
         });
 
         let mut fw_inventory_patches = Vec::new();
-        if root.fw_inventory_wrong_release_date() {
+        if bmc.quirks.fw_inventory_wrong_release_date() {
             fw_inventory_patches.push(fw_inventory_patch_wrong_release_date);
         }
         let fw_inventory_read_patch_fn = (!fw_inventory_patches.is_empty()).then(|| {
@@ -83,7 +83,7 @@ impl<B: Bmc> UpdateService<B> {
                 nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
             }
             .map(Some)
-        } else if root.bug_missing_root_nav_properties() {
+        } else if bmc.quirks.bug_missing_root_nav_properties() {
             let nav =
                 NavProperty::new_reference(format!("{}/UpdateService", root.odata_id()).into());
             if let Some(service_patch_fn) = service_patch_fn {

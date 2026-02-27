@@ -86,7 +86,7 @@ impl<B: Bmc> ChassisCollection<B> {
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(collection_ref) = &root.root.chassis {
             bmc.expand_property(collection_ref).await.map(Some)
-        } else if root.bug_missing_root_nav_properties() {
+        } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Chassis", root.odata_id()).into(),
             ))
@@ -97,7 +97,7 @@ impl<B: Bmc> ChassisCollection<B> {
         }
         .map(|c| {
             c.map(|collection| {
-                let item_config = item::Config::new(root).into();
+                let item_config = item::Config::new(&bmc.quirks).into();
                 Self {
                     bmc: bmc.clone(),
                     collection,

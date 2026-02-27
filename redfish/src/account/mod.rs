@@ -77,14 +77,14 @@ impl<B: Bmc> AccountService<B> {
         let Some(service_nav) = root.root.account_service.as_ref() else {
             return Ok(None);
         };
-        let service = if root.bug_null_in_remote_role_mapping() {
+        let service = if bmc.quirks.bug_null_in_remote_role_mapping() {
             Payload::get(bmc.as_ref(), service_nav, remove_nulls_from_account).await?
         } else {
             service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?
         };
 
         let mut patches = Vec::new();
-        if root.bug_no_account_type_in_accounts() {
+        if bmc.quirks.bug_no_account_type_in_accounts() {
             patches.push(append_default_account_type);
         }
         let account_read_patch_fn = if patches.is_empty() {
@@ -94,7 +94,7 @@ impl<B: Bmc> AccountService<B> {
                 Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc)));
             Some(account_read_patch_fn)
         };
-        let slot_defined_user_accounts = root.slot_defined_user_accounts();
+        let slot_defined_user_accounts = bmc.quirks.slot_defined_user_accounts();
         Ok(Some(Self {
             collection_config: collection::Config {
                 account: AccountConfig {

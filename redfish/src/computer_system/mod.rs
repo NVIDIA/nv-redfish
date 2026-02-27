@@ -97,7 +97,7 @@ impl<B: Bmc> SystemCollection<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         let mut patches = Vec::new();
-        if root.computer_systems_wrong_last_reset_time() {
+        if bmc.quirks.computer_systems_wrong_last_reset_time() {
             patches.push(computer_systems_wrong_last_reset_time);
         }
         let read_patch_fn = (!patches.is_empty())
@@ -107,7 +107,7 @@ impl<B: Bmc> SystemCollection<B> {
             Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref())
                 .await
                 .map(Some)
-        } else if root.bug_missing_root_nav_properties() {
+        } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Systems", root.odata_id()).into(),
             ))

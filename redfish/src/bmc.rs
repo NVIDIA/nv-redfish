@@ -16,6 +16,7 @@
 //! BMC implementaion that takes in account protocol features.  That
 //! is built on top of core BMC.
 
+use crate::bmc_quirks::BmcQuirks;
 use crate::ProtocolFeatures;
 use nv_redfish_core::Bmc;
 use std::sync::Arc;
@@ -32,13 +33,15 @@ use nv_redfish_core::NavProperty;
 pub struct NvBmc<B: Bmc> {
     bmc: Arc<B>,
     protocol_features: Arc<ProtocolFeatures>,
+    pub(crate) quirks: Arc<BmcQuirks>,
 }
 
 impl<B: Bmc> NvBmc<B> {
-    pub(crate) fn new(bmc: Arc<B>, protocol_features: ProtocolFeatures) -> Self {
+    pub(crate) fn new(bmc: Arc<B>, protocol_features: ProtocolFeatures, quirks: BmcQuirks) -> Self {
         Self {
             bmc,
             protocol_features: protocol_features.into(),
+            quirks: quirks.into(),
         }
     }
 
@@ -80,11 +83,14 @@ impl<B: Bmc> NvBmc<B> {
     }
 }
 
+// Implementing Clone because derive requires B to be Clone but NvBmc
+// doesn't require it.
 impl<B: Bmc> Clone for NvBmc<B> {
     fn clone(&self) -> Self {
         Self {
             bmc: self.bmc.clone(),
             protocol_features: self.protocol_features.clone(),
+            quirks: self.quirks.clone(),
         }
     }
 }
