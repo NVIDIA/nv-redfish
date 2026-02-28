@@ -64,6 +64,112 @@ async fn lenovo_computer_system_usb_management_fields() -> Result<(), Box<dyn St
 }
 
 #[test]
+async fn lenovo_computer_system_front_panel_usb_variant() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(lenovo_oem_payload(
+                Some(json!({
+                    "FPMode": "BMC",
+                    "PortSwitchingTo": "BMC"
+                })),
+                None,
+            )),
+        ),
+    )
+    .await?;
+
+    let lenovo = system.oem_lenovo()?.unwrap();
+    assert_eq!(lenovo.front_panel_mode(), Some(FpMode::Bmc));
+    assert_eq!(lenovo.port_switching_to(), Some(PortSwitchingTo::Bmc));
+
+    Ok(())
+}
+
+#[test]
+async fn lenovo_computer_system_prefers_usb_management_port_assignment(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(lenovo_oem_payload(
+                Some(json!({
+                    "FPMode": "BMC",
+                    "PortSwitchingTo": "BMC"
+                })),
+                Some(json!({
+                    "FPMode": "Server",
+                    "PortSwitchingTo": "Server"
+                })),
+            )),
+        ),
+    )
+    .await?;
+
+    // USBManagementPortAssignment is currently primary when both are present.
+    let lenovo = system.oem_lenovo()?.unwrap();
+    assert_eq!(lenovo.front_panel_mode(), Some(FpMode::Server));
+    assert_eq!(lenovo.port_switching_to(), Some(PortSwitchingTo::Server));
+
+    Ok(())
+}
+
+#[test]
+async fn lenovo_computer_system_both_variants_absent() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(json!({
+                ODATA_TYPE: "#LenovoComputerSystem.v1_0_0.LenovoSystemProperties"
+            })),
+        ),
+    )
+    .await?;
+
+    let lenovo = system.oem_lenovo()?.unwrap();
+    assert_eq!(lenovo.front_panel_mode(), None);
+    assert_eq!(lenovo.port_switching_to(), None);
+    Ok(())
+}
+
+#[test]
+async fn lenovo_computer_system_partial_variant_fields() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(lenovo_oem_payload(
+                Some(json!({
+                    "FPMode": "Shared"
+                })),
+                None,
+            )),
+        ),
+    )
+    .await?;
+
+    let lenovo = system.oem_lenovo()?.unwrap();
+    assert_eq!(lenovo.front_panel_mode(), Some(FpMode::Shared));
+    assert_eq!(lenovo.port_switching_to(), None);
+    Ok(())
+}
+
+#[test]
 async fn system_without_lenovo_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
@@ -162,4 +268,17 @@ fn system_payload(ids: &Ids, lenovo_oem: Option<Value>) -> Value {
         },
     );
     json_merge([&base, &oem])
+}
+
+fn lenovo_oem_payload(front_panel_usb: Option<Value>, usb_management: Option<Value>) -> Value {
+    let mut payload = json!({
+        ODATA_TYPE: "#LenovoComputerSystem.v1_0_0.LenovoSystemProperties",
+    });
+    if let Some(front_panel_usb) = front_panel_usb {
+        payload["FrontPanelUSB"] = front_panel_usb;
+    }
+    if let Some(usb_management) = usb_management {
+        payload["USBManagementPortAssignment"] = usb_management;
+    }
+    payload
 }

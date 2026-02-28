@@ -78,6 +78,7 @@ impl<B: Bmc> LenovoComputerSystem<B> {
         self.data
             .usb_management_port_assignment
             .as_ref()
+            .or_else(|| self.data.front_panel_usb.as_ref())
             .and_then(Option::as_ref)
             .and_then(|v| v.fp_mode)
             .and_then(identity)
@@ -88,6 +89,7 @@ impl<B: Bmc> LenovoComputerSystem<B> {
         self.data
             .usb_management_port_assignment
             .as_ref()
+            .or_else(|| self.data.front_panel_usb.as_ref())
             .and_then(Option::as_ref)
             .and_then(|v| v.port_switching_to)
             .and_then(identity)

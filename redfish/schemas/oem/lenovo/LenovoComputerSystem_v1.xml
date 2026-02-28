@@ -27,6 +27,7 @@ limitations under the License.
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="LenovoComputerSystem.v1_0_0">
       <Annotation Term="Redfish.OwningEntity" String="Lenovo"/>
       <ComplexType Name="LenovoSystemProperties" BaseType="LenovoComputerSystem.LenovoSystemProperties">
+        <Property Name="FrontPanelUSB" Type="LenovoComputerSystem.v1_0_0.USBManagementPortAssignment"/>
         <Property Name="USBManagementPortAssignment" Type="LenovoComputerSystem.v1_0_0.USBManagementPortAssignment"/>
       </ComplexType>
       <ComplexType Name="USBManagementPortAssignment">
