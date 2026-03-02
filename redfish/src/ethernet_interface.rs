@@ -140,6 +140,17 @@ impl<B: Bmc> EthernetInterface<B> {
             .map(MacAddress::new)
     }
 
+    /// Permanent MAC address of the interface.
+    #[must_use]
+    pub fn permanent_mac_address(&self) -> Option<MacAddress<'_>> {
+        self.data
+            .permanent_mac_address
+            .as_ref()
+            .and_then(Option::as_ref)
+            .map(String::as_str)
+            .map(MacAddress::new)
+    }
+
     /// UEFI device path for the interface.
     #[must_use]
     pub fn uefi_device_path(&self) -> Option<UefiDevicePath<&str>> {

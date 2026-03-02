@@ -21,19 +21,19 @@
 mod item;
 
 #[cfg(feature = "bios")]
-mod bios;
+pub mod bios;
 #[cfg(feature = "boot-options")]
-mod boot_option;
+pub mod boot_option;
 #[cfg(feature = "storages")]
-mod drive;
+pub mod drive;
 #[cfg(feature = "memory")]
-mod memory;
+pub mod memory;
 #[cfg(feature = "processors")]
-mod processor;
+pub mod processor;
 #[cfg(feature = "secure-boot")]
-mod secure_boot;
+pub mod secure_boot;
 #[cfg(feature = "storages")]
-mod storage;
+pub mod storage;
 
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::JsonValue;

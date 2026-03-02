@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Storage subsystem and its respective properties.
+
 use crate::computer_system::Drive;
 use crate::schema::redfish::storage::Storage as StorageSchema;
 use crate::Error;

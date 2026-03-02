@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Processor and its configuration.
+
 use crate::schema::redfish::processor::Processor as ProcessorSchema;
 use crate::schema::redfish::processor_metrics::ProcessorMetrics;
 use crate::Error;

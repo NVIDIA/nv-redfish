@@ -119,7 +119,10 @@ impl<B: Bmc> BootOption<B> {
     /// Boot option reference.
     #[must_use]
     pub fn boot_reference(&self) -> BootOptionReference<&str> {
-        BootOptionReference::new(self.id().inner())
+        self.data.boot_option_reference.as_deref().map_or_else(
+            || BootOptionReference::new(self.id().inner()),
+            BootOptionReference::new,
+        )
     }
 
     /// An indication of whether the boot option is enabled.

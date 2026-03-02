@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Memory device, such as a DIMM, and its configuration.
+
 use crate::schema::redfish::memory::Memory as MemorySchema;
 use crate::schema::redfish::memory_metrics::MemoryMetrics;
 use crate::Error;

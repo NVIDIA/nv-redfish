@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Single physical drive for a system, including links to associated volumes.
+
 use crate::schema::redfish::drive::Drive as DriveSchema;
 use crate::schema::redfish::drive_metrics::DriveMetrics;
 use crate::Error;
