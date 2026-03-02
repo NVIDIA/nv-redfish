@@ -87,4 +87,31 @@ impl<'a> BiosAttributeRef<'a> {
             _ => None,
         }
     }
+
+    /// Returns boolean value of the attribute if attribute is bool.
+    #[must_use]
+    pub const fn bool_value(&self) -> Option<bool> {
+        match self.value {
+            Some(EdmPrimitiveType::Bool(v)) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Returns integer value of the attribute if attribute is integer.
+    #[must_use]
+    pub const fn integer_value(&self) -> Option<i64> {
+        match self.value {
+            Some(EdmPrimitiveType::Integer(v)) => Some(*v),
+            _ => None,
+        }
+    }
+
+    /// Returns decimal value of the attribute if attribute is decimal.
+    #[must_use]
+    pub const fn decimal_value(&self) -> Option<f64> {
+        match self.value {
+            Some(EdmPrimitiveType::Decimal(v)) => Some(*v),
+            _ => None,
+        }
+    }
 }
