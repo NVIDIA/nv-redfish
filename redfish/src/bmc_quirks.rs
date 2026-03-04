@@ -168,7 +168,7 @@ impl BmcQuirks {
     }
 
     /// Liteon provides invalid chassis/manager status state (Standby).
-    #[cfg(any(feature = "chassis", feature = "managers"))]
+    #[cfg(any(feature = "chassis", feature = "managers", feature = "sensors"))]
     pub(crate) fn wrong_resource_status_state(&self) -> bool {
         // Note that Liteon prefer not to tell about itself. So we
         // apply patches for all platforms that are not identified.
