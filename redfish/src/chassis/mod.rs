@@ -66,9 +66,14 @@ pub use power_supply::PowerSupply;
 pub use thermal::Thermal;
 
 use crate::core::NavProperty;
+use crate::patch_support::CollectionWithPatch;
 use crate::resource::Resource as _;
+use crate::schema::redfish::chassis::Chassis as ChassisSchema;
 use crate::schema::redfish::chassis_collection::ChassisCollection as ChassisCollectionSchema;
-use crate::{Error, NvBmc, ServiceRoot};
+use crate::schema::redfish::resource::ResourceCollection;
+use crate::Error;
+use crate::NvBmc;
+use crate::ServiceRoot;
 
 /// Chassis collection.
 ///
@@ -84,8 +89,11 @@ impl<B: Bmc> ChassisCollection<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
+        let item_config = item::Config::new(&bmc.quirks);
         if let Some(collection_ref) = &root.root.chassis {
-            bmc.expand_property(collection_ref).await.map(Some)
+            Self::expand_collection(bmc, collection_ref, item_config.read_patch_fn.as_ref())
+                .await
+                .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Chassis", root.odata_id()).into(),
@@ -96,13 +104,10 @@ impl<B: Bmc> ChassisCollection<B> {
             Ok(None)
         }
         .map(|c| {
-            c.map(|collection| {
-                let item_config = item::Config::new(&bmc.quirks).into();
-                Self {
-                    bmc: bmc.clone(),
-                    collection,
-                    item_config,
-                }
+            c.map(|collection| Self {
+                bmc: bmc.clone(),
+                collection,
+                item_config: item_config.into(),
             })
         })
     }
@@ -119,5 +124,16 @@ impl<B: Bmc> ChassisCollection<B> {
         }
 
         Ok(chassis_members)
+    }
+}
+
+impl<B: Bmc> CollectionWithPatch<ChassisCollectionSchema, ChassisSchema, B>
+    for ChassisCollection<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<ChassisSchema>>,
+    ) -> ChassisCollectionSchema {
+        ChassisCollectionSchema { base, members }
     }
 }

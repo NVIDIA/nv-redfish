@@ -34,16 +34,19 @@ enum Platform {
     AmiViking,
     Nvidia,
     Anonymous1_9_0,
+    NvSwitch,
 }
 
 impl BmcQuirks {
     pub fn new(root: &ServiceRoot) -> Self {
         let vendor_str = root.vendor.as_ref().and_then(Option::as_deref);
         let redfish_version_str = root.redfish_version.as_deref();
+        let product_str = root.product.as_ref().and_then(Option::as_deref);
         let platform = match vendor_str {
             Some("HPE") => Some(Platform::Hpe),
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
+            Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
@@ -173,6 +176,14 @@ impl BmcQuirks {
         // Note that Liteon prefer not to tell about itself. So we
         // apply patches for all platforms that are not identified.
         self.platform == Some(Platform::Anonymous1_9_0)
+    }
+
+    /// NVSwitch provides invalid (Unknown) Location/PartLocation/LocationType in Chassis.
+    #[cfg(feature = "chassis")]
+    pub(crate) fn wrong_resource_part_location_type(&self) -> bool {
+        // Note that Liteon prefer not to tell about itself. So we
+        // apply patches for all platforms that are not identified.
+        self.platform == Some(Platform::NvSwitch)
     }
 
     /// In some cases we expand is not working according to spec,

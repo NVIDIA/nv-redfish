@@ -16,10 +16,11 @@
 //! Sometimes Redfish implementations do not perfectly match the CSDL
 //! specification. This module provides helpers to deal with that.
 
-/// Redfish collection related patches.
+use crate::schema::redfish::resource::State as ResourceStateSchema;
 use serde_json::Value;
 
-use crate::schema::redfish::resource::State as ResourceStateSchema;
+#[cfg(feature = "chassis")]
+use crate::schema::redfish::resource::LocationType as ResourceLocationTypeSchema;
 
 /// Remove unsupported `Status.State` enum values from a resource payload.
 ///
@@ -35,6 +36,29 @@ pub fn remove_invalid_resource_state(mut resource: Value) -> Value {
                 .is_some_and(|v| serde_json::from_value::<ResourceStateSchema>(v.clone()).is_err());
             if state_is_invalid {
                 status.remove("State");
+            }
+        }
+    }
+    resource
+}
+
+/// Remove unsupported `Location.PartLocation.LocationType` enum values from a resource payload.
+///
+/// Some BMCs return state values outside Redfish schema enum constraints
+/// (for example `"Unknown"`). This helper drops only invalid state values
+/// and keeps all other payload fields unchanged.
+#[cfg(feature = "chassis")]
+#[must_use]
+pub fn remove_invalid_resource_part_location_type(mut resource: Value) -> Value {
+    if let Value::Object(ref mut obj) = resource {
+        if let Some(Value::Object(ref mut location)) = obj.get_mut("Location") {
+            if let Some(Value::Object(ref mut part_location)) = location.get_mut("PartLocation") {
+                let location_type_is_invalid = part_location.get("LocationType").is_some_and(|v| {
+                    serde_json::from_value::<ResourceLocationTypeSchema>(v.clone()).is_err()
+                });
+                if location_type_is_invalid {
+                    part_location.remove("LocationType");
+                }
             }
         }
     }

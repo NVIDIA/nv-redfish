@@ -20,6 +20,7 @@ use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
+use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -187,6 +188,58 @@ async fn anonymous_1_9_0_wrong_chassis_status_state_workaround() -> Result<(), B
     Ok(())
 }
 
+#[test]
+async fn nvswitch_wrong_location_part_location_type_workaround() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVSwitch (`Vendor=NVIDIA`, `Product=P3809`).
+    // Quirk under test: invalid Location.PartLocation.LocationType="Unknown".
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_nvswitch_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [
+                {
+                    ODATA_ID: &ids.chassis_id
+                }
+            ]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    expect_chassis_get(
+        bmc.clone(),
+        &ids,
+        json!({ // Real id: CPLD_0
+            ODATA_ID: &ids.chassis_id,
+            ODATA_TYPE: CHASSIS_DATA_TYPE,
+            "Id": "1",
+            "Name": "Chassis",
+            "ChassisType": "Module",
+            "Location": {
+                "PartLocation": {
+                    "LocationType": "Unknown"
+                }
+            }
+        }),
+    );
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+
+    Ok(())
+}
+
 async fn expect_viking_service_root(
     bmc: Arc<Bmc>,
     ids: &Ids,
@@ -207,6 +260,34 @@ async fn expect_anonymous_1_9_service_root(
     bmc.expect(Expect::get(
         &ids.root_id,
         anonymous_1_9_service_root(&ids.root_id, fields),
+    ));
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_nvswitch_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    fields: Value,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        json_merge([
+            &json!({
+                ODATA_ID: &ids.root_id,
+                ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+                "Id": "RootService",
+                "Name": "RootService",
+                "Vendor": "NVIDIA",
+                "Product": "P3809",
+                "ProtocolFeaturesSupported": {
+                    "ExpandQuery": {
+                        "NoLinks": true
+                    }
+                },
+                "Links": {}
+            }),
+            &fields,
+        ]),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
