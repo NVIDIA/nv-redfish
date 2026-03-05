@@ -15,13 +15,16 @@
 
 //! Support of HPE OEM extensions to Redfish.
 
-/// Support of HPE Manager OEM extension.
 #[cfg(feature = "managers")]
 pub mod manager;
 
-/// HPE OEM Schema.
+pub mod ilo_service_ext;
+
 pub(crate) mod schema;
 
 #[cfg(feature = "managers")]
 #[doc(inline)]
 pub use manager::HpeManager;
+
+#[doc(inline)]
+pub use ilo_service_ext::HpeiLoServiceExt;

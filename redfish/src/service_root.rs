@@ -36,6 +36,8 @@ use crate::computer_system::SystemCollection;
 use crate::event_service::EventService;
 #[cfg(feature = "managers")]
 use crate::manager::ManagerCollection;
+#[cfg(feature = "oem-hpe")]
+use crate::oem::hpe::HpeiLoServiceExt;
 #[cfg(feature = "telemetry-service")]
 use crate::telemetry_service::TelemetryService;
 #[cfg(feature = "update-service")]
@@ -230,6 +232,18 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "managers")]
     pub async fn managers(&self) -> Result<Option<ManagerCollection<B>>, Error<B>> {
         ManagerCollection::new(&self.bmc, self).await
+    }
+
+    /// Get HPE OEM extension in service root
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose HPE extension.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving manager collection data fails.
+    #[cfg(feature = "oem-hpe")]
+    pub fn oem_hpe_ilo_service_ext(&self) -> Result<Option<HpeiLoServiceExt<B>>, Error<B>> {
+        HpeiLoServiceExt::new(&self.root)
     }
 }
 

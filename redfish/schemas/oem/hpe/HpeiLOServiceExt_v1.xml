@@ -20,12 +20,17 @@ limitations under the License.
     <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
   </edmx:Reference>
   <edmx:DataServices>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="HpeiLO">
-      <ComplexType Name="HpeiLO" Abstract="true"/>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="HpeiLOServiceExt">
+      <ComplexType Name="HpeiLOServiceExt" Abstract="true"/>
+      <ComplexType Name="Manager" Abstract="true"/>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="HpeiLO.v2_11_0">
-      <ComplexType Name="HpeiLO" BaseType="HpeiLO.HpeiLO">
-        <Property Name="VirtualNICEnabled" Type="Edm.Boolean" Nullable="false"/>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="HpeiLOServiceExt.v2_5_0">
+      <ComplexType Name="HpeiLOServiceExt" BaseType="HpeiLOServiceExt.HpeiLOServiceExt">
+        <Property Name="Manager" Type="Collection(HpeiLOServiceExt.Manager)" Nullable="false"/>
+      </ComplexType>
+      <ComplexType Name="Manager" BaseType="HpeiLOServiceExt.Manager">
+        <Property Name="ManagerType" Type="Edm.String"/>
+        <Property Name="ManagerFirmwareVersion" Type="Edm.String"/>
       </ComplexType>
     </Schema>
   </edmx:DataServices>
