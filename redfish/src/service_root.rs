@@ -108,18 +108,15 @@ impl<B: Bmc> ServiceRoot<B> {
     #[must_use]
     pub fn replace_bmc(self, bmc: Arc<B>) -> Self {
         let root = self.root;
-        let quirks = BmcQuirks::new(&root);
-        let mut protocol_features = root
-            .protocol_features_supported
-            .as_ref()
-            .map(ProtocolFeatures::new)
-            .unwrap_or_default();
-        if quirks.expand_is_not_working_properly() {
-            protocol_features.expand.expand_all = false;
-            protocol_features.expand.no_links = false;
-        }
+        let bmc = self.bmc.replace_bmc(bmc);
+        Self { root, bmc }
+    }
 
-        let bmc = NvBmc::new(bmc, protocol_features, quirks);
+    /// Restrict usage of expand.
+    #[must_use]
+    pub fn restrict_expand(self) -> Self {
+        let root = self.root;
+        let bmc = self.bmc.restrict_expand();
         Self { root, bmc }
     }
 

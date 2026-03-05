@@ -17,6 +17,7 @@
 //! is built on top of core BMC.
 
 use crate::bmc_quirks::BmcQuirks;
+use crate::protocol_features::ExpandQueryFeatures;
 use crate::ProtocolFeatures;
 use nv_redfish_core::Bmc;
 use std::sync::Arc;
@@ -42,6 +43,28 @@ impl<B: Bmc> NvBmc<B> {
             bmc,
             protocol_features: protocol_features.into(),
             quirks: quirks.into(),
+        }
+    }
+
+    pub(crate) fn replace_bmc(self, bmc: Arc<B>) -> Self {
+        Self {
+            bmc,
+            protocol_features: self.protocol_features,
+            quirks: self.quirks,
+        }
+    }
+
+    pub(crate) fn restrict_expand(self) -> Self {
+        Self {
+            bmc: self.bmc,
+            protocol_features: ProtocolFeatures {
+                expand: ExpandQueryFeatures {
+                    expand_all: false,
+                    no_links: false,
+                },
+            }
+            .into(),
+            quirks: self.quirks,
         }
     }
 
