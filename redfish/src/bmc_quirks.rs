@@ -181,9 +181,29 @@ impl BmcQuirks {
     /// NVSwitch provides invalid (Unknown) Location/PartLocation/LocationType in Chassis.
     #[cfg(feature = "chassis")]
     pub(crate) fn wrong_resource_part_location_type(&self) -> bool {
-        // Note that Liteon prefer not to tell about itself. So we
-        // apply patches for all platforms that are not identified.
         self.platform == Some(Platform::NvSwitch)
+    }
+
+    /// Vikings provide wrong elements in computer system
+    /// collection. This function returns ODataId filter function for
+    /// these collections.
+    #[cfg(feature = "computer-systems")]
+    pub(crate) fn filter_computer_system_odata_ids(&self) -> Option<fn(&str) -> bool> {
+        (self.platform == Some(Platform::AmiViking)).then_some(|odata_id| {
+            odata_id.ends_with("/DGX") || odata_id.ends_with("/HGX_Baseboard_0")
+        })
+    }
+
+    /// Vikings provide wrong elements in manager
+    /// collection. This function returns ODataId filter function for
+    /// these collections.
+    #[cfg(feature = "managers")]
+    pub(crate) fn filter_manager_odata_ids(&self) -> Option<fn(&str) -> bool> {
+        (self.platform == Some(Platform::AmiViking)).then_some(|odata_id| {
+            odata_id.ends_with("/BMC")
+                || odata_id.ends_with("/HGX_BMC_0")
+                || odata_id.ends_with("/HGX_FabricManager_0")
+        })
     }
 
     /// In some cases we expand is not working according to spec,

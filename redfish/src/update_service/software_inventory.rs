@@ -136,7 +136,7 @@ impl<B: Bmc> SoftwareInventoryCollection<B> {
         read_patch_fn: Option<ReadPatchFn>,
     ) -> Result<Self, Error<B>> {
         let collection =
-            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref()).await?;
+            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref(), None).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,

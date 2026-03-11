@@ -116,8 +116,7 @@ pub struct Bmc<E> {
 impl<E> Bmc<E> {
     pub fn expect(&self, exp: Expect<E>) {
         let expect: &mut VecDeque<Expect<E>> = &mut self.expect.lock().expect("not poisoned");
-        expect.clear();
-        expect.push_front(exp);
+        expect.push_back(exp);
     }
 
     pub fn debug_expect(&self) {

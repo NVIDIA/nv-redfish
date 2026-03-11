@@ -349,7 +349,6 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
         ODATA_ID: &root_id,
         ODATA_TYPE: &data_type,
     });
-    bmc.expect(expect_root());
     let nav_service_root = nav_service_root();
     let value = "Value".to_string();
     bmc.expect(Expect::update(

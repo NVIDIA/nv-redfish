@@ -20,12 +20,18 @@
 mod item;
 
 use crate::core::NavProperty;
+use crate::patch_support::CollectionWithPatch;
+use crate::patch_support::FilterFn;
+use crate::patch_support::JsonValue;
 use crate::resource::Resource as _;
+use crate::schema::redfish::manager::Manager as ManagerSchema;
 use crate::schema::redfish::manager_collection::ManagerCollection as ManagerCollectionSchema;
+use crate::schema::redfish::resource::ResourceCollection;
 use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
+use std::convert::identity;
 use std::sync::Arc;
 
 pub use item::Manager;
@@ -44,8 +50,22 @@ impl<B: Bmc> ManagerCollection<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
+        let mut filters = Vec::new();
+        if let Some(odata_id_filter) = bmc.quirks.filter_manager_odata_ids() {
+            filters.push(Box::new(move |js: &JsonValue| {
+                js.get("@odata.id")
+                    .and_then(|v| v.as_str())
+                    .map(odata_id_filter)
+                    .is_some_and(identity)
+            }));
+        }
+        let filters_fn = (!filters.is_empty())
+            .then(move || Arc::new(move |v: &JsonValue| filters.iter().any(|f| f(v))) as FilterFn);
+
         if let Some(collection_ref) = &root.root.managers {
-            bmc.expand_property(collection_ref).await.map(Some)
+            Self::expand_collection(bmc, collection_ref, None, filters_fn.as_ref())
+                .await
+                .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Managers", root.odata_id()).into(),
@@ -74,5 +94,16 @@ impl<B: Bmc> ManagerCollection<B> {
             members.push(Manager::new(&self.bmc, m).await?);
         }
         Ok(members)
+    }
+}
+
+impl<B: Bmc> CollectionWithPatch<ManagerCollectionSchema, ManagerSchema, B>
+    for ManagerCollection<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<ManagerSchema>>,
+    ) -> ManagerCollectionSchema {
+        ManagerCollectionSchema { base, members }
     }
 }

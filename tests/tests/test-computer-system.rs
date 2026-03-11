@@ -17,6 +17,7 @@
 #![recursion_limit = "256"]
 
 use nv_redfish::computer_system::SystemCollection;
+use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
@@ -176,6 +177,68 @@ async fn expect_anonymous_1_9_service_root_without_systems(
         anonymous_1_9_service_root(&ids.root_id, json!({})),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+#[test]
+async fn viking_with_garbage_in_computer_systems() -> Result<(), Box<dyn StdError>> {
+    // Viking response with the payload: HGX_Baseboard_0/LogServices/FDR should be filtered out.
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+
+    // Viking service root
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        ami_viking_service_root(
+            &ids.root_id,
+            json!({
+                "Systems": { ODATA_ID: &ids.systems_id }
+            }),
+        ),
+    ));
+
+    let service_root = ServiceRoot::new(bmc.clone()).await?;
+
+    // Collection with garbage entry that should be filtered out
+    let dgx_id = format!("{}/DGX", ids.systems_id);
+    let hgx_id = format!("{}/HGX_Baseboard_0", ids.systems_id);
+    let garbage_id = format!("{}/HGX_Baseboard_0/LogServices/FDR", ids.systems_id);
+
+    bmc.expect(Expect::get(
+        &ids.systems_id,
+        json!({
+            ODATA_ID: &ids.systems_id,
+            ODATA_TYPE: SYSTEM_COLLECTION_DATA_TYPE,
+            "Id": resource_name(&ids.systems_id),
+            "Name": "Systems Collection",
+            "Members": [
+                json!({ ODATA_ID: &dgx_id }),
+                json!({ ODATA_ID: &garbage_id }),
+                json!({ ODATA_ID: &hgx_id }),
+            ]
+        }),
+    ));
+
+    let systems = service_root.systems().await?.unwrap();
+    bmc.expect(Expect::get(
+        &dgx_id,
+        computer_system(&ids, json!({ ODATA_ID: &dgx_id })),
+    ));
+    bmc.expect(Expect::get(
+        &hgx_id,
+        computer_system(&ids, json!({ ODATA_ID: &hgx_id })),
+    ));
+
+    let members = systems.members().await?;
+
+    // Should only have DGX and HGX_Baseboard_0, not the garbage FDR entry
+    assert_eq!(members.len(), 2);
+
+    let member_ids: Vec<_> = members.iter().map(|m| m.odata_id().to_string()).collect();
+    assert!(member_ids.contains(&dgx_id));
+    assert!(member_ids.contains(&hgx_id));
+    assert!(!member_ids.contains(&garbage_id));
+
+    Ok(())
 }
 
 struct ComputerSystemIds {

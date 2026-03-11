@@ -124,9 +124,13 @@ impl<B: Bmc> AccountCollection<B> {
         collection_ref: &NavProperty<ManagerAccountCollection>,
         config: Config,
     ) -> Result<Self, Error<B>> {
-        let collection =
-            Self::expand_collection(&bmc, collection_ref, config.account.read_patch_fn.as_ref())
-                .await?;
+        let collection = Self::expand_collection(
+            &bmc,
+            collection_ref,
+            config.account.read_patch_fn.as_ref(),
+            None,
+        )
+        .await?;
         Ok(Self {
             config,
             bmc,

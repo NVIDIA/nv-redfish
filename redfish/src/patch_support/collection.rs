@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::patch_support::FilterFn;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
@@ -55,14 +56,17 @@ where
         bmc: &NvBmc<B>,
         nav: &NavProperty<T>,
         patch_fn: Option<&ReadPatchFn>,
+        filter_fn: Option<&FilterFn>,
     ) -> Result<Arc<T>, Error<B>> {
-        if let Some(patch_fn) = patch_fn {
+        if patch_fn.is_some() || filter_fn.is_some() {
             // Patches are not free so we keep separate branch for
             // patched collections only having this cost on systems
             // that requires to pay the price.
             let patched_collection_ref = NavProperty::<Collection>::new_reference(nav.id().clone());
             let collection = bmc.expand_property(&patched_collection_ref).await?;
-            let members = collection.members(&patch_fn.as_ref())?;
+            let patch_fn = patch_fn.map(AsRef::as_ref);
+            let filter_fn = filter_fn.map(AsRef::as_ref);
+            let members = collection.members(patch_fn, filter_fn)?;
             Ok(Arc::new(Self::convert_patched(collection.base(), members)))
         } else {
             bmc.expand_property(nav).await
@@ -163,15 +167,21 @@ impl Collection {
         }
     }
 
-    fn members<T, F, B>(&self, f: &F) -> Result<Vec<NavProperty<T>>, Error<B>>
+    fn members<T, FP, FF, B>(
+        &self,
+        patch_fn: Option<&FP>,
+        filter_fn: Option<&FF>,
+    ) -> Result<Vec<NavProperty<T>>, Error<B>>
     where
         T: EntityTypeRef + for<'de> Deserialize<'de>,
-        F: Fn(JsonValue) -> JsonValue,
+        FP: Fn(JsonValue) -> JsonValue + ?Sized,
+        FF: Fn(&JsonValue) -> bool + ?Sized,
         B: Bmc,
     {
         self.members
             .iter()
-            .map(|v| v.to_target(f))
+            .filter(|v| filter_fn.is_none_or(|ff| v.filter(ff)))
+            .map(|v| patch_fn.map_or_else(|| v.parse(), |fp| v.to_target(fp)))
             .collect::<Result<Vec<_>, _>>()
     }
 }

@@ -36,6 +36,7 @@ pub mod secure_boot;
 pub mod storage;
 
 use crate::patch_support::CollectionWithPatch;
+use crate::patch_support::FilterFn;
 use crate::patch_support::JsonValue;
 use crate::patch_support::ReadPatchFn;
 use crate::resource::Resource as _;
@@ -47,6 +48,7 @@ use crate::NvBmc;
 use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
+use std::convert::identity;
 use std::sync::Arc;
 
 #[doc(inline)]
@@ -97,16 +99,32 @@ impl<B: Bmc> SystemCollection<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         let mut patches = Vec::new();
+        let mut filters = Vec::new();
+        if let Some(odata_id_filter) = bmc.quirks.filter_computer_system_odata_ids() {
+            filters.push(Box::new(move |js: &JsonValue| {
+                js.get("@odata.id")
+                    .and_then(|v| v.as_str())
+                    .map(odata_id_filter)
+                    .is_some_and(identity)
+            }));
+        }
         if bmc.quirks.computer_systems_wrong_last_reset_time() {
             patches.push(computer_systems_wrong_last_reset_time);
         }
         let read_patch_fn = (!patches.is_empty())
             .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
+        let filters_fn = (!filters.is_empty())
+            .then(move || Arc::new(move |v: &JsonValue| filters.iter().any(|f| f(v))) as FilterFn);
 
         if let Some(collection_ref) = &root.root.systems {
-            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref())
-                .await
-                .map(Some)
+            Self::expand_collection(
+                bmc,
+                collection_ref,
+                read_patch_fn.as_ref(),
+                filters_fn.as_ref(),
+            )
+            .await
+            .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Systems", root.odata_id()).into(),

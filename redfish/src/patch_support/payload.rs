@@ -112,6 +112,25 @@ impl Payload {
             serde_json::from_value(f(self.0.clone())).map_err(Error::Json)
         }
     }
+
+    #[cfg(feature = "patch-collection")]
+    pub(crate) fn parse<T, B>(&self) -> Result<T, Error<B>>
+    where
+        T: for<'de> Deserialize<'de>,
+        B: Bmc,
+    {
+        serde_json::from_value(self.0.clone()).map_err(Error::Json)
+    }
+
+    /// Apply function `f` to the payload and then try to deserialize to the
+    /// target type.
+    #[cfg(feature = "patch-collection")]
+    pub(crate) fn filter<F>(&self, f: F) -> bool
+    where
+        F: FnOnce(&JsonValue) -> bool,
+    {
+        f(&self.0)
+    }
 }
 
 struct Getter {

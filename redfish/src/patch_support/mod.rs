@@ -44,3 +44,8 @@ use std::sync::Arc;
 /// Reference to a patch function. This function should transform a JSON
 /// structure to a Redfish-compatible structure.
 pub type ReadPatchFn = Arc<dyn Fn(JsonValue) -> JsonValue + Sync + Send>;
+
+/// Reference to a filter function. This function should filters a JSON
+/// structure.
+#[cfg(feature = "patch-collection")]
+pub type FilterFn = Arc<dyn Fn(&JsonValue) -> bool + Sync + Send>;
