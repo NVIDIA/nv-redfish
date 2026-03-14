@@ -102,7 +102,7 @@ impl<B: Bmc> EventService<B> {
                 sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
             }
             if bmc.quirks.event_service_sse_wrong_event_type() {
-                sse_event_record_patches.push(patch::patch_unknown_event_type_to_other);
+                sse_event_record_patches.push(patch::patch_unknown_or_missing_event_type_to_other);
             }
             if bmc.quirks.event_service_sse_no_odata_id() {
                 let patch_event_id: ReadPatchFn =

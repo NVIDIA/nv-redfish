@@ -96,11 +96,12 @@ pub(super) fn patch_missing_event_record_member_id(
     );
 }
 
-pub(super) fn patch_unknown_event_type_to_other(
+pub(super) fn patch_unknown_or_missing_event_type_to_other(
     value: &mut JsonMap<String, JsonValue>,
     _index: usize,
 ) {
     let Some(JsonValue::String(event_type)) = value.get_mut("EventType") else {
+        value.insert("EventType".to_string(), JsonValue::String("Other".to_string()));
         return;
     };
 
@@ -153,7 +154,7 @@ mod tests {
     use super::fix_timestamp_offset;
     use super::patch_event_records;
     use super::patch_missing_event_record_member_id;
-    use super::patch_unknown_event_type_to_other;
+    use super::patch_unknown_or_missing_event_type_to_other;
     use super::EventRecordPatchFn;
     use serde_json::json;
 
@@ -186,7 +187,7 @@ mod tests {
 
         let payload = patch_event_records(
             payload,
-            &[patch_unknown_event_type_to_other as EventRecordPatchFn],
+            &[patch_unknown_or_missing_event_type_to_other as EventRecordPatchFn],
         );
 
         let events = payload
@@ -207,6 +208,44 @@ mod tests {
         );
         assert_eq!(
             events[2]
+                .get("EventType")
+                .and_then(serde_json::Value::as_str),
+            Some("Alert")
+        );
+    }
+
+    #[test]
+    fn inserts_event_type_when_absent() {
+        let payload = json!({
+            "Events": [
+                {
+                    "EventId": "1",
+                    "MessageId": "ResourceEvent.1.0.ResourceErrorsDetected"
+                },
+                {
+                    "EventId": "2",
+                    "EventType": "Alert"
+                }
+            ]
+        });
+
+        let payload = patch_event_records(
+            payload,
+            &[patch_unknown_or_missing_event_type_to_other as EventRecordPatchFn],
+        );
+
+        let events = payload
+            .get("Events")
+            .and_then(serde_json::Value::as_array)
+            .expect("events array");
+        assert_eq!(
+            events[0]
+                .get("EventType")
+                .and_then(serde_json::Value::as_str),
+            Some("Other")
+        );
+        assert_eq!(
+            events[1]
                 .get("EventType")
                 .and_then(serde_json::Value::as_str),
             Some("Alert")
