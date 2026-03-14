@@ -157,7 +157,7 @@ impl BmcQuirks {
     }
 
     /// In some implementations, Event records in SSE payload use unsupported
-    /// values in `EventType`.
+    /// values or omit `EventType` entirely.
     #[cfg(feature = "event-service")]
     pub(crate) fn event_service_sse_wrong_event_type(&self) -> bool {
         self.platform == Some(Platform::Nvidia)
