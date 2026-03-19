@@ -100,7 +100,7 @@ pub mod test_utils {
     }
 
     pub fn create_test_credentials() -> BmcCredentials {
-        BmcCredentials::username_password("root".to_string(), "password".to_string())
+        BmcCredentials::username_password("root".to_string(), Some("password".to_string()))
     }
 
     pub fn create_test_bmc(mock_server: &MockServer) -> HttpBmc<Client> {

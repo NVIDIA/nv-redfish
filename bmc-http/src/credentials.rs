@@ -26,7 +26,7 @@ pub enum BmcCredentials {
     UsernamePassword {
         /// Username to access BMC.
         username: String,
-        password: String,
+        password: Option<String>,
     },
     /// Use Redfish session token authentication.
     Token {
@@ -37,7 +37,7 @@ pub enum BmcCredentials {
 impl BmcCredentials {
     /// Create username/password credentials.
     #[must_use]
-    pub const fn username_password(username: String, password: String) -> Self {
+    pub const fn username_password(username: String, password: Option<String>) -> Self {
         Self::UsernamePassword { username, password }
     }
 
@@ -50,7 +50,7 @@ impl BmcCredentials {
     /// Create new username/password credentials.
     #[must_use]
     pub const fn new(username: String, password: String) -> Self {
-        Self::username_password(username, password)
+        Self::username_password(username, Some(password))
     }
 }
 

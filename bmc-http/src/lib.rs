@@ -111,25 +111,6 @@ pub trait HttpClient: Send + Sync {
 ///
 /// * `C` - The HTTP client implementation to use
 ///
-/// # Examples
-///
-/// ```rust,no_run
-/// use nv_redfish_bmc_http::HttpBmc;
-/// use nv_redfish_bmc_http::CacheSettings;
-/// use nv_redfish_bmc_http::BmcCredentials;
-/// use nv_redfish_bmc_http::reqwest::Client;
-/// use nv_redfish_core::{Bmc, ODataId};
-/// use url::Url;
-///
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// let credentials = BmcCredentials::username_password("admin".to_string(), "password".to_string());
-/// let http_client = Client::new()?;
-/// let endpoint = Url::parse("https://192.168.1.100")?;
-///
-/// let bmc = HttpBmc::new(http_client, endpoint, credentials, CacheSettings::default());
-/// # Ok(())
-/// # }
-/// ```
 pub struct HttpBmc<C: HttpClient> {
     client: C,
     redfish_endpoint: RedfishEndpoint,
@@ -161,7 +142,7 @@ where
     /// use url::Url;
     ///
     /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let credentials = BmcCredentials::username_password("admin".to_string(), "password".to_string());
+    /// let credentials = BmcCredentials::username_password("admin".to_string(), Some("password".to_string()));
     /// let http_client = Client::new()?;
     /// let endpoint = Url::parse("https://192.168.1.100")?;
     ///
@@ -213,7 +194,7 @@ where
     /// use http::HeaderMap;
     ///
     /// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-    /// let credentials = BmcCredentials::username_password("admin".to_string(), "password".to_string());
+    /// let credentials = BmcCredentials::username_password("admin".to_string(), Some("password".to_string()));
     /// let http_client = Client::new()?;
     /// let endpoint = Url::parse("https://192.168.1.100")?;
     ///

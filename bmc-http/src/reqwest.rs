@@ -237,32 +237,6 @@ impl ClientParams {
 /// reqwest HTTP client library. It supports all standard HTTP features including
 /// TLS, authentication, and connection pooling.
 ///
-/// # Examples
-///
-/// ```rust,no_run
-/// use nv_redfish_bmc_http::HttpBmc;
-/// use nv_redfish_bmc_http::reqwest::Client;
-/// use nv_redfish_bmc_http::CacheSettings;
-/// use nv_redfish_bmc_http::BmcCredentials;
-/// use nv_redfish_bmc_http::reqwest::ClientParams;
-/// use std::time::Duration;
-/// use url::Url;
-///
-/// # fn example() -> Result<(), Box<dyn std::error::Error>> {
-/// // Create with default settings
-/// let client = Client::new()?;
-///
-/// // Or with custom parameters
-/// let params = ClientParams::new().timeout(Duration::from_secs(60));
-/// let client = Client::with_params(params)?;
-///
-/// // Use with HttpBmc
-/// let credentials = BmcCredentials::username_password("admin".to_string(), "password".to_string());
-/// let endpoint = Url::parse("https://192.168.1.100")?;
-/// let bmc = HttpBmc::new(client, endpoint, credentials, CacheSettings::default());
-/// # Ok(())
-/// # }
-/// ```
 #[derive(Clone)]
 pub struct Client {
     client: reqwest::Client,
@@ -475,7 +449,7 @@ fn auth_headers(
 ) -> reqwest::RequestBuilder {
     match credentials {
         BmcCredentials::UsernamePassword { username, password } => {
-            request.basic_auth(username, Some(password))
+            request.basic_auth(username, password.as_ref())
         }
         BmcCredentials::Token { token } => request.header("X-Auth-Token", token),
     }
