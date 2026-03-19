@@ -18,44 +18,68 @@ use std::fmt;
 /// Credentials used to access the BMC.
 ///
 /// Security notes:
-/// - `Debug`/`Display` redact the password by design.
+/// - `Debug`/`Display` redact secrets by design.
 /// - Prefer short-lived instances and avoid logging credentials.
 #[derive(Clone)]
-pub struct BmcCredentials {
-    /// Username to access BMC.
-    pub username: String,
-    password: String,
+pub enum BmcCredentials {
+    /// Use HTTP Basic authentication with username and password.
+    UsernamePassword {
+        /// Username to access BMC.
+        username: String,
+        password: String,
+    },
+    /// Use Redfish session token authentication.
+    Token {
+        token: String,
+    },
 }
 
 impl BmcCredentials {
-    /// Create new credentials.
+    /// Create username/password credentials.
     #[must_use]
-    pub const fn new(username: String, password: String) -> Self {
-        Self { username, password }
+    pub const fn username_password(username: String, password: String) -> Self {
+        Self::UsernamePassword { username, password }
     }
 
-    /// Get password.
+    /// Create token credentials.
     #[must_use]
-    pub fn password(&self) -> &str {
-        &self.password
+    pub const fn token(token: String) -> Self {
+        Self::Token { token }
+    }
+
+    /// Create new username/password credentials.
+    #[must_use]
+    pub const fn new(username: String, password: String) -> Self {
+        Self::username_password(username, password)
     }
 }
 
 impl fmt::Debug for BmcCredentials {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("BmcCredentials")
-            .field("username", &self.username)
-            .field("password", &"[REDACTED]")
-            .finish()
+        match self {
+            Self::UsernamePassword { username, .. } => f
+                .debug_struct("BmcCredentials::UsernamePassword")
+                .field("username", username)
+                .field("password", &"[REDACTED]")
+                .finish(),
+            Self::Token { .. } => f
+                .debug_struct("BmcCredentials::Token")
+                .field("token", &"[REDACTED]")
+                .finish(),
+        }
     }
 }
 
 impl fmt::Display for BmcCredentials {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(
-            f,
-            "BmcCredentials(username: {}, password: [REDACTED])",
-            self.username
-        )
+        match self {
+            Self::UsernamePassword { username, .. } => {
+                write!(
+                    f,
+                    "BmcCredentials::UsernamePassword(username: {username}, password: [REDACTED])"
+                )
+            }
+            Self::Token { .. } => write!(f, "BmcCredentials::Token(token: [REDACTED])"),
+        }
     }
 }

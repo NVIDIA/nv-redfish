@@ -17,6 +17,7 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
+    use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::reqwest::BmcError;
     use nv_redfish_core::{
         query::{ExpandQuery, FilterQuery},
@@ -54,6 +55,47 @@ mod reqwest_client_tests {
         let retrieved = result.unwrap();
         assert_eq!(retrieved.name, names::TEST_SYSTEM);
         assert_eq!(retrieved.value, 42);
+    }
+
+    #[tokio::test]
+    async fn test_set_credentials() {
+        let mock_server = MockServer::start().await;
+        let first_resource_path = paths::SYSTEMS_1;
+        let second_resource_path = paths::MANAGERS_1;
+
+        let first_resource =
+            create_test_resource(first_resource_path, Some("123"), names::TEST_SYSTEM, 42);
+        let second_resource =
+            create_test_resource(second_resource_path, Some("456"), names::TEST_MANAGER, 7);
+
+        Mock::given(method("GET"))
+            .and(path(first_resource_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&first_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(second_resource_path))
+            .and(header("X-Auth-Token", "new-token"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&second_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let first_id = create_odata_id(first_resource_path);
+        let first = bmc.get::<TestResource>(&first_id).await.unwrap();
+        assert_eq!(first.value, 42);
+
+        bmc.set_credentials(BmcCredentials::token("new-token".to_string()))
+            .unwrap();
+
+        let second_id = create_odata_id(second_resource_path);
+        let second = bmc.get::<TestResource>(&second_id).await.unwrap();
+        assert_eq!(second.value, 7);
     }
 
     #[tokio::test]

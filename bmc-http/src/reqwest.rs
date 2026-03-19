@@ -257,7 +257,7 @@ impl ClientParams {
 /// let client = Client::with_params(params)?;
 ///
 /// // Use with HttpBmc
-/// let credentials = BmcCredentials::new("admin".to_string(), "password".to_string());
+/// let credentials = BmcCredentials::username_password("admin".to_string(), "password".to_string());
 /// let endpoint = Url::parse("https://192.168.1.100")?;
 /// let bmc = HttpBmc::new(client, endpoint, credentials, CacheSettings::default());
 /// # Ok(())
@@ -469,6 +469,18 @@ fn inject_etag(etag: ODataETag, body: &mut serde_json::Value) {
     }
 }
 
+fn auth_headers(
+    request: reqwest::RequestBuilder,
+    credentials: &BmcCredentials,
+) -> reqwest::RequestBuilder {
+    match credentials {
+        BmcCredentials::UsernamePassword { username, password } => {
+            request.basic_auth(username, Some(password))
+        }
+        BmcCredentials::Token { token } => request.header("X-Auth-Token", token),
+    }
+}
+
 impl HttpClient for Client {
     type Error = BmcError;
 
@@ -482,11 +494,7 @@ impl HttpClient for Client {
     where
         T: DeserializeOwned,
     {
-        let mut request = self
-            .client
-            .get(url)
-            .basic_auth(&credentials.username, Some(credentials.password()))
-            .headers(custom_headers.clone());
+        let mut request = auth_headers(self.client.get(url), credentials).headers(custom_headers.clone());
 
         if let Some(etag) = etag {
             request = request.header(header::IF_NONE_MATCH, etag.to_string());
@@ -507,10 +515,7 @@ impl HttpClient for Client {
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
     {
-        let response = self
-            .client
-            .post(url)
-            .basic_auth(&credentials.username, Some(credentials.password()))
+        let response = auth_headers(self.client.post(url), credentials)
             .headers(custom_headers.clone())
             .json(body)
             .send()
@@ -531,11 +536,8 @@ impl HttpClient for Client {
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
     {
-        let mut request = self
-            .client
-            .patch(url)
-            .basic_auth(&credentials.username, Some(credentials.password()))
-            .headers(custom_headers.clone());
+        let mut request =
+            auth_headers(self.client.patch(url), credentials).headers(custom_headers.clone());
 
         request = request.header(header::IF_MATCH, etag.to_string());
 
@@ -552,10 +554,7 @@ impl HttpClient for Client {
     where
         T: DeserializeOwned + Send + Sync,
     {
-        let response = self
-            .client
-            .delete(url)
-            .basic_auth(&credentials.username, Some(credentials.password()))
+        let response = auth_headers(self.client.delete(url), credentials)
             .headers(custom_headers.clone())
             .send()
             .await?;
@@ -569,10 +568,7 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let response = self
-            .client
-            .get(url)
-            .basic_auth(&credentials.username, Some(credentials.password()))
+        let response = auth_headers(self.client.get(url), credentials)
             .headers(custom_headers.clone())
             .header(header::ACCEPT, "text/event-stream")
             .send()
