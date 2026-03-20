@@ -30,6 +30,7 @@ pub enum Error {
     AtLeastOneCSDLFileNeeded,
     Io(String, IoError),
     Edmx(String, ValidateError),
+    DuplicateNamespace(String, Vec<String>),
     Compile(Vec<String>),
     WrongRootService(AttributeValuesError),
     Generate(Vec<String>),
@@ -68,6 +69,10 @@ impl Display for Error {
             Self::Io(fname, error) => write!(f, "input/output error: file: {fname}: {error}"),
             Self::Edmx(fname, error) => {
                 write!(f, "EDMX format validation error: file: {fname}: {error}")
+            }
+            Self::DuplicateNamespace(namespace, files) => {
+                write!(f, "duplicate CSDL namespace detected: {namespace}")?;
+                files.iter().try_for_each(|file| write!(f, "\n - {file}"))
             }
             Self::Compile(lines) => {
                 write!(f, "compilation error:")?;
