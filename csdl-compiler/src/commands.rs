@@ -40,6 +40,7 @@ use crate::optimizer::optimize;
 use crate::optimizer::Config as OptimizerConfig;
 use crate::Error;
 use clap::Subcommand;
+use std::collections::BTreeMap;
 use std::fs::write;
 use std::fs::File;
 use std::io::Read as _;
@@ -202,17 +203,43 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
 }
 
 fn read_csdls(root_csdls: &[String], resolve_csdls: &[String]) -> Result<SchemaBundle, Error> {
-    let edmx_docs = root_csdls
+    let csdls = root_csdls
         .iter()
         .chain(resolve_csdls.iter())
+        .collect::<Vec<_>>();
+    let edmx_docs = csdls
+        .iter()
         .map(|fname| {
-            let mut file = File::open(fname).map_err(|err| Error::Io(fname.clone(), err))?;
+            let mut file = File::open(fname).map_err(|err| Error::Io((*fname).clone(), err))?;
             let mut content = String::new();
             file.read_to_string(&mut content)
-                .map_err(|err| Error::Io(fname.clone(), err))?;
-            Edmx::parse(&content).map_err(|e| Error::Edmx(fname.clone(), e))
+                .map_err(|err| Error::Io((*fname).clone(), err))?;
+            Edmx::parse(&content).map_err(|e| Error::Edmx((*fname).clone(), e))
         })
         .collect::<Result<Vec<_>, _>>()?;
+
+    csdls
+        .iter()
+        .zip(&edmx_docs)
+        .flat_map(|(fname, edmx)| {
+            edmx.data_services
+                .schemas
+                .iter()
+                .map(move |schema| (schema.namespace.to_string(), fname))
+        })
+        .fold(
+            BTreeMap::<String, Vec<String>>::new(),
+            |mut map, (namespace, fname)| {
+                map.entry(namespace).or_default().push((*fname).clone());
+                map
+            },
+        )
+        .into_iter()
+        .find_map(|(namespace, files)| (files.len() > 1).then_some((namespace, files)))
+        .map_or(Ok(()), |(namespace, files)| {
+            Err(Error::DuplicateNamespace(namespace, files))
+        })?;
+
     Ok(SchemaBundle {
         edmx_docs,
         root_set_threshold: if root_csdls.is_empty() {
