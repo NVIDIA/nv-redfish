@@ -545,6 +545,7 @@ impl HttpClient for Client {
         let response = auth_headers(self.client.get(url), credentials)
             .headers(custom_headers.clone())
             .header(header::ACCEPT, "text/event-stream")
+            .timeout(Duration::MAX)
             .send()
             .await?;
 
