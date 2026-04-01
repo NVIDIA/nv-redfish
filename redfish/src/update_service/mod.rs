@@ -259,7 +259,7 @@ impl<B: Bmc> Resource for UpdateService<B> {
 fn fw_inventory_patch_wrong_release_date(v: JsonValue) -> JsonValue {
     if let JsonValue::Object(mut obj) = v {
         if let Some(JsonValue::String(date)) = obj.get("ReleaseDate") {
-            if date == "00:00:00Z" {
+            if date == "00:00:00Z" || date == "0000-00-00T00:00:00Z" {
                 obj.remove("ReleaseDate");
             }
         }
