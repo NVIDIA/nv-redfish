@@ -63,7 +63,14 @@ impl EnumDef<'_> {
                 Self::#member_name => #snake_case_literal,
             });
         }
-
+        members_content.extend(quote! {
+            #[doc = " Fallback value for values that are not supported by current version of Redfish schema."]
+            #[serde(other)]
+            UnsupportedValue,
+        });
+        snake_case_match_arms.extend(quote! {
+            Self::UnsupportedValue => "unsupported_value",
+        });
         tokens.extend([
             doc_format_and_generate(self.name, &self.compiled.odata),
             quote! {

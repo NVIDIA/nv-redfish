@@ -156,10 +156,9 @@ impl BmcQuirks {
         self.platform == Some(Platform::Dell)
     }
 
-    /// In some implementations, Event records in SSE payload use unsupported
-    /// values or omit `EventType` entirely.
+    /// In some implementations, Event records in SSE payload omit `EventType`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_wrong_event_type(&self) -> bool {
+    pub(crate) fn event_service_sse_missing_event_type(&self) -> bool {
         self.platform == Some(Platform::Nvidia)
     }
 
@@ -168,20 +167,6 @@ impl BmcQuirks {
     #[allow(clippy::unused_self)]
     pub(crate) const fn event_service_sse_no_odata_id(&self) -> bool {
         true
-    }
-
-    /// Liteon provides invalid chassis/manager status state (Standby).
-    #[cfg(any(feature = "chassis", feature = "managers", feature = "sensors"))]
-    pub(crate) fn wrong_resource_status_state(&self) -> bool {
-        // Note that Liteon prefer not to tell about itself. So we
-        // apply patches for all platforms that are not identified.
-        self.platform == Some(Platform::Anonymous1_9_0)
-    }
-
-    /// NVSwitch provides invalid (Unknown) Location/PartLocation/LocationType in Chassis.
-    #[cfg(feature = "chassis")]
-    pub(crate) fn wrong_resource_part_location_type(&self) -> bool {
-        self.platform == Some(Platform::NvSwitch)
     }
 
     /// Vikings provide wrong elements in computer system

@@ -13,10 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::bmc_quirks::BmcQuirks;
-use crate::patch_support::Payload;
-use crate::patch_support::ReadPatchFn;
-use crate::patches::remove_invalid_resource_state;
 use crate::schema::redfish::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -43,22 +39,6 @@ use crate::oem::lenovo::manager::LenovoManager;
 #[cfg(feature = "oem-supermicro")]
 use crate::oem::supermicro::manager::SupermicroManager;
 
-pub struct Config {
-    pub(crate) read_patch_fn: Option<ReadPatchFn>,
-}
-
-impl Config {
-    pub fn new(quirks: &BmcQuirks) -> Self {
-        let mut patches = Vec::new();
-        if quirks.wrong_resource_status_state() {
-            patches.push(remove_invalid_resource_state);
-        }
-        let read_patch_fn = (!patches.is_empty())
-            .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
-        Self { read_patch_fn }
-    }
-}
-
 /// Represents a manager (BMC) in the system.
 ///
 /// Provides access to manager information and associated services.
@@ -74,16 +54,13 @@ impl<B: Bmc> Manager<B> {
         bmc: &NvBmc<B>,
         nav: &NavProperty<ManagerSchema>,
     ) -> Result<Self, Error<B>> {
-        let config = Config::new(&bmc.quirks);
-        if let Some(read_patch_fn) = &config.read_patch_fn {
-            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
-        } else {
-            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
-        }
-        .map(|data| Self {
-            bmc: bmc.clone(),
-            data,
-        })
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this manager.

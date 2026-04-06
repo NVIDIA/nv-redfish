@@ -147,10 +147,6 @@ pub(crate) mod bmc;
 /// BMC quirks support.
 pub(crate) mod bmc_quirks;
 
-/// Common patches
-#[cfg(any(feature = "chassis", feature = "managers", feature = "sensors"))]
-pub(crate) mod patches;
-
 #[doc(inline)]
 pub use nv_redfish_core as core;
 

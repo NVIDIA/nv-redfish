@@ -22,8 +22,6 @@ use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
-use crate::patches::remove_invalid_resource_part_location_type;
-use crate::patches::remove_invalid_resource_state;
 use crate::schema::redfish::chassis::Chassis as ChassisSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -90,12 +88,6 @@ impl Config {
         }
         if quirks.bug_missing_chassis_name_field() {
             patches.push(add_default_chassis_name);
-        }
-        if quirks.wrong_resource_status_state() {
-            patches.push(remove_invalid_resource_state);
-        }
-        if quirks.wrong_resource_part_location_type() {
-            patches.push(remove_invalid_resource_part_location_type);
         }
         let read_patch_fn = (!patches.is_empty())
             .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);

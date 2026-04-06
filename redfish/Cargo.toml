@@ -68,7 +68,7 @@ network-device-functions = []
 event-service = ["patch"]
 telemetry-service = ["nv-bmc-expand"]
 log-services = []
-managers = ["patch-payload-get", "nv-bmc-expand", "patch-collection"]
+managers = ["nv-bmc-expand", "patch-collection"]
 memory = []
 pcie-devices = ["resource-status"]
 power = [] # Support of legacy PowerSubsystem
@@ -102,7 +102,7 @@ patch = []
 patch-payload = ["patch"]
 patch-payload-get = ["patch-payload"]
 patch-payload-update = ["patch-payload"]
-patch-collection = ["nv-bmc-expand"]
+patch-collection = ["nv-bmc-expand", "patch-payload"]
 patch-collection-create = ["patch-collection"]
 
 # NvbBmc features

@@ -16,13 +16,22 @@
 use crate::patch_support::JsonValue;
 use crate::Error;
 use nv_redfish_core::Bmc;
-use nv_redfish_core::EntityTypeRef;
-use nv_redfish_core::Expandable;
-use nv_redfish_core::NavProperty;
-use nv_redfish_core::ODataETag;
-use nv_redfish_core::ODataId;
 use serde::Deserialize;
+
+#[cfg(any(feature = "patch-payload-get", feature = "patch-payload-update"))]
+use nv_redfish_core::EntityTypeRef;
+#[cfg(any(feature = "patch-payload-get", feature = "patch-payload-update"))]
+use nv_redfish_core::Expandable;
+#[cfg(any(feature = "patch-payload-get", feature = "patch-payload-update"))]
+use nv_redfish_core::ODataETag;
+#[cfg(any(feature = "patch-payload-get", feature = "patch-payload-update"))]
+use nv_redfish_core::ODataId;
+#[cfg(any(feature = "patch-payload-get", feature = "patch-payload-update"))]
 use serde::Deserializer;
+
+#[cfg(feature = "patch-payload-get")]
+use nv_redfish_core::NavProperty;
+#[cfg(feature = "patch-payload-get")]
 use std::sync::Arc;
 
 #[cfg(feature = "patch-payload-update")]
@@ -133,11 +142,13 @@ impl Payload {
     }
 }
 
+#[cfg(feature = "patch-payload-get")]
 struct Getter {
     id: ODataId,
     payload: Payload,
 }
 
+#[cfg(feature = "patch-payload-get")]
 impl EntityTypeRef for Getter {
     fn odata_id(&self) -> &ODataId {
         &self.id
@@ -147,8 +158,10 @@ impl EntityTypeRef for Getter {
     }
 }
 
+#[cfg(feature = "patch-payload-get")]
 impl Expandable for Getter {}
 
+#[cfg(feature = "patch-payload-get")]
 impl<'de> Deserialize<'de> for Getter {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where

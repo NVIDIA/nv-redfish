@@ -18,7 +18,6 @@
 //! OData ABNF reference:
 //! <https://docs.oasis-open.org/odata/odata/v4.01/os/abnf/odata-abnf-construction-rules.txt>
 
-use crate::schema::redfish::event::EventType;
 use serde_json::map::Map as JsonMap;
 use serde_json::Value as JsonValue;
 
@@ -74,10 +73,6 @@ where
     }
 }
 
-fn is_allowed_event_type(event_type: &str) -> bool {
-    serde_json::from_value::<EventType>(JsonValue::String(event_type.to_string())).is_ok()
-}
-
 pub(super) fn patch_missing_event_record_member_id(
     value: &mut JsonMap<String, JsonValue>,
     index: usize,
@@ -96,17 +91,15 @@ pub(super) fn patch_missing_event_record_member_id(
     );
 }
 
-pub(super) fn patch_unknown_or_missing_event_type_to_other(
+pub(super) fn patch_missing_event_type_to_unsupported(
     value: &mut JsonMap<String, JsonValue>,
     _index: usize,
 ) {
-    let Some(JsonValue::String(event_type)) = value.get_mut("EventType") else {
-        value.insert("EventType".to_string(), JsonValue::String("Other".to_string()));
-        return;
-    };
-
-    if !is_allowed_event_type(event_type) {
-        *event_type = "Other".to_string();
+    if value.get("EventType").is_none() {
+        value.insert(
+            "EventType".to_string(),
+            JsonValue::String("UnsupportedValue".to_string()),
+        );
     }
 }
 
@@ -154,7 +147,7 @@ mod tests {
     use super::fix_timestamp_offset;
     use super::patch_event_records;
     use super::patch_missing_event_record_member_id;
-    use super::patch_unknown_or_missing_event_type_to_other;
+    use super::patch_missing_event_type_to_unsupported;
     use super::EventRecordPatchFn;
     use serde_json::json;
 
@@ -167,51 +160,6 @@ mod tests {
     #[test]
     fn keeps_rfc3339_offset_unchanged() {
         assert_eq!(fix_timestamp_offset("2017-11-23T17:17:42-06:00"), None);
-    }
-
-    #[test]
-    fn replaces_unknown_event_type_with_other() {
-        let payload = json!({
-            "Events": [
-                {
-                    "EventType": "Event"
-                },
-                {
-                    "EventType": "FooBar"
-                },
-                {
-                    "EventType": "Alert"
-                }
-            ]
-        });
-
-        let payload = patch_event_records(
-            payload,
-            &[patch_unknown_or_missing_event_type_to_other as EventRecordPatchFn],
-        );
-
-        let events = payload
-            .get("Events")
-            .and_then(serde_json::Value::as_array)
-            .expect("events array");
-        assert_eq!(
-            events[0]
-                .get("EventType")
-                .and_then(serde_json::Value::as_str),
-            Some("Other")
-        );
-        assert_eq!(
-            events[1]
-                .get("EventType")
-                .and_then(serde_json::Value::as_str),
-            Some("Other")
-        );
-        assert_eq!(
-            events[2]
-                .get("EventType")
-                .and_then(serde_json::Value::as_str),
-            Some("Alert")
-        );
     }
 
     #[test]
@@ -231,7 +179,7 @@ mod tests {
 
         let payload = patch_event_records(
             payload,
-            &[patch_unknown_or_missing_event_type_to_other as EventRecordPatchFn],
+            &[patch_missing_event_type_to_unsupported as EventRecordPatchFn],
         );
 
         let events = payload
@@ -242,7 +190,7 @@ mod tests {
             events[0]
                 .get("EventType")
                 .and_then(serde_json::Value::as_str),
-            Some("Other")
+            Some("UnsupportedValue")
         );
         assert_eq!(
             events[1]
