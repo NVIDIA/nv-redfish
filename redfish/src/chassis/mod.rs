@@ -66,6 +66,7 @@ pub use power_supply::PowerSupply;
 pub use thermal::Thermal;
 
 use crate::core::NavProperty;
+use crate::entity_link::EntityLink;
 use crate::patch_support::CollectionWithPatch;
 use crate::resource::Resource as _;
 use crate::schema::redfish::chassis::Chassis as ChassisSchema;
@@ -75,13 +76,15 @@ use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
 
+/// Link for accessing sensor.
+pub type ChassisLink<B> = EntityLink<B, ChassisSchema>;
+
 /// Chassis collection.
 ///
 /// Provides functions to access collection members.
 pub struct ChassisCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<ChassisCollectionSchema>,
-    item_config: Arc<item::Config>,
 }
 
 impl<B: Bmc> ChassisCollection<B> {
@@ -112,7 +115,6 @@ impl<B: Bmc> ChassisCollection<B> {
             c.map(|collection| Self {
                 bmc: bmc.clone(),
                 collection,
-                item_config: item_config.into(),
             })
         })
     }
@@ -125,7 +127,7 @@ impl<B: Bmc> ChassisCollection<B> {
     pub async fn members(&self) -> Result<Vec<Chassis<B>>, Error<B>> {
         let mut chassis_members = Vec::new();
         for chassis in &self.collection.members {
-            chassis_members.push(Chassis::new(&self.bmc, chassis, self.item_config.clone()).await?);
+            chassis_members.push(Chassis::new(&self.bmc, chassis).await?);
         }
 
         Ok(chassis_members)

@@ -30,6 +30,8 @@ use tagged_types::TaggedType;
 use crate::account::AccountService;
 #[cfg(feature = "chassis")]
 use crate::chassis::ChassisCollection;
+#[cfg(feature = "chassis")]
+use crate::chassis::ChassisLink;
 #[cfg(feature = "computer-systems")]
 use crate::computer_system::SystemCollection;
 #[cfg(feature = "event-service")]
@@ -38,12 +40,12 @@ use crate::event_service::EventService;
 use crate::manager::ManagerCollection;
 #[cfg(feature = "oem-hpe")]
 use crate::oem::hpe::HpeiLoServiceExt;
+#[cfg(feature = "session-service")]
+use crate::session_service::SessionService;
 #[cfg(feature = "telemetry-service")]
 use crate::telemetry_service::TelemetryService;
 #[cfg(feature = "update-service")]
 use crate::update_service::UpdateService;
-#[cfg(feature = "session-service")]
-use crate::session_service::SessionService;
 
 /// The vendor or manufacturer associated with Redfish service.
 pub type Vendor<T> = TaggedType<T, VendorTag>;
@@ -174,6 +176,34 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "chassis")]
     pub async fn chassis(&self) -> Result<Option<ChassisCollection<B>>, Error<B>> {
         ChassisCollection::new(&self.bmc, self).await
+    }
+
+    /// Get chassis links
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose Chassis.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving chassis collection data fails.
+    #[cfg(feature = "chassis")]
+    pub async fn chassis_links(&self) -> Result<Option<Vec<ChassisLink<B>>>, Error<B>> {
+        if let Some(collection) = &self.root.chassis {
+            let collection = collection
+                .get(self.bmc.as_ref())
+                .await
+                .map_err(Error::Bmc)?;
+            Ok(Some(
+                collection
+                    .members
+                    .iter()
+                    .map(|member| {
+                        ChassisLink::new(&self.bmc, NavProperty::new_reference(member.id().clone()))
+                    })
+                    .collect(),
+            ))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get computer system collection in BMC

@@ -26,14 +26,13 @@
 //! links to their sensors. For legacy BMCs that only expose sensor data through
 //! `Chassis/Power` and `Chassis/Thermal`, use those explicit endpoints instead.
 
+use crate::entity_link::EntityLink;
 use crate::schema::redfish::environment_metrics::EnvironmentMetrics;
 use crate::schema::redfish::sensor::Sensor as SchemaSensor;
 use crate::Error;
-use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
-use std::sync::Arc;
 
 /// Extracts sensor URIs from metric fields and creates sensor navigation properties.
 ///
@@ -73,48 +72,8 @@ macro_rules! extract_sensor_uris {
         $crate::sensor::collect_sensors(uris)
     }};
 }
-
-/// Handle for accessing sensor.
-///
-/// This struct provides methods to fetch sensor data from the BMC.
-/// call to [`fetch`](Self::fetch).
-pub struct SensorRef<B: Bmc> {
-    bmc: NvBmc<B>,
-    nav: NavProperty<SchemaSensor>,
-}
-
-impl<B: Bmc> SensorRef<B> {
-    /// Create a new sensor handle.
-    ///
-    /// # Arguments
-    ///
-    /// * `nav` - Navigation properties pointing to sensor
-    /// * `bmc` - BMC client for fetching sensor data
-    #[must_use]
-    pub(crate) const fn new(bmc: NvBmc<B>, nav: NavProperty<SchemaSensor>) -> Self {
-        Self { bmc, nav }
-    }
-
-    /// Refresh sensor data from the BMC.
-    ///
-    /// Fetches current sensor readings from the BMC.
-    /// This method performs network I/O and may take time to complete.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if sensor fetch fails.
-    pub async fn fetch(&self) -> Result<Arc<SchemaSensor>, Error<B>> {
-        self.nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
-    }
-
-    /// `OData` identifier of the `NavProperty<Sensor>` in Redfish.
-    ///
-    /// Typically `/redfish/v1/{Chassis}/Sensors/{ID}`.
-    #[must_use]
-    pub fn odata_id(&self) -> &ODataId {
-        self.nav.id()
-    }
-}
+/// Link for accessing sensor.
+pub type SensorLink<B> = EntityLink<B, SchemaSensor>;
 
 /// Collect sensor refs from URIs
 pub(crate) fn collect_sensors(

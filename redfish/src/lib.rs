@@ -138,6 +138,10 @@ pub(crate) mod schema;
 #[cfg(feature = "patch")]
 pub(crate) mod patch_support;
 
+/// Generic lightweight Redfish entity link.
+#[cfg(feature = "impl-entity-link")]
+pub mod entity_link;
+
 /// Redfish protocol features.
 pub(crate) mod protocol_features;
 

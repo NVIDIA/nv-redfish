@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use crate::bmc_quirks::BmcQuirks;
+use crate::entity_link::FromLink;
 use crate::hardware_id::HardwareIdRef;
 use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
@@ -29,6 +30,7 @@ use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::bmc::Bmc;
 use nv_redfish_core::NavProperty;
+use std::future::Future;
 use std::sync::Arc;
 
 #[cfg(feature = "assembly")]
@@ -54,7 +56,7 @@ use crate::schema::redfish::sensor::Sensor as SchemaSensor;
 #[cfg(feature = "sensors")]
 use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]
-use crate::sensor::SensorRef;
+use crate::sensor::SensorLink;
 #[cfg(feature = "oem-nvidia-baseboard")]
 use std::convert::identity;
 
@@ -111,8 +113,8 @@ impl<B: Bmc> Chassis<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<ChassisSchema>,
-        config: Arc<Config>,
     ) -> Result<Self, Error<B>> {
+        let config = Config::new(&bmc.quirks);
         if let Some(read_patch_fn) = &config.read_patch_fn {
             Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
         } else {
@@ -121,7 +123,7 @@ impl<B: Bmc> Chassis<B> {
         .map(|data| Self {
             bmc: bmc.clone(),
             data,
-            config,
+            config: config.into(),
         })
     }
 
@@ -297,7 +299,7 @@ impl<B: Bmc> Chassis<B> {
     ///
     /// Returns an error if get of environment metrics failed.
     #[cfg(feature = "sensors")]
-    pub async fn environment_sensors(&self) -> Result<Vec<SensorRef<B>>, Error<B>> {
+    pub async fn environment_sensor_links(&self) -> Result<Vec<SensorLink<B>>, Error<B>> {
         let sensor_refs = if let Some(env_ref) = &self.data.environment_metrics {
             extract_environment_sensors(env_ref, self.bmc.as_ref()).await?
         } else {
@@ -306,7 +308,7 @@ impl<B: Bmc> Chassis<B> {
 
         Ok(sensor_refs
             .into_iter()
-            .map(|r| SensorRef::new(self.bmc.clone(), r))
+            .map(|r| SensorLink::new(&self.bmc, r))
             .collect())
     }
 
@@ -319,7 +321,7 @@ impl<B: Bmc> Chassis<B> {
     ///
     /// Returns an error if fetching sensors data fails.
     #[cfg(feature = "sensors")]
-    pub async fn sensors(&self) -> Result<Option<Vec<SensorRef<B>>>, Error<B>> {
+    pub async fn sensor_links(&self) -> Result<Option<Vec<SensorLink<B>>>, Error<B>> {
         if let Some(sensors_collection) = &self.data.sensors {
             let sc = sensors_collection
                 .get(self.bmc.as_ref())
@@ -327,8 +329,8 @@ impl<B: Bmc> Chassis<B> {
                 .map_err(Error::Bmc)?;
             let mut sensor_data = Vec::with_capacity(sc.members.len());
             for sensor in &sc.members {
-                sensor_data.push(SensorRef::new(
-                    self.bmc.clone(),
+                sensor_data.push(SensorLink::new(
+                    &self.bmc,
                     NavProperty::<SchemaSensor>::new_reference(sensor.id().clone()),
                 ));
             }
@@ -377,6 +379,17 @@ impl<B: Bmc> Chassis<B> {
 impl<B: Bmc> Resource for Chassis<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
+    }
+}
+
+impl<B: Bmc> FromLink<B> for Chassis<B> {
+    type Schema = ChassisSchema;
+
+    fn from_link(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<Self::Schema>,
+    ) -> impl Future<Output = Result<Self, Error<B>>> + Send {
+        Self::new(bmc, nav)
     }
 }
 

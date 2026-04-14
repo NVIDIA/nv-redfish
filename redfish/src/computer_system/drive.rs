@@ -28,7 +28,7 @@ use std::sync::Arc;
 #[cfg(feature = "sensors")]
 use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]
-use crate::sensor::SensorRef;
+use crate::sensor::SensorLink;
 
 /// Represents a drive (disk) in a storage controller.
 ///
@@ -91,7 +91,7 @@ impl<B: Bmc> Drive<B> {
     ///
     /// Returns an error if get of environment metrics failed.
     #[cfg(feature = "sensors")]
-    pub async fn environment_sensors(&self) -> Result<Vec<SensorRef<B>>, Error<B>> {
+    pub async fn environment_sensor_links(&self) -> Result<Vec<SensorLink<B>>, Error<B>> {
         let sensor_refs = if let Some(env_ref) = &self.data.environment_metrics {
             extract_environment_sensors(env_ref, self.bmc.as_ref()).await?
         } else {
@@ -100,7 +100,7 @@ impl<B: Bmc> Drive<B> {
 
         Ok(sensor_refs
             .into_iter()
-            .map(|r| SensorRef::new(self.bmc.clone(), r))
+            .map(|r| SensorLink::new(&self.bmc, r))
             .collect())
     }
 }

@@ -22,13 +22,13 @@ use crate::ProtocolFeatures;
 use nv_redfish_core::Bmc;
 use std::sync::Arc;
 
-#[cfg(feature = "nv-bmc-expand")]
+#[cfg(feature = "impl-nv-bmc-expand")]
 use crate::Error;
-#[cfg(feature = "nv-bmc-expand")]
+#[cfg(feature = "impl-nv-bmc-expand")]
 use nv_redfish_core::query::ExpandQuery;
-#[cfg(feature = "nv-bmc-expand")]
+#[cfg(feature = "impl-nv-bmc-expand")]
 use nv_redfish_core::Expandable;
-#[cfg(feature = "nv-bmc-expand")]
+#[cfg(feature = "impl-nv-bmc-expand")]
 use nv_redfish_core::NavProperty;
 
 pub struct NvBmc<B: Bmc> {
@@ -79,7 +79,7 @@ impl<B: Bmc> NvBmc<B> {
     ///
     /// Returns `Error::Bmc` if failed to send request to the BMC.
     ///
-    #[cfg(feature = "nv-bmc-expand")]
+    #[cfg(feature = "impl-nv-bmc-expand")]
     pub async fn expand_property<T>(&self, nav: &NavProperty<T>) -> Result<Arc<T>, Error<B>>
     where
         T: Expandable,

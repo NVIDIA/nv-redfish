@@ -18,10 +18,11 @@
 //! This module provides typed access to Redfish `TelemetryService`.
 
 mod metric_definition;
-mod metric_report;
 mod metric_report_definition;
 
+use crate::entity_link::EntityLink;
 use crate::schema::redfish::metric_definition::MetricDefinition as MetricDefinitionSchema;
+use crate::schema::redfish::metric_report::MetricReport as MetricReportSchema;
 use crate::schema::redfish::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
 use crate::schema::redfish::telemetry_service::TelemetryService as TelemetryServiceSchema;
 use crate::schema::redfish::telemetry_service::TelemetryServiceUpdate;
@@ -43,8 +44,6 @@ pub use metric_definition::MetricDefinitionCreate;
 #[doc(inline)]
 pub use metric_definition::MetricDefinitionUpdate;
 #[doc(inline)]
-pub use metric_report::MetricReportRef;
-#[doc(inline)]
 pub use metric_report_definition::MetricReportDefinition;
 #[doc(inline)]
 pub use metric_report_definition::MetricReportDefinitionCreate;
@@ -58,6 +57,9 @@ pub use metric_report_definition::ReportActionsEnum;
 pub use metric_report_definition::Wildcard;
 #[doc(inline)]
 pub use metric_report_definition::WildcardUpdate;
+
+/// Metric report entity wrapper.
+pub type MetricReportLink<B> = EntityLink<B, MetricReportSchema>;
 
 /// Telemetry service.
 ///
@@ -132,7 +134,7 @@ impl<B: Bmc> TelemetryService<B> {
     /// Returns an error if:
     /// - the telemetry service does not expose a `MetricReports` collection
     /// - retrieving the collection fails
-    pub async fn metric_reports(&self) -> Result<Option<Vec<MetricReportRef<B>>>, Error<B>> {
+    pub async fn metric_report_links(&self) -> Result<Option<Vec<MetricReportLink<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.metric_reports {
             let collection = collection_ref
                 .get(self.bmc.as_ref())
@@ -141,7 +143,7 @@ impl<B: Bmc> TelemetryService<B> {
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {
-                items.push(MetricReportRef::new(
+                items.push(MetricReportLink::new(
                     &self.bmc,
                     NavProperty::new_reference(m.id().clone()),
                 ));
