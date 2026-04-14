@@ -54,6 +54,21 @@ impl ODataId {
     pub fn service_root() -> Self {
         Self("/redfish/v1".into())
     }
+
+    /// Last segment of `ODataId`.
+    ///
+    /// "/redfish/v1/Systems/1" -> Some("1")
+    /// "/redfish/v1/Systems/1/" -> Some("1")
+    /// "redfish" -> Some("redfish")
+    /// "" -> None
+    /// "/" -> None
+    #[must_use]
+    pub fn last_segment(&self) -> Option<&str> {
+        let path = self.0.trim_end_matches('/');
+        path.rsplit_once('/')
+            .map(|(_, v)| v)
+            .or_else(|| (!path.is_empty()).then_some(path))
+    }
 }
 
 impl From<String> for ODataId {
@@ -107,5 +122,69 @@ impl ODataType<'_> {
                     type_name,
                 })
             })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::ODataId;
+
+    #[test]
+    fn last_segment_returns_last_path_segment() {
+        let id = ODataId("/redfish/v1/Systems/1".into());
+        assert_eq!(id.last_segment(), Some("1"));
+    }
+
+    #[test]
+    fn last_segment_ignores_trailing_slash() {
+        let id = ODataId("/redfish/v1/Systems/1/".into());
+        assert_eq!(id.last_segment(), Some("1"));
+    }
+
+    #[test]
+    fn last_segment_handles_multiple_trailing_slashes() {
+        let id = ODataId("/redfish/v1/Systems/1///".into());
+        assert_eq!(id.last_segment(), Some("1"));
+    }
+
+    #[test]
+    fn last_segment_returns_none_for_empty_string() {
+        let id = ODataId("".into());
+        assert_eq!(id.last_segment(), None);
+    }
+
+    #[test]
+    fn last_segment_returns_none_for_root_path() {
+        let id = ODataId("/".into());
+        assert_eq!(id.last_segment(), None);
+    }
+
+    #[test]
+    fn last_segment_returns_none_for_multiple_root_slashes() {
+        let id = ODataId("///".into());
+        assert_eq!(id.last_segment(), None);
+    }
+
+    #[test]
+    fn last_segment_returns_segment_for_single_component_relative_path() {
+        let id = ODataId("redfish".into());
+        assert_eq!(id.last_segment(), Some("redfish"));
+    }
+
+    #[test]
+    fn last_segment_returns_last_segment_for_relative_path() {
+        let id = ODataId("redfish/v1/Systems/1".into());
+        assert_eq!(id.last_segment(), Some("1"));
+    }
+
+    #[test]
+    fn last_segment_handles_leading_slash_before_single_segment() {
+        let id = ODataId("/redfish".into());
+        assert_eq!(id.last_segment(), Some("redfish"));
+    }
+
+    #[test]
+    fn service_root_last_segment_is_v1() {
+        assert_eq!(ODataId::service_root().last_segment(), Some("v1"));
     }
 }
