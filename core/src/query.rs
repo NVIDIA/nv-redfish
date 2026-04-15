@@ -425,10 +425,10 @@ enum FilterExpr {
         operator: &'static str,
         value: FilterLiteral,
     },
-    And(Box<FilterExpr>, Box<FilterExpr>),
-    Or(Box<FilterExpr>, Box<FilterExpr>),
-    Not(Box<FilterExpr>),
-    Group(Box<FilterExpr>),
+    And(Box<Self>, Box<Self>),
+    Or(Box<Self>, Box<Self>),
+    Not(Box<Self>),
+    Group(Box<Self>),
 }
 
 impl FilterExpr {

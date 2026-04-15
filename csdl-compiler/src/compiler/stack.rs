@@ -24,7 +24,7 @@ use crate::compiler::TypeInfo;
 /// via `done()`.
 #[derive(Default)]
 pub struct Stack<'a, 'stack> {
-    parent: Option<&'stack Stack<'a, 'stack>>,
+    parent: Option<&'stack Self>,
     // If entity type is currently being compiled we use this
     // field to prevent infinite recursion.
     entity_type: Option<QualifiedName<'a>>,

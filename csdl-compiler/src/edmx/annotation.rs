@@ -90,7 +90,7 @@ pub enum Error {
     NoEnumMemberName,
     BadTypeName(AttributeValuesError),
     BadMemberName(AttributeValuesError),
-    InvalidEnumMember(String, Box<Error>),
+    InvalidEnumMember(String, Box<Self>),
 }
 
 impl Display for Error {

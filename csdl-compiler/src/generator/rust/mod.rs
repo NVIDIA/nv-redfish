@@ -92,8 +92,8 @@ pub use type_name::TypeName;
 pub enum Error<'a> {
     BaseTypeConflict,
     NameConflict,
-    CreateStruct(TypeName<'a>, Box<Error<'a>>),
-    CreateSimplType(QualifiedName<'a>, Box<Error<'a>>),
+    CreateStruct(TypeName<'a>, Box<Self>),
+    CreateSimplType(QualifiedName<'a>, Box<Self>),
 }
 
 impl Display for Error<'_> {

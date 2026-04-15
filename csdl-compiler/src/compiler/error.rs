@@ -45,27 +45,27 @@ pub enum Error<'a> {
     /// Resource.ResourceCollection type was not found.
     ResourceCollectionTypeNotFound,
     /// Error while compiling an entity type.
-    EntityType(QualifiedName<'a>, Box<Error<'a>>),
+    EntityType(QualifiedName<'a>, Box<Self>),
     /// Type was not found.
     TypeNotFound(QualifiedName<'a>),
     /// Type definition is not a primitive type.
     TypeDefinitionOfNotPrimitiveType(QualifiedName<'a>),
     /// Error while compiling a type definition.
-    TypeDefinition(QualifiedName<'a>, Box<Error<'a>>),
+    TypeDefinition(QualifiedName<'a>, Box<Self>),
     /// Error while compiling a type.
-    Type(QualifiedName<'a>, Box<Error<'a>>),
+    Type(QualifiedName<'a>, Box<Self>),
     /// Error while compiling a property.
-    Property(&'a PropertyName, Box<Error<'a>>),
+    Property(&'a PropertyName, Box<Self>),
     /// Error while compiling an action.
-    Action(&'a ActionName, Box<Error<'a>>),
+    Action(&'a ActionName, Box<Self>),
     /// Error while compiling an action return type.
-    ActionReturnType(Box<Error<'a>>),
+    ActionReturnType(Box<Self>),
     /// Error while compiling an action parameter.
-    ActionParameter(&'a ParameterName, Box<Error<'a>>),
+    ActionParameter(&'a ParameterName, Box<Self>),
     /// Error while compiling a singleton.
-    Singleton(&'a SimpleIdentifier, Box<Error<'a>>),
+    Singleton(&'a SimpleIdentifier, Box<Self>),
     /// Error while compiling a schema.
-    Schema(&'a Namespace, Box<Error<'a>>),
+    Schema(&'a Namespace, Box<Self>),
 }
 
 impl Display for Error<'_> {

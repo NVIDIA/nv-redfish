@@ -50,7 +50,7 @@ pub struct ModDef<'a> {
     typedefs: HashMap<TypeName<'a>, TypeDef<'a>>,
     enums: HashMap<TypeName<'a>, EnumDef<'a>>,
     structs: HashMap<TypeName<'a>, StructDef<'a>>,
-    sub_mods: HashMap<ModName<'a>, ModDef<'a>>,
+    sub_mods: HashMap<ModName<'a>, Self>,
     depth: usize,
 }
 

@@ -15,13 +15,13 @@
 
 //! Generic lightweight entity link.
 //!
-//! [`EntityLink<B, T>`] is an owned handle that pairs a BMC client with a
+//! [`EntityLink<B, T>`](crate::entity_link::EntityLink) is an owned handle that pairs a BMC client with a
 //! navigation property. It provides lazy access to any Redfish entity
 //! without eagerly fetching it.
 //!
 //! Capabilities are determined by trait bounds on the schema type `T`:
-//! - [`fetch`](EntityLink::fetch) — always available (requires `T: EntityTypeRef + Deserialize + Send + Sync`)
-//! - [`delete`](EntityLink::delete) — available when `T: Deletable`
+//! - [`fetch`](crate::entity_link::EntityLink::fetch) — always available (requires `T: EntityTypeRef + Deserialize + Send + Sync`)
+//! - [`delete`](crate::entity_link::EntityLink::delete) — available when `T: Deletable`
 //!
 //! Concrete link types are defined as type aliases:
 //! ```ignore

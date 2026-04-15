@@ -40,15 +40,15 @@ pub enum ValidateError {
     /// This is the case for Redfish. Keep it this way for parser.
     ManyContainersNotSupported,
     /// Schema validation error.
-    Schema(Namespace, Box<ValidateError>),
+    Schema(Namespace, Box<Self>),
     /// `ComplexType` validation error.
-    ComplexType(LocalTypeName, Box<ValidateError>),
+    ComplexType(LocalTypeName, Box<Self>),
     /// `EntityType` validation error.
-    EntityType(LocalTypeName, Box<ValidateError>),
+    EntityType(LocalTypeName, Box<Self>),
     /// `NavigationProperty` validation error.
-    NavigationProperty(PropertyName, Box<ValidateError>),
+    NavigationProperty(PropertyName, Box<Self>),
     /// `Action` validation error.
-    Action(ActionName, Box<ValidateError>),
+    Action(ActionName, Box<Self>),
 }
 
 impl Display for ValidateError {

@@ -124,10 +124,10 @@ impl<B: Bmc> TelemetryService<B> {
         }
     }
 
-    /// Get `Vec<MetricReportRef>` associated with this telemetry service.
+    /// Get `Vec<MetricReportLink>` associated with this telemetry service.
     ///
     /// Fetches the metric report collection and returns a list of
-    /// [`MetricReportRef`] handles.
+    /// [`MetricReportLink`] handles.
     ///
     /// # Errors
     ///
