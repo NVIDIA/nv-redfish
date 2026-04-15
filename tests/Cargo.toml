@@ -28,6 +28,8 @@ nv-redfish = { workspace = true, features = [
     "oem-nvidia-bluefield",
     "oem-nvidia-baseboard",
     "oem-supermicro",
+    "oem-liteon",
+    "power-supplies",
     "session-service",
     "update-service",
 ] }

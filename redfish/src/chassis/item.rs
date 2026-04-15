@@ -47,6 +47,8 @@ use crate::chassis::PowerSupply;
 use crate::chassis::Thermal;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(all(feature = "oem-liteon", feature = "power-supplies"))]
+use crate::oem::liteon;
 #[cfg(feature = "oem-nvidia-baseboard")]
 use crate::oem::nvidia::baseboard::NvidiaCbcChassis;
 #[cfg(feature = "pcie-devices")]
@@ -206,6 +208,18 @@ impl<B: Bmc> Chassis<B> {
         }
 
         Ok(Vec::new())
+    }
+
+    /// Get LiteOn OEM power supplies from this chassis.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching power supply data fails.
+    #[cfg(all(feature = "oem-liteon", feature = "power-supplies"))]
+    pub async fn oem_liteon_power_supply_links(
+        &self,
+    ) -> Result<Option<Vec<liteon::power_supply::LiteonPowerSupplyLink<B>>>, Error<B>> {
+        liteon::power_supply::chassis_fetch_links(&self.bmc, self).await
     }
 
     /// Get legacy Power resource (for older BMCs).

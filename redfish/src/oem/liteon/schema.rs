@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,30 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Different vendor OEM externsions to Resdish.
+//! AMI OEM Schema.
 
-mod identifier;
-
-#[cfg(feature = "oem-ami")]
-pub mod ami;
-
-#[cfg(feature = "oem-nvidia")]
-pub mod nvidia;
-
-#[cfg(feature = "oem-dell")]
-pub mod dell;
-
-#[cfg(feature = "oem-lenovo")]
-pub mod lenovo;
-
-#[cfg(feature = "oem-hpe")]
-pub mod hpe;
-
-#[cfg(feature = "oem-supermicro")]
-pub mod supermicro;
-
-#[cfg(feature = "oem-liteon")]
-pub mod liteon;
-
-#[doc(inline)]
-pub use identifier::Identifier as OemIdentifier;
+#[allow(dead_code)]
+#[allow(clippy::doc_markdown)]
+#[allow(clippy::absolute_paths)]
+#[allow(clippy::option_option)]
+#[allow(clippy::missing_const_for_fn)]
+#[allow(clippy::struct_field_names)]
+#[allow(missing_docs)]
+pub mod redfish {
+    include!(concat!(env!("OUT_DIR"), "/oem-liteon.rs"));
+}

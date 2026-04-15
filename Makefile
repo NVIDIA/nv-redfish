@@ -60,6 +60,7 @@ compile-one-feature = $(indent)cargo build -p nv-redfish --features $1$(new-line
 define build-and-test
 	cargo build -p nv-redfish --features managers,oem-hpe
 	cargo build -p nv-redfish --features managers,oem-supermicro
+	cargo build -p nv-redfish --features chassis,power-supplies,oem-liteon
 	cargo build
 	cargo build -p nv-redfish
 	cargo build -p nv-redfish-tests --tests

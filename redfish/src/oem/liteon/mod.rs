@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,30 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Different vendor OEM externsions to Resdish.
+//! Support of LiteOn OEM extensions to Redfish.
 
-mod identifier;
+pub(crate) mod schema;
 
-#[cfg(feature = "oem-ami")]
-pub mod ami;
+/// Support of LiteOn PowerSupplies.
+#[cfg(feature = "power-supplies")]
+pub mod power_supply;
 
-#[cfg(feature = "oem-nvidia")]
-pub mod nvidia;
+#[cfg(feature = "chassis")]
+use crate::chassis;
 
-#[cfg(feature = "oem-dell")]
-pub mod dell;
-
-#[cfg(feature = "oem-lenovo")]
-pub mod lenovo;
-
-#[cfg(feature = "oem-hpe")]
-pub mod hpe;
-
-#[cfg(feature = "oem-supermicro")]
-pub mod supermicro;
-
-#[cfg(feature = "oem-liteon")]
-pub mod liteon;
-
-#[doc(inline)]
-pub use identifier::Identifier as OemIdentifier;
+/// Manufacturer reported in chassis collection memeber.
+#[cfg(feature = "chassis")]
+pub const CHASSIS_MANUFACTURER: chassis::Manufacturer<&'static str> =
+    chassis::Manufacturer::new("LITE-ON TECHNOLOGY CORP.");

@@ -90,6 +90,7 @@ oem-supermicro = ["oem"]
 oem-dell = ["oem"]
 oem-ami = ["oem"]
 oem-nvidia = ["oem"]
+oem-liteon = ["oem"]
 
 # OEM product features support
 oem-nvidia-bluefield = ["oem-nvidia"]
