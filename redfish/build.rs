@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -22,7 +22,21 @@ use std::error::Error as StdError;
 use std::fs::File;
 use std::path::PathBuf;
 
-fn main() -> Result<(), Box<dyn StdError>> {
+fn main() -> Result<(), String> {
+    // Create new thread with 16 MB stack to handle deep CSDL type
+    // hierarchies on platforms with small default stacks
+    // (e.g. Windows is 1 MB).
+    const STACK_SIZE: usize = 16 * 1024 * 1024;
+    let handler = std::thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(|| run().map_err(|err| format!("{err:#?}")))
+        .expect("failed to spawn build thread");
+    handler
+        .join()
+        .unwrap_or_else(|e| std::panic::resume_unwind(e))
+}
+
+fn run() -> Result<(), Box<dyn StdError>> {
     let features_manifest = PathBuf::from("features.toml");
     let manifest = FeaturesManifest::read(&features_manifest)?;
     println!("cargo:rerun-if-changed={}", features_manifest.display());
