@@ -16,9 +16,9 @@
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
-use crate::schema::redfish::resource::ResourceCollection;
-use crate::schema::redfish::software_inventory::SoftwareInventory as SoftwareInventorySchema;
-use crate::schema::redfish::software_inventory_collection::SoftwareInventoryCollection as SoftwareInventoryCollectionSchema;
+use crate::schema::resource::ResourceCollection;
+use crate::schema::software_inventory::SoftwareInventory as SoftwareInventorySchema;
+use crate::schema::software_inventory_collection::SoftwareInventoryCollection as SoftwareInventoryCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

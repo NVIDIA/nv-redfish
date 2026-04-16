@@ -15,7 +15,7 @@
 
 //! Redfish Session - high-level wrapper.
 
-use crate::schema::redfish::session::Session as SessionSchema;
+use crate::schema::session::Session as SessionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

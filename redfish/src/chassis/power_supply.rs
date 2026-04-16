@@ -13,8 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::schema::redfish::power_supply::PowerSupply as PowerSupplySchema;
-use crate::schema::redfish::power_supply_metrics::PowerSupplyMetrics;
+use crate::schema::power_supply::PowerSupply as PowerSupplySchema;
+use crate::schema::power_supply_metrics::PowerSupplyMetrics;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

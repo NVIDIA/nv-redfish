@@ -27,8 +27,8 @@
 //! `Chassis/Power` and `Chassis/Thermal`, use those explicit endpoints instead.
 
 use crate::entity_link::EntityLink;
-use crate::schema::redfish::environment_metrics::EnvironmentMetrics;
-use crate::schema::redfish::sensor::Sensor as SchemaSensor;
+use crate::schema::environment_metrics::EnvironmentMetrics;
+use crate::schema::sensor::Sensor as SchemaSensor;
 use crate::Error;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;

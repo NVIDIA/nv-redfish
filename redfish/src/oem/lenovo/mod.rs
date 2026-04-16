@@ -15,6 +15,8 @@
 
 //! Support of Lenovo OEM extensions to Redfish.
 
+mod compiled_schema;
+
 /// Support of Lenovo Manager OEM attributes.
 #[cfg(feature = "managers")]
 pub mod manager;
@@ -28,4 +30,4 @@ pub mod security_service;
 pub mod computer_system;
 
 /// Lenovo OEM Schema.
-pub(crate) mod schema;
+pub use compiled_schema::redfish as schema;

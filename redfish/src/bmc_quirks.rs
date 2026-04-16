@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::schema::redfish::service_root::ServiceRoot;
+use crate::schema::service_root::ServiceRoot;
 
 #[cfg(feature = "accounts")]
 use crate::account::SlotDefinedConfig as SlotDefinedUserAccountsConfig;

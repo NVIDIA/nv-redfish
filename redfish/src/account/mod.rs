@@ -36,7 +36,7 @@ mod item;
 
 use crate::patch_support::JsonValue;
 use crate::patch_support::ReadPatchFn;
-use crate::schema::redfish::account_service::AccountService as SchemaAccountService;
+use crate::schema::account_service::AccountService as SchemaAccountService;
 use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
@@ -44,11 +44,11 @@ use nv_redfish_core::Bmc;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::schema::redfish::manager_account::AccountTypes;
+pub use crate::schema::manager_account::AccountTypes;
 #[doc(inline)]
-pub use crate::schema::redfish::manager_account::ManagerAccountCreate;
+pub use crate::schema::manager_account::ManagerAccountCreate;
 #[doc(inline)]
-pub use crate::schema::redfish::manager_account::ManagerAccountUpdate;
+pub use crate::schema::manager_account::ManagerAccountUpdate;
 #[doc(inline)]
 pub use item::Account;
 

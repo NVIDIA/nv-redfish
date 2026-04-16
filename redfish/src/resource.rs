@@ -29,15 +29,15 @@ use std::convert::identity;
 
 #[doc(inline)]
 #[cfg(feature = "resource-status")]
-pub use crate::schema::redfish::resource::Health;
+pub use crate::schema::resource::Health;
 
 #[doc(inline)]
 #[cfg(feature = "resource-status")]
-pub use crate::schema::redfish::resource::State;
+pub use crate::schema::resource::State;
 
 #[doc(inline)]
 #[cfg(feature = "computer-systems")]
-pub use crate::schema::redfish::resource::PowerState;
+pub use crate::schema::resource::PowerState;
 
 /// Redfish resource identifier.
 pub type ResourceId = TaggedType<String, ResourceIdTag>;

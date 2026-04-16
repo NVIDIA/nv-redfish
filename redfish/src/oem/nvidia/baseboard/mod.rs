@@ -15,8 +15,10 @@
 
 //! Support of NVIDIA Baseboards OEM extensions to Redfish.
 
+mod compiled_schema;
+
 /// NVIDIA Baseboard OEM Schema.
-pub(crate) mod schema;
+pub use compiled_schema::redfish as schema;
 
 /// NVIDIA Bluefield OEM chassis support.
 #[cfg(feature = "chassis")]

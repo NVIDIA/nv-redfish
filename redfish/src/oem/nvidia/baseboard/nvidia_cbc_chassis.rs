@@ -15,8 +15,8 @@
 
 //! Support NVIDIA Baseboard Chassis OEM extension.
 
-use crate::oem::nvidia::baseboard::schema::redfish::nvidia_chassis::NvidiaCbcChassis as NvidiaCbcChassisSchema;
-use crate::schema::redfish::resource::Oem as ResourceOemSchema;
+use crate::oem::nvidia::baseboard::schema::nvidia_chassis::NvidiaCbcChassis as NvidiaCbcChassisSchema;
+use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use nv_redfish_core::odata::ODataType;
 use nv_redfish_core::Bmc;

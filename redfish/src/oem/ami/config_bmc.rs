@@ -18,21 +18,21 @@
 use crate::core::Bmc;
 use crate::core::NavProperty;
 use crate::core::ODataId;
-use crate::oem::ami::schema::redfish::ami_manager::ConfigBmc as ConfigBmcSchema;
-use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::oem::ami::schema::ami_manager::ConfigBmc as ConfigBmcSchema;
+use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::oem::ami::schema::redfish::ami_manager::LockdownBiosSettingsChangeState;
+pub use crate::oem::ami::schema::ami_manager::LockdownBiosSettingsChangeState;
 #[doc(inline)]
-pub use crate::oem::ami::schema::redfish::ami_manager::LockdownBiosUpgradeDowngradeState;
+pub use crate::oem::ami::schema::ami_manager::LockdownBiosUpgradeDowngradeState;
 #[doc(inline)]
-pub use crate::oem::ami::schema::redfish::ami_manager::LockoutBiosVariableWriteMode;
+pub use crate::oem::ami::schema::ami_manager::LockoutBiosVariableWriteMode;
 #[doc(inline)]
-pub use crate::oem::ami::schema::redfish::ami_manager::LockoutHostControlState;
+pub use crate::oem::ami::schema::ami_manager::LockoutHostControlState;
 
 /// Represents a AMI OEM exstension to Manager schema. BMC Config object.
 pub struct ConfigBmc<B: Bmc> {

@@ -18,4 +18,7 @@
 #[cfg(feature = "managers")]
 pub mod config_bmc;
 
-pub(crate) mod schema;
+mod compiled_schema;
+
+/// AMI OEM schema.
+pub use compiled_schema::redfish as schema;

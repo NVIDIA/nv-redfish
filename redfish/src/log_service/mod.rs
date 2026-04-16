@@ -18,8 +18,8 @@
 //! This module provides types for working with Redfish LogService resources
 //! and their log entries.
 
-use crate::schema::redfish::log_entry::LogEntry;
-use crate::schema::redfish::log_service::LogService as LogServiceSchema;
+use crate::schema::log_entry::LogEntry;
+use crate::schema::log_service::LogService as LogServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

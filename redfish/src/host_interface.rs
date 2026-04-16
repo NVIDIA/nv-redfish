@@ -16,8 +16,8 @@
 //! Host interfaces
 //!
 
-use crate::schema::redfish::host_interface::HostInterface as HostInterfaceSchema;
-use crate::schema::redfish::host_interface_collection::HostInterfaceCollection as HostInterfaceCollectionSchema;
+use crate::schema::host_interface::HostInterface as HostInterfaceSchema;
+use crate::schema::host_interface_collection::HostInterfaceCollection as HostInterfaceCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

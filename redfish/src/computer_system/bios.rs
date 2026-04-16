@@ -14,7 +14,7 @@
 // limitations under the License.
 //! Bios
 
-use crate::schema::redfish::bios::Bios as BiosSchema;
+use crate::schema::bios::Bios as BiosSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;

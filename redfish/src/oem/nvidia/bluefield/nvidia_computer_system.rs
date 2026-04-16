@@ -15,10 +15,10 @@
 
 //! Support NVIDIA Bluefield ComputerSystem OEM extension.
 
-use crate::oem::nvidia::bluefield::schema::redfish::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
+use crate::oem::nvidia::bluefield::schema::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
-use crate::schema::redfish::resource::Oem as ResourceOemSchema;
+use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -35,7 +35,7 @@ struct Oem {
 }
 
 #[doc(inline)]
-pub use crate::oem::nvidia::bluefield::schema::redfish::nvidia_computer_system::Mode;
+pub use crate::oem::nvidia::bluefield::schema::nvidia_computer_system::Mode;
 
 /// Base MAC address of the Bluefield DPU as reported by the device.
 pub type BaseMac<T> = TaggedType<T, BaseMacTag>;

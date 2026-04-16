@@ -20,7 +20,7 @@
 mod patch;
 
 use crate::patch_support::ReadPatchFn;
-use crate::schema::redfish::event_service::EventService as EventServiceSchema;
+use crate::schema::event_service::EventService as EventServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -38,10 +38,10 @@ use serde_json::Value as JsonValue;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::schema::redfish::metric_report::MetricReport;
+pub use crate::schema::metric_report::MetricReport;
 
 #[doc(inline)]
-pub use crate::schema::redfish::event::Event;
+pub use crate::schema::event::Event;
 
 /// SSE payload that can contain either an `EventRecord` or a `MetricReport`.
 #[derive(Debug)]

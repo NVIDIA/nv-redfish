@@ -23,7 +23,7 @@ use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
-use crate::schema::redfish::chassis::Chassis as ChassisSchema;
+use crate::schema::chassis::Chassis as ChassisSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -54,7 +54,7 @@ use crate::oem::nvidia::baseboard::NvidiaCbcChassis;
 #[cfg(feature = "pcie-devices")]
 use crate::pcie_device::PcieDeviceCollection;
 #[cfg(feature = "sensors")]
-use crate::schema::redfish::sensor::Sensor as SchemaSensor;
+use crate::schema::sensor::Sensor as SchemaSensor;
 #[cfg(feature = "sensors")]
 use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]

@@ -14,7 +14,7 @@
 // limitations under the License.
 //! Secure boot.
 
-use crate::schema::redfish::secure_boot::SecureBoot as SecureBootSchema;
+use crate::schema::secure_boot::SecureBoot as SecureBootSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -24,7 +24,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::schema::redfish::secure_boot::SecureBootCurrentBootType;
+pub use crate::schema::secure_boot::SecureBootCurrentBootType;
 
 /// Secure boot.
 ///

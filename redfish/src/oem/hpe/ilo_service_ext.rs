@@ -15,8 +15,8 @@
 
 //! Support HPE Manager OEM extension.
 
-use crate::oem::hpe::schema::redfish::hpei_lo_service_ext::HpeiLoServiceExt as HpeiLoServiceExtSchema;
-use crate::schema::redfish::service_root::ServiceRoot as ServiceRootSchema;
+use crate::oem::hpe::schema::hpei_lo_service_ext::HpeiLoServiceExt as HpeiLoServiceExtSchema;
+use crate::schema::service_root::ServiceRoot as ServiceRootSchema;
 use crate::Error;
 use nv_redfish_core::Bmc;
 use std::marker::PhantomData;

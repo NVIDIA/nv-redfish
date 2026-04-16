@@ -15,8 +15,8 @@
 
 //! Single physical drive for a system, including links to associated volumes.
 
-use crate::schema::redfish::drive::Drive as DriveSchema;
-use crate::schema::redfish::drive_metrics::DriveMetrics;
+use crate::schema::drive::Drive as DriveSchema;
+use crate::schema::drive_metrics::DriveMetrics;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

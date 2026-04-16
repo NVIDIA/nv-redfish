@@ -36,7 +36,7 @@ use crate::account::ManagerAccountUpdate;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::patch_support::UpdateWithPatch;
-use crate::schema::redfish::manager_account::ManagerAccount;
+use crate::schema::manager_account::ManagerAccount;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::schema::redfish::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
+use crate::schema::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -22,12 +22,12 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
-pub use crate::schema::redfish::metric_report_definition::MetricReportDefinitionCreate;
-pub use crate::schema::redfish::metric_report_definition::MetricReportDefinitionType;
-pub use crate::schema::redfish::metric_report_definition::MetricReportDefinitionUpdate;
-pub use crate::schema::redfish::metric_report_definition::ReportActionsEnum;
-pub use crate::schema::redfish::metric_report_definition::Wildcard;
-pub use crate::schema::redfish::metric_report_definition::WildcardUpdate;
+pub use crate::schema::metric_report_definition::MetricReportDefinitionCreate;
+pub use crate::schema::metric_report_definition::MetricReportDefinitionType;
+pub use crate::schema::metric_report_definition::MetricReportDefinitionUpdate;
+pub use crate::schema::metric_report_definition::ReportActionsEnum;
+pub use crate::schema::metric_report_definition::Wildcard;
+pub use crate::schema::metric_report_definition::WildcardUpdate;
 
 /// Metric report definition entity wrapper.
 pub struct MetricReportDefinition<B: Bmc> {

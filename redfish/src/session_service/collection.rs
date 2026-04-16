@@ -15,8 +15,8 @@
 
 //! Session collection utilities.
 
-use crate::schema::redfish::session::Session as SessionSchema;
-use crate::schema::redfish::session_collection::SessionCollection as SessionCollectionSchema;
+use crate::schema::session::Session as SessionSchema;
+use crate::schema::session_collection::SessionCollection as SessionCollectionSchema;
 use crate::session_service::Session;
 use crate::session_service::SessionCreate;
 use crate::Error;

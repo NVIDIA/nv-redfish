@@ -14,8 +14,8 @@
 // limitations under the License.
 
 use crate::entity_link::EntityLink;
-use crate::oem::liteon::schema::redfish::liteon_power_supply::LiteonPowerSupply as LiteonPowerSupplySchema;
-use crate::oem::liteon::schema::redfish::liteon_power_supply_collection::LiteonPowerSupplyCollection as LiteonPowerSupplyCollectionSchema;
+use crate::oem::liteon::schema::liteon_power_supply::LiteonPowerSupply as LiteonPowerSupplySchema;
+use crate::oem::liteon::schema::liteon_power_supply_collection::LiteonPowerSupplyCollection as LiteonPowerSupplyCollectionSchema;
 
 use crate::chassis::Chassis;
 use crate::core::Bmc;

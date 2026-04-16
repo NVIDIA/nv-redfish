@@ -19,5 +19,7 @@
 #[cfg(feature = "oem-dell-attributes")]
 pub mod attributes;
 
+mod compiled_schema;
+
 /// Dell OEM Schema.
-pub(crate) mod schema;
+pub use compiled_schema::redfish as schema;

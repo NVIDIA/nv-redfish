@@ -16,8 +16,8 @@
 //!
 
 use crate::computer_system::BootOptionReference;
-use crate::schema::redfish::boot_option::BootOption as BootOptionSchema;
-use crate::schema::redfish::boot_option_collection::BootOptionCollection as BootOptionCollectionSchema;
+use crate::schema::boot_option::BootOption as BootOptionSchema;
+use crate::schema::boot_option_collection::BootOptionCollection as BootOptionCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

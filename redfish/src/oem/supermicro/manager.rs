@@ -16,9 +16,9 @@
 //! Support Supermicro Manager OEM extension.
 
 use crate::oem::supermicro::kcs_interface::KcsInterface;
-use crate::oem::supermicro::schema::redfish::smc_manager_extensions::Manager as SupermicroManagerSchema;
+use crate::oem::supermicro::schema::smc_manager_extensions::Manager as SupermicroManagerSchema;
 use crate::oem::supermicro::sys_lockdown::SysLockdown;
-use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;

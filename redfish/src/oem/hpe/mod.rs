@@ -20,11 +20,14 @@ pub mod manager;
 
 pub mod ilo_service_ext;
 
-pub(crate) mod schema;
-
 #[cfg(feature = "managers")]
 #[doc(inline)]
 pub use manager::HpeManager;
 
 #[doc(inline)]
 pub use ilo_service_ext::HpeiLoServiceExt;
+
+mod compiled_schema;
+
+/// HPE OEM schema.
+pub use compiled_schema::redfish as schema;

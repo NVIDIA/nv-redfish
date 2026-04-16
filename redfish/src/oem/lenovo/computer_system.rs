@@ -16,8 +16,8 @@
 //! Support Lenovo Computer System OEM extension.
 
 use crate::core::Bmc;
-use crate::oem::lenovo::schema::redfish::lenovo_computer_system::LenovoSystemProperties as LenovoSystemPropertiesSchema;
-use crate::schema::redfish::computer_system::ComputerSystem as ComputerSystemSchema;
+use crate::oem::lenovo::schema::lenovo_computer_system::LenovoSystemProperties as LenovoSystemPropertiesSchema;
+use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::convert::identity;
@@ -25,9 +25,9 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::oem::lenovo::schema::redfish::lenovo_computer_system::FpMode;
+pub use crate::oem::lenovo::schema::lenovo_computer_system::FpMode;
 #[doc(inline)]
-pub use crate::oem::lenovo::schema::redfish::lenovo_computer_system::PortSwitchingTo;
+pub use crate::oem::lenovo::schema::lenovo_computer_system::PortSwitchingTo;
 
 /// Dell OEM Attributes.
 pub struct LenovoComputerSystem<B: Bmc> {

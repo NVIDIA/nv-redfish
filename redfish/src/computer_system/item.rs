@@ -26,7 +26,7 @@ use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::resource::PowerState;
-use crate::schema::redfish::computer_system::ComputerSystem as ComputerSystemSchema;
+use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

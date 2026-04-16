@@ -16,7 +16,7 @@
 //! Storage subsystem and its respective properties.
 
 use crate::computer_system::Drive;
-use crate::schema::redfish::storage::Storage as StorageSchema;
+use crate::schema::storage::Storage as StorageSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

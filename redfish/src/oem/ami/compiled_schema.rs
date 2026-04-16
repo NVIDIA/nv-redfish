@@ -13,14 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! AMI OEM Schema.
-
-#[allow(dead_code)]
 #[allow(clippy::doc_markdown)]
 #[allow(clippy::absolute_paths)]
 #[allow(clippy::option_option)]
 #[allow(clippy::missing_const_for_fn)]
 #[allow(clippy::struct_field_names)]
+#[allow(clippy::too_long_first_doc_paragraph)]
 #[allow(missing_docs)]
 pub mod redfish {
     include!(concat!(env!("OUT_DIR"), "/oem-ami.rs"));

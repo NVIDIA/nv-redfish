@@ -15,8 +15,8 @@
 
 //! Redfish protocol features
 
-use crate::schema::redfish::service_root::Expand;
-use crate::schema::redfish::service_root::ProtocolFeaturesSupported;
+use crate::schema::service_root::Expand;
+use crate::schema::service_root::ProtocolFeaturesSupported;
 use std::convert::identity;
 
 /// Defines features supported by Redfish protocol. Provides helpers

@@ -15,6 +15,11 @@
 
 //! Support of Supermicro OE extensions to Redfish.
 
+mod compiled_schema;
+
+/// Supermicro OEM Schema.
+pub use compiled_schema::redfish as schema;
+
 /// Support of Supermicro Manager OEM extension.
 #[cfg(feature = "managers")]
 pub mod manager;
@@ -26,9 +31,6 @@ pub mod kcs_interface;
 /// Support of Supermicro System Lockdown service.
 #[cfg(feature = "managers")]
 pub mod sys_lockdown;
-
-/// Supermicro OEM Schema.
-pub(crate) mod schema;
 
 #[cfg(feature = "managers")]
 #[doc(inline)]

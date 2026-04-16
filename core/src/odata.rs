@@ -57,11 +57,12 @@ impl ODataId {
 
     /// Last segment of `ODataId`.
     ///
-    /// "/redfish/v1/Systems/1" -> Some("1")
-    /// "/redfish/v1/Systems/1/" -> Some("1")
-    /// "redfish" -> Some("redfish")
-    /// "" -> None
-    /// "/" -> None
+    /// # Examples
+    /// * `"/redfish/v1/Systems/1" -> Some("1")`
+    /// * `"/redfish/v1/Systems/1/" -> Some("1")`
+    /// * `"redfish" -> Some("redfish")`
+    /// * `"" -> None`
+    /// * `"/" -> None`
     #[must_use]
     pub fn last_segment(&self) -> Option<&str> {
         let path = self.0.trim_end_matches('/');

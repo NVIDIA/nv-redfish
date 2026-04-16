@@ -13,7 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::schema::redfish::metric_definition::MetricDefinition as MetricDefinitionSchema;
+use crate::schema::metric_definition::MetricDefinition as MetricDefinitionSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -22,8 +22,8 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
-pub use crate::schema::redfish::metric_definition::MetricDefinitionCreate;
-pub use crate::schema::redfish::metric_definition::MetricDefinitionUpdate;
+pub use crate::schema::metric_definition::MetricDefinitionCreate;
+pub use crate::schema::metric_definition::MetricDefinitionUpdate;
 
 /// Metric definition entity wrapper.
 pub struct MetricDefinition<B: Bmc> {

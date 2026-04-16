@@ -15,11 +15,11 @@
 
 //! Support Lenovo Manager OEM extension.
 
-use crate::oem::lenovo::schema::redfish::lenovo_manager::v0_1_0::LenovoManagerProperties as LenovoManagerV0_1Schema;
-use crate::oem::lenovo::schema::redfish::lenovo_manager::v1_0_0::LenovoManagerProperties as LenovoManagerV1_0Schema;
-use crate::oem::lenovo::schema::redfish::lenovo_manager::LenovoManagerProperties as LenovoManagerPropertiesSchema;
+use crate::oem::lenovo::schema::lenovo_manager::v0_1_0::LenovoManagerProperties as LenovoManagerV0_1Schema;
+use crate::oem::lenovo::schema::lenovo_manager::v1_0_0::LenovoManagerProperties as LenovoManagerV1_0Schema;
+use crate::oem::lenovo::schema::lenovo_manager::LenovoManagerProperties as LenovoManagerPropertiesSchema;
 use crate::oem::lenovo::security_service::LenovoSecurityService;
-use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -27,7 +27,7 @@ use serde::Deserialize;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::oem::lenovo::schema::redfish::lenovo_manager::KcsState;
+pub use crate::oem::lenovo::schema::lenovo_manager::KcsState;
 
 /// Lenovo has not incompatible schemas. One contains KCSEnabled as
 /// boolean, another contains KCSEnabled as string with

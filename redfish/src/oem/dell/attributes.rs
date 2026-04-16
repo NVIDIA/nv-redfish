@@ -18,14 +18,14 @@ use crate::core::EdmPrimitiveType;
 use crate::core::EntityTypeRef as _;
 use crate::core::NavProperty;
 use crate::core::ODataId;
-use crate::oem::dell::schema::redfish::dell_attributes::DellAttributes as DellAttributesSchema;
+use crate::oem::dell::schema::dell_attributes::DellAttributes as DellAttributesSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[cfg(feature = "managers")]
-use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::schema::manager::Manager as ManagerSchema;
 
 /// Dell OEM Attributes.
 pub struct DellAttributes<B: Bmc> {

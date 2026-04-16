@@ -16,8 +16,8 @@
 //! Network device functions.
 
 use crate::mac_address::MacAddress;
-use crate::schema::redfish::network_device_function::NetworkDeviceFunction as NetworkDeviceFunctionSchema;
-use crate::schema::redfish::network_device_function_collection::NetworkDeviceFunctionCollection as NetworkDeviceFunctionCollectionSchema;
+use crate::schema::network_device_function::NetworkDeviceFunction as NetworkDeviceFunctionSchema;
+use crate::schema::network_device_function_collection::NetworkDeviceFunctionCollection as NetworkDeviceFunctionCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

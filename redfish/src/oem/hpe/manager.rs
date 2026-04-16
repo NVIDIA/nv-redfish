@@ -15,8 +15,8 @@
 
 //! Support HPE Manager OEM extension.
 
-use crate::oem::hpe::schema::redfish::hpei_lo::HpeiLo as HpeManagerSchema;
-use crate::schema::redfish::manager::Manager as ManagerSchema;
+use crate::oem::hpe::schema::hpei_lo::HpeiLo as HpeManagerSchema;
+use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;

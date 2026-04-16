@@ -17,7 +17,7 @@
 
 use crate::core::Bmc;
 use crate::core::NavProperty;
-use crate::oem::supermicro::schema::redfish::sys_lockdown::SysLockdown as SysLockdownSchema;
+use crate::oem::supermicro::schema::sys_lockdown::SysLockdown as SysLockdownSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::marker::PhantomData;

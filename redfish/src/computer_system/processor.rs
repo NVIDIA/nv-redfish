@@ -15,8 +15,8 @@
 
 //! Processor and its configuration.
 
-use crate::schema::redfish::processor::Processor as ProcessorSchema;
-use crate::schema::redfish::processor_metrics::ProcessorMetrics;
+use crate::schema::processor::Processor as ProcessorSchema;
+use crate::schema::processor_metrics::ProcessorMetrics;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

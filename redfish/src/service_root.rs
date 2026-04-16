@@ -17,7 +17,7 @@ use crate::bmc_quirks::BmcQuirks;
 use crate::core::Bmc;
 use crate::core::NavProperty;
 use crate::core::ODataId;
-use crate::schema::redfish::service_root::ServiceRoot as SchemaServiceRoot;
+use crate::schema::service_root::ServiceRoot as SchemaServiceRoot;
 use crate::Error;
 use crate::NvBmc;
 use crate::ProtocolFeatures;

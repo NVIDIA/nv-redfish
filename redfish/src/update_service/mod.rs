@@ -23,8 +23,8 @@ mod software_inventory;
 use crate::core::NavProperty;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
-use crate::schema::redfish::update_service::UpdateService as UpdateServiceSchema;
-use crate::schema::redfish::update_service::UpdateServiceSimpleUpdateAction;
+use crate::schema::update_service::UpdateService as UpdateServiceSchema;
+use crate::schema::update_service::UpdateServiceSimpleUpdateAction;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -37,7 +37,7 @@ use software_inventory::SoftwareInventoryCollection;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::schema::redfish::update_service::TransferProtocolType;
+pub use crate::schema::update_service::TransferProtocolType;
 #[doc(inline)]
 pub use software_inventory::SoftwareInventory;
 #[doc(inline)]

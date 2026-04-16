@@ -15,8 +15,8 @@
 
 use crate::core::Bmc;
 use crate::core::NavProperty;
-pub use crate::oem::lenovo::schema::redfish::lenovo_security_service::FwRollbackState;
-use crate::oem::lenovo::schema::redfish::lenovo_security_service::LenovoSecurityService as LenovoSecurityServiceSchema;
+pub use crate::oem::lenovo::schema::lenovo_security_service::FwRollbackState;
+use crate::oem::lenovo::schema::lenovo_security_service::LenovoSecurityService as LenovoSecurityServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::convert::identity;

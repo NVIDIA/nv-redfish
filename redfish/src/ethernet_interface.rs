@@ -17,8 +17,8 @@
 //!
 
 use crate::mac_address::MacAddress;
-use crate::schema::redfish::ethernet_interface::EthernetInterface as EthernetInterfaceSchema;
-use crate::schema::redfish::ethernet_interface_collection::EthernetInterfaceCollection as EthernetInterfaceCollectionSchema;
+use crate::schema::ethernet_interface::EthernetInterface as EthernetInterfaceSchema;
+use crate::schema::ethernet_interface_collection::EthernetInterfaceCollection as EthernetInterfaceCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -30,7 +30,7 @@ use std::sync::Arc;
 use tagged_types::TaggedType;
 
 #[doc(inline)]
-pub use crate::schema::redfish::ethernet_interface::LinkStatus;
+pub use crate::schema::ethernet_interface::LinkStatus;
 
 /// Ethernet interfaces collection.
 ///

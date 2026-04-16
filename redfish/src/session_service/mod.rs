@@ -21,7 +21,7 @@
 mod collection;
 mod item;
 
-use crate::schema::redfish::session_service::SessionService as SessionServiceSchema;
+use crate::schema::session_service::SessionService as SessionServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
@@ -29,9 +29,9 @@ use nv_redfish_core::Bmc;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::schema::redfish::session::SessionCreate;
+pub use crate::schema::session::SessionCreate;
 #[doc(inline)]
-pub use crate::schema::redfish::session::SessionTypes;
+pub use crate::schema::session::SessionTypes;
 #[doc(inline)]
 pub use collection::SessionCollection;
 #[doc(inline)]
@@ -63,7 +63,7 @@ impl<B: Bmc> SessionService<B> {
     }
 
     /// Get the raw schema data for this session service.
-    /// 
+    ///
     /// Returns an `Arc` to the underlying schema, allowing cheap cloning
     /// and sharing of the data.
     #[must_use]

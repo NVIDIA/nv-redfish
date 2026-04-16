@@ -21,11 +21,11 @@ mod metric_definition;
 mod metric_report_definition;
 
 use crate::entity_link::EntityLink;
-use crate::schema::redfish::metric_definition::MetricDefinition as MetricDefinitionSchema;
-use crate::schema::redfish::metric_report::MetricReport as MetricReportSchema;
-use crate::schema::redfish::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
-use crate::schema::redfish::telemetry_service::TelemetryService as TelemetryServiceSchema;
-use crate::schema::redfish::telemetry_service::TelemetryServiceUpdate;
+use crate::schema::metric_definition::MetricDefinition as MetricDefinitionSchema;
+use crate::schema::metric_report::MetricReport as MetricReportSchema;
+use crate::schema::metric_report_definition::MetricReportDefinition as MetricReportDefinitionSchema;
+use crate::schema::telemetry_service::TelemetryService as TelemetryServiceSchema;
+use crate::schema::telemetry_service::TelemetryServiceUpdate;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

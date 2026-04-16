@@ -15,8 +15,8 @@
 
 //! Memory device, such as a DIMM, and its configuration.
 
-use crate::schema::redfish::memory::Memory as MemorySchema;
-use crate::schema::redfish::memory_metrics::MemoryMetrics;
+use crate::schema::memory::Memory as MemorySchema;
+use crate::schema::memory_metrics::MemoryMetrics;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;

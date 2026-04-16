@@ -19,8 +19,10 @@ use crate::compiler::ComplexType;
 use crate::compiler::EntityType;
 use crate::compiler::EnumType;
 use crate::compiler::IsCreatable;
+use crate::compiler::Namespace;
 use crate::compiler::TypeDefinition;
 use crate::compiler::TypeInfo;
+use crate::generator::rust::doc;
 use crate::generator::rust::struct_def::GenerateType;
 use crate::generator::rust::Config;
 use crate::generator::rust::EnumDef;
@@ -31,8 +33,6 @@ use crate::generator::rust::TypeDef;
 use crate::generator::rust::TypeName;
 use crate::odata::annotations::Permissions;
 use crate::redfish::ExcerptCopy;
-use proc_macro2::Delimiter;
-use proc_macro2::Group;
 use proc_macro2::Ident;
 use proc_macro2::Punct;
 use proc_macro2::Spacing;
@@ -44,9 +44,10 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::iter::repeat_n;
 
-#[derive(Default, Debug)]
+#[derive(Debug, Default)]
 pub struct ModDef<'a> {
     name: Option<ModName<'a>>,
+    namespace: Option<Namespace<'a>>,
     typedefs: HashMap<TypeName<'a>, TypeDef<'a>>,
     enums: HashMap<TypeName<'a>, EnumDef<'a>>,
     structs: HashMap<TypeName<'a>, StructDef<'a>>,
@@ -56,9 +57,10 @@ pub struct ModDef<'a> {
 
 impl<'a> ModDef<'a> {
     #[must_use]
-    pub fn new(name: ModName<'a>, depth: usize) -> Self {
+    pub fn new(name: ModName<'a>, namespace: Namespace<'a>, depth: usize) -> Self {
         Self {
             name: Some(name),
+            namespace: Some(namespace),
             structs: HashMap::new(),
             sub_mods: HashMap::new(),
             enums: HashMap::new(),
@@ -94,7 +96,7 @@ impl<'a> ModDef<'a> {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, ct.name.namespace, depth))
                 .inner_add_complex_type(ct, depth + 1, actions, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
@@ -148,7 +150,7 @@ impl<'a> ModDef<'a> {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.name.namespace, depth))
                 .inner_add_enum_type(t, depth + 1)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
@@ -190,7 +192,7 @@ impl<'a> ModDef<'a> {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.name.namespace, depth))
                 .inner_add_type_definition(t, depth + 1)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
@@ -243,7 +245,7 @@ impl<'a> ModDef<'a> {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.name.namespace, depth))
                 .inner_add_entity_type(t, creatable, excerpt_copies, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
@@ -314,7 +316,7 @@ impl<'a> ModDef<'a> {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.binding.namespace, depth))
                 .inner_add_action_type(t, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
@@ -387,13 +389,17 @@ impl<'a> ModDef<'a> {
                 },
             ]);
             generate(&mut content);
-            tokens.extend([
-                quote! {
-                    #[allow(unused_imports)]
-                    pub mod #name
-                },
-                TokenTree::Group(Group::new(Delimiter::Brace, content)).into(),
-            ]);
+            let doc = self.namespace.map_or_else(
+                || doc::generate(&["Generated schema of root namespace"]),
+                |ns| doc::generate(&[format!("Generated schema of {ns} namespace")]),
+            );
+            tokens.extend(quote! {
+                #doc
+                #[allow(unused_imports)]
+                pub mod #name {
+                    #content
+                }
+            });
         } else {
             generate(tokens);
         }

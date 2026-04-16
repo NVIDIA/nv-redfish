@@ -15,8 +15,10 @@
 
 //! Support of NVIDIA Bluefield DPU OEM extensions to Redfish.
 
+mod compiled_schema;
+
 /// NVIDIA Bluefield OEM Schema.
-pub(crate) mod schema;
+pub use compiled_schema::redfish as schema;
 
 /// NVIDIA Bluefield OEM computer system support.
 #[cfg(feature = "computer-systems")]

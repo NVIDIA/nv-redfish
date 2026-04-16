@@ -815,6 +815,13 @@ impl<'a> StructDef<'a> {
             }
             None => quote! { () },
         };
+        let doc_action_errors = quote! {
+            #[doc = ""]
+            #[doc = "# Errors"]
+            #[doc = ""]
+            #[doc = "* [Not supported error](nv_redfish_core::ActionError::not_supported) if reference to action is not supported by the server."]
+            #[doc = "* [BMC Action errors](nv_redfish_core::Action::run) if returned by BMC implementation."]
+        };
         if a.parameters.len() <= config.action_fn_max_param_number_threshold {
             let mut arglist = TokenStream::new();
             let mut params = TokenStream::new();
@@ -855,6 +862,7 @@ impl<'a> StructDef<'a> {
             }
             content.extend([
                 doc_format_and_generate(a.name, &a.odata),
+                doc_action_errors,
                 quote! {
                     pub async fn #name<B: #top::Bmc>(&self, bmc: &B #arglist) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
                     where B::Error: #top::ActionError,
@@ -872,6 +880,7 @@ impl<'a> StructDef<'a> {
         } else {
             content.extend([
                 doc_format_and_generate(a.name, &a.odata),
+                doc_action_errors,
                 quote! {
                     pub async fn #name<B: #top::Bmc>(&self, bmc: &B, t: &#typename) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
                     where B::Error: #top::ActionError,

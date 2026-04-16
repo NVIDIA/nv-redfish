@@ -132,8 +132,7 @@ pub mod telemetry_service;
 #[cfg(feature = "oem")]
 pub mod oem;
 
-/// Compiled Redfish schema.
-pub(crate) mod schema;
+mod compiled_schema;
 
 #[cfg(feature = "patch")]
 pub(crate) mod patch_support;
@@ -159,6 +158,9 @@ pub use nv_redfish_core as core;
 pub use nv_redfish_bmc_http as bmc_http;
 
 #[doc(inline)]
+pub use compiled_schema::redfish as schema;
+
+#[doc(inline)]
 pub use error::Error;
 #[doc(inline)]
 pub use nv_redfish_core::Bmc;
@@ -173,7 +175,8 @@ pub use service_root::ServiceRoot;
 #[cfg(feature = "resource-status")]
 pub use resource::ResourceProvidesStatus;
 
-pub(crate) use crate::schema::redfish::resource::Resource as ResourceSchema;
 #[cfg(feature = "resource-status")]
-pub(crate) use crate::schema::redfish::resource::Status as ResourceStatusSchema;
+pub(crate) use crate::schema::resource::Status as ResourceStatusSchema;
+
+pub(crate) use crate::schema::resource::Resource as ResourceSchema;
 pub(crate) use bmc::NvBmc;

@@ -17,14 +17,14 @@
 
 use crate::core::Bmc;
 use crate::core::NavProperty;
-use crate::oem::supermicro::schema::redfish::kcs_interface::KcsInterface as KcsInterfaceSchema;
+use crate::oem::supermicro::schema::kcs_interface::KcsInterface as KcsInterfaceSchema;
 use crate::Error;
 use crate::NvBmc;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[doc(inline)]
-pub use crate::oem::supermicro::schema::redfish::kcs_interface::Privilege;
+pub use crate::oem::supermicro::schema::kcs_interface::Privilege;
 
 /// Supermicro KCS interface resource.
 pub struct KcsInterface<B: Bmc> {

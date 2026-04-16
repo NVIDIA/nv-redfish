@@ -15,7 +15,10 @@
 
 //! Support of LiteOn OEM extensions to Redfish.
 
-pub(crate) mod schema;
+mod compiled_schema;
+
+/// LiteOn OEM Schema.
+pub use compiled_schema::redfish as schema;
 
 /// Support of LiteOn PowerSupplies.
 #[cfg(feature = "power-supplies")]
