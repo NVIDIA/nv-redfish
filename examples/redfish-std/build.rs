@@ -20,7 +20,21 @@ use glob::glob;
 use nv_redfish_csdl_compiler::commands::{process_command, Commands, DEFAULT_ROOT};
 use nv_redfish_csdl_compiler::Error;
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), String> {
+    // Create new thread with 16 MB stack to handle deep CSDL type
+    // hierarchies on platforms with small default stacks
+    // (e.g. Windows is 1 MB).
+    const STACK_SIZE: usize = 16 * 1024 * 1024;
+    let handler = std::thread::Builder::new()
+        .stack_size(STACK_SIZE)
+        .spawn(|| run().map_err(|err| format!("{err:#?}")))
+        .expect("failed to spawn build thread");
+    handler
+        .join()
+        .unwrap_or_else(|e| std::panic::resume_unwind(e))
+}
+
+fn run() -> Result<(), Error> {
     let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
     let output = out_dir.join("redfish.rs");
 
