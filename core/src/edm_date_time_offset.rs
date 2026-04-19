@@ -49,6 +49,8 @@
 
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
+use std::convert::TryFrom;
+use std::error::Error as StdError;
 use std::fmt::Display;
 use std::fmt::Error as FmtError;
 use std::fmt::Formatter;
@@ -57,6 +59,28 @@ use std::time::Duration;
 use std::time::SystemTime;
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
+
+#[derive(Debug, PartialEq, Eq)]
+#[non_exhaustive]
+/// Errors for the [`EdmDateTimeOffset`].
+pub enum Error {
+    /// Conversion to [`SystemTime`] failed because the value is not
+    /// representable as a system time. In particular, on Windows any
+    /// time point before 1601 is not representable.
+    OutOfSystemTimeRange,
+}
+
+impl Display for Error {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        match self {
+            Self::OutOfSystemTimeRange => {
+                f.write_str("value is outside the representable system time range")
+            }
+        }
+    }
+}
+
+impl StdError for Error {}
 
 /// Type corresponding to `Edm.DateTimeOffset`.
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -75,16 +99,21 @@ impl From<EdmDateTimeOffset> for OffsetDateTime {
     }
 }
 
-impl From<EdmDateTimeOffset> for SystemTime {
-    fn from(w: EdmDateTimeOffset) -> Self {
+impl TryFrom<EdmDateTimeOffset> for SystemTime {
+    type Error = Error;
+    fn try_from(w: EdmDateTimeOffset) -> Result<Self, Self::Error> {
         let unix_timestamp = w.0.unix_timestamp();
         let nanos = w.0.nanosecond();
 
         let duration = Duration::new(unix_timestamp.unsigned_abs(), nanos);
         if unix_timestamp >= 0 {
-            Self::UNIX_EPOCH + duration
+            Self::UNIX_EPOCH
+                .checked_add(duration)
+                .ok_or(Error::OutOfSystemTimeRange)
         } else {
-            Self::UNIX_EPOCH - duration
+            Self::UNIX_EPOCH
+                .checked_sub(duration)
+                .ok_or(Error::OutOfSystemTimeRange)
         }
     }
 }
@@ -109,6 +138,7 @@ impl FromStr for EdmDateTimeOffset {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::convert::TryInto;
     use time::UtcOffset;
 
     #[test]
@@ -242,7 +272,7 @@ mod tests {
     #[test]
     fn converts_to_system_time() {
         let normal: EdmDateTimeOffset = "2021-03-04T05:06:07-00:00".parse().unwrap();
-        let time: SystemTime = normal.into();
+        let time: SystemTime = normal.try_into().unwrap();
         assert_eq!(
             time.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
@@ -251,7 +281,7 @@ mod tests {
         );
 
         let before_epoch: EdmDateTimeOffset = "1960-01-01T00:00:00-00:00".parse().unwrap();
-        let time: SystemTime = before_epoch.into();
+        let time: SystemTime = before_epoch.try_into().unwrap();
         assert_eq!(
             SystemTime::UNIX_EPOCH
                 .duration_since(time)
@@ -260,18 +290,29 @@ mod tests {
             315619200
         );
 
+        // This can fail on Windows because it uses the FILETIME
+        // representation, whose epoch is the year 1601.
         let very_old: EdmDateTimeOffset = "0001-01-01T00:00:00-00:00".parse().unwrap();
-        let time: SystemTime = very_old.into();
+        let _ = very_old.try_into().map(|time| {
+            assert_eq!(
+                SystemTime::UNIX_EPOCH
+                    .duration_since(time)
+                    .unwrap()
+                    .as_secs(),
+                62135596800
+            );
+        });
+        let windows_very_old: EdmDateTimeOffset = "1601-01-01T00:00:00-00:00".parse().unwrap();
+        let time = windows_very_old.try_into().unwrap();
         assert_eq!(
             SystemTime::UNIX_EPOCH
                 .duration_since(time)
                 .unwrap()
                 .as_secs(),
-            62135596800
+            11644473600
         );
-
         let far_future: EdmDateTimeOffset = "9999-12-31T23:59:59-00:00".parse().unwrap();
-        let time: SystemTime = far_future.into();
+        let time: SystemTime = far_future.try_into().unwrap();
         assert_eq!(
             time.duration_since(SystemTime::UNIX_EPOCH)
                 .unwrap()
