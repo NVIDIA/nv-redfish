@@ -13,10 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! Implementation of [`HttpClient`] trait using reqwest crate.
+
 use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
-use futures_util::StreamExt;
+use futures_util::StreamExt as _;
 use http::header;
 use http::HeaderMap;
 use nv_redfish_core::AsyncTask;
@@ -24,23 +26,39 @@ use nv_redfish_core::BoxTryStream;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
+use reqwest::redirect::Policy as RedirectPolicy;
+use reqwest::Client as ReqwestClient;
+use reqwest::Error as ReqwestError;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
+use std::error::Error as StdError;
+use std::fmt;
 use std::time::Duration;
 use url::Url;
 
+/// Errors of reqwest implementation of the HTTP trait.
 #[derive(Debug)]
 pub enum BmcError {
+    /// Direct mapping of underlying reqwest error.
     ReqwestError(reqwest::Error),
+    /// JSON to model deserialize error with path tracking.
     JsonError(serde_path_to_error::Error<serde_json::Error>),
+    /// Unexpected HTTP response.
     InvalidResponse {
+        /// URL in request that caused error.
         url: url::Url,
+        /// Returned status.
         status: reqwest::StatusCode,
+        /// Text in the response.
         text: String,
     },
+    /// SSE stream error.
     SseStreamError(sse_stream::Error),
+    /// No resource found in cache.
     CacheMiss,
+    /// HTTP cache error.
     CacheError(String),
+    /// JSON deserialization error.
     DecodeError(serde_json::Error),
 }
 
@@ -67,9 +85,8 @@ impl CacheableError for BmcError {
     }
 }
 
-#[allow(clippy::absolute_paths)]
-impl std::fmt::Display for BmcError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl fmt::Display for BmcError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::ReqwestError(e) => write!(f, "HTTP client error: {e:?}"),
             Self::InvalidResponse { url, status, text } => {
@@ -93,9 +110,8 @@ impl std::fmt::Display for BmcError {
     }
 }
 
-#[allow(clippy::absolute_paths)]
-impl std::error::Error for BmcError {
-    fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
+impl StdError for BmcError {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
         match self {
             Self::ReqwestError(e) => Some(e),
             Self::JsonError(e) => Some(e.inner()),
@@ -165,65 +181,76 @@ impl Default for ClientParams {
 }
 
 impl ClientParams {
+    /// Creates new client parameters.
     #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// See: [`reqwest::ClientBuilder::timeout`].
     #[must_use]
     pub const fn timeout(mut self, timeout: Duration) -> Self {
         self.timeout = Some(timeout);
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::connect_timeout`].
     #[must_use]
     pub const fn connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = Some(timeout);
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::user_agent`].
     #[must_use]
     pub fn user_agent<S: Into<String>>(mut self, user_agent: S) -> Self {
         self.user_agent = Some(user_agent.into());
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::danger_accept_invalid_certs`].
     #[must_use]
     pub const fn accept_invalid_certs(mut self, accept: bool) -> Self {
         self.accept_invalid_certs = accept;
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::redirect`].
     #[must_use]
     pub const fn max_redirects(mut self, max: usize) -> Self {
         self.max_redirects = Some(max);
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::tcp_keepalive`].
     #[must_use]
     pub const fn tcp_keepalive(mut self, keepalive: Duration) -> Self {
         self.tcp_keepalive = Some(keepalive);
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::pool_max_idle_per_host`].
     #[must_use]
     pub const fn pool_max_idle_per_host(mut self, pool_max_idle_per_host: usize) -> Self {
         self.pool_max_idle_per_host = Some(pool_max_idle_per_host);
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::pool_idle_timeout`].
     #[must_use]
     pub const fn idle_timeout(mut self, pool_idle_timeout: Duration) -> Self {
         self.pool_idle_timeout = Some(pool_idle_timeout);
         self
     }
 
+    /// Clears timeout for this client.
     #[must_use]
     pub const fn no_timeout(mut self) -> Self {
         self.timeout = None;
         self
     }
 
+    /// See: [`reqwest::ClientBuilder::default_headers`].
     #[must_use]
     pub fn default_headers(mut self, default_headers: HeaderMap) -> Self {
         self.default_headers = Some(default_headers);
@@ -239,18 +266,28 @@ impl ClientParams {
 ///
 #[derive(Clone)]
 pub struct Client {
-    client: reqwest::Client,
+    client: ReqwestClient,
 }
 
-#[allow(clippy::missing_errors_doc)]
-#[allow(clippy::absolute_paths)]
 impl Client {
-    pub fn new() -> Result<Self, reqwest::Error> {
+    /// Create client with default [`ClientParams`].
+    ///
+    /// # Errors
+    ///
+    /// Internally it builds [`reqwest::ClientBuilder::build`]. This function
+    /// transparently passes errors of this call to caller.
+    pub fn new() -> Result<Self, ReqwestError> {
         Self::with_params(ClientParams::default())
     }
 
+    /// Build client from parameters.
+    ///
+    /// # Errors
+    ///
+    /// Internally it builds [`reqwest::ClientBuilder::build`]. This function
+    /// transparently passes errors of this call to caller.
     pub fn with_params(params: ClientParams) -> Result<Self, reqwest::Error> {
-        let mut builder = reqwest::Client::builder();
+        let mut builder = ReqwestClient::builder();
 
         if params.use_rust_tls {
             builder = builder.use_rustls_tls();
@@ -273,7 +310,7 @@ impl Client {
         }
 
         if let Some(max_redirects) = params.max_redirects {
-            builder = builder.redirect(reqwest::redirect::Policy::limited(max_redirects));
+            builder = builder.redirect(RedirectPolicy::limited(max_redirects));
         }
 
         if let Some(keepalive) = params.tcp_keepalive {
@@ -297,8 +334,9 @@ impl Client {
         })
     }
 
+    /// Use pre-built [`reqwest::Client`] as internal client.
     #[must_use]
-    pub const fn with_client(client: reqwest::Client) -> Self {
+    pub const fn with_client(client: ReqwestClient) -> Self {
         Self { client }
     }
 }
@@ -323,7 +361,7 @@ impl Client {
         let mut value: serde_json::Value = response.json().await.map_err(BmcError::ReqwestError)?;
 
         if let Some(etag) = etag_header {
-            inject_etag(etag, &mut value);
+            inject_etag(&etag, &mut value);
         }
 
         serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)
@@ -374,7 +412,7 @@ impl Client {
 
                     if value.get("@odata.id").is_some() {
                         if let Some(etag) = etag {
-                            inject_etag(etag, &mut value);
+                            inject_etag(&etag, &mut value);
                         }
                         return serde_path_to_error::deserialize(value)
                             .map(ModificationResponse::Entity)
@@ -405,16 +443,17 @@ fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
         .get(header::LOCATION)
         .and_then(|value| value.to_str().ok())
         .map(|raw| {
-            if let Ok(url) = Url::parse(raw) {
-                let mut path = url.path().to_string();
-                if let Some(query) = url.query() {
-                    path.push('?');
-                    path.push_str(query);
-                }
-                path.into()
-            } else {
-                raw.to_string().into()
-            }
+            Url::parse(raw).map_or_else(
+                |_| raw.to_string().into(),
+                |url| {
+                    let mut path = url.path().to_string();
+                    if let Some(query) = url.query() {
+                        path.push('?');
+                        path.push_str(query);
+                    }
+                    path.into()
+                },
+            )
         })
 }
 
@@ -432,7 +471,7 @@ fn retry_after_from_headers(headers: &HeaderMap) -> Option<u64> {
         .and_then(|v| v.trim().parse::<u64>().ok())
 }
 
-fn inject_etag(etag: ODataETag, body: &mut serde_json::Value) {
+fn inject_etag(etag: &ODataETag, body: &mut serde_json::Value) {
     if let Some(obj) = body.as_object_mut() {
         let etag_value = serde_json::Value::String(etag.to_string());
 
@@ -468,7 +507,8 @@ impl HttpClient for Client {
     where
         T: DeserializeOwned,
     {
-        let mut request = auth_headers(self.client.get(url), credentials).headers(custom_headers.clone());
+        let mut request =
+            auth_headers(self.client.get(url), credentials).headers(custom_headers.clone());
 
         if let Some(etag) = etag {
             request = request.header(header::IF_NONE_MATCH, etag.to_string());

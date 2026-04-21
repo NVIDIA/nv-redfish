@@ -47,7 +47,7 @@ impl<'a, 'stack> Stack<'a, 'stack> {
     /// Track the entity type being compiled to avoid cycles caused by
     /// navigation-property references.
     #[must_use]
-    pub const fn with_enitity_type(mut self, name: QualifiedName<'a>) -> Self {
+    pub const fn with_entity_type(mut self, name: QualifiedName<'a>) -> Self {
         self.entity_type = Some(name);
         self
     }

@@ -17,8 +17,8 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
-    use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::reqwest::BmcError;
+    use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_core::{
         query::{ExpandQuery, FilterQuery},
         Bmc, ModificationResponse,
@@ -90,8 +90,7 @@ mod reqwest_client_tests {
         let first = bmc.get::<TestResource>(&first_id).await.unwrap();
         assert_eq!(first.value, 42);
 
-        bmc.set_credentials(BmcCredentials::token("new-token".to_string()))
-            .unwrap();
+        bmc.set_credentials(BmcCredentials::token("new-token".to_string()));
 
         let second_id = create_odata_id(second_resource_path);
         let second = bmc.get::<TestResource>(&second_id).await.unwrap();

@@ -81,7 +81,6 @@ struct GhostList<K> {
     size: usize,
 }
 
-#[allow(clippy::manual_let_else)]
 impl<K: Clone> GhostList<K> {
     fn new(capacity: usize) -> Self {
         Self {
@@ -150,9 +149,8 @@ impl<K: Clone> GhostList<K> {
 
     /// Remove specific slot - O(1)
     fn remove(&mut self, slot: usize) -> bool {
-        let node = match self.entries[slot].take() {
-            Some(node) => node,
-            None => return false,
+        let Some(node) = self.entries[slot].take() else {
+            return false;
         };
 
         self.free_slots.push(slot);
@@ -462,12 +460,12 @@ where
     }
 
     /// Try to replace from T1, returns the evicted entry if replacement was successful
-    #[allow(clippy::if_not_else)]
     fn try_replace_from_t1(&mut self) -> Option<CacheEntry<K, V>> {
         if let Some(head_entry) = self.t1.get_head_page() {
             // Line 25: if (the page reference bit of head page in T1 is 0) then
             // ref_bit == false
-            if !head_entry.ref_bit {
+            #[allow(clippy::bool_comparison)] // Allow to match paper
+            if head_entry.ref_bit == false {
                 // Line 26: found = 1;
                 // Line 27: Demote the head page in T1 and make it the MRU page in B1
                 if let Some(entry) = self.t1.remove_head_page() {
@@ -497,12 +495,12 @@ where
     }
 
     /// Try to replace from T2, returns the evicted entry if replacement was successful
-    #[allow(clippy::if_not_else)]
     fn try_replace_from_t2(&mut self) -> Option<CacheEntry<K, V>> {
         if let Some(head_entry) = self.t2.get_head_page() {
             // Line 32: if (the page reference bit of head page in T2 is 0), then
             // ref_bit == false
-            if !head_entry.ref_bit {
+            #[allow(clippy::bool_comparison)] // Allow to match paper
+            if head_entry.ref_bit == false {
                 // Line 33: found = 1;
                 // Line 34: Demote the head page in T2 and make it the MRU page in B2
                 if let Some(entry) = self.t2.remove_head_page() {

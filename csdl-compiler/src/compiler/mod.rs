@@ -257,7 +257,7 @@ impl SchemaBundle {
         root_patterns: &EntityTypeFilter,
     ) -> Result<RootSet<'a>, Error<'a>> {
         // Iterate through all singletons located in
-        // EDMX documents → schemas → entity containers.
+        // EDMX documents -> schemas -> entity containers.
         //
         // If a singleton matches the requested set, collect its most recent
         // descendant type into the root set.

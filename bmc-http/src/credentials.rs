@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+//! HTTP credentials type.
+
 use std::fmt;
 
 /// Credentials used to access the BMC.
@@ -26,10 +28,12 @@ pub enum BmcCredentials {
     UsernamePassword {
         /// Username to access BMC.
         username: String,
+        /// Password to access BMC.
         password: Option<String>,
     },
     /// Use Redfish session token authentication.
     Token {
+        /// Token value.
         token: String,
     },
 }

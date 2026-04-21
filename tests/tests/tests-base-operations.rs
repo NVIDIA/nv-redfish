@@ -846,4 +846,3 @@ async fn enum_unknown_value_falls_back_to_unsupported_value() {
         serde_json::to_value(ActionType::UnsupportedValue).expect("fallback must serialize");
     assert_eq!(serialized, json!("UnsupportedValue"));
 }
-

@@ -43,7 +43,10 @@ async fn list_sessions() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let session_service = get_session_service(bmc.clone(), &root_id).await?;
-    let session_id = format!("{}/Sessions/1234567890ABCDEF", session_service.raw().odata_id());
+    let session_id = format!(
+        "{}/Sessions/1234567890ABCDEF",
+        session_service.raw().odata_id()
+    );
     let sessions = get_session_collection(
         bmc.clone(),
         &session_service,
@@ -62,7 +65,10 @@ async fn list_sessions() -> Result<(), Box<dyn StdError>> {
     assert_eq!(sessions.len(), 1);
     let session = sessions.first().unwrap().raw();
     assert_eq!(session.user_name, Some(Some("Administrator".into())));
-    assert_eq!(session.session_type, Some(Some(SessionTypes::ManagerConsole)));
+    assert_eq!(
+        session.session_type,
+        Some(Some(SessionTypes::ManagerConsole))
+    );
     Ok(())
 }
 
@@ -94,8 +100,14 @@ async fn create_session() -> Result<(), Box<dyn StdError>> {
 
     let session = sessions.create_session(&create).await?.unwrap();
     assert_eq!(session.raw().user_name, Some(Some("Administrator".into())));
-    assert_eq!(session.raw().client_origin_ip_address, Some(Some("127.0.0.1".into())));
-    assert_eq!(session.raw().session_type, Some(Some(SessionTypes::ManagerConsole)));
+    assert_eq!(
+        session.raw().client_origin_ip_address,
+        Some(Some("127.0.0.1".into()))
+    );
+    assert_eq!(
+        session.raw().session_type,
+        Some(Some(SessionTypes::ManagerConsole))
+    );
     Ok(())
 }
 
@@ -104,7 +116,10 @@ async fn delete_session() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let session_service = get_session_service(bmc.clone(), &root_id).await?;
-    let session_id = format!("{}/Sessions/1234567890ABCDEF", session_service.raw().odata_id());
+    let session_id = format!(
+        "{}/Sessions/1234567890ABCDEF",
+        session_service.raw().odata_id()
+    );
     let sessions = get_session_collection(
         bmc.clone(),
         &session_service,

@@ -60,7 +60,7 @@ impl<'a> EntityType<'a> {
         ctx: &Context<'a>,
         stack: &Stack<'a, '_>,
     ) -> Result<Compiled<'a>, Error<'a>> {
-        let stack = stack.new_frame().with_enitity_type(name);
+        let stack = stack.new_frame().with_entity_type(name);
         // Ensure that base entity type compiled if present.
         let (base, compiled) = if let Some(base_type) = &schema_entity_type.base_type {
             let compiled = Self::ensure(base_type.into(), ctx, &stack)?;

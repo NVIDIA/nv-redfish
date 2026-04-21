@@ -41,12 +41,8 @@ const PSU_DATA_TYPE: &str = "#PowerSupply.v1_5_0.PowerSupply";
 async fn liteon_power_supply_links_happy_path() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let chassis = get_liteon_chassis(
-        bmc.clone(),
-        &ids,
-        liteon_chassis_member(&ids, json!({})),
-    )
-    .await?;
+    let chassis =
+        get_liteon_chassis(bmc.clone(), &ids, liteon_chassis_member(&ids, json!({}))).await?;
 
     expect_power_subsystem(bmc.clone(), &ids);
     expect_psu_collection(
@@ -64,10 +60,7 @@ async fn liteon_power_supply_links_happy_path() -> Result<(), Box<dyn StdError>>
 
     // Verify fetch works on the link
     let psu_id = format!("{}/0", ids.psu_collection_id);
-    bmc.expect(Expect::get(
-        &psu_id,
-        psu_payload(&psu_id, "0", true),
-    ));
+    bmc.expect(Expect::get(&psu_id, psu_payload(&psu_id, "0", true)));
     let psu = links[0].fetch().await?;
     assert_eq!(psu.power_state, Some(true));
 
@@ -78,12 +71,8 @@ async fn liteon_power_supply_links_happy_path() -> Result<(), Box<dyn StdError>>
 async fn liteon_power_supply_links_multiple_psus() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let chassis = get_liteon_chassis(
-        bmc.clone(),
-        &ids,
-        liteon_chassis_member(&ids, json!({})),
-    )
-    .await?;
+    let chassis =
+        get_liteon_chassis(bmc.clone(), &ids, liteon_chassis_member(&ids, json!({}))).await?;
 
     expect_power_subsystem(bmc.clone(), &ids);
     expect_psu_collection(
@@ -138,12 +127,7 @@ async fn liteon_power_supply_links_missing_manufacturer_returns_none(
 ) -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let chassis = get_liteon_chassis(
-        bmc.clone(),
-        &ids,
-        chassis_member(&ids, json!({})),
-    )
-    .await?;
+    let chassis = get_liteon_chassis(bmc.clone(), &ids, chassis_member(&ids, json!({}))).await?;
 
     let result = chassis.oem_liteon_power_supply_links().await?;
     assert!(result.is_none());
@@ -159,16 +143,14 @@ async fn liteon_power_supply_links_missing_power_subsystem_returns_none(
     let chassis = get_liteon_chassis(
         bmc.clone(),
         &ids,
-        json_merge([
-            &json!({
-                ODATA_ID: &ids.chassis_id,
-                ODATA_TYPE: CHASSIS_DATA_TYPE,
-                "Id": "powershelf",
-                "Name": "powershelf",
-                "ChassisType": "Shelf",
-                "Manufacturer": "LITE-ON TECHNOLOGY CORP."
-            }),
-        ]),
+        json_merge([&json!({
+            ODATA_ID: &ids.chassis_id,
+            ODATA_TYPE: CHASSIS_DATA_TYPE,
+            "Id": "powershelf",
+            "Name": "powershelf",
+            "ChassisType": "Shelf",
+            "Manufacturer": "LITE-ON TECHNOLOGY CORP."
+        })]),
     )
     .await?;
 
@@ -182,12 +164,8 @@ async fn liteon_power_supply_links_missing_power_subsystem_returns_none(
 async fn liteon_power_supply_links_empty_collection() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
-    let chassis = get_liteon_chassis(
-        bmc.clone(),
-        &ids,
-        liteon_chassis_member(&ids, json!({})),
-    )
-    .await?;
+    let chassis =
+        get_liteon_chassis(bmc.clone(), &ids, liteon_chassis_member(&ids, json!({}))).await?;
 
     expect_power_subsystem(bmc.clone(), &ids);
     expect_psu_collection(bmc.clone(), &ids, vec![]);
@@ -282,7 +260,10 @@ async fn get_liteon_chassis(
     let collection = service_root.chassis().await?.unwrap();
     let members = collection.members().await?;
     assert_eq!(members.len(), 1);
-    Ok(members.into_iter().next().expect("single chassis must exist"))
+    Ok(members
+        .into_iter()
+        .next()
+        .expect("single chassis must exist"))
 }
 
 async fn expect_service_root(
@@ -315,10 +296,7 @@ fn expect_power_subsystem(bmc: Arc<Bmc>, ids: &Ids) {
 }
 
 fn expect_psu_collection(bmc: Arc<Bmc>, ids: &Ids, psu_ids: Vec<String>) {
-    let members: Vec<Value> = psu_ids
-        .iter()
-        .map(|id| json!({ ODATA_ID: id }))
-        .collect();
+    let members: Vec<Value> = psu_ids.iter().map(|id| json!({ ODATA_ID: id })).collect();
     bmc.expect(Expect::get(
         &ids.psu_collection_id,
         json!({

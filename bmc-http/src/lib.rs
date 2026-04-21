@@ -13,6 +13,31 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#![deny(
+    clippy::all,
+    clippy::pedantic,
+    clippy::nursery,
+    clippy::suspicious,
+    clippy::complexity,
+    clippy::perf
+)]
+#![deny(
+    clippy::absolute_paths,
+    clippy::todo,
+    clippy::unimplemented,
+    clippy::tests_outside_test_module,
+    clippy::panic,
+    clippy::unwrap_used,
+    clippy::unwrap_in_result,
+    clippy::unused_trait_names,
+    clippy::print_stdout,
+    clippy::print_stderr
+)]
+#![allow(clippy::doc_markdown)]
+#![deny(missing_docs)]
+
+//! HTTP implementation of [`nv_redfish_core::Bmc`] trait.
+
 pub mod cache;
 pub mod credentials;
 
@@ -32,18 +57,22 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::{
-    collections::HashMap,
-    error::Error as StdError,
-    future::Future,
-    sync::{Arc, RwLock},
-};
+use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::RwLock;
 use url::Url;
 
 #[doc(inline)]
 pub use credentials::BmcCredentials;
 
+/// HTTP Client trait.
+///
+/// nv-redfish-bmc-http supports any HTTP implementation that
+/// implements this [`HttpClient`] trait.
 pub trait HttpClient: Send + Sync {
+    /// HTTP client error.
     type Error: Send + StdError;
 
     /// Perform an HTTP GET request with optional conditional headers.
@@ -237,13 +266,13 @@ where
     ///
     /// Existing cache and ETag state is preserved.
     ///
-    /// # Errors
+    /// # Panics
     ///
-    /// Returns an error if the credentials lock is poisoned.
-    pub fn set_credentials(&self, credentials: BmcCredentials) -> Result<(), String> {
-        let mut current = self.credentials.write().expect("poisoned");
-        *current = Arc::new(credentials);
-        Ok(())
+    /// Panics if the internal credentials lock is poisoned. This should not
+    /// occur in normal operation.
+    #[allow(clippy::panic)] // See panics section.
+    pub fn set_credentials(&self, credentials: BmcCredentials) {
+        *self.credentials.write().expect("poisoned") = Arc::new(credentials);
     }
 }
 
@@ -280,6 +309,7 @@ impl RedfishEndpoint {
 }
 
 /// `CacheSettings` for internal BMC cache with etags
+#[derive(Clone, Copy)]
 pub struct CacheSettings {
     capacity: usize,
 }
@@ -291,7 +321,9 @@ impl Default for CacheSettings {
 }
 
 impl CacheSettings {
-    pub fn with_capacity(capacity: usize) -> Self {
+    /// Define capacity of the cache measured in number of items.
+    #[must_use]
+    pub const fn with_capacity(capacity: usize) -> Self {
         Self { capacity }
     }
 }
@@ -326,6 +358,7 @@ impl<C: HttpClient> HttpBmc<C>
 where
     C::Error: CacheableError + StdError + Send + Sync,
 {
+    #[allow(clippy::panic)] // See set_credentials Panic doc.
     fn read_credentials(&self) -> Arc<BmcCredentials> {
         self.credentials
             .read()
