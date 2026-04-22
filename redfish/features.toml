@@ -118,7 +118,8 @@ patterns = [
 name = "network-device-functions"
 csdl_files = [
     "NetworkDeviceFunctionCollection_v1.xml",
-    "NetworkDeviceFunction_v1.xml"
+    "NetworkDeviceFunction_v1.xml",
+    "Protocol_v1.xml",
 ]
 patterns = [
     "NetworkDeviceFunctionCollection.*",

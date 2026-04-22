@@ -75,12 +75,22 @@ pub type RedfishVersion<'a> = TaggedType<&'a str, RedfishVersionTag>;
 pub enum RedfishVersionTag {}
 
 /// Represents `ServiceRoot` in the BMC model.
-#[derive(Clone)]
 pub struct ServiceRoot<B: Bmc> {
     /// Content of the root.
     pub root: Arc<SchemaServiceRoot>,
     #[allow(dead_code)] // feature-enabled field
     bmc: NvBmc<B>,
+}
+
+// Implement Clone manually to avoid requiring B: Clone; cloning only
+// needs Arc/NvBmc clones.
+impl<B: Bmc> Clone for ServiceRoot<B> {
+    fn clone(&self) -> Self {
+        Self {
+            root: self.root.clone(),
+            bmc: self.bmc.clone(),
+        }
+    }
 }
 
 impl<B: Bmc> ServiceRoot<B> {
