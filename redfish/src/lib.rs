@@ -43,6 +43,8 @@
 //! - Additional services and OEM extensions continue to be added over time.
 //!
 
+// Recursion limit still needed in this crate because otherwise doc
+// generation failed...
 #![recursion_limit = "256"]
 #![deny(
     clippy::all,

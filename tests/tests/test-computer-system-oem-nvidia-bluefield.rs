@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for NVIDIA Bluefield ComputerSystem OEM support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::oem::nvidia::bluefield::nvidia_computer_system::Mode;
 use nv_redfish::ServiceRoot;

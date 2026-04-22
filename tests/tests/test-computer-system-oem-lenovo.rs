@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for Lenovo ComputerSystem OEM support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::oem::lenovo::computer_system::FpMode;
 use nv_redfish::oem::lenovo::computer_system::PortSwitchingTo;

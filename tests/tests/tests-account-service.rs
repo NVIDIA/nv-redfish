@@ -15,8 +15,6 @@
 
 //! Integration tests of Account Service.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::account::AccountCollection;
 use nv_redfish::account::AccountService;
 use nv_redfish::account::AccountTypes;

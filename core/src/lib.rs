@@ -129,9 +129,9 @@ pub use serde_json::Value as AdditionalProperties;
 pub use uuid::Uuid as EdmGuid;
 
 /// Entity type reference trait implemented by the CSDL compiler
-/// for all generated entity types and for all `NavProperty<T>` where
+/// for all generated entity types and for all [`NavProperty<T>`] where
 /// `T` is a struct for an entity type.
-pub trait EntityTypeRef {
+pub trait EntityTypeRef: Send + Sync + Sized {
     /// Value of `@odata.id` field of the Entity.
     fn odata_id(&self) -> &ODataId;
 
@@ -141,16 +141,14 @@ pub trait EntityTypeRef {
     /// Refresh the entity by fetching it again from the BMC.
     fn refresh<B: Bmc>(&self, bmc: &B) -> impl Future<Output = Result<Arc<Self>, B::Error>> + Send
     where
-        Self: Sync + Send + 'static + Sized + for<'de> Deserialize<'de>,
+        Self: for<'de> Deserialize<'de> + 'static,
     {
         bmc.get::<Self>(self.odata_id())
     }
 }
 
 /// Defines entity types that support `$expand` via query parameters.
-pub trait Expandable:
-    EntityTypeRef + Send + Sync + Sized + 'static + for<'a> Deserialize<'a>
-{
+pub trait Expandable: EntityTypeRef + for<'de> Deserialize<'de> + 'static {
     /// Expand the entity according to the provided query.
     fn expand<B: Bmc>(
         &self,
@@ -187,8 +185,8 @@ pub enum ModificationResponse<T> {
 
 /// This trait is assigned to the collections that are marked as
 /// creatable in the CSDL specification.
-pub trait Creatable<V: Sync + Send + Serialize, R: Sync + Send + Sized + for<'de> Deserialize<'de>>:
-    EntityTypeRef + Sized
+pub trait Creatable<V: Send + Sync + Serialize, R: Send + Sync + for<'de> Deserialize<'de>>:
+    EntityTypeRef
 {
     /// Create an entity using `create` as payload.
     fn create<B: Bmc>(
@@ -202,10 +200,7 @@ pub trait Creatable<V: Sync + Send + Serialize, R: Sync + Send + Sized + for<'de
 
 /// This trait is assigned to entity types that are marked as
 /// updatable in the CSDL specification.
-pub trait Updatable<V: Sync + Send + Serialize>: EntityTypeRef + Sized
-where
-    Self: Sync + Send + Sized + for<'de> Deserialize<'de>,
-{
+pub trait Updatable<V: Sync + Send + Serialize>: EntityTypeRef + for<'de> Deserialize<'de> {
     /// Update an entity using `update` as payload.
     fn update<B: Bmc>(
         &self,
@@ -218,7 +213,7 @@ where
 
 /// This trait is assigned to entity types that are marked as
 /// deletable in the CSDL specification.
-pub trait Deletable: EntityTypeRef + Sized + Sync + Send + for<'de> Deserialize<'de> {
+pub trait Deletable: EntityTypeRef + for<'de> Deserialize<'de> {
     /// Delete current entity.
     fn delete<B: Bmc>(
         &self,

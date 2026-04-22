@@ -122,7 +122,7 @@ pub enum NavProperty<T: EntityTypeRef> {
 
 impl<'de, T> Deserialize<'de> for NavProperty<T>
 where
-    T: EntityTypeRef + for<'a> Deserialize<'a>,
+    T: EntityTypeRef + for<'dt> Deserialize<'dt>,
 {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
     where
@@ -164,8 +164,8 @@ impl<T: EntityTypeRef> EntityTypeRef for NavProperty<T> {
 
 impl<C, R, T: Creatable<C, R>> Creatable<C, R> for NavProperty<T>
 where
-    C: Sync + Send + Sized + Serialize,
-    R: Sync + Send + Sized + for<'de> Deserialize<'de>,
+    C: Send + Sync + Serialize,
+    R: Send + Sync + for<'de> Deserialize<'de>,
 {
 }
 impl<U, T: Updatable<U>> Updatable<U> for NavProperty<T> where U: Sync + Send + Sized + Serialize {}
@@ -207,7 +207,7 @@ impl<T: EntityTypeRef> NavProperty<T> {
     }
 }
 
-impl<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync> NavProperty<T> {
+impl<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static> NavProperty<T> {
     /// Get the property value.
     ///
     /// # Errors

@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for Lenovo Manager OEM support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::lenovo::manager::KcsState;
 use nv_redfish::oem::lenovo::security_service::FwRollbackState;

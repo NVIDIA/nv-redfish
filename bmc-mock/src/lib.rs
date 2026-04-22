@@ -23,6 +23,7 @@ use nv_redfish_core::action::ActionTarget;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc as NvRedfishBmc;
+use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
@@ -157,7 +158,7 @@ where
         }
     }
 
-    async fn get<T: nv_redfish_core::EntityTypeRef + Sized + for<'a> serde::Deserialize<'a>>(
+    async fn get<T: EntityTypeRef + for<'de> serde::Deserialize<'de>>(
         &self,
         in_id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -182,7 +183,7 @@ where
 
     async fn update<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> serde::Deserialize<'a>,
+        R: Sync + Send + Sized + for<'de> serde::Deserialize<'de>,
     >(
         &self,
         in_id: &ODataId,
@@ -215,7 +216,7 @@ where
 
     async fn create<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> serde::Deserialize<'a>,
+        R: Sync + Send + Sized + for<'de> serde::Deserialize<'de>,
     >(
         &self,
         in_id: &ODataId,
@@ -245,9 +246,7 @@ where
         }
     }
 
-    async fn delete<
-        R: nv_redfish_core::EntityTypeRef + Sync + Send + for<'de> serde::Deserialize<'de>,
-    >(
+    async fn delete<R: EntityTypeRef + for<'de> serde::Deserialize<'de>>(
         &self,
         in_id: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
@@ -268,7 +267,7 @@ where
 
     async fn action<
         T: Send + Sync + serde::Serialize,
-        R: Send + Sync + Sized + for<'a> serde::Deserialize<'a>,
+        R: Send + Sync + Sized + for<'de> serde::Deserialize<'de>,
     >(
         &self,
         action: &nv_redfish_core::Action<T, R>,
@@ -298,14 +297,7 @@ where
         }
     }
 
-    async fn filter<
-        T: nv_redfish_core::EntityTypeRef
-            + Sized
-            + for<'a> serde::Deserialize<'a>
-            + 'static
-            + Send
-            + Sync,
-    >(
+    async fn filter<T: EntityTypeRef + for<'de> serde::Deserialize<'de>>(
         &self,
         _id: &ODataId,
         _query: nv_redfish_core::FilterQuery,
@@ -313,7 +305,7 @@ where
         todo!("unimplemented")
     }
 
-    async fn stream<T: Sized + for<'a> serde::Deserialize<'a> + Send + 'static>(
+    async fn stream<T: Sized + for<'de> serde::Deserialize<'de> + Send + 'static>(
         &self,
         in_uri: &str,
     ) -> Result<nv_redfish_core::BoxTryStream<T, Self::Error>, Self::Error> {

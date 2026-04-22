@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for Supermicro Manager OEM support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::supermicro::Privilege;
 use nv_redfish::ServiceRoot;

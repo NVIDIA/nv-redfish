@@ -576,7 +576,7 @@ impl HttpClient for Client {
         self.handle_modification_response(response).await
     }
 
-    async fn sse<T: Sized + for<'a> serde::Deserialize<'a> + Send + 'static>(
+    async fn sse<T: Send + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
         url: Url,
         credentials: &BmcCredentials,

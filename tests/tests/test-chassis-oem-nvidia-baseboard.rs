@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for NVIDIA Baseboard CBC chassis OEM extension.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::chassis::Chassis;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;

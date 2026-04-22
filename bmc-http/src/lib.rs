@@ -122,7 +122,7 @@ pub trait HttpClient: Send + Sync {
         T: DeserializeOwned + Send + Sync;
 
     /// Open an SSE stream
-    fn sse<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
+    fn sse<T: Sized + for<'de> Deserialize<'de> + Send>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
@@ -374,9 +374,7 @@ where
     /// - Handling 304 Not Modified responses from cache
     /// - Updating cache and `ETag` storage on success
     #[allow(clippy::significant_drop_tightening)]
-    async fn get_with_cache<
-        T: EntityTypeRef + Sized + for<'de> Deserialize<'de> + 'static + Send + Sync,
-    >(
+    async fn get_with_cache<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         endpoint_url: Url,
         id: &ODataId,
@@ -449,7 +447,7 @@ where
 {
     type Error = C::Error;
 
-    async fn get<T: EntityTypeRef + Sized + for<'de> Deserialize<'de> + 'static + Send + Sync>(
+    async fn get<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -457,7 +455,7 @@ where
         self.get_with_cache(endpoint_url, id).await
     }
 
-    async fn expand<T: Expandable + Send + Sync + 'static>(
+    async fn expand<T: Expandable + 'static>(
         &self,
         id: &ODataId,
         query: ExpandQuery,
@@ -514,10 +512,7 @@ where
             .await
     }
 
-    async fn action<
-        T: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'de> Deserialize<'de>,
-    >(
+    async fn action<T: Send + Sync + Serialize, R: Send + Sync + for<'de> Deserialize<'de>>(
         &self,
         action: &Action<T, R>,
         params: &T,
@@ -534,7 +529,7 @@ where
             .await
     }
 
-    async fn filter<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
+    async fn filter<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
         query: FilterQuery,
@@ -546,7 +541,7 @@ where
         self.get_with_cache(endpoint_url, id).await
     }
 
-    async fn stream<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
+    async fn stream<T: Send + Sized + for<'de> Deserialize<'de>>(
         &self,
         uri: &str,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {

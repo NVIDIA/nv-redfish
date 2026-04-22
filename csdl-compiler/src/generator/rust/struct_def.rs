@@ -172,11 +172,27 @@ impl<'a> StructDef<'a> {
         content.extend(all_properties);
 
         let name = self.name;
+        // Note: Manual implementation of Send and Sync is needed to
+        // help compiler. It goes through all properties deeper and
+        // deepr in the Redfish tree until it hits the recursion
+        // limit. Increasing recursion limit to 256 helps with the
+        // regular Redfish tree but it should be done client code on
+        // top level of module and this is sucks. We guarantee that
+        // all types inside tree are primitive (Strings, integers
+        // DateTimes) or entity reference wich can contain Arc but
+        // still they are Send and Sync.
+        //
+        // So, we create shortcut for compiler and state that we
+        // guarantee Send and Sync here and below.
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
             quote! {
                 #[derive(Deserialize, Debug)]
                 pub struct #name { #content }
+                #[doc = "SAFETY: All generated data types are Send"]
+                unsafe impl Send for #name {}
+                #[doc = "SAFETY: All generated data types are Sync"]
+                unsafe impl Sync for #name {}
             },
         ]);
 

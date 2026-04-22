@@ -495,7 +495,7 @@ impl Bmc for MockBmc {
         todo!("unimplimented")
     }
 
-    async fn filter<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
+    async fn filter<T: EntityTypeRef + for<'de> Deserialize<'de>>(
         &self,
         _id: &ODataId,
         _query: nv_redfish_core::FilterQuery,
@@ -503,7 +503,7 @@ impl Bmc for MockBmc {
         todo!("unimplimented")
     }
 
-    async fn get<T: EntityTypeRef + Sized + for<'a> Deserialize<'a>>(
+    async fn get<T: EntityTypeRef + for<'de> Deserialize<'de>>(
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
@@ -516,7 +516,7 @@ impl Bmc for MockBmc {
 
     async fn update<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> Deserialize<'a>,
+        R: Sync + Send + Sized + for<'de> Deserialize<'de>,
     >(
         &self,
         id: &ODataId,
@@ -535,7 +535,7 @@ impl Bmc for MockBmc {
 
     async fn create<
         V: Sync + Send + Serialize,
-        R: Sync + Send + Sized + for<'a> Deserialize<'a>,
+        R: Sync + Send + Sized + for<'de> Deserialize<'de>,
     >(
         &self,
         id: &ODataId,
@@ -551,7 +551,7 @@ impl Bmc for MockBmc {
         Ok(ModificationResponse::Entity(result))
     }
 
-    async fn delete<R: EntityTypeRef + Sync + Send + for<'de> Deserialize<'de>>(
+    async fn delete<R: EntityTypeRef + for<'de> Deserialize<'de>>(
         &self,
         _id: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
@@ -560,22 +560,17 @@ impl Bmc for MockBmc {
 
     async fn action<
         T: Send + Sync + serde::Serialize,
-        R: Send + Sync + Sized + for<'a> Deserialize<'a>,
+        R: Send + Sync + Sized + for<'de> Deserialize<'de>,
     >(
         &self,
         _action: &Action<T, R>,
         _params: &T,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        //println!(
-        //    "BMC Action {}: {}",
-        //    action.target,
-        //    serde_json::to_string(params).expect("serializable")
-        //);
         let result: R = serde_json::from_str("null").map_err(Error::ParseError)?;
         Ok(ModificationResponse::Entity(result))
     }
 
-    async fn stream<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
+    async fn stream<T: Send + Sized + for<'de> Deserialize<'de> + 'static>(
         &self,
         _id: &str,
     ) -> Result<nv_redfish_core::BoxTryStream<T, Self::Error>, Self::Error> {

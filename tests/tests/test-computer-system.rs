@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for Computer System resources.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::computer_system::SystemCollection;
 use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;

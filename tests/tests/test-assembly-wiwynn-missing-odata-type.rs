@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for WIWYNN assembly payloads missing `@odata.type`.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::chassis::Chassis;
 use nv_redfish::hardware_id::Model;
 use nv_redfish::hardware_id::PartNumber;

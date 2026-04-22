@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for Chassis collection workaround behavior.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;

@@ -13,8 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#![recursion_limit = "256"]
-
 use clap::Parser;
 use futures_util::TryStreamExt;
 use nv_redfish::bmc_http::reqwest::{Client, ClientParams};

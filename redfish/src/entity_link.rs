@@ -81,7 +81,7 @@ impl<B: Bmc, T: EntityTypeRef> EntityLink<B, T> {
 impl<B, T> EntityLink<B, T>
 where
     B: Bmc,
-    T: EntityTypeRef + for<'de> Deserialize<'de> + Send + Sync + 'static,
+    T: EntityTypeRef + for<'de> Deserialize<'de> + 'static,
 {
     /// Fetch the entity from the BMC.
     ///
@@ -138,7 +138,7 @@ where
 /// `NavProperty<T>` to be constructed (i.e., no extra context).
 pub trait FromLink<B: Bmc>: Sized {
     /// The schema type this wrapper is built from.
-    type Schema: EntityTypeRef + for<'de> Deserialize<'de> + Send + Sync + 'static;
+    type Schema: EntityTypeRef + for<'de> Deserialize<'de>;
 
     /// Construct the full wrapper by fetching entity data.
     fn from_link(

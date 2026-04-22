@@ -101,7 +101,7 @@ pub trait ActionError {
     fn not_supported() -> Self;
 }
 
-impl<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'a> Deserialize<'a>> Action<T, R> {
+impl<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'de> Deserialize<'de>> Action<T, R> {
     /// Run specific action with parameters passed as argument.
     ///
     /// # Errors

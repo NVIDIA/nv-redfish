@@ -74,7 +74,7 @@ pub trait Bmc: Send + Sync {
     /// Expand any expandable object (navigation property or entity).
     ///
     /// `T` is structure that is used for return type.
-    fn expand<T: Expandable + Send + Sync + 'static>(
+    fn expand<T: Expandable>(
         &self,
         id: &ODataId,
         query: ExpandQuery,
@@ -83,7 +83,7 @@ pub trait Bmc: Send + Sync {
     /// Get data of the object (navigation property or entity).
     ///
     /// `T` is structure that is used for return type.
-    fn get<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
+    fn get<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
     ) -> impl Future<Output = Result<Arc<T>, Self::Error>> + Send;
@@ -91,7 +91,7 @@ pub trait Bmc: Send + Sync {
     /// Get and filters data of the object (navigation property or entity).
     ///
     /// `T` is structure that is used for return type.
-    fn filter<T: EntityTypeRef + Sized + for<'a> Deserialize<'a> + 'static + Send + Sync>(
+    fn filter<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
         query: FilterQuery,
@@ -101,7 +101,7 @@ pub trait Bmc: Send + Sync {
     ///
     /// `V` is structure that is used for create.
     /// `R` is structure that is used for return type.
-    fn create<V: Sync + Send + Serialize, R: Send + Sync + Sized + for<'a> Deserialize<'a>>(
+    fn create<V: Send + Sync + Serialize, R: Send + Sync + for<'de> Deserialize<'de>>(
         &self,
         id: &ODataId,
         query: &V,
@@ -111,7 +111,7 @@ pub trait Bmc: Send + Sync {
     ///
     /// `V` is structure that is used for update.
     /// `R` is structure that is used for return type (updated entity).
-    fn update<V: Sync + Send + Serialize, R: Send + Sync + Sized + for<'a> Deserialize<'a>>(
+    fn update<V: Sync + Send + Serialize, R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
         &self,
         id: &ODataId,
         etag: Option<&ODataETag>,
@@ -119,7 +119,7 @@ pub trait Bmc: Send + Sync {
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// Delete entity.
-    fn delete<R: EntityTypeRef + Sync + Send + for<'de> Deserialize<'de>>(
+    fn delete<R: EntityTypeRef + for<'de> Deserialize<'de>>(
         &self,
         id: &ODataId,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
@@ -128,7 +128,7 @@ pub trait Bmc: Send + Sync {
     ///
     /// `T` is structure that contains action parameters.
     /// `R` is structure with return type.
-    fn action<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'a> Deserialize<'a>>(
+    fn action<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
         &self,
         action: &Action<T, R>,
         params: &T,
@@ -137,7 +137,7 @@ pub trait Bmc: Send + Sync {
     /// Stream data for the URI.
     ///
     /// `T` is structure that is used for the stream return type.
-    fn stream<T: Sized + for<'a> Deserialize<'a> + Send + 'static>(
+    fn stream<T: Sized + for<'de> Deserialize<'de> + Send + 'static>(
         &self,
         uri: &str,
     ) -> impl Future<Output = Result<BoxTryStream<T, Self::Error>, Self::Error>> + Send;

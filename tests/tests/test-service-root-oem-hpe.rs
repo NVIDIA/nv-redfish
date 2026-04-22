@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for HPE ServiceRoot OEM extension support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::oem::hpe::ilo_service_ext::ManagerType;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;

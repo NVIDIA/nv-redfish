@@ -48,10 +48,6 @@ For smaller binaries and faster compilation, enable only the specific service/OE
 Minimal shape:
 
 ```rust
-// Recursion limit is need to be increased because Redfish has deep
-// tree of types reference to each other.
-#![recursion_limit = "256"]
-
 use nv_redfish::ServiceRoot;
 use nv_redfish_bmc_http::reqwest::Client;
 use nv_redfish_bmc_http::{BmcCredentials, CacheSettings, HttpBmc};

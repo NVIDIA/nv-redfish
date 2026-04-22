@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for HPE Manager OEM support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::manager::Manager;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;

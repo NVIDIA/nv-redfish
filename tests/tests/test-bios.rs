@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests of BIOS support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::computer_system::Bios;
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::ServiceRoot;

@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for LiteOn OEM power supply links via chassis.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::chassis::Chassis;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;

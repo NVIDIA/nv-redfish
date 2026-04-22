@@ -15,8 +15,6 @@
 
 //! Integration tests of Update Service.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::update_service::UpdateService;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::EntityTypeRef;

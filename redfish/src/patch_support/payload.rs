@@ -47,7 +47,7 @@ use serde::Serialize;
 pub trait UpdateWithPatch<T, V, B>
 where
     V: Serialize + Send + Sync,
-    T: EntityTypeRef + Updatable<V> + Sync + Send,
+    T: Updatable<V>,
     B: Bmc,
 {
     fn entity_ref(&self) -> &T;
@@ -88,7 +88,7 @@ impl Payload {
         f: F,
     ) -> Result<Arc<T>, Error<B>>
     where
-        T: EntityTypeRef + for<'a> Deserialize<'a> + Send + Sync + 'static,
+        T: EntityTypeRef + for<'de> Deserialize<'de> + 'static,
         B: Bmc,
         F: FnOnce(JsonValue) -> JsonValue,
     {
@@ -200,7 +200,7 @@ impl Updator<'_> {
     ) -> Result<ModificationResponse<T>, Error<B>>
     where
         B: Bmc,
-        T: EntityTypeRef + for<'de> Deserialize<'de> + Sync + Send,
+        T: EntityTypeRef + for<'de> Deserialize<'de>,
         U: Serialize + Send + Sync,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {

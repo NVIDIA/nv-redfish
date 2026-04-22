@@ -15,8 +15,6 @@
 
 //! Integration tests of Session Service.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::session_service::SessionCollection;
 use nv_redfish::session_service::SessionCreate;
 use nv_redfish::session_service::SessionService;

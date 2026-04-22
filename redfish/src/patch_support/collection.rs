@@ -46,8 +46,8 @@ use serde::Serialize;
 /// Example of usage is in `AccountCollection` implementation.
 pub trait CollectionWithPatch<T, M, B>
 where
-    T: EntityTypeRef + Expandable + Send + Sync + 'static,
-    M: EntityTypeRef + Send + Sync + for<'de> Deserialize<'de>,
+    T: Expandable + 'static,
+    M: EntityTypeRef + for<'de> Deserialize<'de>,
     B: Bmc,
 {
     fn convert_patched(base: ResourceCollection, members: Vec<NavProperty<M>>) -> T;
@@ -81,7 +81,7 @@ where
 #[cfg(feature = "patch-collection-create")]
 pub trait CreateWithPatch<T, M, C, B>
 where
-    T: EntityTypeRef + Creatable<C, M> + Sync + Send,
+    T: Creatable<C, M>,
     C: Serialize + Sync + Send,
     M: for<'de> Deserialize<'de> + Sync + Send,
     B: Bmc,
@@ -125,7 +125,7 @@ impl Collection {
         f: F,
     ) -> Result<ModificationResponse<V>, Error<B>>
     where
-        T: EntityTypeRef + Sync + Send,
+        T: EntityTypeRef,
         V: for<'de> Deserialize<'de>,
         B: Bmc,
         C: Serialize + Sync + Send,

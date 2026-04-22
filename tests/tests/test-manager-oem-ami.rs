@@ -14,8 +14,6 @@
 // limitations under the License.
 //! Integration tests for AMI Manager OEM ConfigBMC support.
 
-#![recursion_limit = "256"]
-
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::ami::config_bmc::LockdownBiosSettingsChangeState;
 use nv_redfish::oem::ami::config_bmc::LockdownBiosUpgradeDowngradeState;
