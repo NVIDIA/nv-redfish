@@ -189,6 +189,98 @@ async fn anonymous_1_9_0_wrong_chassis_status_state_workaround() -> Result<(), B
 }
 
 #[test]
+async fn nvidia_empty_chassis_uuid_in_expanded_members_workaround() -> Result<(), Box<dyn StdError>>
+{
+    // Platform under test: NVIDIA chassis platforms (for example, BlueField).
+    // Quirk under test: Chassis.UUID="" in inline collection members.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_nvidia_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [
+                {
+                    ODATA_ID: &ids.chassis_id,
+                    ODATA_TYPE: CHASSIS_DATA_TYPE,
+                    "Id": "1",
+                    "Name": "Chassis",
+                    "ChassisType": "RackMount",
+                    "UUID": ""
+                }
+            ]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].raw().uuid, Some(None));
+
+    Ok(())
+}
+
+#[test]
+async fn nvidia_empty_chassis_uuid_on_member_fetch_workaround() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA chassis platforms (for example, BlueField).
+    // Quirk under test: Chassis.UUID="" in member payload fetched by link.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_nvidia_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [
+                {
+                    ODATA_ID: &ids.chassis_id
+                }
+            ]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    expect_chassis_get(
+        bmc.clone(),
+        &ids,
+        json!({
+            ODATA_ID: &ids.chassis_id,
+            ODATA_TYPE: CHASSIS_DATA_TYPE,
+            "Id": "1",
+            "Name": "Chassis",
+            "ChassisType": "RackMount",
+            "UUID": ""
+        }),
+    );
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].raw().uuid, Some(None));
+
+    Ok(())
+}
+
+#[test]
 async fn nvswitch_wrong_location_part_location_type_workaround() -> Result<(), Box<dyn StdError>> {
     // Platform under test: NVSwitch (`Vendor=NVIDIA`, `Product=P3809`).
     // Quirk under test: invalid Location.PartLocation.LocationType="Unknown".
@@ -260,6 +352,37 @@ async fn expect_anonymous_1_9_service_root(
     bmc.expect(Expect::get(
         &ids.root_id,
         anonymous_1_9_service_root(&ids.root_id, fields),
+    ));
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_nvidia_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    fields: Value,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        json_merge([
+            &json!({
+                ODATA_ID: &ids.root_id,
+                ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+                "Id": "RootService",
+                "Name": "RootService",
+                "Vendor": "NVIDIA",
+                "ProtocolFeaturesSupported": {
+                    "ExpandQuery": {
+                        "NoLinks": true
+                    }
+                },
+                "Links": {
+                    "Sessions": {
+                        ODATA_ID: format!("{}/SessionService/Sessions", ids.root_id),
+                    }
+                },
+            }),
+            &fields,
+        ]),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }

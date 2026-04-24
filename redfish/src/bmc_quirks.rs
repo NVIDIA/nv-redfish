@@ -126,6 +126,13 @@ impl BmcQuirks {
         self.platform == Some(Platform::AmiViking)
     }
 
+    /// Some NVIDIA chassis payloads return `UUID` as an empty string
+    /// instead of `null` or omitting the field.
+    #[cfg(feature = "chassis")]
+    pub(crate) fn bug_empty_chassis_uuid_field(&self) -> bool {
+        self.platform == Some(Platform::Nvidia)
+    }
+
     /// Missing Name property in Chassis resource. This property is
     /// required in any resource.
     #[cfg(feature = "update-service")]
