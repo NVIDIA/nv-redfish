@@ -93,7 +93,7 @@ impl Config {
         if quirks.bug_missing_chassis_name_field() {
             patches.push(add_default_chassis_name);
         }
-        if quirks.bug_empty_chassis_uuid_field() {
+        if quirks.bug_empty_uuid_field() {
             patches.push(normalize_empty_uuid_field);
         }
         let read_patch_fn = (!patches.is_empty())

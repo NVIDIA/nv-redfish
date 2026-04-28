@@ -109,7 +109,10 @@ impl<B: Bmc> SystemCollection<B> {
             }));
         }
         if bmc.quirks.computer_systems_wrong_last_reset_time() {
-            patches.push(computer_systems_wrong_last_reset_time);
+            patches.push(computer_systems_wrong_last_reset_time as fn(JsonValue) -> JsonValue);
+        }
+        if bmc.quirks.bug_empty_uuid_field() {
+            patches.push(normalize_empty_uuid_field);
         }
         let read_patch_fn = (!patches.is_empty())
             .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
@@ -182,4 +185,16 @@ fn computer_systems_wrong_last_reset_time(v: JsonValue) -> JsonValue {
     } else {
         v
     }
+}
+
+fn normalize_empty_uuid_field(mut v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(ref mut obj) = v {
+        if let Some(uuid) = obj.get_mut("UUID") {
+            let is_empty = uuid.as_str().is_some_and(str::is_empty);
+            if is_empty {
+                *uuid = JsonValue::Null;
+            }
+        }
+    }
+    v
 }

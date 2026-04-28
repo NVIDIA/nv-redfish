@@ -103,6 +103,70 @@ async fn anonymous_1_9_0_missing_root_systems_nav_workaround() -> Result<(), Box
     Ok(())
 }
 
+#[test]
+async fn nvidia_dpu_empty_system_uuid_in_expanded_members_workaround(
+) -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA DPU (`Vendor=Nvidia`, `Product=Nvidia-BMCMezz`).
+    // Quirk under test: ComputerSystem.UUID="" in inline collection members.
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let service_root = expect_nvidia_dpu_service_root(bmc.clone(), &ids).await?;
+    bmc.expect(Expect::expand(
+        &ids.systems_id,
+        json!({
+            ODATA_ID: &ids.systems_id,
+            ODATA_TYPE: &SYSTEM_COLLECTION_DATA_TYPE,
+            "Id": resource_name(&ids.systems_id),
+            "Name": "Computer System Collection",
+            "Members": [
+                computer_system(&ids, json!({ "UUID": "" }))
+            ]
+        }),
+    ));
+
+    let systems = service_root.systems().await?.unwrap();
+    let members = systems.members().await?;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].raw().uuid, Some(None));
+
+    Ok(())
+}
+
+#[test]
+async fn nvidia_dpu_empty_system_uuid_on_member_fetch_workaround() -> Result<(), Box<dyn StdError>>
+{
+    // Platform under test: NVIDIA DPU (`Vendor=Nvidia`, `Product=Nvidia-BMCMezz`).
+    // Quirk under test: ComputerSystem.UUID="" in member payload fetched by link.
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let service_root = expect_nvidia_dpu_service_root(bmc.clone(), &ids).await?;
+    bmc.expect(Expect::expand(
+        &ids.systems_id,
+        json!({
+            ODATA_ID: &ids.systems_id,
+            ODATA_TYPE: &SYSTEM_COLLECTION_DATA_TYPE,
+            "Id": resource_name(&ids.systems_id),
+            "Name": "Computer System Collection",
+            "Members": [
+                {
+                    ODATA_ID: &ids.system_id
+                }
+            ]
+        }),
+    ));
+
+    let systems = service_root.systems().await?.unwrap();
+    bmc.expect(Expect::get(
+        &ids.system_id,
+        computer_system(&ids, json!({ "UUID": "" })),
+    ));
+    let members = systems.members().await?;
+    assert_eq!(members.len(), 1);
+    assert_eq!(members[0].raw().uuid, Some(None));
+
+    Ok(())
+}
+
 async fn get_systems(
     bmc: Arc<Bmc>,
     ids: &ComputerSystemIds,
@@ -127,6 +191,36 @@ async fn get_systems(
         .await
         .map(Option::unwrap)
         .map_err(Into::into)
+}
+
+async fn expect_nvidia_dpu_service_root(
+    bmc: Arc<Bmc>,
+    ids: &ComputerSystemIds,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        json!({
+            ODATA_ID: &ids.root_id,
+            ODATA_TYPE: SERVICE_ROOT_DATA_TYPE,
+            "Id": "RootService",
+            "Name": "RootService",
+            "ProtocolFeaturesSupported": {
+                "ExpandQuery": {
+                    "NoLinks": true
+                }
+            },
+            "Systems": { ODATA_ID: &ids.systems_id },
+            "Vendor": "Nvidia",
+            "Product": "Nvidia-BMCMezz",
+            "Links": {
+                "Sessions": {
+                    ODATA_ID: format!("{}/SessionService/Sessions", ids.root_id),
+                }
+            },
+        }),
+    ));
+
+    ServiceRoot::new(bmc).await.map_err(Into::into)
 }
 
 async fn expect_service_root(

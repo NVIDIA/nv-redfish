@@ -33,6 +33,7 @@ enum Platform {
     Dell,
     AmiViking,
     Nvidia,
+    NvidiaDpu,
     Anonymous1_9_0,
     NvSwitch,
 }
@@ -48,6 +49,7 @@ impl BmcQuirks {
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
+            Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
@@ -126,11 +128,11 @@ impl BmcQuirks {
         self.platform == Some(Platform::AmiViking)
     }
 
-    /// Some NVIDIA chassis payloads return `UUID` as an empty string
-    /// instead of `null` or omitting the field.
-    #[cfg(feature = "chassis")]
-    pub(crate) fn bug_empty_chassis_uuid_field(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    /// NVIDIA DPU sometimes returns empty string UUID in
+    /// chassis/computer system payloads when DPU is in NIC mode.
+    #[cfg(any(feature = "chassis", feature = "computer-systems"))]
+    pub(crate) fn bug_empty_uuid_field(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
     }
 
     /// Missing Name property in Chassis resource. This property is

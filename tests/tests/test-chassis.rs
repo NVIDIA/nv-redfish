@@ -187,10 +187,11 @@ async fn anonymous_1_9_0_wrong_chassis_status_state_workaround() -> Result<(), B
 }
 
 #[test]
-async fn nvidia_empty_chassis_uuid_in_expanded_members_workaround() -> Result<(), Box<dyn StdError>>
-{
-    // Platform under test: NVIDIA chassis platforms (for example, BlueField).
-    // Quirk under test: Chassis.UUID="" in inline collection members.
+async fn nvidia_dpu_empty_chassis_uuid_in_expanded_members_workaround(
+) -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA DPU.
+    // Quirk under test: Sometimes Chassis.UUID="" in inline
+    // collection members when DPU is in NIC mode.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let root = expect_nvidia_service_root(
@@ -230,9 +231,11 @@ async fn nvidia_empty_chassis_uuid_in_expanded_members_workaround() -> Result<()
 }
 
 #[test]
-async fn nvidia_empty_chassis_uuid_on_member_fetch_workaround() -> Result<(), Box<dyn StdError>> {
-    // Platform under test: NVIDIA chassis platforms (for example, BlueField).
-    // Quirk under test: Chassis.UUID="" in member payload fetched by link.
+async fn nvidia_dpu_empty_chassis_uuid_on_member_fetch_workaround() -> Result<(), Box<dyn StdError>>
+{
+    // Platform under test: NVIDIA DPU.
+    // Quirk under test: Sometimes Chassis.UUID="" in member payload
+    // fetched by link.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let root = expect_nvidia_service_root(
@@ -367,7 +370,8 @@ async fn expect_nvidia_service_root(
                 ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
                 "Id": "RootService",
                 "Name": "RootService",
-                "Vendor": "NVIDIA",
+                "Vendor": "Nvidia",
+                "Product": "Nvidia-BMCMezz",
                 "ProtocolFeaturesSupported": {
                     "ExpandQuery": {
                         "NoLinks": true
