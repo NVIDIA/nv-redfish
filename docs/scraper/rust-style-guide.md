@@ -91,6 +91,17 @@ New scraper `Cargo.toml` files must start with this header:
 - Do not add placeholder feature flags, scheduler knobs, stats, costs, classes,
   limits, or runtime events before code or tests consume them.
 
+## Import style
+
+- Do not use grouped imports such as `use crate::{A, B};` or
+  `use std::{collections::HashMap, time::Instant};` in scraper code.
+- Prefer one imported item per `use` statement. This keeps diffs smaller and
+  reduces merge conflicts.
+- Keep imports local and explicit. Avoid broad wildcard imports except where a
+  narrow test module has a clear reason.
+- Apply this style to scraper source files, integration tests, and shared test
+  helpers.
+
 ## Generic types and trait bounds
 
 - Do not derive traits on public generic payload wrappers when that would impose
@@ -167,6 +178,11 @@ New scraper `Cargo.toml` files must start with this header:
 - Include at least one test shape that proves event and error payloads do not need
   `Clone`, `Debug`, `Eq`, or `PartialEq` when the public API should not require
   those bounds.
+- Split integration tests by behavior domain, not by implementation phase. For
+  example, prefer files such as `ids.rs`, `control.rs`, `scheduling.rs`,
+  `output.rs`, `completion.rs`, and `discovery_flow.rs` over `phase_0.rs`.
+- Put reusable fake generators, fake events, and assertion helpers in shared test
+  helper modules when that avoids copy/paste without hiding test intent.
 - Build reports or expected projections from drained outputs with iterator
   adapters when practical.
 - Do not hide impossible configurations. Tests should make requested behavior and
