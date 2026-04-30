@@ -53,6 +53,58 @@ scraper/
       flat_rr.rs
 ```
 
+Every new file added for this crate must begin with the full project header for
+2026.
+
+For Rust source and test files, use this exact header:
+
+```rust
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+```
+
+This applies to all Rust files added for this phase, including:
+
+- `scraper/src/lib.rs`,
+- `scraper/src/generator.rs`,
+- `scraper/src/ids.rs`,
+- `scraper/src/output.rs`,
+- `scraper/src/runtime.rs`,
+- `scraper/src/scheduler/mod.rs`,
+- `scraper/src/scheduler/flat_rr.rs`,
+- any `scraper/tests/*.rs` test files added for this phase.
+
+For `scraper/Cargo.toml`, use the same full header with TOML comment syntax:
+
+```toml
+# SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+# SPDX-License-Identifier: Apache-2.0
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+# http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+```
+
 The package name must be:
 
 ```toml
@@ -116,7 +168,7 @@ expose these concepts from the crate root so tests and applications can use the
 runtime without depending on private modules:
 
 ```rust
-pub struct Runtime<E, Err, R = std::convert::Infallible>;
+pub struct Runtime<'rt, E, Err, R = std::convert::Infallible>;
 
 pub struct TargetConfig {}
 
@@ -132,30 +184,28 @@ pub struct Readiness {
     pub next_ready_at: Option<std::time::Instant>,
 }
 
-pub trait Generator<E, Err>: Send {
+pub trait Generator<'rt, E, Err>: Send {
     fn update_ready(&mut self, now: std::time::Instant) -> Readiness;
-    fn take_next(&mut self) -> Option<ScheduledWork<E, Err>>;
+    fn take_next(&mut self) -> Option<ScheduledWork<'rt, E, Err>>;
     fn on_complete(&mut self, completion: &WorkCompletion);
 }
 
-pub struct ScheduledWork<E, Err> { /* private */ }
+pub struct ScheduledWork<'rt, E, Err> { /* private */ }
 
-impl<E, Err> ScheduledWork<E, Err> {
+impl<'rt, E, Err> ScheduledWork<'rt, E, Err> {
     pub fn new<F>(future: F) -> Self
     where
-        F: std::future::Future<Output = Result<Vec<E>, Err>> + Send + 'static;
+        F: std::future::Future<Output = Result<Vec<E>, Err>> + Send + 'rt;
 }
 
 pub type WorkResult<E, Err> = Result<WorkSuccess<E>, WorkError<Err>>;
 
 pub struct WorkSuccess<E> {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub events: Vec<E>,
 }
 
 pub struct WorkError<Err> {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub error: Err,
 }
@@ -166,7 +216,6 @@ pub enum RuntimeOutput<E, Err, R = std::convert::Infallible> {
 }
 
 pub struct WorkCompletion {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub outcome: WorkOutcome,
 }
@@ -181,7 +230,7 @@ pub enum RunOnce {
     Idle,
 }
 
-impl<E, Err, R> Runtime<E, Err, R> {
+impl<'rt, E, Err, R> Runtime<'rt, E, Err, R> {
     pub fn new() -> Self;
 
     pub fn add_target(&mut self, config: TargetConfig) -> TargetId;
@@ -193,7 +242,7 @@ impl<E, Err, R> Runtime<E, Err, R> {
         generator: G,
     ) -> Result<GeneratorId, AddGeneratorError>
     where
-        G: Generator<E, Err> + 'static;
+        G: Generator<'rt, E, Err> + 'rt;
 
     pub fn remove_generator(&mut self, generator_id: GeneratorId) -> bool;
 
@@ -323,9 +372,9 @@ Future:
 ### `Generator` trait
 
 ```rust
-pub trait Generator<E, Err>: Send {
+pub trait Generator<'rt, E, Err>: Send {
     fn update_ready(&mut self, now: std::time::Instant) -> Readiness;
-    fn take_next(&mut self) -> Option<ScheduledWork<E, Err>>;
+    fn take_next(&mut self) -> Option<ScheduledWork<'rt, E, Err>>;
     fn on_complete(&mut self, completion: &WorkCompletion);
 }
 ```
@@ -358,7 +407,7 @@ Future:
 #### `Generator::take_next`
 
 ```rust
-fn take_next(&mut self) -> Option<ScheduledWork<E, Err>>;
+fn take_next(&mut self) -> Option<ScheduledWork<'rt, E, Err>>;
 ```
 
 MVP behavior:
@@ -388,7 +437,7 @@ MVP behavior:
 
 - called exactly once after work produced by this generator finishes,
 - called after the runtime enqueues the corresponding `RuntimeOutput::Work`,
-- receives runtime-owned source ids and success/failure outcome,
+- receives runtime-owned generator id and success/failure outcome,
 - does not receive event payloads or error payloads.
 
 Future:
@@ -405,7 +454,7 @@ pub fn add_generator<G>(
     generator: G,
 ) -> Result<GeneratorId, AddGeneratorError>
 where
-    G: Generator<E, Err> + 'static;
+    G: Generator<'rt, E, Err> + 'rt;
 ```
 
 MVP behavior:
@@ -463,18 +512,23 @@ Future:
 ### `ScheduledWork`
 
 ```rust
-pub struct ScheduledWork<E, Err> { /* private */ }
+pub struct ScheduledWork<'rt, E, Err> { /* private */ }
 
-impl<E, Err> ScheduledWork<E, Err> {
+impl<'rt, E, Err> ScheduledWork<'rt, E, Err> {
     pub fn new<F>(future: F) -> Self
     where
-        F: std::future::Future<Output = Result<Vec<E>, Err>> + Send + 'static;
+        F: std::future::Future<Output = Result<Vec<E>, Err>> + Send + 'rt;
 }
 ```
 
 MVP behavior:
 
 - wraps a boxed, pinned, sendable future,
+- the future itself must be `Send`, but `E` and `Err` should not receive
+  explicit `Send` bounds unless the compiler requires them for the chosen storage
+  strategy; avoid public payload bounds that are not forced by behavior,
+- the future lifetime is tied to the runtime lifetime `'rt` and must not be
+  unnecessarily forced to `'static`,
 - future output is payload-only: `Result<Vec<E>, Err>`,
 - `Ok(Vec<E>)` means the work succeeded and produced zero or more events,
 - `Err(Err)` means the work failed,
@@ -485,7 +539,7 @@ MVP behavior:
 Runtime-owned enrichment:
 
 - runtime awaits `ScheduledWork`,
-- runtime attaches `target_id` and `generator_id`,
+- runtime attaches `generator_id`,
 - runtime constructs `WorkSuccess<E>` or `WorkError<Err>`,
 - runtime enqueues `RuntimeOutput::Work(result)`.
 
@@ -499,7 +553,6 @@ Future:
 
 ```rust
 pub struct WorkSuccess<E> {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub events: Vec<E>,
 }
@@ -508,8 +561,12 @@ pub struct WorkSuccess<E> {
 MVP behavior:
 
 - constructed only by the runtime,
-- identifies the target and generator that produced the work,
+- identifies the generator that produced the work,
+- the target can be recovered with `generator_id.target_id()`,
 - contains events in the exact order returned by the work future.
+- must not derive traits such as `Clone`, `Copy`, `Debug`, `Eq`, `PartialEq`,
+  or `Hash` when doing so would add trait bounds on `E`.
+
 
 Future:
 
@@ -520,7 +577,6 @@ Future:
 
 ```rust
 pub struct WorkError<Err> {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub error: Err,
 }
@@ -529,8 +585,12 @@ pub struct WorkError<Err> {
 MVP behavior:
 
 - constructed only by the runtime,
-- identifies the target and generator whose work failed,
+- identifies the generator whose work failed,
+- the target can be recovered with `generator_id.target_id()`,
 - carries the generic work error value returned by the work future.
+- must not derive traits such as `Clone`, `Copy`, `Debug`, `Eq`, `PartialEq`,
+  or `Hash` when doing so would add trait bounds on `Err`.
+
 
 Future:
 
@@ -540,7 +600,6 @@ Future:
 
 ```rust
 pub struct WorkCompletion {
-    pub target_id: TargetId,
     pub generator_id: GeneratorId,
     pub outcome: WorkOutcome,
 }
@@ -555,7 +614,8 @@ MVP behavior:
 
 - constructed by the runtime,
 - sent to the generator that created the completed work,
-- contains ids and outcome only,
+- contains generator id and outcome only; target id is available through
+  `generator_id.target_id()`,
 - does not expose events or errors to `on_complete`.
 
 Future:
@@ -705,13 +765,13 @@ Future:
 Phase 0 runtime should use an internal shape equivalent to:
 
 ```text
-Runtime<E, Err, R = Infallible>
-  inner: RuntimeInner<E, Err, R>
+Runtime<'rt, E, Err, R = Infallible>
+  inner: RuntimeInner<'rt, E, Err, R>
 
 RuntimeInner
   next_target_id: u64
   targets: HashMap<TargetId, TargetState>
-  generators: HashMap<GeneratorId, GeneratorSlot<E, Err>>
+  generators: HashMap<GeneratorId, GeneratorSlot<'rt, E, Err>>
   scheduler: FlatRoundRobin
   outputs: VecDeque<RuntimeOutput<E, Err, R>>
 
@@ -719,8 +779,8 @@ TargetState
   next_generator_id: u64
   generators: Vec<GeneratorId>
 
-GeneratorSlot<E, Err>
-  generator: Box<dyn Generator<E, Err>>
+GeneratorSlot<'rt, E, Err>
+  generator: Box<dyn Generator<'rt, E, Err> + 'rt>
 
 FlatRoundRobin
   order/cursor data only
@@ -768,10 +828,21 @@ Required scan behavior:
 6. Removed generator ids are deleted from scheduler state and are never returned
    again.
 
-Future:
+Internal scheduler API style:
 
-- this module can be replaced by hierarchical root/target scheduling,
-- tests should avoid depending on private cursor details.
+- Do not model scanning with mutable out-parameters such as
+  `next_candidate(&mut self, remaining: &mut usize)`.
+- Prefer a functional approach for internal scheduler/runtime helpers whenever
+  practical: return computed values, updated cursor positions, or updated state
+  instead of requiring callers to coordinate multiple mutable arguments.
+- `&mut self` is acceptable for internal state-owning types such as schedulers
+  when it is the clearest Rust API, but avoid combining it with additional
+  mutable out-parameters.
+- Public runtime and generator trait methods may use `&mut self` for ergonomic
+  control-plane and callback APIs.
+- A good shape is a scan operation that snapshots the scan length and produces
+  candidate ids for the current step, with cursor advancement owned by the
+  scheduler. Exact names and helper types are implementation details.
 
 
 ## BMC-explorer-like Phase 0 test
@@ -793,15 +864,17 @@ The test should model this flow:
 9. More `run_once` calls emit fake system/chassis discovery events.
 10. Application drains outputs and builds a fake exploration report externally.
 
-This test must prove:
+Test implementation style:
 
-- runtime owns target/generator control,
-- runtime does not own discovery policy,
-- generators can be added in response to outputs,
-- generator ids include target ids,
-- output successes include target and generator ids,
-- event ordering is deterministic,
-- application builds the final report outside the runtime.
+- Do not create a mutable report `Vec` and push into it when the report can be
+  produced with iterator adapters and `collect()`.
+- The final report should be a collected result of transforming drained runtime
+  outputs, preserving the deterministic output order.
+- If a test needs to collect results produced by multiple async operations,
+  prefer executing those operations in parallel and then collecting their results;
+  do not serialize independent async work just to push into a mutable vector.
+
+This test must prove:
 
 The fake event type can be shaped like:
 
@@ -820,19 +893,20 @@ enum FakeExplorerEvent {
 }
 ```
 
-The fake error type can be simple, for example:
-
-```rust
-#[derive(Debug, Clone, PartialEq, Eq)]
-struct FakeExplorerError(String);
-```
+The fake error type can be simple. Most tests may use convenient fake payload
+traits, but at least one test must prove that runtime output types work with
+non-`Clone`, non-`Debug`, and non-`PartialEq` event/error payloads.
 
 Do not include target ids inside fake events just to satisfy runtime needs; the
-runtime-provided `WorkSuccess` and `WorkError` already carry source identity.
+runtime-provided `WorkSuccess` and `WorkError` already carry generator identity, and target identity is available through `generator_id.target_id()`.
 
 ## Required tests
 
 All tests must use fake generators, fake events, and fake errors only.
+At least one test must use event and error payload types that intentionally do
+not implement `Clone`, `Debug`, `Eq`, or `PartialEq`, so the test suite catches
+accidental trait bounds on user payloads.
+
 
 ### Test: target ids are generated
 
@@ -880,7 +954,7 @@ A, B, C, A, B, C
 - Verify `RunOnce::Executed`.
 - Drain outputs.
 - Verify output is `RuntimeOutput::Work(Err(WorkError { ... }))`.
-- Verify `WorkError` contains runtime-provided target and generator ids.
+- Verify `WorkError` contains runtime-provided generator id.
 
 
 ### Test: completion callback on success
@@ -935,11 +1009,13 @@ A, B, C, A, B, C
 ### Test: BMC-explorer-like discovery flow
 
 Implement the fake discovery-flow described above. The final fake exploration
-report must be built by test/application code, not by the runtime.
+report must be built by test/application code, not by the runtime, and should be
+collected from drained outputs with iterator adapters rather than built by
+pushing into a mutable vector.
 
 ## Implementation guardrails
 
-- Keep the runtime generic over `E`, `Err`, and `R`.
+- Keep the runtime generic over lifetime `'rt`, `E`, `Err`, and `R`.
 - Keep `R = Infallible` as the default runtime event type.
 - Do not emit runtime events in Phase 0.
 - Keep target config empty.
@@ -950,11 +1026,69 @@ report must be built by test/application code, not by the runtime.
 - Do not spawn background tasks.
 - Do not make the scheduler async.
 - Do not let scheduled work construct `WorkSuccess` or `WorkError`.
-- Runtime must attach target and generator ids to outputs.
+- Runtime must attach generator ids to outputs.
+- Public runtime structs and enums must not derive or require traits that add
+  unnecessary bounds on user-owned generic types `E`, `Err`, or `R`; for example,
+  do not derive `Clone` on `RuntimeOutput<E, Err, R>`, `WorkSuccess<E>`, or
+  `WorkError<Err>` because that requires event and error payloads to implement
+  `Clone`.
+- Prefer expression-oriented Rust over imperative control flow when practical:
+  use `Option`/`Result` combinators, iterator adapters, and small helper
+  functions where they improve clarity.
+- Avoid early `return` statements when a direct expression, `?`, `map`,
+  `and_then`, `is_some_and`, `then_some`, `let else` with a final expression, or
+  another idiomatic combinator makes the code clearer.
+- Use `then_some(value)` instead of `then(|| value)` when constructing the value
+  is cheap and no laziness is needed.
+- Do not use `Option::map`, `Result::map`, or iterator `map` only for side
+  effects. Prefer returning transformed values, `if let`, `for_each`, or a
+  clearer restructuring.
+- Avoid explicit `for`/`while` loops when an iterator pipeline is equally clear;
+  loops are acceptable when they make async sequencing or public mutable API
+  boundaries easier to read and verify.
+- Prefer collecting transformed values with iterator adapters instead of creating
+  a mutable `Vec` and pushing into it. When type annotation is needed, prefer
+  turbofish on `collect::<Vec<_>>()` over `let values: Vec<_> = ...collect()`.
+- Do not pass mutable out-parameters to functions. Prefer returning computed
+  values, updated cursor positions, or updated state.
+- Use a functional approach for internal runtime and scheduler helpers whenever
+  practical. `&mut self` remains acceptable for internal state-owning types when
+  it is clearer and more idiomatic than moving or rebuilding the whole state.
+- Keep mutation localized. Prefer immutable planning followed by mutation at the
+  API/state boundary; for example, compute ids to remove first, then apply the
+  removals.
+- Avoid helper APIs that force callers to coordinate scheduler cursor state,
+  scan counters, or other related mutable state across multiple calls.
 - Runtime must preserve output order.
 - Removed generators must not be queried again.
 - Removed targets must remove their generators.
 - Tests must be deterministic and avoid timing-based assertions.
+
+## Implementation workflow
+
+After the initial implementation compiles, do two explicit review/fix cycles
+against this phase document before considering Phase 0 complete:
+
+1. Run the configured verification target.
+2. Review pass 1 against `docs/scraper/phase_0.md`:
+   - compare the public API to the documented API,
+   - compare runtime behavior to each MVP behavior section,
+   - compare tests to the required tests,
+   - compare implementation style to the guardrails,
+   - fix any gaps found in the review.
+3. Run the configured verification target again.
+4. Review pass 2 against `docs/scraper/phase_0.md`:
+   - focus on missed edge cases,
+   - remove overbuilt or placeholder APIs,
+   - check for style drift introduced by pass 1 fixes,
+   - check fake test quality and deterministic ordering,
+   - fix any gaps found in the review.
+5. Run the configured verification target one final time.
+6. Summarize completion only after both review passes and final verification are
+   done.
+
+The review passes must compare the implementation against this document, not
+only against compiler, formatter, clippy, or test output.
 
 ## Completion criteria
 
@@ -972,6 +1106,8 @@ Phase 0 is complete when:
 - completion callbacks are called once per executed work item,
 - removing generators and targets works,
 - the fake BMC-explorer-like discovery-flow test passes,
+- all scraper crate files are aligned with the existing `nv-redfish` crate style,
+- all configured build, clippy, and test checks pass,
 - no unused placeholder scheduler/cost/limit APIs are present.
 
 ## Next phase preview
