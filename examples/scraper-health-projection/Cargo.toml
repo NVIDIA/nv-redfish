@@ -1,0 +1,19 @@
+[package]
+name = "scraper-health-projection"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+nv-redfish = { workspace = true, features = ["log-services", "sensors", "update-service"] }
+nv-redfish-core = { workspace = true }
+nv-redfish-scraper = { workspace = true }
+serde_json = { workspace = true }
+
+[dev-dependencies]
+nv-redfish-bmc-mock = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt"] }

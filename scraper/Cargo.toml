@@ -1,0 +1,29 @@
+[package]
+name = "nv-redfish-scraper"
+description = "Demand-driven materialized Redfish resource scraper"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/nv-redfish-scraper"
+
+[dependencies]
+nv-redfish = { workspace = true, features = [
+    "chassis",
+    "computer-systems",
+    "log-services",
+    "managers",
+    "sensors",
+    "update-service",
+] }
+nv-redfish-core = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = ["sync", "time"] }
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "test-util"] }
+tokio-test = { workspace = true }
