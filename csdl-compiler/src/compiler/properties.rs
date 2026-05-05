@@ -233,6 +233,9 @@ impl TypeInfo {
         Self {
             class: TypeClass::ComplexType,
             permissions: if required_on_create {
+                // `None` means "do not treat the type itself as read-only".
+                // A RequiredOnCreate member must have a serializable payload,
+                // even if the same shape would otherwise look read-only.
                 None
             } else {
                 ct.odata.permissions.or_else(|| {
