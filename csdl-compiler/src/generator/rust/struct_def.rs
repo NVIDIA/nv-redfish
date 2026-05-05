@@ -24,6 +24,7 @@ use crate::compiler::Property;
 use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::RigidArraySupport;
+use crate::compiler::TypeClass;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
@@ -80,6 +81,48 @@ enum ImplType {
     Root,
     Child,
     None,
+}
+
+#[derive(Clone, Copy)]
+enum CreateFieldShape {
+    UpdatePayload,
+    CreatePayload,
+}
+
+impl CreateFieldShape {
+    const fn from_property(
+        required_on_create: bool,
+        can_reuse_update_payload: bool,
+        type_class: TypeClass,
+    ) -> Option<Self> {
+        match (required_on_create, can_reuse_update_payload, type_class) {
+            (false, false, _) => None,
+            // Some Redfish schemas mark read-only complex properties
+            // as RequiredOnCreate. Those complex types deliberately do
+            // not have update payloads, so create needs its own nested
+            // payload shape.
+            (true, false, TypeClass::ComplexType) => Some(Self::CreatePayload),
+            _ => Some(Self::UpdatePayload),
+        }
+    }
+
+    fn full_type(
+        self,
+        type_name: QualifiedName<'_>,
+        type_class: TypeClass,
+        config: &Config,
+    ) -> TokenStream {
+        match self {
+            Self::CreatePayload => {
+                let full_type = FullTypeName::new(type_name, config).for_create();
+                quote! { #full_type }
+            }
+            Self::UpdatePayload => {
+                let full_type = FullTypeName::new(type_name, config).for_update(Some(type_class));
+                quote! { #full_type }
+            }
+        }
+    }
 }
 
 impl<'a> StructDef<'a> {
@@ -439,30 +482,28 @@ impl<'a> StructDef<'a> {
             .iter()
             .filter_map(|p| {
                 let (typeinfo, v) = &p.ptype.inner();
-                let required = p.redfish.is_required_on_create.into_inner();
-                if required
-                    || (p.odata.permissions_is_write()
-                        && typeinfo.permissions.is_none_or(|p| p != Permissions::Read))
-                {
-                    let full_type: super::full_type_name::FullTypeNameForUpdate<'_, '_> =
-                        FullTypeName::new(*v, config).for_update(Some(typeinfo.class));
-                    let required = p.redfish.is_required_on_create.into_inner();
-                    let prop_type = match p.ptype {
-                        PropertyType::One(_) => quote! { #full_type },
-                        PropertyType::Collection(_) => {
-                            if p.rigid_array_support.into_inner() {
-                                quote! { Vec<Option<#full_type>> }
-                            } else {
-                                quote! { Vec<#full_type> }
-                            }
+                let required_on_create = p.redfish.is_required_on_create.into_inner();
+                let can_reuse_update_payload = p.odata.permissions_is_write()
+                    && typeinfo.permissions.is_none_or(|p| p != Permissions::Read);
+                let field_shape = CreateFieldShape::from_property(
+                    required_on_create,
+                    can_reuse_update_payload,
+                    typeinfo.class,
+                )?;
+                let full_type = field_shape.full_type(*v, typeinfo.class, config);
+                let prop_type = match p.ptype {
+                    PropertyType::One(_) => quote! { #full_type },
+                    PropertyType::Collection(_) => {
+                        if p.rigid_array_support.into_inner() {
+                            quote! { Vec<Option<#full_type>> }
+                        } else {
+                            quote! { Vec<#full_type> }
                         }
-                    };
-                    let rename = Literal::string(p.name.inner().inner());
-                    let name = StructFieldName::new_property(p.name);
-                    Some((rename, name, prop_type, required))
-                } else {
-                    None
-                }
+                    }
+                };
+                let rename = Literal::string(p.name.inner().inner());
+                let name = StructFieldName::new_property(p.name);
+                Some((rename, name, prop_type, required_on_create))
             })
             .collect::<Vec<_>>();
 

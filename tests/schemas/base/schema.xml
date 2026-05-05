@@ -116,6 +116,7 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
         <Property Name="Required" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.RequiredOnCreate"/>
         </Property>
         <!-- Read only struct may include property with complex type
              but it still must be treated as read-only -->
@@ -159,6 +160,7 @@
         </Property>
         <Property Name="ReadOnlyComplex" Type="ServiceRoot.v1_0_0.ReadOnlyComplexType" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="Redfish.RequiredOnCreate"/>
         </Property>
       </EntityType>
 

@@ -25,6 +25,7 @@ use nv_redfish_tests::base::expect_root_srv;
 use nv_redfish_tests::base::get_service_root;
 use nv_redfish_tests::base::nav_service_root;
 use nv_redfish_tests::base::redfish::service_root::ActionType;
+use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeCreate;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
 use nv_redfish_tests::json_merge;
@@ -500,13 +501,20 @@ async fn create_collection_member_test() -> Result<(), Error> {
         &collection_id,
         json!({
             "RequiredOnCreate": "required value",
+            "ReadOnlyComplex": {
+                "Required": "nested required value",
+            },
         }),
         collection_member_tpl,
     ));
     let member = collection
         .create(
             &bmc,
-            &TestCollectionMemberCreate::builder("required value".into()).build(),
+            &TestCollectionMemberCreate::builder(
+                "required value".into(),
+                ReadOnlyComplexTypeCreate::builder("nested required value".into()).build(),
+            )
+            .build(),
         )
         .await
         .map_err(Error::Bmc)?;
@@ -520,14 +528,20 @@ async fn create_collection_member_test() -> Result<(), Error> {
 
 #[test]
 async fn create_struct_required_on_create_and_writable_fields_test() -> Result<(), Error> {
-    let create = TestCollectionMemberCreate::builder("required value".into())
-        .with_optional_writable("optional value".into())
-        .build();
+    let create = TestCollectionMemberCreate::builder(
+        "required value".into(),
+        ReadOnlyComplexTypeCreate::builder("nested required value".into()).build(),
+    )
+    .with_optional_writable("optional value".into())
+    .build();
 
     assert_eq!(
         serde_json::to_value(create).expect("serializable"),
         json!({
             "RequiredOnCreate": "required value",
+            "ReadOnlyComplex": {
+                "Required": "nested required value",
+            },
             "OptionalWritable": "optional value",
         })
     );

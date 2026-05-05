@@ -79,7 +79,7 @@ impl<B: Bmc> Session<B> {
 
     /// Get the session URI returned in the creation response `Location` header.
     #[must_use]
-    pub fn location(&self) -> Option<&ODataId> {
+    pub const fn location(&self) -> Option<&ODataId> {
         self.delete_location.as_ref()
     }
 

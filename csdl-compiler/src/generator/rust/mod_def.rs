@@ -124,7 +124,7 @@ impl<'a> ModDef<'a> {
             {
                 builder.with_generate_type(vec![GenerateType::Read, GenerateType::Update])
             } else {
-                builder.with_generate_type(vec![GenerateType::Read])
+                builder.with_generate_type(vec![GenerateType::Read, GenerateType::Create])
             };
             let struct_def = builder
                 .with_properties(ct.properties)
