@@ -13,9 +13,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use nv_redfish::bmc_http::reqwest::Client;
+use nv_redfish::bmc_http::{BmcCredentials, CacheSettings, HttpBmc};
 use nv_redfish::ServiceRoot;
-use nv_redfish_bmc_http::reqwest::Client;
-use nv_redfish_bmc_http::{BmcCredentials, CacheSettings, HttpBmc};
 use std::sync::Arc;
 use url::Url;
 
@@ -30,6 +30,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     ));
 
     let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
-    println!("BMC vendor: {:?}", root.vendor());
+    println!("Vendor: {:?}", root.vendor());
+    println!("Product: {:?}", root.product());
+    println!("Redfish version: {:?}", root.redfish_version());
     Ok(())
 }

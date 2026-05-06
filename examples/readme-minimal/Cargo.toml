@@ -11,5 +11,4 @@ categories.workspace = true
 [dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 url = { workspace = true }
-nv-redfish = { workspace = true }
-nv-redfish-bmc-http = { workspace = true }
+nv-redfish = { workspace = true, features = ["bmc-http"] }
