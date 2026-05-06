@@ -194,6 +194,118 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
+    async fn test_create_session_response() {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/SessionService/Sessions";
+        let session_path = "/redfish/v1/SessionService/Sessions/1";
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 999);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .insert_header("X-Auth-Token", "session-token-123")
+                    .insert_header("Location", format!("https://bmc.example{session_path}"))
+                    .set_body_json(&created_resource),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let collection_id = create_odata_id(collection_path);
+        let response = bmc
+            .create_session::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await
+            .unwrap();
+
+        assert_eq!(response.auth_token, "session-token-123");
+        assert_eq!(response.location.to_string(), session_path);
+        assert_eq!(response.entity.name, names::TEST_SYSTEM);
+        assert_eq!(response.entity.value, 999);
+    }
+
+    #[tokio::test]
+    async fn test_create_session_missing_token_is_error() {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/SessionService/Sessions";
+        let session_path = "/redfish/v1/SessionService/Sessions/1";
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 999);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .insert_header("Location", session_path)
+                    .set_body_json(&created_resource),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let collection_id = create_odata_id(collection_path);
+        let error = bmc
+            .create_session::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, BmcError::InvalidResponse { .. }));
+    }
+
+    #[tokio::test]
+    async fn test_create_session_missing_location_is_error() {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/SessionService/Sessions";
+        let session_path = "/redfish/v1/SessionService/Sessions/1";
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 999);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .insert_header("X-Auth-Token", "session-token-123")
+                    .set_body_json(&created_resource),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let collection_id = create_odata_id(collection_path);
+        let error = bmc
+            .create_session::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await
+            .unwrap_err();
+
+        assert!(matches!(error, BmcError::InvalidResponse { .. }));
+    }
+
+    #[tokio::test]
     async fn test_patch_update_request() {
         let mock_server = MockServer::start().await;
         let resource_path = "/redfish/v1/systems/1";

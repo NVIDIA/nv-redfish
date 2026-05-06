@@ -196,6 +196,7 @@ impl<B: Bmc> AccountCollection<B> {
                     snmp: create.snmp,
                     strict_account_types: create.strict_account_types,
                     mfa_bypass: create.mfa_bypass,
+                    links: None,
                 };
 
                 return account.update(&update).await;

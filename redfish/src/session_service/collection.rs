@@ -23,7 +23,6 @@ use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
-use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -62,21 +61,18 @@ impl<B: Bmc> SessionCollection<B> {
     /// # Errors
     ///
     /// Returns an error if creating the session fails.
-    pub async fn create_session(
-        &self,
-        create: &SessionCreate,
-    ) -> Result<Option<Session<B>>, Error<B>> {
-        match self
+    pub async fn create_session(&self, create: &SessionCreate) -> Result<Session<B>, Error<B>> {
+        let response = self
             .bmc
             .as_ref()
-            .create::<_, SessionSchema>(self.collection.as_ref().odata_id(), create)
+            .create_session::<_, SessionSchema>(self.collection.as_ref().odata_id(), create)
             .await
-            .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(data) => {
-                Ok(Some(Session::from_data(self.bmc.clone(), data)))
-            }
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .map_err(Error::Bmc)?;
+        Ok(Session::from_data_with_session_metadata(
+            self.bmc.clone(),
+            response.entity,
+            Some(response.auth_token),
+            Some(response.location),
+        ))
     }
 }

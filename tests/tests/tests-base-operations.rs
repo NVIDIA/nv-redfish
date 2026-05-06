@@ -25,6 +25,7 @@ use nv_redfish_tests::base::expect_root_srv;
 use nv_redfish_tests::base::get_service_root;
 use nv_redfish_tests::base::nav_service_root;
 use nv_redfish_tests::base::redfish::service_root::ActionType;
+use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeUpdate;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
 use nv_redfish_tests::json_merge;
@@ -296,10 +297,10 @@ async fn update_property_test() -> Result<(), Error> {
             &ServiceRootUpdate {
                 // Here we actually checks that update struct doesn't include:
                 // 1. read-only fields (like redfish_version)
-                // 2. fields of read-only complex types (like read_only_complex)
                 //
                 // If this code compiles then check passed.
                 updatable: Some(value.clone()),
+                read_only_complex: None,
                 rigid_array_values: None,
                 updatable_guid: Some(uuid_value),
                 write_only: None,
@@ -326,6 +327,7 @@ async fn update_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: None,
+                read_only_complex: None,
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: Some(value.clone()),
@@ -359,6 +361,7 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: Some(value.clone()),
+                read_only_complex: None,
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: None,
@@ -406,6 +409,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: None,
+                read_only_complex: None,
                 rigid_array_values: Some(updated_payload.clone()),
                 updatable_guid: None,
                 write_only: None,
@@ -429,6 +433,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
             &bmc,
             &ServiceRootUpdate {
                 updatable: None,
+                read_only_complex: None,
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: None,
@@ -498,11 +503,25 @@ async fn create_collection_member_test() -> Result<(), Error> {
     });
     bmc.expect(Expect::create(
         &collection_id,
-        json!({}),
+        json!({
+            "RequiredOnCreate": "required value",
+            "ReadOnlyComplex": {
+                "Required": "nested required value",
+            },
+        }),
         collection_member_tpl,
     ));
     let member = collection
-        .create(&bmc, &TestCollectionMemberCreate {})
+        .create(
+            &bmc,
+            &TestCollectionMemberCreate::builder(
+                "required value".into(),
+                ReadOnlyComplexTypeUpdate::builder()
+                    .with_required("nested required value".into())
+                    .build(),
+            )
+            .build(),
+        )
         .await
         .map_err(Error::Bmc)?;
     let member = match member {
@@ -510,6 +529,30 @@ async fn create_collection_member_test() -> Result<(), Error> {
         _ => return Err(Error::ExpectedProperty("member")),
     };
     assert_eq!(member.odata_id().to_string(), collection_member_id);
+    Ok(())
+}
+
+#[test]
+async fn create_struct_required_on_create_and_writable_fields_test() -> Result<(), Error> {
+    let create = TestCollectionMemberCreate::builder(
+        "required value".into(),
+        ReadOnlyComplexTypeUpdate::builder()
+            .with_required("nested required value".into())
+            .build(),
+    )
+    .with_optional_writable("optional value".into())
+    .build();
+
+    assert_eq!(
+        serde_json::to_value(create).expect("serializable"),
+        json!({
+            "RequiredOnCreate": "required value",
+            "ReadOnlyComplex": {
+                "Required": "nested required value",
+            },
+            "OptionalWritable": "optional value",
+        })
+    );
     Ok(())
 }
 

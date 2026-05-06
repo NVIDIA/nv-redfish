@@ -12,6 +12,7 @@ members = [
    "examples/explore-with-reqwest-bmc",
    "examples/event-stream-console",
    "examples/readme-minimal",
+   "examples/session-token",
    "tests"
 ]
 

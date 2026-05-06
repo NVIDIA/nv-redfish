@@ -61,6 +61,7 @@ use crate::FilterQuery;
 use crate::ModificationResponse;
 use crate::ODataETag;
 use crate::ODataId;
+use crate::SessionCreateResponse;
 use std::error::Error as StdError;
 use std::future::Future;
 use std::sync::Arc;
@@ -106,6 +107,17 @@ pub trait Bmc: Send + Sync {
         id: &ODataId,
         query: &V,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
+
+    /// Creates a Redfish session.
+    ///
+    /// Session creation is special in Redfish: the response body contains the
+    /// session entity, `X-Auth-Token` contains the token used for subsequent
+    /// requests, and `Location` contains the URI to delete when logging out.
+    fn create_session<V: Send + Sync + Serialize, R: Send + Sync + for<'de> Deserialize<'de>>(
+        &self,
+        id: &ODataId,
+        query: &V,
+    ) -> impl Future<Output = Result<SessionCreateResponse<R>, Self::Error>> + Send;
 
     /// Update entity.
     ///

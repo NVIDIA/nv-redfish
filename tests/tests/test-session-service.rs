@@ -78,9 +78,9 @@ async fn create_session() -> Result<(), Box<dyn StdError>> {
     let sessions = get_session_collection(bmc.clone(), &session_service, json!([])).await?;
     let sessions_id = format!("{}/Sessions", session_service.raw().odata_id());
     let session_id = format!("{sessions_id}/1234567890ABCDEF");
-    let create = SessionCreate::builder("password".into()).build();
+    let create = SessionCreate::builder("Administrator".into(), "password".into()).build();
 
-    bmc.expect(Expect::create(
+    bmc.expect(Expect::create_session(
         &sessions_id,
         serde_json::to_value(&create)?,
         json!({
@@ -94,9 +94,16 @@ async fn create_session() -> Result<(), Box<dyn StdError>> {
             "UserName": "Administrator",
             "SessionType": "ManagerConsole"
         }),
+        "session-token-123",
+        &session_id,
     ));
 
-    let session = sessions.create_session(&create).await?.unwrap();
+    let session = sessions.create_session(&create).await?;
+    assert_eq!(session.auth_token(), Some("session-token-123"));
+    assert_eq!(
+        session.location().map(ToString::to_string),
+        Some(session_id)
+    );
     assert_eq!(session.raw().user_name, Some(Some("Administrator".into())));
     assert_eq!(
         session.raw().client_origin_ip_address,
@@ -106,6 +113,38 @@ async fn create_session() -> Result<(), Box<dyn StdError>> {
         session.raw().session_type,
         Some(Some(SessionTypes::ManagerConsole))
     );
+    Ok(())
+}
+
+#[test]
+async fn delete_created_session_uses_location() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let session_service = get_session_service(bmc.clone(), &root_id).await?;
+    let sessions = get_session_collection(bmc.clone(), &session_service, json!([])).await?;
+    let sessions_id = format!("{}/Sessions", session_service.raw().odata_id());
+    let body_session_id = format!("{sessions_id}/body-id");
+    let location_session_id = format!("{sessions_id}/location-id");
+    let create = SessionCreate::builder("Administrator".into(), "password".into()).build();
+
+    bmc.expect(Expect::create_session(
+        &sessions_id,
+        serde_json::to_value(&create)?,
+        json!({
+            ODATA_ID: &body_session_id,
+            ODATA_TYPE: SESSION_DATA_TYPE,
+            "Id": "body-id",
+            "Name": "User Session",
+            "UserName": "Administrator",
+            "SessionType": "ManagerConsole"
+        }),
+        "session-token-123",
+        &location_session_id,
+    ));
+
+    let session = sessions.create_session(&create).await?;
+    bmc.expect(Expect::delete(&location_session_id));
+    assert!(session.delete().await?.is_none());
     Ok(())
 }
 

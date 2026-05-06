@@ -24,12 +24,15 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
+use nv_redfish_core::ODataId;
 use std::sync::Arc;
 
 /// Represents a Redfish `Session`.
 pub struct Session<B: Bmc> {
     bmc: NvBmc<B>,
     data: Arc<SessionSchema>,
+    auth_token: Option<String>,
+    delete_location: Option<ODataId>,
 }
 
 impl<B: Bmc> Session<B> {
@@ -43,13 +46,22 @@ impl<B: Bmc> Session<B> {
             .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
+                auth_token: None,
+                delete_location: None,
             })
     }
 
-    pub(crate) fn from_data(bmc: NvBmc<B>, data: SessionSchema) -> Self {
+    pub(crate) fn from_data_with_session_metadata(
+        bmc: NvBmc<B>,
+        data: SessionSchema,
+        auth_token: Option<String>,
+        delete_location: Option<ODataId>,
+    ) -> Self {
         Self {
             bmc,
             data: Arc::new(data),
+            auth_token,
+            delete_location,
         }
     }
 
@@ -57,6 +69,18 @@ impl<B: Bmc> Session<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<SessionSchema> {
         self.data.clone()
+    }
+
+    /// Get the authentication token returned when this session was created.
+    #[must_use]
+    pub fn auth_token(&self) -> Option<&str> {
+        self.auth_token.as_deref()
+    }
+
+    /// Get the session URI returned in the creation response `Location` header.
+    #[must_use]
+    pub const fn location(&self) -> Option<&ODataId> {
+        self.delete_location.as_ref()
     }
 
     /// Delete the current session.
@@ -68,7 +92,11 @@ impl<B: Bmc> Session<B> {
         match self
             .bmc
             .as_ref()
-            .delete::<NavProperty<SessionSchema>>(self.data.odata_id())
+            .delete::<NavProperty<SessionSchema>>(
+                self.delete_location
+                    .as_ref()
+                    .unwrap_or_else(|| self.data.odata_id()),
+            )
             .await
             .map_err(Error::Bmc)?
         {

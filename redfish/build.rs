@@ -159,7 +159,7 @@ fn run() -> Result<(), Box<dyn StdError>> {
 
         let resolve_csdls = redfish_csdl
             .iter()
-            .chain(resolve_csdls.into_iter())
+            .chain(resolve_csdls)
             .map(|f| format!("{redfish_schema_path}/{f}"))
             .collect::<Vec<_>>();
 

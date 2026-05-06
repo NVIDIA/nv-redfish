@@ -56,6 +56,7 @@ use nv_redfish_core::FilterQuery;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::SessionCreateResponse;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use std::collections::HashMap;
 use std::error::Error as StdError;
@@ -94,6 +95,18 @@ pub trait HttpClient: Send + Sync {
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
+    where
+        B: Serialize + Send + Sync,
+        T: DeserializeOwned + Send + Sync;
+
+    /// Perform a Redfish session creation POST request.
+    fn post_session<B, T>(
+        &self,
+        url: Url,
+        body: &B,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> impl Future<Output = Result<SessionCreateResponse<T>, Self::Error>> + Send
     where
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync;
@@ -476,6 +489,21 @@ where
         let credentials = self.read_credentials();
         self.client
             .post(endpoint_url, v, credentials.as_ref(), &self.custom_headers)
+            .await
+    }
+
+    async fn create_session<
+        V: Sync + Send + Serialize,
+        R: Sync + Send + for<'de> Deserialize<'de>,
+    >(
+        &self,
+        id: &ODataId,
+        v: &V,
+    ) -> Result<SessionCreateResponse<R>, Self::Error> {
+        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let credentials = self.read_credentials();
+        self.client
+            .post_session(endpoint_url, v, credentials.as_ref(), &self.custom_headers)
             .await
     }
 

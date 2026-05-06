@@ -88,6 +88,7 @@ pub mod query;
 use crate::query::ExpandQuery;
 use futures_core::TryStream;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 use std::pin::Pin;
 use std::{future::Future, sync::Arc};
 
@@ -181,6 +182,28 @@ pub enum ModificationResponse<T> {
     Task(AsyncTask),
     /// Request completed successfully with no response body
     Empty,
+}
+
+/// Redfish session creation returns the session resource in the response body,
+/// the authentication token in the `X-Auth-Token` header, and the session URI in
+/// the `Location` header.
+pub struct SessionCreateResponse<T> {
+    /// Created session entity.
+    pub entity: T,
+    /// Authentication token from `X-Auth-Token`.
+    pub auth_token: String,
+    /// Session resource URI from `Location`.
+    pub location: ODataId,
+}
+
+impl<T: fmt::Debug> fmt::Debug for SessionCreateResponse<T> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("SessionCreateResponse")
+            .field("entity", &self.entity)
+            .field("auth_token", &"[REDACTED]")
+            .field("location", &self.location)
+            .finish()
+    }
 }
 
 /// This trait is assigned to the collections that are marked as

@@ -21,7 +21,7 @@ use futures_util::StreamExt;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::{
     Action, ActionError, Bmc, EntityTypeRef, Expandable, ModificationResponse, NavProperty,
-    ODataETag, ODataId, Updatable,
+    ODataETag, ODataId, SessionCreateResponse, Updatable,
 };
 use redfish_oem_contoso::redfish::contoso_turboencabulator_service::{
     ContosoTurboencabulatorServiceUpdate, TurboencabulatorMode,
@@ -549,6 +549,29 @@ impl Bmc for MockBmc {
         let mock_json = self.get_mock_json_for_uri("/redfish/v1/AccountService/Accounts/1");
         let result: R = serde_json::from_str(&mock_json).map_err(Error::ParseError)?;
         Ok(ModificationResponse::Entity(result))
+    }
+
+    async fn create_session<
+        V: Sync + Send + Serialize,
+        R: Sync + Send + Sized + for<'de> Deserialize<'de>,
+    >(
+        &self,
+        id: &ODataId,
+        create: &V,
+    ) -> Result<SessionCreateResponse<R>, Self::Error> {
+        println!(
+            "BMC create session {}: {}",
+            id,
+            serde_json::to_string(create).expect("serializable")
+        );
+        let session_id = "/redfish/v1/SessionService/Sessions/1";
+        let mock_json = self.get_mock_json_for_uri(session_id);
+        let entity: R = serde_json::from_str(&mock_json).map_err(Error::ParseError)?;
+        Ok(SessionCreateResponse {
+            entity,
+            auth_token: "dummy-session-token".to_string(),
+            location: session_id.to_string().into(),
+        })
     }
 
     async fn delete<R: EntityTypeRef + for<'de> Deserialize<'de>>(

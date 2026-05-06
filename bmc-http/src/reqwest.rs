@@ -26,6 +26,7 @@ use nv_redfish_core::BoxTryStream;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::SessionCreateResponse;
 use reqwest::redirect::Policy as RedirectPolicy;
 use reqwest::Client as ReqwestClient;
 use reqwest::Error as ReqwestError;
@@ -166,12 +167,12 @@ pub struct ClientParams {
 impl Default for ClientParams {
     fn default() -> Self {
         Self {
-            timeout: Some(Duration::from_secs(120)),
+            timeout: Some(Duration::from_mins(2)),
             connect_timeout: Some(Duration::from_secs(5)),
             user_agent: Some("nv-redfish/v1".to_string()),
             accept_invalid_certs: false,
             max_redirects: Some(10),
-            tcp_keepalive: Some(Duration::from_secs(60)),
+            tcp_keepalive: Some(Duration::from_mins(1)),
             pool_idle_timeout: Some(Duration::from_secs(90)),
             pool_max_idle_per_host: Some(1),
             default_headers: None,
@@ -436,6 +437,83 @@ impl Client {
             }),
         }
     }
+
+    async fn handle_session_response<T>(
+        &self,
+        response: reqwest::Response,
+    ) -> Result<SessionCreateResponse<T>, BmcError>
+    where
+        T: DeserializeOwned + Send + Sync,
+    {
+        let status = response.status();
+        let url = response.url().clone();
+        let headers = response.headers().clone();
+        if !status.is_success() {
+            return Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
+            });
+        }
+
+        let Some(auth_token) = auth_token_from_headers(&headers) else {
+            return Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: String::from("session creation response missing X-Auth-Token header"),
+            });
+        };
+        let Some(location) = location_from_headers(&headers) else {
+            return Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: String::from("session creation response missing Location header"),
+            });
+        };
+
+        match status {
+            reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {
+                let etag = etag_from_headers(&headers);
+                let bytes = response.bytes().await.map_err(BmcError::ReqwestError)?;
+                if bytes.is_empty() {
+                    return Err(BmcError::InvalidResponse {
+                        url,
+                        status,
+                        text: String::from("session creation response missing entity body"),
+                    });
+                }
+
+                let mut value: serde_json::Value =
+                    serde_json::from_slice(&bytes).map_err(BmcError::DecodeError)?;
+                if let Some(etag) = etag {
+                    inject_etag(&etag, &mut value);
+                }
+                let entity =
+                    serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)?;
+
+                Ok(SessionCreateResponse {
+                    entity,
+                    auth_token,
+                    location,
+                })
+            }
+            reqwest::StatusCode::ACCEPTED => Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: String::from("session creation returned 202 Accepted without session entity"),
+            }),
+            reqwest::StatusCode::NO_CONTENT => Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: String::from("session creation returned 204 No Content"),
+            }),
+            _ => Err(BmcError::InvalidResponse {
+                url,
+                status,
+                text: format!("Unexpected successful status code for session creation: {status}"),
+            }),
+        }
+    }
 }
 
 fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
@@ -455,6 +533,13 @@ fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
                 },
             )
         })
+}
+
+fn auth_token_from_headers(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get("x-auth-token")
+        .and_then(|value| value.to_str().ok())
+        .map(ToString::to_string)
 }
 
 fn etag_from_headers(headers: &HeaderMap) -> Option<ODataETag> {
@@ -536,6 +621,26 @@ impl HttpClient for Client {
             .await?;
 
         self.handle_modification_response(response).await
+    }
+
+    async fn post_session<B, T>(
+        &self,
+        url: Url,
+        body: &B,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> Result<SessionCreateResponse<T>, Self::Error>
+    where
+        B: Serialize + Send + Sync,
+        T: DeserializeOwned + Send + Sync,
+    {
+        let response = auth_headers(self.client.post(url), credentials)
+            .headers(custom_headers.clone())
+            .json(body)
+            .send()
+            .await?;
+
+        self.handle_session_response(response).await
     }
 
     async fn patch<B, T>(

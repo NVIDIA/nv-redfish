@@ -34,6 +34,13 @@ pub enum ExpectedRequest {
     Update { id: ODataId, request: JsonValue },
     /// Expected Create.
     Create { id: ODataId, request: JsonValue },
+    /// Expected Redfish session creation.
+    CreateSession {
+        id: ODataId,
+        request: JsonValue,
+        auth_token: String,
+        location: ODataId,
+    },
     /// Expected ActionTarget
     Action {
         target: ActionTarget,
@@ -83,6 +90,23 @@ impl<E> Expect<E> {
             request: ExpectedRequest::Create {
                 id: uri.to_string().into(),
                 request: from_str(&request.to_string()).expect("invalid json"),
+            },
+            response: Ok(from_str(&response.to_string()).expect("invalid json")),
+        }
+    }
+    pub fn create_session(
+        uri: impl Display,
+        request: impl Display,
+        response: impl Display,
+        auth_token: impl Display,
+        location: impl Display,
+    ) -> Self {
+        Expect {
+            request: ExpectedRequest::CreateSession {
+                id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+                auth_token: auth_token.to_string(),
+                location: location.to_string().into(),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }

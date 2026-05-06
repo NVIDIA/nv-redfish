@@ -28,6 +28,7 @@ use nv_redfish_core::Expandable;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::SessionCreateResponse;
 use serde::Serialize;
 use serde_json::from_value;
 use serde_json::to_value;
@@ -52,6 +53,7 @@ pub enum Error {
     UnexpectedExpand(ODataId, ExpectedRequest),
     UnexpectedUpdate(ODataId, String, ExpectedRequest),
     UnexpectedCreate(ODataId, String, ExpectedRequest),
+    UnexpectedCreateSession(ODataId, String, ExpectedRequest),
     UnexpectedDelete(ODataId, ExpectedRequest),
     UnexpectedAction(ActionTarget, String, ExpectedRequest),
     UnexpectedStream(String, ExpectedRequest),
@@ -83,6 +85,12 @@ impl Display for Error {
                 write!(
                     f,
                     "unexpected create: {id}; json: {json} expected: {expected:?}"
+                )
+            }
+            Self::UnexpectedCreateSession(id, json, expected) => {
+                write!(
+                    f,
+                    "unexpected session create: {id}; json: {json} expected: {expected:?}"
                 )
             }
             Self::UnexpectedDelete(id, expected) => {
@@ -239,6 +247,48 @@ where
                 Ok(ModificationResponse::Entity(result))
             }
             _ => Err(Error::UnexpectedCreate(
+                in_id.clone(),
+                in_request.to_string(),
+                expect.request,
+            )),
+        }
+    }
+
+    async fn create_session<
+        V: Sync + Send + Serialize,
+        R: Sync + Send + Sized + for<'de> serde::Deserialize<'de>,
+    >(
+        &self,
+        in_id: &ODataId,
+        create: &V,
+    ) -> Result<SessionCreateResponse<R>, Self::Error> {
+        let expect = self
+            .expect
+            .lock()
+            .map_err(Error::mutex_lock)?
+            .pop_front()
+            .ok_or(Error::NothingIsExpected)?;
+        let in_request = to_value(create).expect("json serializable");
+        match expect {
+            Expect {
+                request:
+                    ExpectedRequest::CreateSession {
+                        id,
+                        request,
+                        auth_token,
+                        location,
+                    },
+                response,
+            } if id == *in_id && request == in_request => {
+                let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
+                let entity: R = from_value(response).map_err(Error::BadResponseJson)?;
+                Ok(SessionCreateResponse {
+                    entity,
+                    auth_token,
+                    location,
+                })
+            }
+            _ => Err(Error::UnexpectedCreateSession(
                 in_id.clone(),
                 in_request.to_string(),
                 expect.request,

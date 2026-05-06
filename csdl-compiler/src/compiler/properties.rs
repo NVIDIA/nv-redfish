@@ -207,34 +207,58 @@ impl TypeInfo {
     /// Complex type info.
     #[must_use]
     pub fn complex_type(ct: &ComplexType) -> Self {
+        let required_on_create = ct
+            .properties
+            .properties
+            .iter()
+            .any(|p| p.redfish.is_required_on_create.into_inner())
+            || ct.properties.nav_properties.iter().any(|p| {
+                matches!(
+                    p,
+                    NavProperty::Expandable(v)
+                        if v.redfish.is_required_on_create.into_inner()
+                )
+            });
+
+        let structural_properties_are_read_only = !ct.properties.properties.is_empty()
+            && ct.properties.nav_properties.is_empty()
+            && ct.properties.properties.iter().all(|p| {
+                p.odata.permissions.is_some_and(|v| v == Permissions::Read)
+                    || *p
+                        .ptype
+                        .map(|v| v.0.permissions.is_some_and(|v| v == Permissions::Read))
+                        .inner()
+            });
+
         Self {
             class: TypeClass::ComplexType,
-            permissions: ct.odata.permissions.or_else(|| {
-                // Consider a complex type read-only if it has no
-                // properties, or all properties are ReadOnly. While
-                // we also track nested type info for complex-typed
-                // properties, folding that recursively requires care
-                // in the optimizer.
-                if ct.odata.additional_properties.is_none_or(|v| {
-                    // Redfish-specific heuristic: treat additional
-                    // properties of `OemActions` complex types as
-                    // read-only; we do this because the schema does not indicate their
-                    // immutability.
-                    !v.into_inner() || ct.name.name.inner().as_str() == "OemActions"
-                }) && (ct.properties.is_empty()
-                    || ct.properties.properties.iter().all(|p| {
-                        p.odata.permissions.is_some_and(|v| v == Permissions::Read)
-                            || *p
-                                .ptype
-                                .map(|v| v.0.permissions.is_some_and(|v| v == Permissions::Read))
-                                .inner()
-                    }))
-                {
-                    Some(Permissions::Read)
-                } else {
-                    None
-                }
-            }),
+            permissions: if required_on_create {
+                // `None` means "do not treat the type itself as read-only".
+                // A RequiredOnCreate member must have a serializable payload,
+                // even if the same shape would otherwise look read-only.
+                None
+            } else {
+                ct.odata.permissions.or_else(|| {
+                    // Consider a complex type read-only if it has no
+                    // structural or navigation properties, or if all
+                    // structural properties are read-only and there are no
+                    // navigation properties. RequiredOnCreate above keeps
+                    // create payload shapes writable even when the type is
+                    // otherwise read-only.
+                    if ct.odata.additional_properties.is_none_or(|v| {
+                        // Redfish-specific heuristic: treat additional
+                        // properties of `OemActions` complex types as
+                        // read-only; we do this because the schema does not indicate their
+                        // immutability.
+                        !v.into_inner() || ct.name.name.inner().as_str() == "OemActions"
+                    }) && (ct.properties.is_empty() || structural_properties_are_read_only)
+                    {
+                        Some(Permissions::Read)
+                    } else {
+                        None
+                    }
+                })
+            },
         }
     }
 }
