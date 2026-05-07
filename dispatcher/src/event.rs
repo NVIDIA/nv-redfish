@@ -38,36 +38,31 @@ pub type RuntimeEventType = Infallible;
 
 #[cfg(feature = "runtime-events")]
 mod with_events {
-    use crate::ids::GeneratorId;
-    use crate::ids::TargetId;
+    use crate::ids::NodeId;
 
     /// Out-of-band scheduler, executor, and queue events emitted by the
     /// runtime when the `runtime-events` feature is enabled.
     ///
-    /// These events are interleaved with work outputs in [`crate::Runtime::next`]
-    /// preserving causal ordering. They never carry user work payloads.
+    /// These events are interleaved with work outputs in
+    /// [`crate::Runtime::next`] preserving causal ordering. They never carry
+    /// user work payloads.
     #[derive(Debug, Clone, PartialEq, Eq)]
     #[non_exhaustive]
     pub enum RuntimeEvent {
-        /// A generator is lagging behind its requested rate.
-        GeneratorLagging {
-            /// The lagging generator.
-            generator_id: GeneratorId,
+        /// A node is lagging behind its requested rate.
+        NodeLagging {
+            /// The lagging node.
+            node_id: NodeId,
         },
-        /// A previously-lagging generator has caught up.
-        GeneratorRecovered {
-            /// The recovered generator.
-            generator_id: GeneratorId,
+        /// A previously-lagging node has caught up.
+        NodeRecovered {
+            /// The recovered node.
+            node_id: NodeId,
         },
-        /// A generator is being starved by other flows.
-        GeneratorStarved {
-            /// The starved generator.
-            generator_id: GeneratorId,
-        },
-        /// A target is being throttled by per-target capacity.
-        TargetThrottled {
-            /// The throttled target.
-            target_id: TargetId,
+        /// A node is being starved by other flows.
+        NodeStarved {
+            /// The starved node.
+            node_id: NodeId,
         },
         /// The runtime is being throttled by global capacity.
         GlobalThrottled,
@@ -78,23 +73,23 @@ mod with_events {
         },
         /// Work was dispatched and started executing.
         WorkStarted {
-            /// The generator that produced the work.
-            generator_id: GeneratorId,
+            /// The root node the work was dispatched under.
+            node_id: NodeId,
         },
         /// Work completed successfully. Brackets the corresponding
         /// `RuntimeOutput::Work(Ok(_))` together with [`RuntimeEvent::WorkStarted`].
         WorkCompleted {
-            /// The generator that produced the work.
-            generator_id: GeneratorId,
+            /// The root node the work was dispatched under.
+            node_id: NodeId,
         },
         /// Work failed. Brackets the corresponding `RuntimeOutput::Work(Err(_))`
         /// together with [`RuntimeEvent::WorkStarted`].
         WorkFailed {
-            /// The generator that produced the work.
-            generator_id: GeneratorId,
+            /// The root node the work was dispatched under.
+            node_id: NodeId,
         },
-        /// A point-in-time snapshot of scheduler statistics. Phase 0 reserves
-        /// the variant; concrete payload fields are added in later phases.
+        /// A point-in-time snapshot of scheduler statistics. Reserved
+        /// variant; concrete payload fields are added in later phases.
         SchedulerStatsSnapshot,
     }
 }

@@ -13,7 +13,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Generic cooperative task dispatcher.
+//! Generic cooperative task dispatcher with composable scheduling.
+//!
+//! `nv-redfish-dispatcher` is a Redfish-free, application-agnostic dispatcher
+//! parameterized by a user work event type `Ev` and a work error type `Err`.
+//! Its central abstraction is the [`Scheduler`] trait — every node in the
+//! dispatcher's scheduling tree implements it, whether it is a *leaf* (a node
+//! that produces work directly) or a *branch* (a node that composes children
+//! using a scheduling policy: weighted DRR, round-robin, priority,
+//! token-bucket admission, etc.).
+//!
+//! The runtime drives only the *root* node. Branches recurse internally, and
+//! completions are forwarded back to the originating leaf via a per-work
+//! [`RoutingPath`] breadcrumb.
+//!
+//! Public surface:
+//!
+//! - the [`Scheduler`] trait and its [`ScheduledWork`] / [`ScheduledWorkResult`] types,
+//! - data types in [`work`]: [`WorkMeta`], [`Readiness`], [`CostUnits`],
+//!   [`WorkCompletion`], [`CompletionOutcome`], [`RoutingPath`],
+//! - opaque [`NodeId`] addressing every node in the tree,
+//! - the single ordered output stream ([`RuntimeOutput`], [`WorkResult`], ...),
+//! - optional out-of-band runtime events ([`RuntimeEventType`]),
+//! - a cloneable synchronous control surface ([`RuntimeHandle`]),
+//! - a single-consumer driver ([`Runtime`]) with [`Runtime::next`].
+//!
+//! This crate is currently a **scaffold**: the public types and signatures
+//! are frozen, but bodies are stubbed with [`unimplemented!`]. Built-in
+//! branch implementations (weighted DRR, round-robin, token bucket, etc.)
+//! land in a follow-up phase.
+
 #![deny(
     clippy::all,
     clippy::pedantic,
@@ -35,77 +64,47 @@
 )]
 #![deny(missing_docs)]
 #![allow(clippy::doc_markdown)]
+// Module-name repetition is intentional for this crate's public types
+// (RuntimeOutput, RuntimeEvent, RuntimeStats, etc.) which are re-exported.
 #![allow(clippy::module_name_repetitions)]
-
-// For skaffold
+// Scaffold-only relaxations. Removed when the implementations land.
 #![allow(clippy::unimplemented)]
 #![allow(dead_code)]
 
-pub mod control;
 pub mod event;
-pub mod generator;
-pub mod ids;
-pub mod output;
 pub mod runtime;
 pub mod scheduler;
 pub mod stats;
+pub mod work;
 
-#[doc(inline)]
-pub use control::AddGeneratorError;
-#[doc(inline)]
-pub use control::GeneratorConfig;
-#[doc(inline)]
-pub use control::RuntimeConfig;
-#[doc(inline)]
-pub use control::RuntimeHandle;
-#[doc(inline)]
-pub use control::TargetLimits;
 #[doc(inline)]
 pub use event::RuntimeEventType;
 #[cfg(feature = "runtime-events")]
 #[doc(inline)]
 pub use event::RuntimeEvent;
 #[doc(inline)]
-pub use generator::CompletionOutcome;
-#[doc(inline)]
-pub use generator::CostUnits;
-#[doc(inline)]
-pub use generator::Generator;
-#[doc(inline)]
-pub use generator::Readiness;
-#[doc(inline)]
-pub use generator::ScheduledWork;
-#[doc(inline)]
-pub use generator::ScheduledWorkResult;
-#[doc(inline)]
-pub use generator::WorkCompletion;
-#[doc(inline)]
-pub use generator::WorkMeta;
-#[doc(inline)]
-pub use ids::ClassId;
-#[doc(inline)]
-pub use ids::GeneratorId;
-#[doc(inline)]
-pub use ids::TargetId;
-#[doc(inline)]
-pub use output::OutputQueueStats;
-#[doc(inline)]
-pub use output::RuntimeOutput;
-#[doc(inline)]
-pub use output::WorkError;
-#[doc(inline)]
-pub use output::WorkResult;
-#[doc(inline)]
-pub use output::WorkSuccess;
-#[doc(inline)]
 pub use runtime::Runtime;
 #[doc(inline)]
-pub use stats::ClassStats;
+pub use scheduler::ScheduledWork;
 #[doc(inline)]
-pub use stats::GeneratorStats;
+pub use scheduler::ScheduledWorkResult;
+#[doc(inline)]
+pub use scheduler::Scheduler;
+#[doc(inline)]
+pub use stats::NodeStats;
 #[doc(inline)]
 pub use stats::RuntimeStats;
 #[doc(inline)]
-pub use stats::TargetStats;
-#[doc(inline)]
 pub use stats::WorkStats;
+#[doc(inline)]
+pub use work::CompletionOutcome;
+#[doc(inline)]
+pub use work::CostUnits;
+#[doc(inline)]
+pub use work::Readiness;
+#[doc(inline)]
+pub use work::RoutingPath;
+#[doc(inline)]
+pub use work::WorkCompletion;
+#[doc(inline)]
+pub use work::WorkMeta;

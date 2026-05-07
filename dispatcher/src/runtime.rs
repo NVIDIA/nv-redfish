@@ -20,6 +20,17 @@
 //! at most one in-flight completion to the output queue, and returns the
 //! oldest queued output. When nothing can make progress, the future parks
 //! until a control-plane mutation or an in-flight task completes.
+//!
+//! The runtime is policy-free: every scheduling decision lives inside the
+//! installed root [`Scheduler`] subtree. The runtime is responsible for:
+//!
+//! - dispatching work futures returned by `root.take_next()`,
+//! - polling the in-flight set,
+//! - delivering completions back through `root.on_complete(&mut completion)`
+//!   (branches recurse via [`crate::RoutingPath`]),
+//! - enforcing only runtime-wide invariants ([`RuntimeConfig::global_max_in_flight`],
+//!   [`RuntimeConfig::output_queue_capacity`]),
+//! - producing the single ordered [`crate::RuntimeOutput`] stream.
 
 use core::future::Future;
 use core::marker::PhantomData;
@@ -27,17 +38,10 @@ use core::pin::Pin;
 use core::task::Context;
 use core::task::Poll;
 
-use crate::control::AddGeneratorError;
-use crate::control::GeneratorConfig;
-use crate::control::RuntimeConfig;
-use crate::control::RuntimeHandle;
-use crate::control::TargetLimits;
-use crate::generator::Generator;
-use crate::ids::GeneratorId;
-use crate::ids::TargetId;
-use crate::output::RuntimeOutput;
-use crate::stats::ClassStats;
+use crate::RuntimeEventType;
+use crate::scheduler::Scheduler;
 use crate::stats::RuntimeStats;
+use crate::work::WorkResult;
 
 /// Generic dispatcher runtime parameterized by application work event type
 /// `Ev` and work error type `Err`.
@@ -46,9 +50,9 @@ use crate::stats::RuntimeStats;
 /// via [`Runtime::next`]. Use [`Runtime::handle`] to obtain cloneable control
 /// handles for cross-task control operations.
 pub struct Runtime<Ev, Err> {
-    // Scaffold-only placeholder. Replaced with the real
+    // Scaffold-only placeholder. Replaced with real
     // `Arc<Shared<Ev, Err>>` + `FuturesUnordered` + bookkeeping fields when
-    // the runtime body is relocated into this crate.
+    // the runtime body lands.
     _phantom: PhantomData<fn() -> (Ev, Err)>,
 }
 
@@ -59,7 +63,7 @@ where
 {
     /// Build a new runtime with the given configuration.
     #[must_use]
-    pub fn new(_config: RuntimeConfig) -> Self {
+    pub fn new(_config: RuntimeConfig, _root: Box<dyn Scheduler<Ev, Err> + Send>) -> Self {
         unimplemented!("scaffold")
     }
 
@@ -69,112 +73,22 @@ where
         unimplemented!("scaffold")
     }
 
-    /// Add a target to the runtime and return its newly-allocated id.
-    ///
-    /// Forwarded convenience for [`RuntimeHandle::add_target`].
-    #[must_use]
-    pub fn add_target(&self, _limits: TargetLimits) -> Option<TargetId> {
-        unimplemented!("scaffold")
-    }
-
-    /// Remove a target. Forwarded convenience for [`RuntimeHandle::remove_target`].
-    #[must_use]
-    pub fn remove_target(&self, _id: TargetId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Update target limits. Forwarded convenience.
-    #[must_use]
-    pub fn update_target_limits(&self, _id: TargetId, _limits: TargetLimits) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Pause a target. Forwarded convenience.
-    #[must_use]
-    pub fn pause_target(&self, _id: TargetId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Resume a target. Forwarded convenience.
-    #[must_use]
-    pub fn resume_target(&self, _id: TargetId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Add a generator. Forwarded convenience for [`RuntimeHandle::add_generator`].
-    ///
-    /// # Errors
-    ///
-    /// Forwarded from [`RuntimeHandle::add_generator`].
-    pub fn add_generator(
-        &self,
-        _target: TargetId,
-        _generator: Box<dyn Generator<Ev, Err> + Send>,
-        _config: GeneratorConfig,
-    ) -> Result<GeneratorId, AddGeneratorError> {
-        unimplemented!("scaffold")
-    }
-
-    /// Remove a generator. Forwarded convenience.
-    #[must_use]
-    pub fn remove_generator(&self, _id: GeneratorId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Update generator config. Forwarded convenience.
-    #[must_use]
-    pub fn update_generator(&self, _id: GeneratorId, _config: GeneratorConfig) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Pause a generator. Forwarded convenience.
-    #[must_use]
-    pub fn pause_generator(&self, _id: GeneratorId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Resume a generator. Forwarded convenience.
-    #[must_use]
-    pub fn resume_generator(&self, _id: GeneratorId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Trigger a generator. Forwarded convenience.
-    #[must_use]
-    pub fn trigger_generator(&self, _id: GeneratorId) -> bool {
-        unimplemented!("scaffold")
-    }
-
-    /// Begin graceful shutdown. Forwarded convenience.
-    pub fn graceful_shutdown(&self) {
-        unimplemented!("scaffold")
-    }
-
-    /// Snapshot of runtime statistics.
-    #[must_use]
-    pub fn stats(&self) -> RuntimeStats {
-        unimplemented!("scaffold")
-    }
-
-    /// Snapshot of per-class statistics.
-    #[must_use]
-    pub fn class_stats(&self) -> Vec<ClassStats> {
-        unimplemented!("scaffold")
-    }
-
     /// Drive the runtime by one step and return the next ordered output.
     ///
     /// Behavior summary:
     ///
-    /// 1. If already-emitted shutdown is sticky, return it again.
+    /// 1. If a sticky shutdown has been emitted, return it again.
     /// 2. Drain at most one already-queued output and return it.
     /// 3. Poll in-flight work; on completion enqueue the corresponding
-    ///    [`RuntimeOutput::Work`] and call [`Generator::on_complete`] exactly
-    ///    once.
+    ///    [`crate::RuntimeOutput::Work`] and call
+    ///    [`Scheduler::on_complete`] on the root exactly once. Branches
+    ///    propagate the call to the originating child by popping their
+    ///    [`crate::RoutingPath`] tag.
     /// 4. If shutdown has started and there is no further in-flight work or
     ///    queued output, emit the sticky shutdown output.
-    /// 5. Otherwise scan generators for the first ready one, call
-    ///    `take_next`, and admit the future to the in-flight set.
+    /// 5. Otherwise call `root.update_ready(now)`; if ready, call
+    ///    `root.take_next()` and admit the resulting future to the in-flight
+    ///    set, subject to [`RuntimeConfig::global_max_in_flight`].
     /// 6. If nothing can make progress, register the current waker and park.
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> NextFuture<'_, Ev, Err> {
@@ -200,9 +114,81 @@ where
     type Output = RuntimeOutput<Ev, Err>;
 
     fn poll(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<Self::Output> {
-        // Touch `runtime` so the field is considered used by the borrow checker
-        // even before the real implementation lands.
         let _ = &self.runtime;
         unimplemented!("scaffold")
     }
+}
+
+
+/// Runtime-wide configuration set when the runtime is constructed.
+///
+/// Per-node policy lives inside each [`Scheduler`] implementation; this
+/// struct is intentionally minimal and only carries runtime-wide knobs that
+/// no individual node owns.
+#[derive(Debug, Clone, Default)]
+pub struct RuntimeConfig {
+    /// Optional global maximum number of in-flight work items.
+    ///
+    /// Enforced by the runtime on dispatch admission, in addition to whatever
+    /// per-subtree admission a branch node may impose.
+    pub global_max_in_flight: Option<u32>,
+    /// Optional bound on the output queue. When `None` the queue is unbounded.
+    pub output_queue_capacity: Option<usize>,
+}
+
+/// Cloneable handle to a running [`crate::Runtime`].
+///
+/// `RuntimeHandle` exposes the synchronous control surface. It can be cloned
+/// and shared across tasks; mutating operations may briefly lock internal
+/// state but never wait on work futures.
+///
+/// The runtime itself is *not* `Clone` — only one consumer drives the output
+/// stream via [`crate::Runtime::next`].
+pub struct RuntimeHandle<Ev, Err> {
+    // Scaffold-only placeholder. Replaced with `Arc<Shared<Ev, Err>>` once the
+    // runtime body is filled in.
+    _phantom: PhantomData<fn() -> (Ev, Err)>,
+}
+
+impl<Ev, Err> Clone for RuntimeHandle<Ev, Err> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<Ev, Err> RuntimeHandle<Ev, Err> {   
+    /// Begin graceful shutdown. Idempotent: subsequent calls do nothing.
+    ///
+    /// After shutdown starts, mutating control operations reject new node
+    /// installations; in-flight work is allowed to complete; queued outputs
+    /// are still delivered, and finally the sticky shutdown output is
+    /// emitted by [`crate::Runtime::next`].
+    pub fn graceful_shutdown(&self) {
+        unimplemented!("scaffold")
+    }
+
+    /// Snapshot of runtime statistics.
+    #[must_use]
+    pub fn stats(&self) -> RuntimeStats {
+        unimplemented!("scaffold")
+    }
+}
+
+/// Single ordered output value emitted by the runtime.
+///
+/// `R` defaults to [`crate::RuntimeEventType`] which is
+/// [`core::convert::Infallible`] when the `runtime-events` feature is
+/// disabled, making `RuntimeOutput::Runtime(_)` impossible to construct.
+pub enum RuntimeOutput<Ev, Err, R = RuntimeEventType> {
+    /// Application or adapter work output.
+    Work(WorkResult<Ev, Err>),
+    /// Out-of-band runtime event. Only constructible when `runtime-events`
+    /// is enabled (otherwise `R = Infallible`).
+    Runtime(R),
+    /// Sticky terminal output emitted after graceful shutdown drains in-flight
+    /// work and prior queued output. Subsequent `next()` calls return this
+    /// variant immediately.
+    Shutdown,
 }
