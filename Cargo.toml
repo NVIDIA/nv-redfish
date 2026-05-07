@@ -12,6 +12,7 @@ members = [
    "examples/explore-with-reqwest-bmc",
    "examples/event-stream-console",
    "examples/readme-minimal",
+   "examples/session-token",
    "dispatcher",
    "tests"
 ]
@@ -52,6 +53,7 @@ nv-redfish-core = { version = "0.1", path = "./core" }
 nv-redfish-bmc-http = { version = "0.1", path = "./bmc-http" }
 nv-redfish-bmc-mock = { version = "0.1", path = "./bmc-mock" }
 nv-redfish-dispatcher = { version = "0.1", path = "./dispatcher" }
+nv-redfish-scraper = { version = "0.1", path = "./scraper" }
 nv-redfish = { version = "0.1", path = "./redfish" }
 nv-redfish-csdl-compiler = { version = "0.1", path = "./csdl-compiler" }
 toml = { version = "0.9", default-features = false }
