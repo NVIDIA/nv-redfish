@@ -13,105 +13,144 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The unified [`Scheduler`] trait — every node in the dispatcher's scheduling
-//! tree implements it.
+//! The unified [`Scheduler`] trait — every node in the scheduling tree
+//! implements it.
 //!
-//! The trait subsumes both *leaves* (nodes that produce work directly, the
-//! role today's `Generator` plays) and *branches* (nodes that compose
-//! children using a scheduling policy: weighted DRR, round-robin, priority,
-//! token-bucket admission, etc.). The runtime treats every node identically:
-//! it queries readiness, asks for one work item, and forwards completions.
-//!
-//! Branch nodes implement scheduling policy by:
-//!
-//! - aggregating child readiness in [`Scheduler::update_ready`],
-//! - selecting a child in [`Scheduler::take_next`], pushing the child index
-//!   onto the returned work's [`crate::RoutingPath`] before returning upward,
-//! - popping the routing tag in [`Scheduler::on_complete`] and forwarding to
-//!   the originating child.
-//!
-//! Leaf nodes ignore the routing path; they account locally and produce work
-//! futures that close over whatever the application needs.
+//! Leaves produce work directly; branches compose children with a policy.
+//! The runtime treats both alike: query readiness, pull one item, forward
+//! the completion. `Scheduler<T>` is generic over the payload `T` and
+//! never inspects it; the runtime decides what shape `T` takes (the
+//! bundled [`crate::Runtime`] uses [`crate::FutureWork<Ev, Err>`]).
 
-use core::future::Future;
-use core::pin::Pin;
 use std::time::Instant;
 
+use crate::work::Completion;
 use crate::work::Readiness;
-use crate::work::WorkCompletion;
+use crate::work::RoutingPath;
 use crate::work::WorkMeta;
 
-/// Result type returned by a [`ScheduledWork`] future.
-///
-/// On success the work returns a vector of work events of type `Ev`. Multiple
-/// events from one work item preserve order. On failure the work returns a
-/// generic application or adapter error of type `Err`.
-pub type ScheduledWorkResult<Ev, Err> = Result<Vec<Ev>, Err>;
-
-/// Executable unit of work returned by a selected [`Scheduler`] node.
-///
-/// `ScheduledWork` carries scheduler-visible metadata together with the
-/// actual work future. The future closes over whatever the leaf needs.
-///
-/// The future is required to be `Send + 'static` so it can live in the
-/// runtime's in-flight set; this matches the `Scheduler<Ev, Err>` storage
-/// shape (`Box<dyn Scheduler<...> + Send>`) inside the runtime.
-pub struct ScheduledWork<Ev, Err> {
-    /// Scheduler-visible metadata for this work item, including its
-    /// [`crate::RoutingPath`].
-    pub meta: WorkMeta,
-    /// Future producing the work result.
-    pub future: Pin<Box<dyn Future<Output = ScheduledWorkResult<Ev, Err>> + Send + 'static>>,
+/// Unit of work returned by [`Scheduler::take_next`].
+pub struct ScheduledWork<T, M: WorkMeta> {
+    /// Meta as observed at the producing node.
+    pub meta: M,
+    /// Breadcrumb stack stamped by branches on the way up. See
+    /// [`RoutingPath`].
+    pub routing: RoutingPath,
+    /// Opaque payload; only the runtime executes it.
+    pub payload: T,
 }
 
-impl<Ev, Err> ScheduledWork<Ev, Err> {
-    /// Build a [`ScheduledWork`] from work meta and a boxed future.
+impl<T, M: WorkMeta> ScheduledWork<T, M> {
+    /// Build a [`ScheduledWork`] with an empty routing path. Typical for
+    /// leaves; branches re-use the child's path and stamp their own tag.
     #[must_use]
-    pub fn new(
-        meta: WorkMeta,
-        future: Pin<Box<dyn Future<Output = ScheduledWorkResult<Ev, Err>> + Send + 'static>>,
-    ) -> Self {
-        Self { meta, future }
+    pub const fn new(meta: M, payload: T) -> Self {
+        Self {
+            meta,
+            routing: RoutingPath::empty(),
+            payload,
+        }
     }
 }
 
-/// Composable scheduler node interface.
+/// Composable scheduler node, parameterized by the opaque payload `T`.
 ///
-/// The runtime drives the *root* node by:
+/// The runtime drives the root: refresh readiness, pull a payload when
+/// admission permits, report completion exactly once. Branches recurse
+/// into their selected child and may stamp the routing path and/or wrap
+/// the child's meta on the way up; on completion they pop their tag,
+/// unwrap their layer, and forward.
 ///
-/// 1. querying readiness via [`Scheduler::update_ready`] before selection,
-/// 2. pulling executable work via [`Scheduler::take_next`] when admission
-///    permits,
-/// 3. reporting completion via [`Scheduler::on_complete`] exactly once per
-///    dispatched work item.
-///
-/// Branch implementations recurse: their `take_next` calls a chosen child's
-/// `take_next`, their `on_complete` pops a routing tag and forwards to the
-/// indicated child. Leaf implementations produce work and account locally.
-///
-/// Removed nodes are never queried again.
-pub trait Scheduler<Ev, Err> {
-    /// Refresh readiness using the supplied reference clock.
-    ///
-    /// Branches should aggregate across children (any-ready -> ready,
-    /// `next_update_at` = min over children, `next_cost` per branch policy).
+/// `Send + 'static` is required so the runtime can store a node behind a
+/// trait object and downcast it via [`core::any::Any`].
+pub trait Scheduler<T>: Send + 'static {
+    /// Meta produced at `take_next` and consumed at `on_complete`. `()`
+    /// for meta-naive leaves; branches wrap the child meta with a layer
+    /// like [`crate::WithCost`].
+    type Meta: WorkMeta;
+
+    /// Refresh readiness against `now`. Branches aggregate across
+    /// children (ready iff any child is ready; `next_update_at` is the
+    /// min; `next_cost` follows the branch policy).
     fn update_ready(&mut self, now: Instant) -> Readiness;
 
-    /// Produce the next executable work item, if any.
+    /// Pull the next item, or `None` if nothing is currently available.
     ///
-    /// Called only when the runtime selects this node (or, recursively, when
-    /// a parent branch selects this node). May return `None` to indicate that
-    /// no work is currently available; the runtime/parent will then continue
-    /// scanning other ready children.
-    ///
-    /// Branch contract: after a successful child selection, push the chosen
-    /// child index onto `work.meta.routing` before returning.
-    fn take_next(&mut self) -> Option<ScheduledWork<Ev, Err>>;
+    /// Branches must push the selected child index onto `work.routing`
+    /// before returning, and replace `work.meta` if they add a layer.
+    fn take_next(&mut self) -> Option<ScheduledWork<T, Self::Meta>>;
 
-    /// Receive the completion summary for a previously dispatched work item.
+    /// Report the completion of a dispatched item, exactly once.
     ///
-    /// Reported exactly once per dispatched work item. The runtime delivers
-    /// completions to the *root* node; branches pop their own routing tag
-    /// from `completion.routing` and forward to the originating child.
-    fn on_complete(&mut self, completion: &mut WorkCompletion);
+    /// Branches pop their routing tag from `completion.routing`, read
+    /// their layer's annotations off `completion.meta`, and forward a
+    /// `&mut Completion<C::Meta>` (with the unwrapped meta) to the chosen
+    /// child.
+    fn on_complete(&mut self, completion: &mut Completion<Self::Meta>);
+}
+
+impl<T, S> Scheduler<T> for Box<S>
+where
+    T: 'static,
+    S: Scheduler<T> + ?Sized,
+{
+    type Meta = S::Meta;
+
+    fn update_ready(&mut self, now: Instant) -> Readiness {
+        (**self).update_ready(now)
+    }
+
+    fn take_next(&mut self) -> Option<ScheduledWork<T, S::Meta>> {
+        (**self).take_next()
+    }
+
+    fn on_complete(&mut self, completion: &mut Completion<S::Meta>) {
+        (**self).on_complete(completion);
+    }
+}
+
+pub(crate) mod private {
+    //! Sealed object-safe extension of [`super::Scheduler`] used as the
+    //! runtime's internal root type. Adopts every [`super::Scheduler`] via
+    //! a blanket impl; users never implement it.
+
+    use core::any::Any;
+    use std::time::Instant;
+
+    use super::ScheduledWork;
+    use crate::work::Completion;
+    use crate::work::Readiness;
+    use crate::work::WorkMeta;
+
+    /// Object-safe scheduler view used by the runtime's internal storage.
+    pub trait SchedulerObj<T, M: WorkMeta>: Send + 'static {
+        fn update_ready(&mut self, now: Instant) -> Readiness;
+        fn take_next(&mut self) -> Option<ScheduledWork<T, M>>;
+        fn on_complete(&mut self, completion: &mut Completion<M>);
+        fn as_any(&self) -> &dyn Any;
+        fn as_any_mut(&mut self) -> &mut dyn Any;
+    }
+
+    impl<T, M, S> SchedulerObj<T, M> for S
+    where
+        T: 'static,
+        M: WorkMeta,
+        S: super::Scheduler<T, Meta = M>,
+    {
+        fn update_ready(&mut self, now: Instant) -> Readiness {
+            <Self as super::Scheduler<T>>::update_ready(self, now)
+        }
+        fn take_next(&mut self) -> Option<ScheduledWork<T, M>> {
+            <Self as super::Scheduler<T>>::take_next(self)
+        }
+        fn on_complete(&mut self, completion: &mut Completion<M>) {
+            <Self as super::Scheduler<T>>::on_complete(self, completion);
+        }
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+        fn as_any_mut(&mut self) -> &mut dyn Any {
+            self
+        }
+    }
 }
