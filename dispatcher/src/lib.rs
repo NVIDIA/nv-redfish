@@ -15,33 +15,46 @@
 
 //! Generic cooperative task dispatcher with composable scheduling.
 //!
-//! `nv-redfish-dispatcher` is a Redfish-free, application-agnostic dispatcher
-//! parameterized by a user work event type `Ev` and a work error type `Err`.
-//! Its central abstraction is the [`Scheduler`] trait — every node in the
-//! dispatcher's scheduling tree implements it, whether it is a *leaf* (a node
-//! that produces work directly) or a *branch* (a node that composes children
-//! using a scheduling policy: weighted DRR, round-robin, priority,
-//! token-bucket admission, etc.).
-//!
-//! The runtime drives only the *root* node. Branches recurse internally, and
-//! completions are forwarded back to the originating leaf via a per-work
+//! Every node in the scheduling tree implements one trait, [`Scheduler`].
+//! Leaves produce work; branches compose children with a policy (DRR,
+//! round-robin, priority, token bucket, …). The runtime drives only the
+//! *root*; branches recurse, and completions flow back via a per-work
 //! [`RoutingPath`] breadcrumb.
 //!
-//! Public surface:
+//! [`Scheduler<T>`] is parameterized only by an opaque payload `T`. The
+//! scheduler tree never inspects it; the runtime does. This crate's
+//! [`Runtime`] uses `T = FutureWork<Ev, Err>` (boxed futures returning
+//! `Result<Vec<Ev>, Err>`); other runtimes can pick another shape and
+//! reuse the same scheduler types.
 //!
-//! - the [`Scheduler`] trait and its [`ScheduledWork`] / [`ScheduledWorkResult`] types,
-//! - data types in [`work`]: [`WorkMeta`], [`Readiness`], [`CostUnits`],
-//!   [`WorkCompletion`], [`CompletionOutcome`], [`RoutingPath`],
-//! - opaque [`NodeId`] addressing every node in the tree,
-//! - the single ordered output stream ([`RuntimeOutput`], [`WorkResult`], ...),
-//! - optional out-of-band runtime events ([`RuntimeEventType`]),
-//! - a cloneable synchronous control surface ([`RuntimeHandle`]),
-//! - a single-consumer driver ([`Runtime`]) with [`Runtime::next`].
+//! ## Layered metadata
 //!
-//! This crate is currently a **scaffold**: the public types and signatures
-//! are frozen, but bodies are stubbed with [`unimplemented!`]. Built-in
-//! branch implementations (weighted DRR, round-robin, token bucket, etc.)
-//! land in a follow-up phase.
+//! [`WorkMeta`] is a marker bound (`Debug + Clone + Send + 'static`) — any
+//! matching type is meta, and `()` is the canonical no-policy meta. Policy
+//! data is added by *wrappers* ([`WithCost`], [`WithPriority`]) that
+//! implement *projection traits* ([`HasCost`], [`HasPriority`]); schedulers
+//! ask for the projections they need and leave the rest alone.
+//! [`RoutingPath`] is a structural sibling of meta on [`ScheduledWork`] and
+//! [`Completion`], not a meta concern.
+//!
+//! ## Public surface
+//!
+//! - [`Scheduler`], [`ScheduledWork`], [`Completion`],
+//! - [`WorkMeta`], wrappers [`WithCost`] / [`WithPriority`], projections
+//!   [`HasCost`] / [`HasPriority`],
+//! - [`Readiness`], [`CostUnits`], [`CompletionOutcome`], [`RoutingPath`],
+//! - [`Runtime`] + [`RuntimeConfig`], [`RuntimeHandle`] (with
+//!   [`RuntimeHandle::with_root`] / [`with_root_mut`][`RuntimeHandle::with_root_mut`]),
+//!   [`RuntimeOutput`], the [`FutureWork`] payload alias,
+//! - optional out-of-band [`RuntimeEventType`].
+//!
+//! The runtime does *not* enumerate the scheduler tree, and exposes no
+//! per-leaf identity or telemetry. Schedulers that need such observability
+//! expose it through their own API, reached via [`RuntimeHandle::with_root`].
+//!
+//! This crate is currently a **scaffold**: signatures are frozen, bodies
+//! are stubbed with [`unimplemented!`]. Built-in branch policies land in a
+//! follow-up phase.
 
 #![deny(
     clippy::all,
@@ -77,34 +90,46 @@ pub mod scheduler;
 pub mod stats;
 pub mod work;
 
-#[doc(inline)]
-pub use event::RuntimeEventType;
 #[cfg(feature = "runtime-events")]
 #[doc(inline)]
 pub use event::RuntimeEvent;
 #[doc(inline)]
+pub use event::RuntimeEventType;
+#[doc(inline)]
+pub use runtime::FutureWork;
+#[doc(inline)]
 pub use runtime::Runtime;
+#[doc(inline)]
+pub use runtime::RuntimeConfig;
+#[doc(inline)]
+pub use runtime::RuntimeHandle;
+#[doc(inline)]
+pub use runtime::RuntimeOutput;
 #[doc(inline)]
 pub use scheduler::ScheduledWork;
 #[doc(inline)]
-pub use scheduler::ScheduledWorkResult;
-#[doc(inline)]
 pub use scheduler::Scheduler;
 #[doc(inline)]
-pub use stats::NodeStats;
+pub use stats::OutputQueueStats;
 #[doc(inline)]
 pub use stats::RuntimeStats;
 #[doc(inline)]
-pub use stats::WorkStats;
+pub use work::Completion;
 #[doc(inline)]
 pub use work::CompletionOutcome;
 #[doc(inline)]
 pub use work::CostUnits;
 #[doc(inline)]
+pub use work::HasCost;
+#[doc(inline)]
+pub use work::HasPriority;
+#[doc(inline)]
 pub use work::Readiness;
 #[doc(inline)]
 pub use work::RoutingPath;
 #[doc(inline)]
-pub use work::WorkCompletion;
+pub use work::WithCost;
+#[doc(inline)]
+pub use work::WithPriority;
 #[doc(inline)]
 pub use work::WorkMeta;

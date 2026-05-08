@@ -13,57 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Data types describing units of work as they flow between the runtime and
-//! [`crate::Scheduler`] nodes.
-//!
-//! Includes:
-//!
-//! - [`CostUnits`] and [`Readiness`] used to negotiate scheduling decisions,
-//! - [`WorkMeta`] attached to every [`crate::ScheduledWork`] item,
-//! - [`WorkCompletion`] and [`CompletionOutcome`] reported back after dispatch,
-//! - [`RoutingPath`] — the per-work breadcrumb stack that lets composable
-//!   branch schedulers forward completions to the originating child without
-//!   any per-branch side tables.
+//! Data types that flow between the runtime and [`crate::Scheduler`] nodes:
+//! readiness, cost, the layered meta model ([`WorkMeta`] + projection traits
+//! + wrappers), the structural [`RoutingPath`], and [`Completion`].
 
+use core::fmt::Debug;
 use core::time::Duration;
 use std::time::Instant;
-use core::fmt::Debug;
-use core::fmt::Display;
-use core::fmt::Formatter;
-use core::fmt::Result as FmtResult;
-
-use crate::WorkStats;
-
-/// Opaque identifier of a scheduler node in the dispatcher tree.
-///
-/// Allocated by the runtime on installation; replaced (not reused) when a
-/// node is removed and another is added.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct NodeId(u64);
-
-impl NodeId {
-    /// Construct a `NodeId` from the runtime's monotonic allocation counter.
-    pub(crate) const fn from_seq(seq: u64) -> Self {
-        Self(seq)
-    }
-}
-
-impl Debug for NodeId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "NodeId({})", self.0)
-    }
-}
-
-impl Display for NodeId {
-    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        write!(f, "node:{}", self.0)
-    }
-}
 
 /// Cost units associated with a unit of work.
 ///
-/// `CostUnits` are concrete [`u64`] newtypes. They are not generic; the runtime
-/// uses them to weigh admission, fairness, and per-node/global capacity.
+/// A plain [`u64`] newtype. Cost-aware schedulers read it through the
+/// [`HasCost`] projection on whatever meta their tree carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash, Default)]
 pub struct CostUnits(pub u64);
 
@@ -84,29 +45,23 @@ impl CostUnits {
     }
 }
 
-/// Readiness reported by a [`crate::Scheduler`] node.
+/// Readiness reported by [`crate::Scheduler::update_ready`].
 ///
-/// The runtime invokes [`crate::Scheduler::update_ready`] before selection. A
-/// node that returns `ready: false` is not asked for work in the current
-/// scan. `next_update_at` is an optional hint of when readiness should be
-/// re-evaluated; `next_cost` is an optional hint of the cost of the next work
-/// item (used for admission and fairness calculations).
-///
-/// Branch nodes aggregate child readiness: ready iff any child is ready,
-/// `next_update_at` is the minimum across children, `next_cost` reflects the
-/// branch policy's projected next pick.
+/// `ready: false` means "skip me this scan". `next_update_at` hints when
+/// to re-check; `next_cost` hints the cost of the projected next item
+/// (used for admission and fairness).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub struct Readiness {
     /// Whether the node currently has work that can be selected.
     pub ready: bool,
-    /// Optional time when readiness should next be re-evaluated.
+    /// Optional time at which readiness should be re-checked.
     pub next_update_at: Option<Instant>,
-    /// Optional cost of the next work item.
+    /// Optional cost of the next item.
     pub next_cost: Option<CostUnits>,
 }
 
 impl Readiness {
-    /// Construct a "ready now" readiness with the given cost hint.
+    /// "Ready now" with optional cost hint.
     #[must_use]
     pub const fn ready(cost: Option<CostUnits>) -> Self {
         Self {
@@ -116,7 +71,7 @@ impl Readiness {
         }
     }
 
-    /// Construct a "not ready" readiness with the given next-update hint.
+    /// "Not ready" with optional next-update hint.
     #[must_use]
     pub const fn not_ready(next_update_at: Option<Instant>) -> Self {
         Self {
@@ -127,150 +82,161 @@ impl Readiness {
     }
 }
 
-/// Per-work routing breadcrumb used by composable branch schedulers.
+/// LIFO stack of child indices that routes a completion back to its
+/// originating leaf.
 ///
-/// Acts as a LIFO stack of child indices recorded as the work travels *up*
-/// through the scheduler tree during [`crate::Scheduler::take_next`], and
-/// consumed in reverse as the completion travels *down* through the tree
-/// during [`crate::Scheduler::on_complete`].
-///
-/// Protocol:
-///
-/// 1. A leaf creates the work with an empty path and never inspects it again.
-/// 2. Each branch on `take_next`, after it has selected child `i` and
-///    received that child's `ScheduledWork`, calls
-///    [`RoutingPath::push`] with `i` on `work.meta.routing` before returning
-///    upward.
-/// 3. The runtime carries the path verbatim through dispatch and copies it
-///    onto the [`WorkCompletion`].
-/// 4. Each branch on `on_complete` pops its own tag with [`RoutingPath::pop`]
-///    and forwards the same `&mut WorkCompletion` to that child's
-///    `on_complete`. The leaf at the bottom finds the path empty.
-///
-/// The runtime itself never inspects the path — it is purely a node-to-node
-/// channel.
-///
-/// Internally backed by a [`Vec`] for the scaffold; later phases may swap to
-/// a small inline buffer (`smallvec`-style) without changing the API.
+/// Branches push their selected child index in `take_next` and pop it in
+/// `on_complete`; leaves see an empty path. The runtime forwards it
+/// verbatim and never inspects it. Backed by [`Vec`] today; later phases
+/// may swap in a small inline buffer without changing the API.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct RoutingPath {
     inner: Vec<u32>,
 }
 
 impl RoutingPath {
-    /// Construct an empty routing path. Always the starting state at a leaf.
+    /// Empty path. The starting state at a leaf.
     #[must_use]
     pub const fn empty() -> Self {
         Self { inner: Vec::new() }
     }
 
-    /// Push a child index onto the path. Called by a branch after selecting
-    /// a child during [`crate::Scheduler::take_next`].
+    /// Push the selected child index. Called by a branch in `take_next`.
     pub fn push(&mut self, child_idx: u32) {
         self.inner.push(child_idx);
     }
 
-    /// Pop the most recent child index. Called by a branch at the start of
-    /// [`crate::Scheduler::on_complete`] to recover its own selection.
+    /// Pop the most recent child index. Called by a branch in `on_complete`.
     #[must_use]
     pub fn pop(&mut self) -> Option<u32> {
         self.inner.pop()
     }
 
-    /// Current depth of the path (number of branches that have stamped it).
+    /// Number of branches that have stamped the path.
     #[must_use]
     pub const fn depth(&self) -> usize {
         self.inner.len()
     }
 
-    /// `true` when the path is empty (a leaf has not been reached yet, or the
-    /// completion has been fully forwarded).
+    /// `true` once a leaf is reached (no more branches to forward through).
     #[must_use]
     pub const fn is_empty(&self) -> bool {
         self.inner.is_empty()
     }
 }
 
-/// Metadata attached to a unit of [`crate::ScheduledWork`].
+/// Marker bound for any work-meta type.
 ///
-/// `WorkMeta` is the scheduler-visible projection of a work item. It carries
-/// the cost and the routing breadcrumb stack; the actual work future lives
-/// alongside it inside [`crate::ScheduledWork`].
-#[derive(Debug, Clone)]
-pub struct WorkMeta {
-    /// Cost of this work item, used for admission and fairness.
-    pub cost: CostUnits,
-    /// Routing breadcrumb stack populated by branch schedulers as the work
-    /// travels up to the runtime. See [`RoutingPath`] for the protocol.
-    pub routing: RoutingPath,
+/// `WorkMeta` has no methods; it is a single-name alias for
+/// `Debug + Clone + Send + 'static`. The blanket impl below adopts every
+/// matching type, so users pick a meta (often `()`) without writing any
+/// impls. Policy data lives in *wrappers* that implement *projection
+/// traits* — [`WithCost`] adds [`HasCost`], [`WithPriority`] adds
+/// [`HasPriority`].
+pub trait WorkMeta: Debug + Clone + Send + 'static {}
+
+impl<T: Debug + Clone + Send + 'static> WorkMeta for T {}
+
+/// Projection exposing a [`CostUnits`] value from a meta type.
+pub trait HasCost {
+    /// Cost of the item this meta describes.
+    fn cost(&self) -> CostUnits;
 }
 
-impl WorkMeta {
-    /// Construct minimal work meta with the given cost and an empty routing
-    /// path. Leaves use this; branches mutate `routing` after the fact.
+/// Projection exposing a priority class from a meta type. Higher means
+/// higher priority; the numbering is up to the user.
+pub trait HasPriority {
+    /// Priority class for the item this meta describes.
+    fn priority(&self) -> u8;
+}
+
+/// Adds a [`CostUnits`] annotation on top of any meta `M`. Cost-aware
+/// branches use `WithCost<C::Meta>` as their own `Meta` and supply the
+/// cost in `take_next` from a per-child table.
+#[derive(Debug, Clone)]
+pub struct WithCost<M> {
+    /// Wrapped child meta, carried through unchanged.
+    pub inner: M,
+    /// Cost annotation added at this layer.
+    pub cost: CostUnits,
+}
+
+impl<M> WithCost<M> {
+    /// Wrap a meta with a cost annotation.
     #[must_use]
-    pub const fn with_cost(cost: CostUnits) -> Self {
-        Self {
-            cost,
-            routing: RoutingPath::empty(),
-        }
+    pub const fn new(inner: M, cost: CostUnits) -> Self {
+        Self { inner, cost }
     }
 }
 
-/// Outcome of a single work item, reported back through the scheduler tree.
+impl<M> HasCost for WithCost<M> {
+    fn cost(&self) -> CostUnits {
+        self.cost
+    }
+}
+
+impl<M: HasPriority> HasPriority for WithCost<M> {
+    fn priority(&self) -> u8 {
+        self.inner.priority()
+    }
+}
+
+/// Adds a priority annotation on top of any meta `M`. Priority-aware
+/// branches use `WithPriority<C::Meta>` as their own `Meta` and supply
+/// the priority in `take_next` from a per-child table.
+#[derive(Debug, Clone)]
+pub struct WithPriority<M> {
+    /// Wrapped child meta, carried through unchanged.
+    pub inner: M,
+    /// Priority annotation added at this layer.
+    pub priority: u8,
+}
+
+impl<M> WithPriority<M> {
+    /// Wrap a meta with a priority annotation.
+    #[must_use]
+    pub const fn new(inner: M, priority: u8) -> Self {
+        Self { inner, priority }
+    }
+}
+
+impl<M> HasPriority for WithPriority<M> {
+    fn priority(&self) -> u8 {
+        self.priority
+    }
+}
+
+impl<M: HasCost> HasCost for WithPriority<M> {
+    fn cost(&self) -> CostUnits {
+        self.inner.cost()
+    }
+}
+
+/// Success-or-failure outcome reported through the scheduler tree.
+/// Application events and errors flow separately through
+/// [`crate::RuntimeOutput::Work`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum CompletionOutcome {
-    /// The work future returned `Ok`.
+    /// `Ok(_)` from the work payload.
     Succeeded,
-    /// The work future returned `Err`.
+    /// `Err(_)` from the work payload.
     Failed,
 }
 
-/// Completion summary delivered to [`crate::Scheduler::on_complete`].
+/// Completion delivered to [`crate::Scheduler::on_complete`], exactly once
+/// per dispatched item.
 ///
-/// Reported exactly once per dispatched work item. The runtime owns this
-/// struct; branches mutate `routing` in place as they pop their tag and
-/// forward to children, so the signature uses `&mut WorkCompletion`.
-///
-/// `node_id` is the id of the *root* node the work was dispatched under.
-/// Internal leaf identity (if any) is recovered by following `routing`.
+/// Branches mutate it in place: pop their tag from `routing`, read their
+/// layer off `meta`, then forward a `&mut Completion<C::Meta>` built from
+/// the unwrapped meta to the chosen child.
 #[derive(Debug, Clone)]
-pub struct WorkCompletion {
-    /// The root node the work was dispatched under.
-    pub node_id: NodeId,
-    /// Whether the work succeeded or failed.
+pub struct Completion<M: WorkMeta> {
+    /// Success or failure.
     pub outcome: CompletionOutcome,
-    /// Cost reported by the originating leaf at dispatch time.
-    pub cost: CostUnits,
     /// Wall-clock latency between dispatch and completion.
     pub latency: Duration,
-    /// Routing breadcrumb stack copied from the dispatched work. Branches
-    /// pop their own tag and forward to the indicated child.
+    /// Layered meta as observed at this point in the tree.
+    pub meta: M,
+    /// Routing breadcrumb copied from the dispatched item.
     pub routing: RoutingPath,
 }
-
-/// Successful work output: a vector of events with runtime-owned stats.
-///
-/// Multiple events from one work item preserve order. An empty event vector
-/// is allowed and still constitutes a successful output.
-pub struct WorkSuccess<Ev> {
-    /// Events produced by the work item, in order.
-    pub events: Vec<Ev>,
-    /// Runtime-owned statistics for this work item.
-    pub stats: WorkStats,
-    /// The root node the work was dispatched under.
-    pub node_id: NodeId,
-}
-
-/// Failed work output: the error value plus runtime-owned stats.
-pub struct WorkError<Err> {
-    /// The error returned by the work future.
-    pub error: Err,
-    /// Runtime-owned statistics for this work item.
-    pub stats: WorkStats,
-    /// The root node the work was dispatched under.
-    pub node_id: NodeId,
-}
-
-/// Result alias used inside [`RuntimeOutput::Work`].
-pub type WorkResult<Ev, Err> = Result<WorkSuccess<Ev>, WorkError<Err>>;
