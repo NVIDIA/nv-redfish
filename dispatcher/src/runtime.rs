@@ -35,6 +35,7 @@ use crate::CompletionOutcome;
 use crate::RuntimeEventType;
 use crate::ScheduledWork;
 use crate::scheduler::Scheduler;
+use crate::scheduler::private::SchedulerObj;
 use crate::stats::RuntimeStats;
 use crate::work::WorkMeta;
 use core::future::Future;
@@ -338,7 +339,6 @@ where
     where
         S: 'static,
     {
-        use crate::scheduler::private::SchedulerObj as _;
         let mut guard = self
             .shared
             .lock()
@@ -397,7 +397,7 @@ impl RuntimeClock {
 
 struct Shared<Ev, Err, M> {
     waker: Option<Waker>,
-    root: Box<dyn Scheduler<FutureWork<Ev, Err>, Meta = M>>,
+    root: Box<dyn SchedulerObj<FutureWork<Ev, Err>, M>>,
     _phantom: PhantomData<(Ev, Err)>,
 }
 
