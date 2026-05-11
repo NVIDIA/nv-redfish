@@ -32,6 +32,7 @@
 
 use crate::Completion;
 use crate::CompletionOutcome;
+use crate::RoutingPath;
 use crate::RuntimeEventType;
 use crate::ScheduledWork;
 use crate::scheduler::Scheduler;
@@ -43,6 +44,8 @@ use core::pin::Pin;
 use core::task::Context;
 use core::task::Poll;
 use core::time::Duration;
+use futures_core::Stream as _;
+use futures_util::stream::FuturesUnordered;
 use std::collections::VecDeque;
 use std::mem;
 use std::num::NonZeroUsize;
@@ -75,14 +78,12 @@ pub type FutureWork<Ev, Err> = Pin<Box<dyn Future<Output = Result<Vec<Ev>, Err>>
 pub struct Runtime<Ev, Err, M: WorkMeta> {
     config: RuntimeConfig,
     clock: RuntimeClock,
-    in_flight: Vec<InFlight<Ev, Err, M>>,
+    in_flight: FuturesUnordered<InFlight<Ev, Err, M>>,
     completion: Vec<Completion<M>>,
     output: VecDeque<RuntimeOutput<Ev, Err>>,
     shared: Arc<Mutex<Shared<Ev, Err, M>>>,
     _phantom: RuntimePhantom<Ev, Err, M>,
 }
-
-type InFlight<Ev, Err, M> = (Instant, ScheduledWork<FutureWork<Ev, Err>, M>);
 
 impl<Ev, Err, M> Runtime<Ev, Err, M>
 where
@@ -113,7 +114,7 @@ where
                     increment,
                 },
             },
-            in_flight: Vec::new(),
+            in_flight: FuturesUnordered::new(),
             completion: Vec::new(),
             output: VecDeque::new(),
             config,
@@ -201,7 +202,10 @@ where
                 while in_flight.len() < global_max_in_flight.into() {
                     match shared.next(now) {
                         SharedNextResult::Work(work) => {
-                            in_flight.push((now, work));
+                            in_flight.push(InFlight {
+                                start: now,
+                                work: Some(work),
+                            });
                         }
                         SharedNextResult::SleepUntil(v) => {
                             if in_flight.is_empty() {
@@ -221,33 +225,30 @@ where
                 }
             }
 
-            let in_flight_number = in_flight.len();
-            self.runtime.in_flight = in_flight.into_iter().fold(
-                Vec::with_capacity(in_flight_number),
-                |mut acc, (start, mut sw)| {
-                    match sw.payload.as_mut().poll(cx) {
-                        Poll::Ready(result) => {
-                            let latency = now.duration_since(start);
-                            progress = true;
-                            self.runtime.completion.push(Completion {
-                                latency,
-                                meta: sw.meta,
-                                routing: sw.routing,
-                                outcome: if result.is_ok() {
-                                    CompletionOutcome::Succeeded
-                                } else {
-                                    CompletionOutcome::Failed
-                                },
-                            });
-                            self.runtime
-                                .output
-                                .push_back(RuntimeOutput::Work { result, latency });
-                        }
-                        Poll::Pending => acc.push((start, sw)),
-                    }
-                    acc
-                },
-            );
+            while let Poll::Ready(Some(completed)) = Pin::new(&mut in_flight).poll_next(cx) {
+                let CompletedWork {
+                    start,
+                    meta,
+                    result,
+                    routing,
+                } = completed;
+                let latency = now.duration_since(start);
+                progress = true;
+                self.runtime.completion.push(Completion {
+                    latency,
+                    meta,
+                    routing,
+                    outcome: if result.is_ok() {
+                        CompletionOutcome::Succeeded
+                    } else {
+                        CompletionOutcome::Failed
+                    },
+                });
+                self.runtime
+                    .output
+                    .push_back(RuntimeOutput::Work { result, latency });
+            }
+            self.runtime.in_flight = in_flight;
         }
         Poll::Pending
     }
@@ -440,4 +441,42 @@ where
     Work(ScheduledWork<FutureWork<Ev, Err>, M>),
     SleepUntil(Instant),
     Nothing,
+}
+
+struct InFlight<Ev, Err, M: WorkMeta> {
+    start: Instant,
+    work: Option<ScheduledWork<FutureWork<Ev, Err>, M>>,
+}
+
+impl<Ev, Err, M: WorkMeta> Unpin for InFlight<Ev, Err, M> {}
+
+impl<Ev, Err, M: WorkMeta> Future for InFlight<Ev, Err, M> {
+    type Output = CompletedWork<Ev, Err, M>;
+
+    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        let this = self.get_mut();
+        let mut work = this
+            .work
+            .take()
+            .expect("in-flight work polled after completion");
+        match work.payload.as_mut().poll(cx) {
+            Poll::Pending => {
+                this.work = Some(work);
+                Poll::Pending
+            }
+            Poll::Ready(result) => Poll::Ready(CompletedWork {
+                start: this.start,
+                result,
+                meta: work.meta,
+                routing: work.routing,
+            }),
+        }
+    }
+}
+
+struct CompletedWork<Ev, Err, M> {
+    start: Instant,
+    meta: M,
+    result: Result<Vec<Ev>, Err>,
+    routing: RoutingPath,
 }
