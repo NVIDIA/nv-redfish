@@ -307,9 +307,32 @@ impl SchemaBundle {
                     .collect::<Vec<_>>()
             }))
             .collect::<Result<Vec<_>, _>>()?;
+
+        let complex_types = self
+            .edmx_docs
+            .iter()
+            .take(self.root_set_threshold.unwrap_or(self.edmx_docs.len()))
+            .flat_map(|edmx| {
+                edmx.data_services.schemas.iter().flat_map(|s| {
+                    s.types.values().filter_map(move |t| {
+                        if let Type::ComplexType(t) = t {
+                            let name = QualifiedName::new(&s.namespace, t.name.inner());
+                            if root_patterns.matches(&name) {
+                                Some(name)
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
+                })
+            })
+            .collect();
+
         Ok(RootSet {
             entity_types,
-            complex_types: Vec::new(),
+            complex_types,
         })
     }
 

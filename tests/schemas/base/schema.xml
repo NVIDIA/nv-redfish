@@ -123,6 +123,12 @@
         <Property Name="Level2" Type="ServiceRoot.v1_0_0.ComplexTypeLevel2" Nullable="false"/>
       </ComplexType>
 
+      <ComplexType Name="RootSetOnlyComplexType">
+        <Property Name="Value" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+      </ComplexType>
+
       <ComplexType Name="ComplexTypeLevel2">
         <Property Name="Required" Type="Edm.String" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
