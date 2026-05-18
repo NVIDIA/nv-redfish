@@ -40,7 +40,9 @@ fn main() -> Result<(), Error> {
         output: base_output,
         csdls: base_csdls,
         entity_type_patterns: vec![],
-        include_root_patterns: vec![],
+        include_root_patterns: vec!["ServiceRoot.*.RootSetOnlyComplexType"
+            .parse()
+            .expect("valid root-set complex type pattern")],
         rigid_array_patterns: vec!["ServiceRoot.*.ServiceRoot/RigidArrayValues"
             .parse()
             .expect("valid rigid array pattern")],

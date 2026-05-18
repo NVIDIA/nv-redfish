@@ -26,6 +26,7 @@ use nv_redfish_tests::base::get_service_root;
 use nv_redfish_tests::base::nav_service_root;
 use nv_redfish_tests::base::redfish::service_root::ActionType;
 use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeUpdate;
+use nv_redfish_tests::base::redfish::service_root::RootSetOnlyComplexType;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
 use nv_redfish_tests::json_merge;
@@ -886,4 +887,15 @@ async fn enum_unknown_value_falls_back_to_unsupported_value() {
     let serialized =
         serde_json::to_value(ActionType::UnsupportedValue).expect("fallback must serialize");
     assert_eq!(serialized, json!("UnsupportedValue"));
+}
+
+// Check that standalone complex types matched by root set patterns are generated.
+#[test]
+async fn root_set_complex_type_is_generated_test() {
+    let value: RootSetOnlyComplexType = serde_json::from_value(json!({
+        "Value": "root-set complex",
+    }))
+    .expect("root-set complex type must deserialize");
+
+    assert_eq!(value.value, Some("root-set complex".into()));
 }

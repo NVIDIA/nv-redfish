@@ -157,6 +157,9 @@ patterns = [
     "SoftwareInventory.*",
     "SoftwareInventoryCollection.*",
 ]
+root_patterns = [
+    "UpdateService.*.UpdateParameters"
+]
 
 [[features]]
 name = "event-service"
