@@ -17,18 +17,37 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
+    use std::time::Duration;
+
+    use futures_util::io::Cursor;
     use nv_redfish_bmc_http::reqwest::BmcError;
+    use nv_redfish_bmc_http::reqwest::Client;
     use nv_redfish_bmc_http::BmcCredentials;
+    use nv_redfish_bmc_http::CacheSettings;
+    use nv_redfish_bmc_http::HttpBmc;
     use nv_redfish_core::{
         query::{ExpandQuery, FilterQuery},
-        Bmc, ModificationResponse,
+        Bmc, DataStream, ModificationResponse, MultipartUpdateRequest,
     };
+    use serde::Serialize;
+    use url::Url;
     use wiremock::{
         matchers::{body_json, header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
 
     use crate::common::test_utils::*;
+
+    struct FailingUpdateParameters;
+
+    impl Serialize for FailingUpdateParameters {
+        fn serialize<S>(&self, _: S) -> Result<S::Ok, S::Error>
+        where
+            S: serde::Serializer,
+        {
+            Err(serde::ser::Error::custom("serialize failed"))
+        }
+    }
 
     #[tokio::test]
     async fn test_get_request_success() {
@@ -231,6 +250,35 @@ mod reqwest_client_tests {
         assert_eq!(response.location.to_string(), session_path);
         assert_eq!(response.entity.name, names::TEST_SYSTEM);
         assert_eq!(response.entity.value, 999);
+    }
+
+    #[tokio::test]
+    async fn test_multipart_update_reports_encode_errors() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let bmc = HttpBmc::new(
+            Client::new()?,
+            Url::parse("http://127.0.0.1")?,
+            create_test_credentials(),
+            CacheSettings::default(),
+        );
+
+        let request = MultipartUpdateRequest {
+            update_parameters: &FailingUpdateParameters,
+            update_stream: DataStream::new("firmware.bin", Cursor::new(Vec::<u8>::new())),
+            oem_parts: Vec::new(),
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let result = bmc
+            .multipart_update::<_, _, TestResource>(
+                "/redfish/v1/UpdateService/update-multipart",
+                request,
+            )
+            .await;
+
+        assert!(matches!(result, Err(BmcError::EncodeError(_))));
+
+        Ok(())
     }
 
     #[tokio::test]

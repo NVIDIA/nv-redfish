@@ -15,11 +15,12 @@
 
 //! Expectations for Bmc Mock.
 
+use std::fmt::Display;
+
 use nv_redfish_core::action::ActionTarget;
 use nv_redfish_core::ODataId;
 use serde_json::from_str;
 use serde_json::Value as JsonValue;
-use std::fmt::Display;
 
 pub type Response<E> = Result<JsonValue, E>;
 
@@ -45,6 +46,13 @@ pub enum ExpectedRequest {
     Action {
         target: ActionTarget,
         request: JsonValue,
+    },
+    /// Expected multipart update.
+    MultipartUpdate {
+        uri: String,
+        request: JsonValue,
+        file_name: String,
+        oem_parts: Vec<String>,
     },
     /// Expected Delete.
     Delete { id: ODataId },
@@ -116,6 +124,45 @@ impl<E> Expect<E> {
             request: ExpectedRequest::Action {
                 target: ActionTarget::new(uri.to_string()),
                 request: from_str(&request.to_string()).expect("invalid json"),
+            },
+            response: Ok(from_str(&response.to_string()).expect("invalid json")),
+        }
+    }
+
+    pub fn multipart_update(
+        uri: impl Display,
+        request: impl Display,
+        file_name: impl Display,
+        response: impl Display,
+    ) -> Self {
+        Expect {
+            request: ExpectedRequest::MultipartUpdate {
+                uri: uri.to_string(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+                file_name: file_name.to_string(),
+                oem_parts: Vec::new(),
+            },
+            response: Ok(from_str(&response.to_string()).expect("invalid json")),
+        }
+    }
+
+    pub fn multipart_update_with_oem_parts<I, P>(
+        uri: impl Display,
+        request: impl Display,
+        file_name: impl Display,
+        oem_parts: I,
+        response: impl Display,
+    ) -> Self
+    where
+        I: IntoIterator<Item = P>,
+        P: Display,
+    {
+        Expect {
+            request: ExpectedRequest::MultipartUpdate {
+                uri: uri.to_string(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+                file_name: file_name.to_string(),
+                oem_parts: oem_parts.into_iter().map(|part| part.to_string()).collect(),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }

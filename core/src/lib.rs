@@ -84,6 +84,8 @@ pub mod nav_property;
 pub mod odata;
 /// Support of redfish queries
 pub mod query;
+/// Upload data types.
+pub mod upload;
 
 use crate::query::ExpandQuery;
 use futures_core::TryStream;
@@ -126,6 +128,18 @@ pub use query::FilterQuery;
 pub use query::ToFilterLiteral;
 #[doc(inline)]
 pub use serde_json::Value as AdditionalProperties;
+#[doc(inline)]
+pub use upload::DataStream;
+#[doc(inline)]
+pub use upload::MultipartUpdateRequest;
+#[doc(inline)]
+pub use upload::OemMultipartPart;
+#[doc(inline)]
+pub use upload::OemMultipartPartNameError;
+#[doc(inline)]
+pub use upload::OemMultipartPartReader;
+#[doc(inline)]
+pub use upload::UploadReader;
 #[doc(inline)]
 pub use uuid::Uuid as EdmGuid;
 

@@ -19,20 +19,6 @@ pub mod expect;
 pub use expect::Expect;
 pub use expect::ExpectedRequest;
 
-use nv_redfish_core::action::ActionTarget;
-use nv_redfish_core::query::ExpandQuery;
-use nv_redfish_core::ActionError;
-use nv_redfish_core::Bmc as NvRedfishBmc;
-use nv_redfish_core::EntityTypeRef;
-use nv_redfish_core::Expandable;
-use nv_redfish_core::ModificationResponse;
-use nv_redfish_core::ODataETag;
-use nv_redfish_core::ODataId;
-use nv_redfish_core::SessionCreateResponse;
-use serde::Serialize;
-use serde_json::from_value;
-use serde_json::to_value;
-use serde_json::Error as JsonError;
 use std::collections::VecDeque;
 use std::error::Error as StdError;
 use std::fmt::Display;
@@ -41,6 +27,23 @@ use std::fmt::Result as FmtResult;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::PoisonError;
+
+use nv_redfish_core::action::ActionTarget;
+use nv_redfish_core::query::ExpandQuery;
+use nv_redfish_core::ActionError;
+use nv_redfish_core::Bmc as NvRedfishBmc;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::ModificationResponse;
+use nv_redfish_core::MultipartUpdateRequest;
+use nv_redfish_core::ODataETag;
+use nv_redfish_core::ODataId;
+use nv_redfish_core::SessionCreateResponse;
+use nv_redfish_core::UploadReader;
+use serde::Serialize;
+use serde_json::from_value;
+use serde_json::to_value;
+use serde_json::Error as JsonError;
 
 #[derive(Debug)]
 pub enum Error {
@@ -56,6 +59,7 @@ pub enum Error {
     UnexpectedCreateSession(ODataId, String, ExpectedRequest),
     UnexpectedDelete(ODataId, ExpectedRequest),
     UnexpectedAction(ActionTarget, String, ExpectedRequest),
+    UnexpectedMultipartUpdate(String, String, String, ExpectedRequest),
     UnexpectedStream(String, ExpectedRequest),
 }
 
@@ -102,6 +106,12 @@ impl Display for Error {
                     "unexpected action: {id}; json: {json} expected: {expected:?}"
                 )
             }
+            Self::UnexpectedMultipartUpdate(uri, json, file, expected) => {
+                write!(
+                    f,
+                    "unexpected multipart update: {uri}; json: {json}; file: {file}; expected: {expected:?}"
+                )
+            }
             Self::UnexpectedStream(uri, expected) => {
                 write!(f, "unexpected stream: {uri}; expected: {expected:?}")
             }
@@ -117,9 +127,16 @@ impl Error {
     }
 }
 
-#[derive(Default)]
 pub struct Bmc<E> {
     expect: Mutex<VecDeque<Expect<E>>>,
+}
+
+impl<E> Default for Bmc<E> {
+    fn default() -> Self {
+        Self {
+            expect: Mutex::default(),
+        }
+    }
 }
 
 impl<E> Bmc<E> {
@@ -342,6 +359,64 @@ where
             _ => Err(Error::UnexpectedAction(
                 action.target.clone(),
                 in_request.to_string(),
+                expect.request,
+            )),
+        }
+    }
+
+    async fn multipart_update<U, V, R>(
+        &self,
+        in_uri: &str,
+        update_request: MultipartUpdateRequest<'_, U, V>,
+    ) -> Result<ModificationResponse<R>, Self::Error>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> serde::Deserialize<'de>,
+        V: Send + Sync + Serialize,
+    {
+        let expect = self
+            .expect
+            .lock()
+            .map_err(Error::mutex_lock)?
+            .pop_front()
+            .ok_or(Error::NothingIsExpected)?;
+
+        let MultipartUpdateRequest {
+            update_parameters,
+            update_stream,
+            oem_parts,
+            ..
+        } = update_request;
+        let in_request = to_value(update_parameters).expect("json serializable");
+        let file_name = update_stream.name;
+        let oem_parts = oem_parts
+            .into_iter()
+            .map(|part| part.name)
+            .collect::<Vec<_>>();
+
+        match expect {
+            Expect {
+                request:
+                    ExpectedRequest::MultipartUpdate {
+                        uri,
+                        request,
+                        file_name: expected_file_name,
+                        oem_parts: expected_parts,
+                    },
+                response,
+            } if uri == *in_uri
+                && request == in_request
+                && expected_file_name == file_name
+                && expected_parts == oem_parts =>
+            {
+                let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
+                let result: R = from_value(response).map_err(Error::BadResponseJson)?;
+                Ok(ModificationResponse::Entity(result))
+            }
+            _ => Err(Error::UnexpectedMultipartUpdate(
+                in_uri.to_string(),
+                in_request.to_string(),
+                file_name,
                 expect.request,
             )),
         }

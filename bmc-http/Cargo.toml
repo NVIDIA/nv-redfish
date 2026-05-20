@@ -14,7 +14,7 @@ documentation = "https://docs.rs/nv-redfish-bmc-http"
 default = ["reqwest"]
 
 # HTTP client implementations with reqwest
-reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream"]
+reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream", "dep:tokio-util"]
 
 [dependencies]
 futures-core = { workspace = true }
@@ -23,6 +23,7 @@ nv-redfish-core = { workspace = true }
 http = { workspace = true }
 reqwest = { workspace = true, optional = true, features = [
     "json",
+    "multipart",
     "rustls-tls",
     "stream",
     "socks"
@@ -31,6 +32,7 @@ serde = { workspace = true }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true, optional = true }
 sse-stream = { workspace = true, optional = true }
+tokio-util = { workspace = true, optional = true, features = ["compat", "io"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 time = { workspace = true, features = ["serde", "formatting", "parsing"] }

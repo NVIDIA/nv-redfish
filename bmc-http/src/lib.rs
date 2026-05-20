@@ -45,7 +45,14 @@ pub mod credentials;
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
 
+use std::collections::HashMap;
+use std::error::Error as StdError;
+use std::future::Future;
+use std::sync::Arc;
+use std::sync::RwLock;
+
 use crate::cache::TypeErasedCarCache;
+
 use http::HeaderMap;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Action;
@@ -58,16 +65,15 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::SessionCreateResponse;
+use nv_redfish_core::UploadReader;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use std::collections::HashMap;
-use std::error::Error as StdError;
-use std::future::Future;
-use std::sync::Arc;
-use std::sync::RwLock;
 use url::Url;
 
 #[doc(inline)]
 pub use credentials::BmcCredentials;
+
+#[doc(inline)]
+pub use nv_redfish_core::MultipartUpdateRequest;
 
 /// HTTP Client trait.
 ///
@@ -112,6 +118,22 @@ pub trait HttpClient: Send + Sync {
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync;
 
+    /// Performs an UpdateService multipart upload with credentials and headers.
+    ///
+    /// The request carries `UpdateParameters`, `UpdateFile`, and optional OEM
+    /// multipart parts.
+    fn post_multipart_update<U, V, T>(
+        &self,
+        url: Url,
+        request: MultipartUpdateRequest<'_, U, V>,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
+    where
+        U: UploadReader,
+        T: DeserializeOwned + Send + Sync,
+        V: Serialize + Send + Sync;
+
     /// Perform an HTTP PATCH request.
     fn patch<B, T>(
         &self,
@@ -153,7 +175,6 @@ pub trait HttpClient: Send + Sync {
 /// # Type Parameters
 ///
 /// * `C` - The HTTP client implementation to use
-///
 pub struct HttpBmc<C: HttpClient> {
     client: C,
     redfish_endpoint: RedfishEndpoint,
@@ -552,6 +573,31 @@ where
             .post(
                 endpoint_url,
                 params,
+                credentials.as_ref(),
+                &self.custom_headers,
+            )
+            .await
+    }
+
+    async fn multipart_update<U, V, R>(
+        &self,
+        uri: &str,
+        request: MultipartUpdateRequest<'_, U, V>,
+    ) -> Result<ModificationResponse<R>, Self::Error>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>,
+        V: Send + Sync + Serialize,
+    {
+        // MultipartHttpPushUri can be absolute or BMC-relative.
+        // Match existing URI handling before adding auth and headers.
+        let endpoint_url = Url::parse(uri).unwrap_or_else(|_| self.redfish_endpoint.with_path(uri));
+        let credentials = self.read_credentials();
+
+        self.client
+            .post_multipart_update(
+                endpoint_url,
+                request,
                 credentials.as_ref(),
                 &self.custom_headers,
             )

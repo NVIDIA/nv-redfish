@@ -34,6 +34,9 @@ pub enum Error<B: Bmc> {
     /// Event service does not provide `ServerSentEventUri`
     #[cfg(feature = "event-service")]
     EventServiceServerSentEventUriNotAvailable,
+    /// Update service does not provide `MultipartHttpPushUri`
+    #[cfg(feature = "update-service")]
+    UpdateServiceMultipartHttpPushUriNotAvailable,
     /// Metric definitions are not available for telemetry service
     #[cfg(feature = "telemetry-service")]
     MetricDefinitionsNotAvailable,
@@ -60,6 +63,10 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "event-service")]
             Self::EventServiceServerSentEventUriNotAvailable => {
                 write!(f, "Event service does not provide ServerSentEventUri")
+            }
+            #[cfg(feature = "update-service")]
+            Self::UpdateServiceMultipartHttpPushUriNotAvailable => {
+                write!(f, "Update service does not provide MultipartHttpPushUri")
             }
             #[cfg(feature = "telemetry-service")]
             Self::MetricDefinitionsNotAvailable => {

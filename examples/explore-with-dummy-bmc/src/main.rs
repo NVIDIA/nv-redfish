@@ -20,8 +20,9 @@ use std::sync::Arc;
 use futures_util::StreamExt;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::{
-    Action, ActionError, Bmc, EntityTypeRef, Expandable, ModificationResponse, NavProperty,
-    ODataETag, ODataId, SessionCreateResponse, Updatable,
+    Action, ActionError, Bmc, EntityTypeRef, Expandable, ModificationResponse,
+    MultipartUpdateRequest, NavProperty, ODataETag, ODataId, SessionCreateResponse, Updatable,
+    UploadReader,
 };
 use redfish_oem_contoso::redfish::contoso_turboencabulator_service::{
     ContosoTurboencabulatorServiceUpdate, TurboencabulatorMode,
@@ -591,6 +592,19 @@ impl Bmc for MockBmc {
     ) -> Result<ModificationResponse<R>, Self::Error> {
         let result: R = serde_json::from_str("null").map_err(Error::ParseError)?;
         Ok(ModificationResponse::Entity(result))
+    }
+
+    async fn multipart_update<U, V, R>(
+        &self,
+        _uri: &str,
+        _request: MultipartUpdateRequest<'_, U, V>,
+    ) -> Result<ModificationResponse<R>, Self::Error>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>,
+        V: Send + Sync + Serialize,
+    {
+        Err(Error::NotSupported)
     }
 
     async fn stream<T: Send + Sized + for<'de> Deserialize<'de> + 'static>(

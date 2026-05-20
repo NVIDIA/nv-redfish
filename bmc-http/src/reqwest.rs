@@ -15,26 +15,36 @@
 
 //! Implementation of [`HttpClient`] trait using reqwest crate.
 
+use std::error::Error as StdErr;
+use std::fmt;
+use std::time::Duration;
+
 use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
+use crate::MultipartUpdateRequest;
+
 use futures_util::StreamExt as _;
-use http::header;
 use http::HeaderMap;
+use http::header;
 use nv_redfish_core::AsyncTask;
 use nv_redfish_core::BoxTryStream;
+use nv_redfish_core::DataStream;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::OemMultipartPart;
 use nv_redfish_core::SessionCreateResponse;
-use reqwest::redirect::Policy as RedirectPolicy;
+use nv_redfish_core::UploadReader;
 use reqwest::Client as ReqwestClient;
 use reqwest::Error as ReqwestError;
-use serde::de::DeserializeOwned;
+use reqwest::multipart::Form;
+use reqwest::multipart::Part;
+use reqwest::redirect::Policy as RedirectPolicy;
 use serde::Serialize;
-use std::error::Error as StdError;
-use std::fmt;
-use std::time::Duration;
+use serde::de::DeserializeOwned;
+use tokio_util::compat::FuturesAsyncReadCompatExt as _;
+use tokio_util::io::ReaderStream;
 use url::Url;
 
 /// Errors of reqwest implementation of the HTTP trait.
@@ -61,6 +71,10 @@ pub enum BmcError {
     CacheError(String),
     /// JSON deserialization error.
     DecodeError(serde_json::Error),
+    /// JSON serialization error.
+    EncodeError(serde_json::Error),
+    /// Invalid request error - data in the request didn't pass validation.
+    InvalidRequest(String),
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -107,17 +121,19 @@ impl fmt::Display for BmcError {
             ),
             Self::SseStreamError(e) => write!(f, "SSE stream decode error: {e}"),
             Self::DecodeError(e) => write!(f, "JSON Decode error: {e}"),
+            Self::EncodeError(e) => write!(f, "JSON Encode error: {e}"),
+            Self::InvalidRequest(e) => write!(f, "Invalid request: {e}"),
         }
     }
 }
 
-impl StdError for BmcError {
-    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+impl StdErr for BmcError {
+    fn source(&self) -> Option<&(dyn StdErr + 'static)> {
         match self {
             Self::ReqwestError(e) => Some(e),
             Self::JsonError(e) => Some(e.inner()),
             Self::SseStreamError(e) => Some(e),
-            Self::DecodeError(e) => Some(e),
+            Self::DecodeError(e) | Self::EncodeError(e) => Some(e),
             _ => None,
         }
     }
@@ -264,7 +280,6 @@ impl ClientParams {
 /// This provides a concrete implementation of [`HttpClient`] using the popular
 /// reqwest HTTP client library. It supports all standard HTTP features including
 /// TLS, authentication, and connection pooling.
-///
 #[derive(Clone)]
 pub struct Client {
     client: ReqwestClient,
@@ -681,6 +696,57 @@ impl HttpClient for Client {
         self.handle_modification_response(response).await
     }
 
+    async fn post_multipart_update<U, V, T>(
+        &self,
+        url: Url,
+        update_request: MultipartUpdateRequest<'_, U, V>,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> Result<ModificationResponse<T>, Self::Error>
+    where
+        U: UploadReader,
+        T: DeserializeOwned + Send + Sync,
+        V: Serialize + Send + Sync,
+    {
+        let MultipartUpdateRequest {
+            update_parameters,
+            update_stream,
+            oem_parts,
+            upload_timeout,
+        } = update_request;
+
+        // First, check if all OEM parts have valid names.
+        for part in &oem_parts {
+            if !part.is_name_valid() {
+                return Err(BmcError::InvalidRequest(format!(
+                    "OEM part's name `{}` is invalid",
+                    part.name
+                )));
+            }
+        }
+
+        let stream_part = build_stream_part(update_stream, "application/octet-stream")?;
+        let update_parameters_part = build_update_parameters_part(update_parameters)?;
+
+        let mut form = Form::new()
+            .part("UpdateParameters", update_parameters_part)
+            .part("UpdateFile", stream_part);
+
+        for part in oem_parts {
+            let (name, part) = build_oem_part(part)?;
+            form = form.part(name, part);
+        }
+
+        let response = auth_headers(self.client.post(url), credentials)
+            .headers(custom_headers.clone())
+            .multipart(form)
+            .timeout(upload_timeout)
+            .send()
+            .await?;
+
+        self.handle_modification_response(response).await
+    }
+
     async fn sse<T: Send + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
         url: Url,
@@ -720,9 +786,82 @@ impl HttpClient for Client {
     }
 }
 
+fn build_update_parameters_part<V>(update_parameters: &V) -> Result<Part, BmcError>
+where
+    V: Serialize + Send + Sync,
+{
+    Part::bytes(serde_json::to_vec(update_parameters).map_err(BmcError::EncodeError)?)
+        .mime_str("application/json")
+        .map_err(BmcError::ReqwestError)
+}
+
+fn build_stream_part<U>(stream: DataStream<U>, content_type: &'static str) -> Result<Part, BmcError>
+where
+    U: UploadReader,
+{
+    let DataStream {
+        name,
+        reader,
+        content_length,
+    } = stream;
+
+    let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));
+    let part = match content_length {
+        Some(length) => Part::stream_with_length(body, length),
+        None => Part::stream(body),
+    };
+
+    part.file_name(name)
+        .mime_str(content_type)
+        .map_err(BmcError::ReqwestError)
+}
+
+fn build_oem_part(part: OemMultipartPart) -> Result<(String, Part), BmcError> {
+    let OemMultipartPart {
+        name,
+        reader,
+        content_type,
+        content_length,
+    } = part;
+
+    let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));
+
+    let mut part = match content_length {
+        Some(length) => Part::stream_with_length(body, length),
+        None => Part::stream(body),
+    };
+
+    if let Some(content_type) = content_type {
+        part = part.mime_str(&content_type)?;
+    }
+
+    Ok((name, part))
+}
+
 #[cfg(test)]
 mod tests {
+    use std::error::Error as StdError;
+
     use super::*;
+
+    use futures_util::io::Cursor;
+    use wiremock::Mock;
+    use wiremock::MockServer;
+    use wiremock::Request;
+    use wiremock::ResponseTemplate;
+    use wiremock::matchers::header;
+    use wiremock::matchers::method;
+    use wiremock::matchers::path;
+
+    #[derive(serde::Serialize)]
+    struct MultipartParameters {
+        #[serde(rename = "ForceUpdate")]
+        force_update: bool,
+
+        #[serde(rename = "Targets")]
+        targets: Vec<String>,
+    }
+
     #[test]
     fn test_cacheable_error_trait() {
         let mock_response = reqwest::Response::from(
@@ -743,5 +882,166 @@ mod tests {
 
         let created_miss = BmcError::cache_miss();
         assert!(matches!(created_miss, BmcError::CacheMiss));
+    }
+
+    #[tokio::test]
+    async fn test_multipart_form_fails_oem_validation() -> Result<(), Box<dyn StdError>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update-multipart";
+        let task_path = "/redfish/v1/TaskService/Tasks/42";
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Upload-Mode", "multipart"))
+            .and(|request: &Request| {
+                multipart_body_contains(request, "firmware.bin", "firmware-bytes")
+            })
+            .respond_with(
+                ResponseTemplate::new(202)
+                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Retry-After", "15"),
+            )
+            .expect(0)
+            .mount(&mock_server)
+            .await;
+
+        let params = MultipartParameters {
+            force_update: true,
+            targets: vec!["/redfish/v1/Systems/1".to_string()],
+        };
+
+        let mut custom_headers = HeaderMap::new();
+        custom_headers.insert("X-Upload-Mode", http::HeaderValue::from_static("multipart"));
+
+        let client = Client::new()?;
+        let credentials = BmcCredentials::new("root".to_string(), "password".to_string());
+
+        //
+        // Invalid OEM part.
+        //
+        let update_stream =
+            DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+                .with_content_length(14);
+
+        // Construction error - fails name validation.
+        let r = OemMultipartPart::new("oemNvidia", Cursor::new(br#"{"Mode":"Rms"}"#.to_vec()));
+        assert!(r.is_err());
+
+        let mut invalid_oem_part =
+            OemMultipartPart::new("OemNvidia", Cursor::new(br#"{"Mode":"Rms"}"#.to_vec()))?
+                .with_content_type("application/json");
+        invalid_oem_part.name = "oemNvidia".to_string();
+
+        let update_request = MultipartUpdateRequest {
+            update_parameters: &params,
+            update_stream,
+            oem_parts: vec![invalid_oem_part],
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let response = client
+            .post_multipart_update::<_, _, serde_json::Value>(
+                Url::parse(&format!("{}{upload_path}", mock_server.uri()))?,
+                update_request,
+                &credentials,
+                &custom_headers,
+            )
+            .await;
+
+        assert!(response.is_err());
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_multipart_form_sends_parts_and_returns_task() -> Result<(), Box<dyn StdError>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update-multipart";
+        let task_path = "/redfish/v1/TaskService/Tasks/42";
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Upload-Mode", "multipart"))
+            .and(|request: &Request| {
+                multipart_body_contains(request, "firmware.bin", "firmware-bytes")
+            })
+            .respond_with(
+                ResponseTemplate::new(202)
+                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Retry-After", "15"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let params = MultipartParameters {
+            force_update: true,
+            targets: vec!["/redfish/v1/Systems/1".to_string()],
+        };
+
+        let mut custom_headers = HeaderMap::new();
+        custom_headers.insert("X-Upload-Mode", http::HeaderValue::from_static("multipart"));
+
+        let client = Client::new()?;
+        let credentials = BmcCredentials::new("root".to_string(), "password".to_string());
+
+        let update_stream =
+            DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+                .with_content_length(14);
+
+        let update_request = MultipartUpdateRequest {
+            update_parameters: &params,
+            update_stream,
+            oem_parts: vec![
+                OemMultipartPart::new("OemNvidia", Cursor::new(br#"{"Mode":"Rms"}"#.to_vec()))?
+                    .with_content_type("application/json"),
+            ],
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let response = client
+            .post_multipart_update::<_, _, serde_json::Value>(
+                Url::parse(&format!("{}{upload_path}", mock_server.uri()))?,
+                update_request,
+                &credentials,
+                &custom_headers,
+            )
+            .await?;
+
+        let ModificationResponse::Task(task) = response else {
+            return Err(String::from("expected task response").into());
+        };
+
+        assert_eq!(task.id.to_string(), task_path);
+        assert_eq!(task.retry_after_secs, Some(15));
+
+        Ok(())
+    }
+
+    fn multipart_body_contains(request: &Request, file_name: &str, file_body: &str) -> bool {
+        let Some(content_type) = request
+            .headers
+            .get("content-type")
+            .and_then(|value| value.to_str().ok())
+        else {
+            return false;
+        };
+
+        let body = String::from_utf8_lossy(&request.body);
+
+        content_type.starts_with("multipart/form-data; boundary=")
+            && body.contains("name=\"UpdateParameters\"")
+            && body.contains("Content-Type: application/json")
+            && body.contains("\"ForceUpdate\":true")
+            && body.contains("\"Targets\":[\"/redfish/v1/Systems/1\"]")
+            && body.contains("name=\"UpdateFile\"")
+            && body.contains("Content-Type: application/octet-stream")
+            && body.contains(&format!("filename=\"{file_name}\""))
+            && body.contains("name=\"OemNvidia\"")
+            && !body.contains("name=\"OemNvidia\"; filename=")
+            && body.contains("{\"Mode\":\"Rms\"}")
+            && body.contains(file_body)
     }
 }

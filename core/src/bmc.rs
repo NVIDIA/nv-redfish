@@ -66,6 +66,9 @@ use std::error::Error as StdError;
 use std::future::Future;
 use std::sync::Arc;
 
+use crate::MultipartUpdateRequest;
+use crate::UploadReader;
+
 /// BMC trait defines access to a Baseboard Management Controller using
 /// the Redfish protocol.
 pub trait Bmc: Send + Sync {
@@ -145,6 +148,17 @@ pub trait Bmc: Send + Sync {
         action: &Action<T, R>,
         params: &T,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
+
+    /// POST a Redfish `UpdateService` multipart upload using a named stream.
+    fn multipart_update<U, V, R>(
+        &self,
+        uri: &str,
+        request: MultipartUpdateRequest<'_, U, V>,
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>,
+        V: Send + Sync + Serialize;
 
     /// Stream data for the URI.
     ///
