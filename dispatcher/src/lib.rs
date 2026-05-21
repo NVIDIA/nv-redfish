@@ -29,13 +29,13 @@
 //!
 //! ## Layered metadata
 //!
-//! [`WorkMeta`] is a marker bound (`Debug + Clone + Send + 'static`) — any
-//! matching type is meta, and `()` is the canonical no-policy meta. Policy
-//! data is added by *wrappers* ([`WithCost`], [`WithPriority`]) that
-//! implement *projection traits* ([`HasCost`], [`HasPriority`]); schedulers
-//! ask for the projections they need and leave the rest alone.
-//! [`RoutingPath`] is a structural sibling of meta on [`ScheduledWork`] and
-//! [`Completion`], not a meta concern.
+//! [`WorkMeta`] is a marker bound (`Send + 'static`) — any matching type
+//! is meta, and `()` is the canonical no-policy meta. Policy data is
+//! added by *wrappers* ([`WithCost`], [`WithPriority`]) that implement
+//! *projection traits* ([`HasCost`], [`HasPriority`]); schedulers ask
+//! for the projections they need and leave the rest alone.
+//! [`RoutingPath`] is a structural sibling of meta on [`ScheduledWork`]
+//! and [`Completion`], not a meta concern.
 //!
 //! ## Public surface
 //!
@@ -46,15 +46,13 @@
 //! - [`Runtime`] + [`RuntimeConfig`], [`RuntimeHandle`] (with
 //!   [`RuntimeHandle::with_root`] / [`with_root_mut`][`RuntimeHandle::with_root_mut`]),
 //!   [`RuntimeOutput`], the [`FutureWork`] payload alias,
+//! - the [`schedulers`] module with the seven built-in branch primitives
+//!   ([`RoundRobin`], [`BoundedConcurrency`], [`CircuitBreaker`]),
 //! - optional out-of-band [`RuntimeEventType`].
 //!
 //! The runtime does *not* enumerate the scheduler tree, and exposes no
 //! per-leaf identity or telemetry. Schedulers that need such observability
 //! expose it through their own API, reached via [`RuntimeHandle::with_root`].
-//!
-//! This crate is currently a **scaffold**: signatures are frozen, bodies
-//! are stubbed with [`unimplemented!`]. Built-in branch policies land in a
-//! follow-up phase.
 
 #![deny(
     clippy::all,
@@ -80,13 +78,14 @@
 // Module-name repetition is intentional for this crate's public types
 // (RuntimeOutput, RuntimeEvent, RuntimeStats, etc.) which are re-exported.
 #![allow(clippy::module_name_repetitions)]
-// Scaffold-only relaxations. Removed when the implementations land.
+// Scaffold-only relaxations on the runtime surface that still has stubs.
 #![allow(clippy::unimplemented)]
 #![allow(dead_code)]
 
 pub mod event;
 pub mod runtime;
 pub mod scheduler;
+pub mod schedulers;
 pub mod stats;
 pub mod work;
 
@@ -135,3 +134,8 @@ pub use work::WithCost;
 pub use work::WithPriority;
 #[doc(inline)]
 pub use work::WorkMeta;
+
+#[doc(inline)]
+pub use schedulers::{
+    BoundedConcurrency, BreakerState, CircuitBreaker, CircuitBreakerConfig, RoundRobin,
+};
