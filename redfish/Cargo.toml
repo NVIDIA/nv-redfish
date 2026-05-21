@@ -121,7 +121,3 @@ tagged-types = { workspace = true }
 
 [build-dependencies]
 nv-redfish-csdl-compiler = { workspace = true }
-
-[dev-dependencies]
-nv-redfish-bmc-mock = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt"] }
