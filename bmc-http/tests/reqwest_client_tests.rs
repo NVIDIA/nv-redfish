@@ -25,6 +25,7 @@ mod reqwest_client_tests {
     use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
+    use nv_redfish_bmc_http::HttpClient;
     use nv_redfish_core::{
         query::{ExpandQuery, FilterQuery},
         Bmc, DataStream, ModificationResponse, MultipartUpdateRequest,
@@ -415,6 +416,55 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
+    async fn test_http_patch_returns_typed_body_without_odata_id()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let endpoint_path = "/redfish/v1/Oem/Nvidia/TypedPatch";
+
+        let request = UpdateRequest {
+            name: Some("Updated System".to_string()),
+            value: None,
+        };
+
+        let typed_response = ActionResponse {
+            result: "patched".to_string(),
+            success: true,
+        };
+
+        Mock::given(method("PATCH"))
+            .and(path(endpoint_path))
+            .and(body_json(&request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("If-Match", "abc123"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&typed_response))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new()?;
+        let credentials = create_test_credentials();
+        let custom_headers = http::HeaderMap::new();
+        let response = client
+            .patch::<UpdateRequest, ActionResponse>(
+                Url::parse(&format!("{}{endpoint_path}", mock_server.uri()))?,
+                create_odata_etag("abc123"),
+                &request,
+                &credentials,
+                &custom_headers,
+            )
+            .await?;
+
+        let ModificationResponse::Entity(body) = response else {
+            return Err(String::from("expected typed response body").into());
+        };
+
+        assert_eq!(body.result, "patched");
+        assert!(body.success);
+
+        Ok(())
+    }
+
+    #[tokio::test]
     async fn test_delete_request() {
         let mock_server = MockServer::start().await;
         let resource_path = "/redfish/v1/systems/1";
@@ -436,7 +486,7 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
-    async fn test_action_request() {
+    async fn test_action_request() -> Result<(), Box<dyn std::error::Error>> {
         let mock_server = MockServer::start().await;
         let action_path = "/redfish/v1/systems/1/Actions/ComputerSystem.Reset";
 
@@ -461,10 +511,118 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc(&mock_server);
 
         let action = create_test_action(action_path);
-        let result = bmc.action(&action, &action_request).await;
+        let response = bmc.action(&action, &action_request).await?;
 
-        assert!(result.is_ok());
-        assert!(matches!(result.unwrap(), ModificationResponse::Empty));
+        let ModificationResponse::Entity(action_response) = response else {
+            return Err(String::from("expected typed response body").into());
+        };
+
+        assert_eq!(action_response.result, "Reset initiated");
+        assert!(action_response.success);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_action_success_message_with_response_type_is_error()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let action_path = "/redfish/v1/systems/1/Actions/ComputerSystem.Reset";
+
+        let action_request = ActionRequest {
+            parameter: "ForceRestart".to_string(),
+        };
+
+        let success_body = serde_json::json!({
+            "error": {
+                "code": "Base.1.8.Success",
+                "message": "Successfully Completed Request"
+            }
+        });
+
+        Mock::given(method("POST"))
+            .and(path(action_path))
+            .and(body_json(&action_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&success_body))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let action = create_test_action(action_path);
+        let response = bmc.action(&action, &action_request).await;
+
+        assert!(matches!(response, Err(BmcError::JsonError(_))));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_action_request_empty_body_returns_empty() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mock_server = MockServer::start().await;
+        let action_path = "/redfish/v1/systems/1/Actions/ComputerSystem.Reset";
+
+        let action_request = ActionRequest {
+            parameter: "ForceRestart".to_string(),
+        };
+
+        Mock::given(method("POST"))
+            .and(path(action_path))
+            .and(body_json(&action_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(ResponseTemplate::new(200))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let action = create_test_action(action_path);
+        let response = bmc.action(&action, &action_request).await?;
+
+        assert!(matches!(response, ModificationResponse::Empty));
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_action_success_message_without_response_type_returns_empty()
+    -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let action_path = "/redfish/v1/systems/1/Actions/ComputerSystem.Reset";
+
+        let action_request = ActionRequest {
+            parameter: "ForceRestart".to_string(),
+        };
+
+        let success_body = serde_json::json!({
+            "error": {
+                "code": "Base.1.8.Success",
+                "message": "Successfully Completed Request"
+            }
+        });
+
+        Mock::given(method("POST"))
+            .and(path(action_path))
+            .and(body_json(&action_request))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&success_body))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let action: nv_redfish_core::Action<ActionRequest, ()> =
+            serde_json::from_value(serde_json::json!({ "target": action_path }))?;
+
+        let response = bmc.action(&action, &action_request).await?;
+
+        assert!(matches!(response, ModificationResponse::Empty));
+
+        Ok(())
     }
 
     #[tokio::test]
