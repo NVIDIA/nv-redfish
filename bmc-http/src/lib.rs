@@ -43,6 +43,9 @@ pub mod cache;
 pub mod credentials;
 
 #[cfg(feature = "reqwest")]
+mod schema;
+
+#[cfg(feature = "reqwest")]
 pub mod reqwest;
 
 use std::collections::HashMap;

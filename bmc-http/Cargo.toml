@@ -28,7 +28,7 @@ reqwest = { workspace = true, optional = true, features = [
     "stream",
     "socks"
 ] }
-serde = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 serde_path_to_error = { workspace = true, optional = true }
 sse-stream = { workspace = true, optional = true }
@@ -36,6 +36,10 @@ tokio-util = { workspace = true, optional = true, features = ["compat", "io"] }
 url = { workspace = true }
 uuid = { workspace = true, features = ["serde"] }
 time = { workspace = true, features = ["serde", "formatting", "parsing"] }
+
+[build-dependencies]
+glob = { workspace = true }
+nv-redfish-csdl-compiler = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }
