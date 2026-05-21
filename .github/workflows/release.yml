@@ -47,10 +47,10 @@ jobs:
         echo "Publishing nv-redfish-bmc-http..."
         cargo publish -p nv-redfish-bmc-http --all-features --allow-dirty
         
-        echo "Publishing nv-redfish..."
-        cargo publish -p nv-redfish --all-features --allow-dirty
-
         echo "Publishing nv-redfish-bmc-mock..."
         cargo publish -p nv-redfish-bmc-mock --all-features --allow-dirty
+
+        echo "Publishing nv-redfish..."
+        cargo publish -p nv-redfish --all-features --allow-dirty
 
         echo "All crates published successfully!"
