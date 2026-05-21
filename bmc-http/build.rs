@@ -1,5 +1,5 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
-// SPDX-License-Identifier: Apache-2.0
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights
+// reserved. SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -13,12 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use glob::glob;
 use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::commands::process_command;
 use std::env::var;
 use std::error::Error as StdError;
-use std::ffi::OsStr;
 use std::path::PathBuf;
 
 const REDFISH_ERROR_SCHEMA: &str = "RedfishError_v1.xml";
@@ -32,14 +30,19 @@ fn main() -> Result<(), Box<dyn StdError>> {
 
     let out_dir = PathBuf::from(var("OUT_DIR")?);
     let output = out_dir.join("redfish.rs");
-    let redfish_error_schema_name = Some(OsStr::new(REDFISH_ERROR_SCHEMA));
 
     let root_csdls = vec![redfish_schema(REDFISH_ERROR_SCHEMA)];
-    let resolve_csdls = glob(&redfish_schema("*.xml"))?
-        .filter_map(Result::ok)
-        .filter(|path| path.file_name() != redfish_error_schema_name)
-        .map(|path| path.display().to_string())
-        .collect::<Vec<_>>();
+
+    let resolve_csdls = vec![
+        "Settings_v1.xml",
+        "Resource_v1.xml",
+        "Message_v1.xml",
+        "ResolutionStep_v1.xml",
+        "ActionInfo_v1.xml",
+    ]
+    .into_iter()
+    .map(|s| format!("{REDFISH_SCHEMA_DIR}/{s}"))
+    .collect::<Vec<_>>();
 
     for f in root_csdls.iter().chain(resolve_csdls.iter()) {
         println!("cargo:rerun-if-changed={f}");
