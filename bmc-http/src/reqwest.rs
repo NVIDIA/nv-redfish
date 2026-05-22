@@ -433,13 +433,12 @@ impl Client {
                         }
                     }
 
-                    // DSP0266 POST action responses:
+                    // Non-empty 200/201 bodies are typed responses selected by the caller.
                     //
-                    // - Schema-defined response bodies "conform to the action response defined in
-                    //   the schema"; they are not required to be Redfish resources with @odata.id.
+                    // - These bodies are not required to be Redfish resources with @odata.id.
                     //
-                    // - Actions without a response body may return "an error response, with a
-                    //   message that indicates success".
+                    // - DSP0266 POST actions with no response body may still return "an error
+                    //   response, with a message that indicates success".
                     return match serde_path_to_error::deserialize(&value) {
                         // Non-empty 200/201 body matched the caller-selected type.
                         Ok(entity) => Ok(ModificationResponse::Entity(entity)),
