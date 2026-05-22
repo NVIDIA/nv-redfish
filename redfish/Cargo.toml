@@ -14,9 +14,6 @@ include = [
     "src/**/*",
     "build.rs",
     "features.toml",
-    "schemas/**/*.xml",
-    "oem/**/*.xml",
-    "oem/**/README.md",
 ]
 
 [package.metadata.docs.rs]
@@ -121,3 +118,4 @@ tagged-types = { workspace = true }
 
 [build-dependencies]
 nv-redfish-csdl-compiler = { workspace = true }
+nv-redfish-schema = { workspace = true }

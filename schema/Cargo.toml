@@ -1,0 +1,22 @@
+[package]
+name = "nv-redfish-schema"
+description = "Bundled Redfish/Swordfish CSDL schemas and shared build-script helpers for nv-redfish"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+keywords.workspace = true
+categories.workspace = true
+documentation = "https://docs.rs/nv-redfish-schema"
+
+include = [
+    "src/**/*",
+    "redfish-csdl/csdl/**/*.xml",
+    "swordfish-csdl/csdl-schema/**/*.xml",
+    "oem/**/*.xml",
+    "oem/**/README.md",
+]
+
+[dependencies]
+glob = { workspace = true }

@@ -13,5 +13,5 @@ serde = { workspace = true, features = ["derive"] }
 nv-redfish-core = { workspace = true }
 
 [build-dependencies]
-glob = { workspace = true }
 nv-redfish-csdl-compiler = { workspace = true }
+nv-redfish-schema = { workspace = true }

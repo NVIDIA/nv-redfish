@@ -39,6 +39,7 @@ time = { workspace = true, features = ["serde", "formatting", "parsing"] }
 
 [build-dependencies]
 nv-redfish-csdl-compiler = { workspace = true }
+nv-redfish-schema = { workspace = true }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt"] }

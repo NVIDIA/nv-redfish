@@ -17,94 +17,79 @@ use nv_redfish_csdl_compiler::commands::process_command;
 use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::commands::DEFAULT_ROOT;
 use nv_redfish_csdl_compiler::features_manifest::FeaturesManifest;
-use std::env::var;
+use nv_redfish_schema::cargo_feature_enabled;
+use nv_redfish_schema::oem_schema;
+use nv_redfish_schema::out_dir;
+use nv_redfish_schema::redfish_schema;
+use nv_redfish_schema::rerun_for;
+use nv_redfish_schema::run_with_big_stack;
+use nv_redfish_schema::swordfish_schema;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::path::PathBuf;
 
 fn main() -> Result<(), String> {
-    // Create new thread with 16 MB stack to handle deep CSDL type
-    // hierarchies on platforms with small default stacks
-    // (e.g. Windows is 1 MB).
-    const STACK_SIZE: usize = 16 * 1024 * 1024;
-    let handler = std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(|| run().map_err(|err| format!("{err:#?}")))
-        .expect("failed to spawn build thread");
-    handler
-        .join()
-        .unwrap_or_else(|e| std::panic::resume_unwind(e))
+    run_with_big_stack(run)
 }
 
 fn run() -> Result<(), Box<dyn StdError>> {
     let features_manifest = PathBuf::from("features.toml");
     let manifest = FeaturesManifest::read(&features_manifest)?;
-    println!("cargo:rerun-if-changed={}", features_manifest.display());
+    rerun_for([&features_manifest]);
 
-    let redfish_csdl = vec![
+    let redfish_csdl: [&str; 5] = [
         "Settings_v1.xml",
         "Message_v1.xml",
         "Resource_v1.xml",
         "ResolutionStep_v1.xml",
         "ActionInfo_v1.xml",
-    ]
-    .into_iter()
-    .map(Into::into)
-    .collect::<Vec<String>>();
+    ];
 
     // ================================================================================
     // Compile standard DMTF schema
 
-    // Collect features that is defined by configuration
     let target_features = manifest
         .all_features()
         .into_iter()
-        .filter(|f| {
-            var(format!(
-                "CARGO_FEATURE_{}",
-                f.to_uppercase().replace('-', "_")
-            ))
-            .is_ok()
-        })
+        .filter(|f| cargo_feature_enabled(f))
         .collect::<Vec<_>>();
 
-    let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
-    let output = out_dir.join("redfish.rs");
-    let redfish_schema_path = "schemas/redfish-csdl/csdl";
-    let swordfish_schema_path = "schemas/swordfish-csdl/csdl-schema";
-    let service_root = vec!["ServiceRoot_v1.xml"]
-        .into_iter()
-        .map(Into::into)
-        .collect::<Vec<String>>();
-    let service_root_patterns = vec!["ServiceRoot.*.*"]
-        .into_iter()
+    let out_dir = out_dir();
+    let service_root: [&str; 1] = ["ServiceRoot_v1.xml"];
+    let service_root_patterns = ["ServiceRoot.*.*"]
+        .iter()
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed");
     let features = manifest.collect(&target_features);
+
     let csdls = redfish_csdl
         .iter()
-        .chain(service_root.iter())
-        .chain(features.csdl_files)
-        .map(|f| format!("{redfish_schema_path}/{f}"))
+        .copied()
+        .chain(service_root.iter().copied())
+        .map(redfish_schema)
+        .chain(
+            features
+                .csdl_files
+                .iter()
+                .map(|f| redfish_schema(f)),
+        )
         .chain(
             features
                 .swordfish_csdl_files
                 .iter()
-                .map(|f| format!("{swordfish_schema_path}/{f}")),
+                .map(|f| swordfish_schema(f)),
         )
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
 
-    for f in &csdls {
-        println!("cargo:rerun-if-changed={f}");
-    }
+    rerun_for(&csdls);
 
     process_command(&Commands::Compile {
         root: DEFAULT_ROOT.into(),
         include_root_patterns: features.root_patterns.into_iter().cloned().collect(),
-        output,
+        output: out_dir.join("redfish.rs"),
         csdls,
         entity_type_patterns: service_root_patterns
             .iter()
@@ -120,52 +105,39 @@ fn run() -> Result<(), Box<dyn StdError>> {
     let vendors = manifest
         .all_vendors()
         .into_iter()
-        .filter(|v| {
-            var(format!(
-                "CARGO_FEATURE_OEM_{}",
-                v.to_uppercase().replace('-', "_")
-            ))
-            .is_ok()
-        })
+        .filter(|v| cargo_feature_enabled(&format!("oem-{v}")))
         .collect::<Vec<_>>();
 
     for v in vendors {
-        let features = manifest
+        let vendor_features = manifest
             .all_vendor_features(v)
             .into_iter()
-            .filter(|v| {
-                var(format!(
-                    "CARGO_FEATURE_{}",
-                    v.to_uppercase().replace('-', "_")
-                ))
-                .is_ok()
-            })
+            .filter(|name| cargo_feature_enabled(name))
             .collect::<Vec<_>>();
 
         let output = out_dir.join(format!("oem-{v}.rs"));
-        if features.is_empty() {
+        if vendor_features.is_empty() {
             // Just create empty output file:
             File::create(output)?;
             continue;
         }
 
-        let (root_csdls, resolve_csdls, patterns) = manifest.collect_vendor_features(v, &features);
-        let oem_schema_path = "schemas/oem";
+        let (root_csdls, resolve_csdls, patterns) =
+            manifest.collect_vendor_features(v, &vendor_features);
 
         let root_csdls = root_csdls
             .iter()
-            .map(|f| format!("{oem_schema_path}/{v}/{f}"))
+            .map(|f| oem_schema(v, f))
             .collect::<Vec<_>>();
 
         let resolve_csdls = redfish_csdl
             .iter()
-            .chain(resolve_csdls)
-            .map(|f| format!("{redfish_schema_path}/{f}"))
+            .copied()
+            .map(redfish_schema)
+            .chain(resolve_csdls.iter().map(|f| redfish_schema(f)))
             .collect::<Vec<_>>();
 
-        for f in root_csdls.iter().chain(resolve_csdls.iter()) {
-            println!("cargo:rerun-if-changed={f}");
-        }
+        rerun_for(root_csdls.iter().chain(resolve_csdls.iter()));
 
         process_command(&Commands::CompileOem {
             output,

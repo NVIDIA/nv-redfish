@@ -1,6 +1,6 @@
-[submodule "redfish/schemas/redfish-csdl"]
-	path = redfish/schemas/redfish-csdl
+[submodule "schema/redfish-csdl"]
+	path = schema/redfish-csdl
 	url = https://github.com/DMTF/Redfish-Publications
-[submodule "redfish/schemas/swordfish-csdl"]
-	path = redfish/schemas/swordfish-csdl
+[submodule "schema/swordfish-csdl"]
+	path = schema/swordfish-csdl
 	url = https://github.com/SNIA/Swordfish-Publications

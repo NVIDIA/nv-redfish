@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,15 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::commands::process_command;
+use nv_redfish_csdl_compiler::commands::Commands;
+use nv_redfish_schema::out_dir;
+use nv_redfish_schema::redfish_schema;
+use nv_redfish_schema::rerun_for;
 use std::env::var;
 use std::error::Error as StdError;
-use std::path::PathBuf;
-
-const REDFISH_ERROR_SCHEMA: &str = "RedfishError_v1.xml";
-const REDFISH_MESSAGE_SCHEMA: &str = "Message_v1.xml";
-const REDFISH_SCHEMA_DIR: &str = "../redfish/schemas/redfish-csdl/csdl";
 
 fn main() -> Result<(), Box<dyn StdError>> {
     println!("cargo:rerun-if-env-changed=CARGO_FEATURE_REQWEST");
@@ -29,27 +27,24 @@ fn main() -> Result<(), Box<dyn StdError>> {
         return Ok(());
     }
 
-    let out_dir = PathBuf::from(var("OUT_DIR")?);
-    let output = out_dir.join("redfish.rs");
-
-    let root_csdls = vec![redfish_schema(REDFISH_ERROR_SCHEMA), redfish_schema(REDFISH_MESSAGE_SCHEMA)];
-
-    let resolve_csdls = vec![
+    let root_csdls = ["RedfishError_v1.xml", "Message_v1.xml"]
+        .iter()
+        .map(|f| redfish_schema(f))
+        .collect::<Vec<_>>();
+    let resolve_csdls = [
         "Settings_v1.xml",
         "Resource_v1.xml",
         "ResolutionStep_v1.xml",
         "ActionInfo_v1.xml",
     ]
-    .into_iter()
-    .map(|s| format!("{REDFISH_SCHEMA_DIR}/{s}"))
+    .iter()
+    .map(|f| redfish_schema(f))
     .collect::<Vec<_>>();
 
-    for f in root_csdls.iter().chain(resolve_csdls.iter()) {
-        println!("cargo:rerun-if-changed={f}");
-    }
+    rerun_for(root_csdls.iter().chain(resolve_csdls.iter()));
 
     process_command(&Commands::CompileOem {
-        output,
+        output: out_dir().join("redfish.rs"),
         root_csdls,
         resolve_csdls,
         entity_type_patterns: Vec::new(),
@@ -57,8 +52,4 @@ fn main() -> Result<(), Box<dyn StdError>> {
     })?;
 
     Ok(())
-}
-
-fn redfish_schema(file: &str) -> String {
-    format!("{REDFISH_SCHEMA_DIR}/{file}")
 }

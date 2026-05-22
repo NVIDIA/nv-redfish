@@ -1,4 +1,4 @@
-// SPDX-FileCopyrightText: Copyright (c) 2025 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-FileCopyrightText: Copyright (c) 2025-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
 // SPDX-License-Identifier: Apache-2.0
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -13,44 +13,24 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::env::var;
-use std::path::PathBuf;
-
-use glob::glob;
-use nv_redfish_csdl_compiler::commands::{process_command, Commands, DEFAULT_ROOT};
+use nv_redfish_csdl_compiler::commands::process_command;
+use nv_redfish_csdl_compiler::commands::Commands;
+use nv_redfish_csdl_compiler::commands::DEFAULT_ROOT;
 use nv_redfish_csdl_compiler::Error;
+use nv_redfish_schema::glob_redfish_xml;
+use nv_redfish_schema::glob_swordfish_xml;
+use nv_redfish_schema::out_dir;
+use nv_redfish_schema::rerun_for;
+use nv_redfish_schema::run_with_big_stack;
 
 fn main() -> Result<(), String> {
-    // Create new thread with 16 MB stack to handle deep CSDL type
-    // hierarchies on platforms with small default stacks
-    // (e.g. Windows is 1 MB).
-    const STACK_SIZE: usize = 16 * 1024 * 1024;
-    let handler = std::thread::Builder::new()
-        .stack_size(STACK_SIZE)
-        .spawn(|| run().map_err(|err| format!("{err:#?}")))
-        .expect("failed to spawn build thread");
-    handler
-        .join()
-        .unwrap_or_else(|e| std::panic::resume_unwind(e))
+    run_with_big_stack(run)
 }
 
 fn run() -> Result<(), Error> {
-    let out_dir = PathBuf::from(var("OUT_DIR").unwrap());
-    let output = out_dir.join("redfish.rs");
-
-    let redfish_schemas = "../../redfish/schemas/redfish-csdl/csdl/*.xml";
-    let swordfish_schemas = "../../redfish/schemas/swordfish-csdl/csdl-schema/*.xml";
-
-    let mut csdls = Vec::new();
-    csdls.extend(
-        glob(redfish_schemas)
-            .unwrap()
-            .filter_map(Result::ok)
-            .map(|p| p.display().to_string()),
-    );
-
-    // Swordwish contains same entities as Redfish, so we need to filter them as we want to use Redfish ones.
-    let swordfish_redfish_entities = [
+    // Swordfish contains some entities that are also defined in Redfish; the
+    // Redfish ones take precedence so the Swordfish duplicates are filtered out.
+    const SWORDFISH_REDFISH_ENTITIES: &[&str] = &[
         "DriveCollection_v1.xml",
         "EndpointCollection_v1.xml",
         "EndpointGroupCollection_v1.xml",
@@ -62,21 +42,14 @@ fn run() -> Result<(), Error> {
         "Volume_v1.xml",
     ];
 
+    let mut csdls = glob_redfish_xml();
     csdls.extend(
-        glob(swordfish_schemas)
-            .unwrap()
-            .filter_map(Result::ok)
-            .filter(|p| {
-                p.file_name()
-                    .and_then(|f| f.to_str())
-                    .is_some_and(|name| !swordfish_redfish_entities.contains(&name))
-            })
-            .map(|p| p.display().to_string()),
+        glob_swordfish_xml()
+            .into_iter()
+            .filter(|p| !SWORDFISH_REDFISH_ENTITIES.iter().any(|e| p.ends_with(e))),
     );
 
-    for f in &csdls {
-        println!("cargo:rerun-if-changed={f}");
-    }
+    rerun_for(&csdls);
 
     process_command(&Commands::Compile {
         root: DEFAULT_ROOT.into(),
@@ -88,7 +61,7 @@ fn run() -> Result<(), Error> {
         .map(|v| v.parse())
         .collect::<Result<Vec<_>, _>>()
         .expect("must be successfuly parsed"),
-        output,
+        output: out_dir().join("redfish.rs"),
         csdls,
         entity_type_patterns: [
             "ServiceRoot.*.*",
