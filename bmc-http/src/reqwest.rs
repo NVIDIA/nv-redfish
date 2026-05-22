@@ -23,6 +23,7 @@ use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
 use crate::MultipartUpdateRequest;
+use crate::schema::redfish::redfish_error::RedfishError;
 
 use futures_util::StreamExt as _;
 use http::HeaderMap;
@@ -603,12 +604,12 @@ fn inject_etag(etag: &ODataETag, body: &mut serde_json::Value) {
     }
 }
 
+/// DSP0266 7.11, Table 10 allows actions without response bodies to return
+/// an error-shaped success body. Only that body should become Empty.
+#[inline]
 fn is_redfish_success_response(value: &serde_json::Value) -> bool {
-    // DSP0266 7.11, Table 10 allows actions without response bodies to return
-    // an error-shaped success body. Only that body should become Empty.
-    let response: RedfishErrorResponse = match serde::Deserialize::deserialize(value) {
-        Ok(response) => response,
-        Err(_) => return false,
+    let Ok(response) = <RedfishError as serde::Deserialize>::deserialize(value) else {
+        return false;
     };
 
     let code = response.error.code.as_str();
@@ -617,23 +618,14 @@ fn is_redfish_success_response(value: &serde_json::Value) -> bool {
     matches!(message, "Success" | "Created" | "NoOperation")
 }
 
-#[derive(serde::Deserialize)]
-struct RedfishErrorResponse {
-    error: RedfishErrorBody,
-}
-
-#[derive(serde::Deserialize)]
-struct RedfishErrorBody {
-    code: String,
-}
-
+/// Distinguishes no-response callers like () from typed response callers.
+/// The same endpoint can be called with different R types, so only callers
+/// whose R can represent no body may map a success envelope to Empty.
+#[inline]
 fn expects_no_response_body<T>() -> bool
 where
     T: DeserializeOwned,
 {
-    // Distinguish no-response callers like () from typed response callers.
-    // The same endpoint can be called with different R types, so only callers
-    // whose R can represent no body may map a success envelope to Empty.
     serde_json::from_value::<T>(serde_json::Value::Null).is_ok()
 }
 
