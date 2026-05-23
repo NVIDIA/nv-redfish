@@ -37,6 +37,17 @@ pub enum Error<B: Bmc> {
     /// Update service does not provide `MultipartHttpPushUri`
     #[cfg(feature = "update-service")]
     UpdateServiceMultipartHttpPushUriNotAvailable,
+    /// Task service does not provide a Tasks collection.
+    #[cfg(feature = "task-service")]
+    TaskServiceTasksUnavailable,
+    /// Task path does not point at this TaskService Tasks collection.
+    #[cfg(feature = "task-service")]
+    TaskPathNotInTaskService {
+        /// Task path.
+        task_path: nv_redfish_core::ODataId,
+        /// Expected TaskService Tasks collection path.
+        task_collection: nv_redfish_core::ODataId,
+    },
     /// Metric definitions are not available for telemetry service
     #[cfg(feature = "telemetry-service")]
     MetricDefinitionsNotAvailable,
@@ -68,6 +79,18 @@ impl<B: Bmc> Display for Error<B> {
             Self::UpdateServiceMultipartHttpPushUriNotAvailable => {
                 write!(f, "Update service does not provide MultipartHttpPushUri")
             }
+            #[cfg(feature = "task-service")]
+            Self::TaskServiceTasksUnavailable => {
+                write!(f, "Task service does not provide Tasks collection")
+            }
+            #[cfg(feature = "task-service")]
+            Self::TaskPathNotInTaskService {
+                task_path,
+                task_collection,
+            } => write!(
+                f,
+                "Task path {task_path} is not in TaskService Tasks collection {task_collection}"
+            ),
             #[cfg(feature = "telemetry-service")]
             Self::MetricDefinitionsNotAvailable => {
                 write!(f, "Metric definitions are not available")

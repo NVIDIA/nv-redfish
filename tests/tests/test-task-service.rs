@@ -90,6 +90,17 @@ async fn task_get_exposes_schema_fields() -> Result<(), Box<dyn StdError>> {
         .task_service()
         .await?
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "expected task service"))?;
+
+    let invalid_task_path = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1";
+    let Err(error) = task_service.task(invalid_task_path).await else {
+        return Err(String::from("expected invalid task path").into());
+    };
+
+    assert_eq!(
+        error.to_string(),
+        "Task path /redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1 is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
+    );
+
     let task = task_service.task(TASK_PATH).await?;
 
     assert_eq!(task.task_state, Some(TaskState::Running));
