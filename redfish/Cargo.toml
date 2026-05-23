@@ -47,6 +47,7 @@ std-redfish = [
     "sensors",
     "session-service",
     "storages",
+    "task-service",
     "telemetry-service",
     "thermal",
     "update-service",
@@ -76,6 +77,7 @@ secure-boot = []
 sensors = ["impl-entity-link"]
 session-service = ["impl-nv-bmc-expand"]
 storages = []
+task-service = []
 thermal = []  # Support of legacy ThermalSubsystem
 update-service = ["patch-payload-get", "patch-collection"]
 
@@ -119,3 +121,7 @@ tagged-types = { workspace = true }
 [build-dependencies]
 nv-redfish-csdl-compiler = { workspace = true }
 nv-redfish-schema = { workspace = true }
+
+[dev-dependencies]
+nv-redfish-bmc-mock = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

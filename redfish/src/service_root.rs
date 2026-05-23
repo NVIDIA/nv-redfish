@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
+
 use crate::bmc_quirks::BmcQuirks;
 use crate::core::Bmc;
 use crate::core::NavProperty;
@@ -23,7 +25,7 @@ use crate::NvBmc;
 use crate::ProtocolFeatures;
 use crate::Resource;
 use crate::ResourceSchema;
-use std::sync::Arc;
+
 use tagged_types::TaggedType;
 
 #[cfg(feature = "accounts")]
@@ -42,6 +44,8 @@ use crate::manager::ManagerCollection;
 use crate::oem::hpe::HpeiLoServiceExt;
 #[cfg(feature = "session-service")]
 use crate::session_service::SessionService;
+#[cfg(feature = "task-service")]
+use crate::task_service::TaskService;
 #[cfg(feature = "telemetry-service")]
 use crate::telemetry_service::TelemetryService;
 #[cfg(feature = "update-service")]
@@ -238,6 +242,18 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "update-service")]
     pub async fn update_service(&self) -> Result<Option<UpdateService<B>>, Error<B>> {
         UpdateService::new(&self.bmc, self).await
+    }
+
+    /// Get task service in BMC
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose TaskService.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving task service data fails.
+    #[cfg(feature = "task-service")]
+    pub async fn task_service(&self) -> Result<Option<TaskService<B>>, Error<B>> {
+        TaskService::new(&self.bmc, self).await
     }
 
     /// Get event service in BMC

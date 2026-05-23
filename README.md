@@ -74,7 +74,7 @@ Common feature groups:
   `host-interfaces`, `log-services`, `managers`, `memory`,
   `network-adapters`, `network-device-functions`, `pcie-devices`, `power`,
   `power-supplies`, `processors`, `secure-boot`, `sensors`,
-  `session-service`, `storages`, `telemetry-service`, `thermal`,
+  `session-service`, `storages`, `task-service`, `telemetry-service`, `thermal`,
   `update-service`.
 - OEM features: `oem-ami`, `oem-dell`, `oem-hpe`, `oem-lenovo`,
   `oem-supermicro`, `oem-nvidia`, `oem-liteon`.
@@ -125,6 +125,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 See `examples/readme-minimal` for this example as a workspace target.
 See `examples/session-token` for Redfish SessionService authentication using
 `X-Auth-Token`.
+See `examples/task-service` for polling a Redfish Task through TaskService.
+Pass a Redfish task path such as `/redfish/v1/TaskService/Tasks/42` with
+`--task-path`.
 
 ## How It Fits Together
 
