@@ -23,16 +23,16 @@
 
 use std::sync::Arc;
 
-use crate::core::Bmc;
-use crate::core::EntityTypeRef as _;
-use crate::core::NavProperty;
-use crate::core::ODataId;
-use crate::schema::task_service::TaskService as TaskServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use crate::ServiceRoot;
+use crate::core::Bmc;
+use crate::core::EntityTypeRef as _;
+use crate::core::NavProperty;
+use crate::core::ODataId;
+use crate::schema::task_service::TaskService as TaskServiceSchema;
 
 #[doc(inline)]
 pub use crate::schema::task::Task;
@@ -70,30 +70,30 @@ impl<B: Bmc> TaskService<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
-        if let Some(service_ref) = &root.root.tasks {
-            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+        let Some(service_ref) = &root.root.tasks else {
+            return Ok(None);
+        };
 
-            // Task polling needs the BMC-advertised Tasks collection as the
-            // allowed parent path for all task reads.
-            let Some(tasks) = data.tasks.as_ref() else {
-                return Err(Error::TaskServiceTasksUnavailable);
-            };
+        let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
-            let task_collection = tasks.odata_id().clone();
-            let task_collection_prefix =
-                format!("{}/", task_collection.to_string().trim_end_matches('/'));
+        // Task polling needs the BMC-advertised Tasks collection as the
+        // allowed parent path for all task reads.
+        let Some(tasks) = data.tasks.as_ref() else {
+            return Err(Error::TaskServiceTasksUnavailable);
+        };
 
-            Ok(Some(Self {
-                data,
-                task_collection: TaskCollectionPath {
-                    odata_id: task_collection,
-                    prefix: task_collection_prefix,
-                },
-                bmc: bmc.clone(),
-            }))
-        } else {
-            Ok(None)
-        }
+        let task_collection = tasks.odata_id().clone();
+        let task_collection_prefix =
+            format!("{}/", task_collection.to_string().trim_end_matches('/'));
+
+        Ok(Some(Self {
+            data,
+            task_collection: TaskCollectionPath {
+                odata_id: task_collection,
+                prefix: task_collection_prefix,
+            },
+            bmc: bmc.clone(),
+        }))
     }
 
     /// Get the raw schema data for this task service.
