@@ -20,11 +20,11 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
+use nv_redfish::ServiceRoot;
 use nv_redfish::core::AsyncTask;
 use nv_redfish::core::ODataId;
 use nv_redfish::schema::resource::Health as TaskStatus;
 use nv_redfish::schema::task::TaskState;
-use nv_redfish::ServiceRoot;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -98,7 +98,7 @@ async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>
         retry_after_secs: None,
     };
 
-    let Err(error) = task_service.task_link(&invalid_task) else {
+    let Err(error) = task_service.task_link(invalid_task) else {
         return Err(String::from("expected invalid task path").into());
     };
 
@@ -112,7 +112,7 @@ async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>
         retry_after_secs: None,
     };
 
-    let Err(error) = task_service.task_link(&collection_task) else {
+    let Err(error) = task_service.task_link(collection_task) else {
         return Err(String::from("expected collection path to be invalid").into());
     };
 
@@ -126,10 +126,8 @@ async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>
         retry_after_secs: Some(15),
     };
 
-    let task_link = task_service.task_link(&async_task)?;
-
+    let task_link = task_service.task_link(async_task)?;
     assert_eq!(task_link.odata_id().to_string(), TASK_PATH);
-    assert_eq!(async_task.retry_after_secs, Some(15));
 
     let task = task_link.fetch().await?;
 

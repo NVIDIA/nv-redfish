@@ -20,14 +20,14 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use clap::Parser;
-use nv_redfish::bmc_http::reqwest::Client;
-use nv_redfish::bmc_http::reqwest::ClientParams;
+use nv_redfish::ServiceRoot;
 use nv_redfish::bmc_http::BmcCredentials;
 use nv_redfish::bmc_http::CacheSettings;
 use nv_redfish::bmc_http::HttpBmc;
+use nv_redfish::bmc_http::reqwest::Client;
+use nv_redfish::bmc_http::reqwest::ClientParams;
 use nv_redfish::core::AsyncTask;
 use nv_redfish::core::ODataId;
-use nv_redfish::ServiceRoot;
 use url::Url;
 
 #[derive(Debug, Parser)]
@@ -79,7 +79,7 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         retry_after_secs: None,
     };
 
-    let task_link = task_service.task_link(&async_task)?;
+    let task_link = task_service.task_link(async_task)?;
 
     for poll in 1..=args.poll_count {
         if poll > 1 {

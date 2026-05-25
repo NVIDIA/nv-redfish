@@ -23,17 +23,17 @@
 
 use std::sync::Arc;
 
+use crate::Error;
+use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
+use crate::ServiceRoot;
 use crate::core::Bmc;
 use crate::core::EntityTypeRef as _;
 use crate::core::NavProperty;
 use crate::entity_link::EntityLink;
 use crate::schema::task::Task as TaskSchema;
 use crate::schema::task_service::TaskService as TaskServiceSchema;
-use crate::Error;
-use crate::NvBmc;
-use crate::Resource;
-use crate::ResourceSchema;
-use crate::ServiceRoot;
 
 use nv_redfish_core::AsyncTask;
 
@@ -102,7 +102,7 @@ impl<B: Bmc> TaskService<B> {
     ///
     /// Returns error if the task ID is not a child of this service's Tasks
     /// collection.
-    pub fn task_link(&self, task: &AsyncTask) -> Result<TaskLink<B>, Error<B>> {
+    pub fn task_link(&self, task: AsyncTask) -> Result<TaskLink<B>, Error<B>> {
         let Some(tasks) = self.data.tasks.as_ref() else {
             return Err(Error::TaskServiceTasksUnavailable);
         };
@@ -110,12 +110,12 @@ impl<B: Bmc> TaskService<B> {
         let task_collection = tasks.odata_id();
         if task_collection == &task.id || !task_collection.is_path_prefix(&task.id) {
             return Err(Error::TaskPathNotInTaskService {
-                task_path: task.id.clone(),
+                task_path: task.id,
                 task_collection: task_collection.clone(),
             });
         }
 
-        let task_ref = NavProperty::new_reference(task.id.clone());
+        let task_ref = NavProperty::new_reference(task.id);
         Ok(TaskLink::new(&self.bmc, task_ref))
     }
 }
