@@ -25,6 +25,8 @@ use nv_redfish::bmc_http::reqwest::ClientParams;
 use nv_redfish::bmc_http::BmcCredentials;
 use nv_redfish::bmc_http::CacheSettings;
 use nv_redfish::bmc_http::HttpBmc;
+use nv_redfish::core::AsyncTask;
+use nv_redfish::core::ODataId;
 use nv_redfish::ServiceRoot;
 use url::Url;
 
@@ -40,7 +42,7 @@ struct Args {
     #[arg(long)]
     password: String,
 
-    /// Redfish task path, such as /redfish/v1/TaskService/Tasks/42.
+    /// Redfish task path returned by an async operation.
     #[arg(long, value_name = "PATH")]
     task_path: String,
 
@@ -72,17 +74,27 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         .await?
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "TaskService is not available"))?;
 
+    let async_task = AsyncTask {
+        id: ODataId::from(args.task_path),
+        retry_after_secs: None,
+    };
+
+    let task_link = task_service.task_link(&async_task)?;
+
     for poll in 1..=args.poll_count {
         if poll > 1 {
             tokio::time::sleep(Duration::from_secs(args.poll_interval_secs)).await;
         }
 
-        let task = task_service.task(&args.task_path).await?;
+        let task = task_link.fetch().await?;
         let percent_complete = task.percent_complete.flatten();
 
         println!(
             "Poll {poll}: path={} state={:?} status={:?} percent={:?}",
-            args.task_path, task.task_state, task.task_status, percent_complete
+            task_link.odata_id(),
+            task.task_state,
+            task.task_status,
+            percent_complete
         );
 
         for message in task

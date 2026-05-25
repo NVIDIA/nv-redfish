@@ -70,6 +70,27 @@ impl ODataId {
             .map(|(_, v)| v)
             .or_else(|| (!path.is_empty()).then_some(path))
     }
+
+    /// Returns whether this path is a segment-aware prefix of another path.
+    ///
+    /// Equal paths return `true`.
+    ///
+    /// `"/redfish/v1/TaskService/Tasks"` is a prefix for
+    /// `"/redfish/v1/TaskService/Tasks/42"`, but not
+    /// `"/redfish/v1/TaskService/TasksExtra/42"`.
+    #[must_use]
+    pub fn is_path_prefix(&self, other: &Self) -> bool {
+        let prefix = self.0.trim_end_matches('/');
+        if prefix.is_empty() {
+            return self.0.starts_with('/') && other.0.starts_with('/');
+        }
+
+        let Some(suffix) = other.0.strip_prefix(prefix) else {
+            return false;
+        };
+
+        suffix.is_empty() || suffix.starts_with('/')
+    }
 }
 
 impl From<String> for ODataId {
@@ -187,5 +208,53 @@ mod tests {
     #[test]
     fn service_root_last_segment_is_v1() {
         assert_eq!(ODataId::service_root().last_segment(), Some("v1"));
+    }
+
+    #[test]
+    fn is_path_prefix_accepts_child_path() {
+        let prefix = ODataId("/redfish/v1/TaskService/Tasks".into());
+        let id = ODataId("/redfish/v1/TaskService/Tasks/42".into());
+
+        assert!(prefix.is_path_prefix(&id));
+    }
+
+    #[test]
+    fn is_path_prefix_accepts_prefix_with_trailing_slash() {
+        let prefix = ODataId("/redfish/v1/TaskService/Tasks/".into());
+        let id = ODataId("/redfish/v1/TaskService/Tasks/42".into());
+
+        assert!(prefix.is_path_prefix(&id));
+    }
+
+    #[test]
+    fn is_path_prefix_rejects_matching_string_without_segment_boundary() {
+        let prefix = ODataId("/redfish/v1/TaskService/Tasks".into());
+        let id = ODataId("/redfish/v1/TaskService/TasksExtra/42".into());
+
+        assert!(!prefix.is_path_prefix(&id));
+    }
+
+    #[test]
+    fn is_path_prefix_accepts_exact_path_without_trailing_slash() {
+        let prefix = ODataId("/redfish/v1/TaskService/Tasks".into());
+        let id = ODataId("/redfish/v1/TaskService/Tasks".into());
+
+        assert!(prefix.is_path_prefix(&id));
+    }
+
+    #[test]
+    fn is_path_prefix_accepts_root_path() {
+        let prefix = ODataId("/".into());
+        let id = ODataId("/".into());
+
+        assert!(prefix.is_path_prefix(&id));
+    }
+
+    #[test]
+    fn is_path_prefix_accepts_root_child_path() {
+        let prefix = ODataId("/".into());
+        let id = ODataId("/redfish".into());
+
+        assert!(prefix.is_path_prefix(&id));
     }
 }

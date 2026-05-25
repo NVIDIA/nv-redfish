@@ -181,9 +181,9 @@ pub type BoxTryStream<T, E> =
 /// Outcome of a mutating Redfish operation that can complete asynchronously.
 #[derive(Debug)]
 pub struct AsyncTask {
-    /// Request completed successfully with no response body
+    /// Task ID to use for polling completion.
     pub id: ODataId,
-    /// The recommended number of seconds to wait before polling again
+    /// Recommended number of seconds to wait before polling again.
     pub retry_after_secs: Option<u64>,
 }
 
@@ -192,7 +192,7 @@ pub struct AsyncTask {
 pub enum ModificationResponse<T> {
     /// Request completed synchronously
     Entity(T),
-    /// Requst completed asynchronously, with the provided `ODataId` to poll for completion
+    /// Request is completing asynchronously with the provided task ID.
     Task(AsyncTask),
     /// Request completed successfully with no response body
     Empty,

@@ -17,30 +17,33 @@
 //!
 //! This module provides typed access to Redfish `TaskService`.
 //! A `TaskService` value is a lightweight handle to the service schema and BMC
-//! transport. Each task read validates the supplied task path against this
-//! service's Tasks collection, then performs a fresh GET and returns the
-//! generated `Task` schema.
+//! transport. It validates task IDs returned by asynchronous operations against
+//! this service's Tasks collection and returns lazy task links that can be
+//! fetched when polling is needed.
 
 use std::sync::Arc;
 
+use crate::core::Bmc;
+use crate::core::EntityTypeRef as _;
+use crate::core::NavProperty;
+use crate::core::ODataId;
+use crate::entity_link::EntityLink;
+use crate::schema::task::Task as TaskSchema;
+use crate::schema::task_service::TaskService as TaskServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use crate::ServiceRoot;
-use crate::core::Bmc;
-use crate::core::EntityTypeRef as _;
-use crate::core::NavProperty;
-use crate::core::ODataId;
-use crate::schema::task_service::TaskService as TaskServiceSchema;
 
-#[doc(inline)]
-pub use crate::schema::task::Task;
+use nv_redfish_core::AsyncTask;
+
+/// Link to a Redfish Task returned by an asynchronous operation.
+pub type TaskLink<B> = EntityLink<B, TaskSchema>;
 
 /// Task service.
 ///
-/// Provides direct task reads for task paths returned by asynchronous
-/// operations.
+/// Provides task links for task IDs returned by asynchronous operations.
 ///
 /// # Example
 ///
@@ -49,19 +52,15 @@ pub use crate::schema::task::Task;
 ///     return Ok(());
 /// };
 ///
-/// let task = task_service.task(&async_task.id).await?;
+/// let task_link = task_service.task_link(&async_task)?;
+/// let task = task_link.fetch().await?;
 ///
 /// println!("{:?}", task.task_state);
 /// ```
 pub struct TaskService<B: Bmc> {
     data: Arc<TaskServiceSchema>,
-    task_collection: TaskCollectionPath,
+    task_collection: ODataId,
     bmc: NvBmc<B>,
-}
-
-struct TaskCollectionPath {
-    odata_id: ODataId,
-    prefix: String,
 }
 
 impl<B: Bmc> TaskService<B> {
@@ -76,22 +75,16 @@ impl<B: Bmc> TaskService<B> {
 
         let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
-        // Task polling needs the BMC-advertised Tasks collection as the
-        // allowed parent path for all task reads.
+        // Task links need the BMC-advertised Tasks collection as the allowed
+        // parent path for all async task IDs.
         let Some(tasks) = data.tasks.as_ref() else {
             return Err(Error::TaskServiceTasksUnavailable);
         };
 
         let task_collection = tasks.odata_id().clone();
-        let task_collection_prefix =
-            format!("{}/", task_collection.to_string().trim_end_matches('/'));
-
         Ok(Some(Self {
             data,
-            task_collection: TaskCollectionPath {
-                odata_id: task_collection,
-                prefix: task_collection_prefix,
-            },
+            task_collection,
             bmc: bmc.clone(),
         }))
     }
@@ -102,28 +95,27 @@ impl<B: Bmc> TaskService<B> {
         self.data.clone()
     }
 
-    /// Get a task directly by Redfish task path.
+    /// Create a task link from an asynchronous operation result.
     ///
-    /// The path must be under this service's Tasks collection, such as
-    /// `/redfish/v1/TaskService/Tasks/{id}`.
-    /// The returned generated schema exposes fields such as `task_state`,
-    /// `task_status`, `percent_complete`, and `messages`.
+    /// The task ID must be a child of this service's Tasks collection, such as
+    /// `/redfish/v1/TaskService/Tasks/{id}`. The returned link does not fetch
+    /// the task until [`TaskLink::fetch`] is called. The async task is borrowed
+    /// so callers can still use polling hints such as `retry_after_secs`.
     ///
     /// # Errors
     ///
-    /// Returns error if the service does not expose a Tasks collection, if the
-    /// path is outside that collection, or if retrieving task data fails.
-    pub async fn task(&self, task_path: impl AsRef<str>) -> Result<Arc<Task>, Error<B>> {
-        let task_path = task_path.as_ref();
-        if !task_path.starts_with(self.task_collection.prefix.as_str()) {
+    /// Returns error if the task ID is not a child of this service's Tasks
+    /// collection.
+    pub fn task_link(&self, task: &AsyncTask) -> Result<TaskLink<B>, Error<B>> {
+        if task.id == self.task_collection || !self.task_collection.is_path_prefix(&task.id) {
             return Err(Error::TaskPathNotInTaskService {
-                task_path: task_path.to_string().into(),
-                task_collection: self.task_collection.odata_id.clone(),
+                task_path: task.id.clone(),
+                task_collection: self.task_collection.clone(),
             });
         }
 
-        let task_ref = NavProperty::new_reference(ODataId::from(task_path.to_string()));
-        task_ref.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+        let task_ref = NavProperty::new_reference(task.id.clone());
+        Ok(TaskLink::new(&self.bmc, task_ref))
     }
 }
 

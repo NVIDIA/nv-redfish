@@ -77,7 +77,7 @@ secure-boot = []
 sensors = ["impl-entity-link"]
 session-service = ["impl-nv-bmc-expand"]
 storages = []
-task-service = []
+task-service = ["impl-entity-link"]
 thermal = []  # Support of legacy ThermalSubsystem
 update-service = ["patch-payload-get", "patch-collection"]
 

@@ -20,6 +20,8 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
+use nv_redfish::core::AsyncTask;
+use nv_redfish::core::ODataId;
 use nv_redfish::schema::resource::Health as TaskStatus;
 use nv_redfish::schema::task::TaskState;
 use nv_redfish::ServiceRoot;
@@ -34,7 +36,7 @@ const TASK_SERVICE_PATH: &str = "/redfish/v1/TaskService";
 const TASK_PATH: &str = "/redfish/v1/TaskService/Tasks/42";
 
 #[test]
-async fn task_get_exposes_schema_fields() -> Result<(), Box<dyn StdError>> {
+async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
 
     bmc.expect(Expect::get(
@@ -91,8 +93,12 @@ async fn task_get_exposes_schema_fields() -> Result<(), Box<dyn StdError>> {
         .await?
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "expected task service"))?;
 
-    let invalid_task_path = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1";
-    let Err(error) = task_service.task(invalid_task_path).await else {
+    let invalid_task = AsyncTask {
+        id: ODataId::from("/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1".to_string()),
+        retry_after_secs: None,
+    };
+
+    let Err(error) = task_service.task_link(&invalid_task) else {
         return Err(String::from("expected invalid task path").into());
     };
 
@@ -101,7 +107,31 @@ async fn task_get_exposes_schema_fields() -> Result<(), Box<dyn StdError>> {
         "Task path /redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1 is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
     );
 
-    let task = task_service.task(TASK_PATH).await?;
+    let collection_task = AsyncTask {
+        id: ODataId::from("/redfish/v1/TaskService/Tasks".to_string()),
+        retry_after_secs: None,
+    };
+
+    let Err(error) = task_service.task_link(&collection_task) else {
+        return Err(String::from("expected collection path to be invalid").into());
+    };
+
+    assert_eq!(
+        error.to_string(),
+        "Task path /redfish/v1/TaskService/Tasks is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
+    );
+
+    let async_task = AsyncTask {
+        id: ODataId::from(TASK_PATH.to_string()),
+        retry_after_secs: Some(15),
+    };
+
+    let task_link = task_service.task_link(&async_task)?;
+
+    assert_eq!(task_link.odata_id().to_string(), TASK_PATH);
+    assert_eq!(async_task.retry_after_secs, Some(15));
+
+    let task = task_link.fetch().await?;
 
     assert_eq!(task.task_state, Some(TaskState::Running));
     assert_eq!(task.task_status, Some(TaskStatus::Ok));
