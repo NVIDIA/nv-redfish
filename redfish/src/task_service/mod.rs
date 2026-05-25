@@ -26,7 +26,6 @@ use std::sync::Arc;
 use crate::core::Bmc;
 use crate::core::EntityTypeRef as _;
 use crate::core::NavProperty;
-use crate::core::ODataId;
 use crate::entity_link::EntityLink;
 use crate::schema::task::Task as TaskSchema;
 use crate::schema::task_service::TaskService as TaskServiceSchema;
@@ -59,7 +58,6 @@ pub type TaskLink<B> = EntityLink<B, TaskSchema>;
 /// ```
 pub struct TaskService<B: Bmc> {
     data: Arc<TaskServiceSchema>,
-    task_collection: ODataId,
     bmc: NvBmc<B>,
 }
 
@@ -77,14 +75,12 @@ impl<B: Bmc> TaskService<B> {
 
         // Task links need the BMC-advertised Tasks collection as the allowed
         // parent path for all async task IDs.
-        let Some(tasks) = data.tasks.as_ref() else {
+        if data.tasks.is_none() {
             return Err(Error::TaskServiceTasksUnavailable);
-        };
+        }
 
-        let task_collection = tasks.odata_id().clone();
         Ok(Some(Self {
             data,
-            task_collection,
             bmc: bmc.clone(),
         }))
     }
@@ -107,10 +103,15 @@ impl<B: Bmc> TaskService<B> {
     /// Returns error if the task ID is not a child of this service's Tasks
     /// collection.
     pub fn task_link(&self, task: &AsyncTask) -> Result<TaskLink<B>, Error<B>> {
-        if task.id == self.task_collection || !self.task_collection.is_path_prefix(&task.id) {
+        let Some(tasks) = self.data.tasks.as_ref() else {
+            return Err(Error::TaskServiceTasksUnavailable);
+        };
+
+        let task_collection = tasks.odata_id();
+        if task_collection == &task.id || !task_collection.is_path_prefix(&task.id) {
             return Err(Error::TaskPathNotInTaskService {
                 task_path: task.id.clone(),
-                task_collection: self.task_collection.clone(),
+                task_collection: task_collection.clone(),
             });
         }
 
