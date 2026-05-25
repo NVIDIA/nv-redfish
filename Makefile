@@ -35,7 +35,8 @@ all-std-features = accounts \
                    storages \
                    thermal \
                    update-service \
-                   event-service
+                   event-service \
+                   task-service
 
 # Features that cannot be compiled standalone (no references from the tree).
 std-not-standalone-features = assembly \
@@ -97,5 +98,3 @@ rust-install:
 clean:
 	rm -rf $(schema-dir)
 	rm -rf target
-
-

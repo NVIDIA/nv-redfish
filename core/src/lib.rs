@@ -38,9 +38,8 @@
 //! - Each generated entity struct implements [`EntityTypeRef`].
 //! - Navigation properties in generated code are wrapped in [`NavProperty<T>`].
 //! - Generated actions are represented as [`Action<T, R>`].
-//! - If the schema allows it, generated types implement [`Creatable`], [`Updatable`], and/or [`Deletable`]
-//!   and route operations through a user-provided [`Bmc`] implementation.
-//!
+//! - If the schema allows it, generated types implement [`Creatable`], [`Updatable`], and/or
+//!   [`Deletable`] and route operations through a user-provided [`Bmc`] implementation.
 
 #![deny(
     clippy::all,
@@ -92,6 +91,7 @@ use futures_core::TryStream;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::pin::Pin;
+use std::time::Duration;
 use std::{future::Future, sync::Arc};
 
 #[doc(inline)]
@@ -178,13 +178,31 @@ pub trait Expandable: EntityTypeRef + for<'de> Deserialize<'de> + 'static {
 pub type BoxTryStream<T, E> =
     Pin<Box<dyn TryStream<Ok = T, Error = E, Item = Result<T, E>> + Send>>;
 
+/// Location of an asynchronous task monitor.
+///
+/// Wraps the `Location` returned for an operation that is completing
+/// asynchronously.
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[repr(transparent)]
+pub struct AsyncTaskLocation(
+    /// `OData` URI returned in the async response `Location` header.
+    pub ODataId,
+);
+
+impl From<ODataId> for AsyncTaskLocation {
+    fn from(value: ODataId) -> Self {
+        Self(value)
+    }
+}
+
 /// Outcome of a mutating Redfish operation that can complete asynchronously.
 #[derive(Debug)]
 pub struct AsyncTask {
-    /// Request completed successfully with no response body
-    pub id: ODataId,
-    /// The recommended number of seconds to wait before polling again
-    pub retry_after_secs: Option<u64>,
+    /// Location to use for polling completion.
+    pub location: AsyncTaskLocation,
+
+    /// Recommended duration to wait before polling again.
+    pub retry_after: Option<Duration>,
 }
 
 /// Outcome of a mutating Redfish operation.
@@ -192,7 +210,7 @@ pub struct AsyncTask {
 pub enum ModificationResponse<T> {
     /// Request completed synchronously
     Entity(T),
-    /// Requst completed asynchronously, with the provided `ODataId` to poll for completion
+    /// Request is completing asynchronously with the provided task location.
     Task(AsyncTask),
     /// Request completed successfully with no response body
     Empty,

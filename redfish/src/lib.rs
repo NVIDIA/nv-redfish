@@ -126,6 +126,9 @@ pub mod sensor;
 /// Session Service.
 #[cfg(feature = "session-service")]
 pub mod session_service;
+/// Task Service.
+#[cfg(feature = "task-service")]
+pub mod task_service;
 /// Telemetry Service.
 #[cfg(feature = "telemetry-service")]
 pub mod telemetry_service;

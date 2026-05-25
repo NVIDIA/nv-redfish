@@ -162,6 +162,19 @@ root_patterns = [
 ]
 
 [[features]]
+name = "task-service"
+csdl_files = [
+    "TaskService_v1.xml",
+    "TaskCollection_v1.xml",
+    "Task_v1.xml",
+]
+patterns = [
+    "TaskService.*",
+    "TaskCollection.*",
+    "Task.*",
+]
+
+[[features]]
 name = "event-service"
 csdl_files = [
     "EventService_v1.xml",
