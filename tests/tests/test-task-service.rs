@@ -94,36 +94,39 @@ async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "expected task service"))?;
 
     let invalid_task = AsyncTask {
-        id: ODataId::from("/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1".to_string()),
-        retry_after_secs: None,
+        location: ODataId::from(
+            "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1".to_string(),
+        )
+        .into(),
+        retry_after: None,
     };
 
     let Err(error) = task_service.task_link(invalid_task) else {
-        return Err(String::from("expected invalid task path").into());
+        return Err(String::from("expected invalid task location").into());
     };
 
     assert_eq!(
         error.to_string(),
-        "Task path /redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1 is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
+        "Task location /redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/1 is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
     );
 
     let collection_task = AsyncTask {
-        id: ODataId::from("/redfish/v1/TaskService/Tasks".to_string()),
-        retry_after_secs: None,
+        location: ODataId::from("/redfish/v1/TaskService/Tasks".to_string()).into(),
+        retry_after: None,
     };
 
     let Err(error) = task_service.task_link(collection_task) else {
-        return Err(String::from("expected collection path to be invalid").into());
+        return Err(String::from("expected collection location to be invalid").into());
     };
 
     assert_eq!(
         error.to_string(),
-        "Task path /redfish/v1/TaskService/Tasks is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
+        "Task location /redfish/v1/TaskService/Tasks is not in TaskService Tasks collection /redfish/v1/TaskService/Tasks"
     );
 
     let async_task = AsyncTask {
-        id: ODataId::from(TASK_PATH.to_string()),
-        retry_after_secs: Some(15),
+        location: ODataId::from(TASK_PATH.to_string()).into(),
+        retry_after: None,
     };
 
     let task_link = task_service.task_link(async_task)?;

@@ -126,8 +126,8 @@ See `examples/readme-minimal` for this example as a workspace target.
 See `examples/session-token` for Redfish SessionService authentication using
 `X-Auth-Token`.
 See `examples/task-service` for polling a Redfish Task through TaskService.
-Pass a Redfish task path returned by an async operation, such as
-`/redfish/v1/TaskService/Tasks/42`, with `--task-path`.
+Pass a Redfish task location returned by an async operation, such as
+`/redfish/v1/TaskService/Tasks/42`, with `--location`.
 
 ## How It Fits Together
 

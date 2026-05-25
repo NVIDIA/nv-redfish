@@ -409,16 +409,17 @@ impl Client {
         match status {
             reqwest::StatusCode::NO_CONTENT => Ok(ModificationResponse::Empty),
             reqwest::StatusCode::ACCEPTED => {
-                let Some(task_monitor_id) = location else {
+                let Some(task_location) = location else {
                     return Err(BmcError::InvalidResponse {
                         url,
                         status,
                         text: String::from("202 Accepted without Location header"),
                     });
                 };
+
                 Ok(ModificationResponse::Task(AsyncTask {
-                    id: task_monitor_id,
-                    retry_after_secs: retry_after_from_headers(&headers),
+                    location: task_location.into(),
+                    retry_after: retry_after_from_headers(&headers),
                 }))
             }
             reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {
@@ -584,11 +585,14 @@ fn etag_from_headers(headers: &HeaderMap) -> Option<ODataETag> {
         .map(|v| v.to_string().into())
 }
 
-fn retry_after_from_headers(headers: &HeaderMap) -> Option<u64> {
+fn retry_after_from_headers(headers: &HeaderMap) -> Option<Duration> {
     headers
         .get(header::RETRY_AFTER)
         .and_then(|value| value.to_str().ok())
+        // RFC 9110 defines the numeric Retry-After form as delay-seconds.
+        // This helper handles that form and leaves HTTP-date support out of scope.
         .and_then(|v| v.trim().parse::<u64>().ok())
+        .map(Duration::from_secs)
 }
 
 fn inject_etag(etag: &ODataETag, body: &mut serde_json::Value) {
@@ -1061,8 +1065,8 @@ mod tests {
             return Err(String::from("expected task response").into());
         };
 
-        assert_eq!(task.id.to_string(), task_path);
-        assert_eq!(task.retry_after_secs, Some(15));
+        assert_eq!(task.location.0.to_string(), task_path);
+        assert_eq!(task.retry_after, Some(Duration::from_secs(15)));
 
         Ok(())
     }

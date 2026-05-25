@@ -17,9 +17,9 @@
 //!
 //! This module provides typed access to Redfish `TaskService`.
 //! A `TaskService` value is a lightweight handle to the service schema and BMC
-//! transport. It validates task IDs returned by asynchronous operations against
-//! this service's Tasks collection and returns lazy task links that can be
-//! fetched when polling is needed.
+//! transport. It validates task locations returned by asynchronous operations
+//! against this service's Tasks collection and returns lazy task links that can
+//! be fetched when polling is needed.
 
 use std::sync::Arc;
 
@@ -42,7 +42,7 @@ pub type TaskLink<B> = EntityLink<B, TaskSchema>;
 
 /// Task service.
 ///
-/// Provides task links for task IDs returned by asynchronous operations.
+/// Provides task links for task locations returned by asynchronous operations.
 ///
 /// # Example
 ///
@@ -51,7 +51,7 @@ pub type TaskLink<B> = EntityLink<B, TaskSchema>;
 ///     return Ok(());
 /// };
 ///
-/// let task_link = task_service.task_link(&async_task)?;
+/// let task_link = task_service.task_link(async_task)?;
 /// let task = task_link.fetch().await?;
 ///
 /// println!("{:?}", task.task_state);
@@ -74,7 +74,7 @@ impl<B: Bmc> TaskService<B> {
         let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
 
         // Task links need the BMC-advertised Tasks collection as the allowed
-        // parent path for all async task IDs.
+        // parent path for all async task locations.
         if data.tasks.is_none() {
             return Err(Error::TaskServiceTasksUnavailable);
         }
@@ -93,14 +93,13 @@ impl<B: Bmc> TaskService<B> {
 
     /// Create a task link from an asynchronous operation result.
     ///
-    /// The task ID must be a child of this service's Tasks collection, such as
-    /// `/redfish/v1/TaskService/Tasks/{id}`. The returned link does not fetch
-    /// the task until [`TaskLink::fetch`] is called. The async task is borrowed
-    /// so callers can still use polling hints such as `retry_after_secs`.
+    /// The task location must be a child of this service's Tasks collection,
+    /// such as `/redfish/v1/TaskService/Tasks/{id}`. The returned link does not
+    /// fetch the task until [`TaskLink::fetch`] is called.
     ///
     /// # Errors
     ///
-    /// Returns error if the task ID is not a child of this service's Tasks
+    /// Returns error if the task location is not a child of this service's Tasks
     /// collection.
     pub fn task_link(&self, task: AsyncTask) -> Result<TaskLink<B>, Error<B>> {
         let Some(tasks) = self.data.tasks.as_ref() else {
@@ -108,14 +107,15 @@ impl<B: Bmc> TaskService<B> {
         };
 
         let task_collection = tasks.odata_id();
-        if task_collection == &task.id || !task_collection.is_path_prefix(&task.id) {
-            return Err(Error::TaskPathNotInTaskService {
-                task_path: task.id,
+        let task_location = task.location.0;
+        if task_collection == &task_location || !task_collection.is_path_prefix(&task_location) {
+            return Err(Error::TaskLocationNotInTaskService {
+                task_location,
                 task_collection: task_collection.clone(),
             });
         }
 
-        let task_ref = NavProperty::new_reference(task.id);
+        let task_ref = NavProperty::new_reference(task_location);
         Ok(TaskLink::new(&self.bmc, task_ref))
     }
 }

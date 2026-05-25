@@ -40,11 +40,11 @@ pub enum Error<B: Bmc> {
     /// Task service does not provide a Tasks collection.
     #[cfg(feature = "task-service")]
     TaskServiceTasksUnavailable,
-    /// Task path does not point at this TaskService Tasks collection.
+    /// Task location does not point at this TaskService Tasks collection.
     #[cfg(feature = "task-service")]
-    TaskPathNotInTaskService {
-        /// Task path.
-        task_path: nv_redfish_core::ODataId,
+    TaskLocationNotInTaskService {
+        /// Task location.
+        task_location: nv_redfish_core::ODataId,
         /// Expected TaskService Tasks collection path.
         task_collection: nv_redfish_core::ODataId,
     },
@@ -84,12 +84,12 @@ impl<B: Bmc> Display for Error<B> {
                 write!(f, "Task service does not provide Tasks collection")
             }
             #[cfg(feature = "task-service")]
-            Self::TaskPathNotInTaskService {
-                task_path,
+            Self::TaskLocationNotInTaskService {
+                task_location,
                 task_collection,
             } => write!(
                 f,
-                "Task path {task_path} is not in TaskService Tasks collection {task_collection}"
+                "Task location {task_location} is not in TaskService Tasks collection {task_collection}"
             ),
             #[cfg(feature = "telemetry-service")]
             Self::MetricDefinitionsNotAvailable => {

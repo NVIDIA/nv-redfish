@@ -42,9 +42,9 @@ struct Args {
     #[arg(long)]
     password: String,
 
-    /// Redfish task path returned by an async operation.
-    #[arg(long, value_name = "PATH")]
-    task_path: String,
+    /// Redfish task location returned by an async operation.
+    #[arg(long, value_name = "LOCATION")]
+    location: String,
 
     #[arg(long, default_value_t = 1)]
     poll_count: u32,
@@ -75,8 +75,8 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         .ok_or_else(|| IoError::new(ErrorKind::NotFound, "TaskService is not available"))?;
 
     let async_task = AsyncTask {
-        id: ODataId::from(args.task_path),
-        retry_after_secs: None,
+        location: ODataId::from(args.location).into(),
+        retry_after: None,
     };
 
     let task_link = task_service.task_link(async_task)?;
