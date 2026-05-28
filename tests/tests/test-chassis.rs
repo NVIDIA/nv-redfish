@@ -14,8 +14,8 @@
 // limitations under the License.
 //! Integration tests for Chassis collection workaround behavior.
 
-use nv_redfish::ServiceRoot;
 use nv_redfish::control::ControlUpdate;
+use nv_redfish::ServiceRoot;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
@@ -102,7 +102,10 @@ async fn environment_power_limit_control_fetches_and_updates() -> Result<(), Box
             }
         }),
     ));
-    bmc.expect(Expect::get(&control_id, control_payload(&control_id, 600.0)));
+    bmc.expect(Expect::get(
+        &control_id,
+        control_payload(&control_id, 600.0),
+    ));
     let Some(power_limit) = chassis.environment_power_limit_control().await? else {
         return Err(std::io::Error::new(
             std::io::ErrorKind::InvalidData,

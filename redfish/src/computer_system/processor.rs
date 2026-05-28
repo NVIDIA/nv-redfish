@@ -25,9 +25,9 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
-#[cfg(feature = "sensors")]
+#[cfg(feature = "controls")]
 use crate::control::extract_environment_power_limit_control;
-#[cfg(feature = "sensors")]
+#[cfg(feature = "controls")]
 use crate::control::Control;
 #[cfg(feature = "sensors")]
 use crate::extract_sensor_uris;
@@ -117,7 +117,7 @@ impl<B: Bmc> Processor<B> {
     /// # Errors
     ///
     /// Returns an error if fetching environment metrics or the control fails.
-    #[cfg(feature = "sensors")]
+    #[cfg(feature = "controls")]
     pub async fn environment_power_limit_control(&self) -> Result<Option<Control<B>>, Error<B>> {
         let Some(env_ref) = &self.data.environment_metrics else {
             return Ok(None);
