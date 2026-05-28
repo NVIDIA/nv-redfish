@@ -30,29 +30,34 @@
 
 use std::sync::Arc;
 
+use crate::schema::control::Control as ControlSchema;
+#[cfg(feature = "chassis")]
+use crate::schema::control_collection::ControlCollection as ControlCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
-use crate::schema::control::Control as ControlSchema;
-use crate::schema::control_collection::ControlCollection as ControlCollectionSchema;
 
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 
-#[cfg(all(
-    feature = "sensors",
-    any(feature = "chassis", feature = "computer-systems")
+#[cfg(any(
+    feature = "chassis",
+    feature = "memory",
+    feature = "storages",
+    feature = "processors"
 ))]
 use crate::schema::environment_metrics::EnvironmentMetrics;
 
-#[cfg(all(
-    feature = "sensors",
-    any(feature = "chassis", feature = "computer-systems")
+#[cfg(any(
+    feature = "chassis",
+    feature = "memory",
+    feature = "storages",
+    feature = "processors"
 ))]
-use nv_redfish_core::ODataId;
+use crate::core::ODataId;
 
 pub use crate::schema::control::ControlMode;
 pub use crate::schema::control::ControlType;
@@ -75,13 +80,14 @@ pub use crate::schema::control::SetPointType;
 ///     let _control = control.raw();
 /// }
 /// ```
+#[cfg(feature = "chassis")]
 pub struct ControlCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<ControlCollectionSchema>,
 }
 
+#[cfg(feature = "chassis")]
 impl<B: Bmc> ControlCollection<B> {
-    #[cfg(feature = "chassis")]
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<ControlCollectionSchema>,
@@ -198,9 +204,11 @@ impl<B: Bmc> Resource for Control<B> {
     }
 }
 
-#[cfg(all(
-    feature = "sensors",
-    any(feature = "chassis", feature = "computer-systems")
+#[cfg(any(
+    feature = "chassis",
+    feature = "memory",
+    feature = "storages",
+    feature = "processors"
 ))]
 pub(crate) async fn extract_environment_power_limit_control<B: Bmc>(
     bmc: &NvBmc<B>,

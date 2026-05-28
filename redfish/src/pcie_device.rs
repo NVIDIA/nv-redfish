@@ -22,14 +22,18 @@ use crate::hardware_id::Model as HardwareIdModel;
 use crate::hardware_id::PartNumber as HardwareIdPartNumber;
 use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::schema::pcie_device::PcieDevice as PcieDeviceSchema;
+#[cfg(feature = "chassis")]
 use crate::schema::pcie_device_collection::PcieDeviceCollection as PcieDeviceCollectionSchema;
+#[cfg(feature = "chassis")]
 use crate::Error;
+#[cfg(feature = "chassis")]
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceProvidesStatus;
 use crate::ResourceSchema;
 use crate::ResourceStatusSchema;
 use nv_redfish_core::Bmc;
+#[cfg(feature = "chassis")]
 use nv_redfish_core::NavProperty;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -38,11 +42,13 @@ use tagged_types::TaggedType;
 /// PCIe devices collection.
 ///
 /// Provides functions to access collection members.
+#[cfg(feature = "chassis")]
 pub struct PcieDeviceCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<PcieDeviceCollectionSchema>,
 }
 
+#[cfg(feature = "chassis")]
 impl<B: Bmc> PcieDeviceCollection<B> {
     /// Create a new manager collection handle.
     pub(crate) async fn new(
@@ -104,6 +110,7 @@ pub struct PcieDevice<B: Bmc> {
 
 impl<B: Bmc> PcieDevice<B> {
     /// Create a new log service handle.
+    #[cfg(feature = "chassis")]
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<PcieDeviceSchema>,

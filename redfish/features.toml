@@ -75,10 +75,6 @@ patterns = [
     "ControlCollection.*",
     "PhysicalContext.*",
 ]
-root_patterns = [
-    "Control.*.*",
-    "ControlCollection.*",
-]
 
 [[features]]
 name = "ethernet-interfaces"
@@ -94,6 +90,15 @@ patterns = [
 ]
 rigid_arrays = [
     "EthernetInterface.*.EthernetInterface/StaticNameServers"
+]
+
+[[features]]
+name = "environment-metrics"
+csdl_files = [
+    "EnvironmentMetrics_v1.xml",
+]
+patterns = [
+    "EnvironmentMetrics.*"
 ]
 
 [[features]]
@@ -328,7 +333,6 @@ csdl_files = [
     "FanCollection_v1.xml",
     "Sensor_v1.xml",
     "SensorCollection_v1.xml",
-    "EnvironmentMetrics_v1.xml",
     "Redundancy_v1.xml",
 ]
 patterns = [
@@ -336,14 +340,6 @@ patterns = [
     "SensorCollection.*",
     "Fan.*",
     "FanCollection.*",
-    "EnvironmentMetrics.*",
-]
-root_patterns = [
-    "Sensor.*.*",
-    "SensorCollection.*",
-    "Fan.*.*",
-    "FanCollection.*",
-    "EnvironmentMetrics.*.*",
 ]
 
 [[features]]

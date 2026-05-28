@@ -45,7 +45,7 @@ use crate::chassis::Power;
 use crate::chassis::PowerSupply;
 #[cfg(feature = "thermal")]
 use crate::chassis::Thermal;
-#[cfg(feature = "sensors")]
+#[cfg(feature = "controls")]
 use crate::control::extract_environment_power_limit_control;
 #[cfg(feature = "controls")]
 use crate::control::Control;
@@ -362,7 +362,7 @@ impl<B: Bmc> Chassis<B> {
     /// # Errors
     ///
     /// Returns an error if fetching environment metrics or the control fails.
-    #[cfg(feature = "sensors")]
+    #[cfg(feature = "controls")]
     pub async fn environment_power_limit_control(&self) -> Result<Option<Control<B>>, Error<B>> {
         let Some(env_ref) = &self.data.environment_metrics else {
             return Ok(None);
