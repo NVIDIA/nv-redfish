@@ -24,6 +24,8 @@ use crate::schema::redfish::redfish_error::RedfishError;
 use crate::BmcCredentials;
 use crate::CacheableError;
 use crate::HttpClient;
+#[cfg(feature = "update-service-deprecated")]
+use crate::HttpPushUriUpdateRequest;
 use crate::MultipartUpdateRequest;
 
 use futures_util::StreamExt as _;
@@ -794,6 +796,45 @@ impl HttpClient for Client {
             .send()
             .await?;
 
+        self.handle_modification_response(response).await
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    async fn post_http_push_uri_update<U, T>(
+        &self,
+        url: Url,
+        update_request: HttpPushUriUpdateRequest<U>,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> Result<ModificationResponse<T>, Self::Error>
+    where
+        U: UploadReader,
+        T: DeserializeOwned + Send + Sync,
+    {
+        let HttpPushUriUpdateRequest {
+            update_stream,
+            upload_timeout,
+        } = update_request;
+
+        let DataStream {
+            reader,
+            content_length,
+            ..
+        } = update_stream;
+
+        let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));
+
+        let mut request = auth_headers(self.client.post(url), credentials)
+            .headers(custom_headers.clone())
+            .header(header::CONTENT_TYPE, "application/octet-stream")
+            .body(body)
+            .timeout(upload_timeout);
+
+        if let Some(content_length) = content_length {
+            request = request.header(header::CONTENT_LENGTH, content_length.to_string());
+        }
+
+        let response = request.send().await?;
         self.handle_modification_response(response).await
     }
 

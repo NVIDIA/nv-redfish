@@ -22,6 +22,8 @@ mod reqwest_client_tests {
     use futures_util::io::Cursor;
     use nv_redfish_bmc_http::reqwest::BmcError;
     use nv_redfish_bmc_http::reqwest::Client;
+    #[cfg(feature = "update-service-deprecated")]
+    use nv_redfish_bmc_http::reqwest::ClientParams;
     use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
@@ -30,12 +32,16 @@ mod reqwest_client_tests {
         query::{ExpandQuery, FilterQuery},
         Bmc, DataStream, ModificationResponse, MultipartUpdateRequest,
     };
+    #[cfg(feature = "update-service-deprecated")]
+    use nv_redfish_core::HttpPushUriUpdateRequest;
     use serde::Serialize;
     use url::Url;
     use wiremock::{
         matchers::{body_json, header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
+    #[cfg(feature = "update-service-deprecated")]
+    use wiremock::Request;
 
     use crate::common::test_utils::*;
 
@@ -277,6 +283,184 @@ mod reqwest_client_tests {
             .await;
 
         assert!(matches!(result, Err(BmcError::EncodeError(_))));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    #[tokio::test]
+    async fn http_push_uri_relative_task() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update";
+        let task_path = "/redfish/v1/TaskService/Tasks/42";
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(header("X-Upload-Mode", "raw"))
+            .and(header("content-type", "application/octet-stream"))
+            .and(header("content-length", "14"))
+            .and(|request: &Request| request.body == b"firmware-bytes")
+            .respond_with(
+                ResponseTemplate::new(202)
+                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Retry-After", "15"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut custom_headers = http::HeaderMap::new();
+        custom_headers.insert("X-Upload-Mode", http::HeaderValue::from_static("raw"));
+
+        let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
+        let request = HttpPushUriUpdateRequest {
+            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+                .with_content_length(14),
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let response = bmc
+            .http_push_uri_update::<_, TestResource>(upload_path, request)
+            .await?;
+
+        let ModificationResponse::Task(task) = response else {
+            return Err(String::from("expected task response").into());
+        };
+
+        assert_eq!(task.location.0.to_string(), task_path);
+        assert_eq!(task.retry_after, Some(Duration::from_secs(15)));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    #[tokio::test]
+    async fn http_push_uri_absolute_token_empty() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update";
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .and(header("X-Auth-Token", "session-token"))
+            .and(header("content-type", "application/octet-stream"))
+            .and(|request: &Request| !request.headers.contains_key("content-length"))
+            .and(|request: &Request| request.body == b"firmware-bytes")
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc_with_credentials(
+            &mock_server,
+            BmcCredentials::token("session-token".to_string()),
+        );
+        let request = HttpPushUriUpdateRequest {
+            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec())),
+            upload_timeout: Duration::from_secs(600),
+        };
+        let upload_url = format!("{}{upload_path}", mock_server.uri());
+
+        let response = bmc
+            .http_push_uri_update::<_, ()>(&upload_url, request)
+            .await?;
+
+        assert!(matches!(response, ModificationResponse::Empty));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    #[tokio::test]
+    async fn http_push_uri_error_response() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update";
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .respond_with(ResponseTemplate::new(500).set_body_string("upload failed"))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let request = HttpPushUriUpdateRequest {
+            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+                .with_content_length(14),
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let result = bmc
+            .http_push_uri_update::<_, ()>(upload_path, request)
+            .await;
+
+        assert!(matches!(
+            result,
+            Err(BmcError::InvalidResponse { status, .. }) if status.as_u16() == 500
+        ));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    #[tokio::test]
+    async fn http_push_uri_timeout_scoped() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let upload_path = "/redfish/v1/UpdateService/update";
+        let resource_path = paths::SYSTEMS_1;
+        let delayed_response = Duration::from_millis(200);
+
+        Mock::given(method("POST"))
+            .and(path(upload_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .and(|request: &Request| request.body == b"firmware-bytes")
+            .respond_with(ResponseTemplate::new(204).set_delay(delayed_response))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_delay(delayed_response)
+                    .set_body_json(create_test_resource(
+                        resource_path,
+                        None,
+                        names::TEST_SYSTEM,
+                        42,
+                    )),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::with_params(ClientParams::new().timeout(Duration::from_millis(50)))?;
+        let bmc = HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri())?,
+            create_test_credentials(),
+            CacheSettings::default(),
+        );
+        let request = HttpPushUriUpdateRequest {
+            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec())),
+            upload_timeout: Duration::from_secs(2),
+        };
+
+        let upload = bmc
+            .http_push_uri_update::<_, ()>(upload_path, request)
+            .await?;
+
+        assert!(matches!(upload, ModificationResponse::Empty));
+
+        let resource_id = create_odata_id(resource_path);
+        let get_result = bmc.get::<TestResource>(&resource_id).await;
+        let Err(BmcError::ReqwestError(err)) = get_result else {
+            return Err(String::from("expected default GET timeout").into());
+        };
+
+        assert!(err.is_timeout());
 
         Ok(())
     }

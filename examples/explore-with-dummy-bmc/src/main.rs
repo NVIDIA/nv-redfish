@@ -19,6 +19,8 @@ use std::sync::Arc;
 
 use futures_util::StreamExt;
 use nv_redfish_core::query::ExpandQuery;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::HttpPushUriUpdateRequest;
 use nv_redfish_core::{
     Action, ActionError, Bmc, EntityTypeRef, Expandable, ModificationResponse,
     MultipartUpdateRequest, NavProperty, ODataETag, ODataId, SessionCreateResponse, Updatable,
@@ -603,6 +605,19 @@ impl Bmc for MockBmc {
         U: UploadReader,
         R: Send + Sync + for<'de> Deserialize<'de>,
         V: Send + Sync + Serialize,
+    {
+        Err(Error::NotSupported)
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    async fn http_push_uri_update<U, R>(
+        &self,
+        _uri: &str,
+        _request: HttpPushUriUpdateRequest<U>,
+    ) -> Result<ModificationResponse<R>, Self::Error>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>,
     {
         Err(Error::NotSupported)
     }

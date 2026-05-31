@@ -58,6 +58,8 @@ use crate::BoxTryStream;
 use crate::EntityTypeRef;
 use crate::Expandable;
 use crate::FilterQuery;
+#[cfg(feature = "update-service-deprecated")]
+use crate::HttpPushUriUpdateRequest;
 use crate::ModificationResponse;
 use crate::ODataETag;
 use crate::ODataId;
@@ -159,6 +161,17 @@ pub trait Bmc: Send + Sync {
         U: UploadReader,
         R: Send + Sync + for<'de> Deserialize<'de>,
         V: Send + Sync + Serialize;
+
+    /// POST a raw binary stream to a Redfish `UpdateService` `HttpPushUri`.
+    #[cfg(feature = "update-service-deprecated")]
+    fn http_push_uri_update<U, R>(
+        &self,
+        uri: &str,
+        request: HttpPushUriUpdateRequest<U>,
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>;
 
     /// Stream data for the URI.
     ///

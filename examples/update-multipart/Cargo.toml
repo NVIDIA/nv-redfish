@@ -8,6 +8,10 @@ edition.workspace = true
 keywords.workspace = true
 categories.workspace = true
 
+[features]
+default = []
+update-service-deprecated = ["nv-redfish/update-service-deprecated"]
+
 [dependencies]
 clap = { workspace = true, features = ["derive"] }
 futures-util = { workspace = true, features = ["io"] }

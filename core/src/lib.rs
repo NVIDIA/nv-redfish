@@ -131,6 +131,8 @@ pub use serde_json::Value as AdditionalProperties;
 #[doc(inline)]
 pub use upload::DataStream;
 #[doc(inline)]
+pub use upload::HttpPushUriUpdateRequest;
+#[doc(inline)]
 pub use upload::MultipartUpdateRequest;
 #[doc(inline)]
 pub use upload::OemMultipartPart;

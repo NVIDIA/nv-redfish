@@ -29,7 +29,10 @@ impl<T> UploadReader for T where T: AsyncRead + Send + 'static {}
 
 /// Named data stream accepted by upload methods.
 pub struct DataStream<R> {
-    /// Multipart filename for this stream.
+    /// Name associated with this stream.
+    ///
+    /// Multipart uploads send this as the firmware filename. Raw binary uploads
+    /// keep it for caller-visible context and do not send it as a filename.
     pub name: String,
 
     /// Streamed upload data.
@@ -152,6 +155,15 @@ pub struct MultipartUpdateRequest<'a, U, V> {
 
     /// Optional OEM-defined multipart parts.
     pub oem_parts: Vec<OemMultipartPart>,
+
+    /// Timeout used only for this upload request.
+    pub upload_timeout: Duration,
+}
+
+/// `UpdateService` raw `HttpPushUri` upload request data.
+pub struct HttpPushUriUpdateRequest<U> {
+    /// Streamed update image data.
+    pub update_stream: DataStream<U>,
 
     /// Timeout used only for this upload request.
     pub upload_timeout: Duration,

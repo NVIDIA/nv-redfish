@@ -20,8 +20,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures_util::io::Cursor;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish::schema::update_service::HttpPushUriOptionsUpdate;
 use nv_redfish::update_service::MultipartUpdateParameters;
 use nv_redfish::update_service::UpdateService;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish::update_service::UpdateServiceUpdate;
 use nv_redfish::Error;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::DataStream;
@@ -43,7 +47,16 @@ const SW_INVENTORIES_DATA_TYPE: &str = "#SoftwareInventoryCollection.SoftwareInv
 const SW_INVENTORY_DATA_TYPE: &str = "#SoftwareInventory.v1_4_0.SoftwareInventory";
 
 const UPDATE_SERVICE_URI: &str = "/redfish/v1/UpdateService";
+#[cfg(feature = "update-service-deprecated")]
+const HTTP_PUSH_URI: &str = "/redfish/v1/UpdateService/update";
 const MULTIPART_URI: &str = "/redfish/v1/UpdateService/update-multipart";
+
+#[cfg(feature = "update-service-deprecated")]
+#[derive(serde::Deserialize)]
+struct UploadResponse {
+    #[serde(rename = "Result")]
+    result: String,
+}
 
 #[test]
 async fn list_dell_fw_inventores() -> Result<(), Box<dyn StdError>> {
@@ -267,6 +280,100 @@ async fn uses_multipart_http_push_uri() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
+#[cfg(feature = "update-service-deprecated")]
+#[tokio::test]
+async fn uses_http_push_uri_without_update_parameters() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+
+    bmc.expect(Expect::get("/redfish/v1", service_root_json()));
+    bmc.expect(Expect::get(
+        UPDATE_SERVICE_URI,
+        update_service_json_with_uris(None, Some(HTTP_PUSH_URI)),
+    ));
+
+    bmc.expect(Expect::http_push_uri_update(
+        HTTP_PUSH_URI,
+        "firmware.bin",
+        json!({
+            "Result": "accepted"
+        }),
+    ));
+
+    let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
+    let update_service = root
+        .update_service()
+        .await?
+        .ok_or("expected update service")?;
+
+    let response = update_service
+        .http_push_uri_update_from_reader::<_, UploadResponse>(
+            DataStream::new("firmware.bin", Cursor::new(b"firmware".to_vec()))
+                .with_content_length(8),
+            Duration::from_secs(600),
+        )
+        .await?;
+
+    let ModificationResponse::Entity(body) = response else {
+        return Err(String::from("expected entity response").into());
+    };
+
+    assert_eq!(body.result, "accepted");
+
+    Ok(())
+}
+
+#[cfg(feature = "update-service-deprecated")]
+#[tokio::test]
+async fn patches_http_push_uri_options_and_targets() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+
+    bmc.expect(Expect::get("/redfish/v1", service_root_json()));
+    bmc.expect(Expect::get(
+        UPDATE_SERVICE_URI,
+        update_service_json_with_uris(None, Some(HTTP_PUSH_URI)),
+    ));
+
+    let update = UpdateServiceUpdate::builder()
+        .with_http_push_uri_targets(vec!["/redfish/v1/Systems/1".to_string()])
+        .with_http_push_uri_targets_busy(true)
+        .with_http_push_uri_options(
+            HttpPushUriOptionsUpdate::builder()
+                .with_force_update(true)
+                .build(),
+        )
+        .with_http_push_uri_options_busy(true)
+        .build();
+
+    bmc.expect(Expect::update(
+        UPDATE_SERVICE_URI,
+        json!({
+            "HttpPushUriTargets": ["/redfish/v1/Systems/1"],
+            "HttpPushUriTargetsBusy": true,
+            "HttpPushUriOptions": {
+                "ForceUpdate": true
+            },
+            "HttpPushUriOptionsBusy": true
+        }),
+        update_service_json_with_uris(None, Some(HTTP_PUSH_URI)),
+    ));
+
+    let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
+    let update_service = root
+        .update_service()
+        .await?
+        .ok_or("expected update service")?;
+
+    let response = update_service.update(&update).await?;
+
+    let ModificationResponse::Entity(updated) = response else {
+        return Err(String::from("expected entity response").into());
+    };
+
+    assert_eq!(updated.raw().http_push_uri.as_deref(), Some(HTTP_PUSH_URI));
+
+    Ok(())
+}
+
 #[tokio::test]
 async fn uses_generated_update_parameters_with_oem_parts() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
@@ -366,6 +473,39 @@ async fn requires_multipart_http_push_uri() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
+#[cfg(feature = "update-service-deprecated")]
+#[tokio::test]
+async fn requires_http_push_uri() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+
+    bmc.expect(Expect::get("/redfish/v1", service_root_json()));
+
+    // Raw uploads must use the service-provided endpoint, so a missing
+    // HttpPushUri should fail before any upload is sent.
+    bmc.expect(Expect::get(UPDATE_SERVICE_URI, update_service_json(None)));
+
+    let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
+    let update_service = root
+        .update_service()
+        .await?
+        .ok_or("expected update service")?;
+
+    let result = update_service
+        .http_push_uri_update_from_reader::<_, UploadResponse>(
+            DataStream::new("firmware.bin", Cursor::new(b"firmware".to_vec()))
+                .with_content_length(8),
+            Duration::from_secs(600),
+        )
+        .await;
+
+    assert!(matches!(
+        result,
+        Err(Error::UpdateServiceHttpPushUriNotAvailable)
+    ));
+
+    Ok(())
+}
+
 fn service_root_json() -> serde_json::Value {
     json!({
         "@odata.id": "/redfish/v1",
@@ -383,6 +523,13 @@ fn service_root_json() -> serde_json::Value {
 }
 
 fn update_service_json(multipart_uri: Option<&str>) -> serde_json::Value {
+    update_service_json_with_uris(multipart_uri, None)
+}
+
+fn update_service_json_with_uris(
+    multipart_uri: Option<&str>,
+    http_push_uri: Option<&str>,
+) -> serde_json::Value {
     let mut body = json!({
         "@odata.id": UPDATE_SERVICE_URI,
         "Id": "UpdateService",
@@ -391,6 +538,10 @@ fn update_service_json(multipart_uri: Option<&str>) -> serde_json::Value {
 
     if let Some(multipart_uri) = multipart_uri {
         body["MultipartHttpPushUri"] = json!(multipart_uri);
+    }
+
+    if let Some(http_push_uri) = http_push_uri {
+        body["HttpPushUri"] = json!(http_push_uri);
     }
 
     body

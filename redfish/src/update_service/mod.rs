@@ -36,6 +36,10 @@ use crate::schema::update_service::UpdateServiceSimpleUpdateAction;
 
 use nv_redfish_core::Bmc;
 use nv_redfish_core::DataStream;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::EntityTypeRef;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::HttpPushUriUpdateRequest;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::MultipartUpdateRequest;
 use nv_redfish_core::UploadReader;
@@ -46,6 +50,9 @@ use software_inventory::SoftwareInventoryCollection;
 pub use crate::schema::update_service::TransferProtocolType;
 #[doc(inline)]
 pub use crate::schema::update_service::UpdateParametersUpdate as MultipartUpdateParameters;
+#[cfg(feature = "update-service-deprecated")]
+#[doc(inline)]
+pub use crate::schema::update_service::UpdateServiceUpdate;
 #[doc(inline)]
 pub use software_inventory::SoftwareInventory;
 #[doc(inline)]
@@ -253,6 +260,97 @@ impl<B: Bmc> UpdateService<B> {
 
         actions
             .start_update(self.bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+    }
+
+    /// Update this service with deprecated generated `UpdateServiceUpdate` fields.
+    ///
+    /// Use this for standard `HttpPushUriOptions`, `HttpPushUriTargets`, and
+    /// related busy flags before or after an `HttpPushUri` upload.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the update request fails.
+    #[cfg(feature = "update-service-deprecated")]
+    pub async fn update(
+        &self,
+        update: &UpdateServiceUpdate,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
+        let response = self
+            .bmc
+            .as_ref()
+            .update::<_, NavProperty<UpdateServiceSchema>>(
+                self.data.odata_id(),
+                self.data.etag(),
+                update,
+            )
+            .await
+            .map_err(Error::Bmc)?;
+
+        match response {
+            ModificationResponse::Entity(nav) => {
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+
+                Ok(ModificationResponse::Entity(Self {
+                    bmc: self.bmc.clone(),
+                    data,
+                    fw_inventory_read_patch_fn: self.fw_inventory_read_patch_fn.clone(),
+                }))
+            }
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
+        }
+    }
+
+    /// Upload a raw binary stream using this service's deprecated `HttpPushUri`.
+    ///
+    /// The stream is sent as `application/octet-stream` without multipart
+    /// `UpdateParameters`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `HttpPushUri` is absent or the upload fails.
+    #[cfg(feature = "update-service-deprecated")]
+    pub async fn http_push_uri_update_from_reader<U, R>(
+        &self,
+        update_stream: DataStream<U>,
+        upload_timeout: Duration,
+    ) -> Result<ModificationResponse<R>, Error<B>>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> serde::Deserialize<'de>,
+    {
+        self.http_push_uri_update(HttpPushUriUpdateRequest {
+            update_stream,
+            upload_timeout,
+        })
+        .await
+    }
+
+    /// Perform a raw binary upload using this service's deprecated `HttpPushUri`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if `HttpPushUri` is absent or the upload fails.
+    #[cfg(feature = "update-service-deprecated")]
+    pub async fn http_push_uri_update<U, R>(
+        &self,
+        request: HttpPushUriUpdateRequest<U>,
+    ) -> Result<ModificationResponse<R>, Error<B>>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> serde::Deserialize<'de>,
+    {
+        let http_push_uri = self
+            .data
+            .http_push_uri
+            .as_ref()
+            .ok_or(Error::UpdateServiceHttpPushUriNotAvailable)?;
+
+        self.bmc
+            .as_ref()
+            .http_push_uri_update(http_push_uri, request)
             .await
             .map_err(Error::Bmc)
     }

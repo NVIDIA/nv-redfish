@@ -75,6 +75,10 @@ use url::Url;
 #[doc(inline)]
 pub use credentials::BmcCredentials;
 
+#[cfg(feature = "update-service-deprecated")]
+#[doc(inline)]
+pub use nv_redfish_core::HttpPushUriUpdateRequest;
+
 #[doc(inline)]
 pub use nv_redfish_core::MultipartUpdateRequest;
 
@@ -135,6 +139,19 @@ pub trait HttpClient: Send + Sync {
         U: UploadReader,
         T: DeserializeOwned + Send + Sync,
         V: Serialize + Send + Sync;
+
+    /// Performs an `UpdateService` raw `HttpPushUri` upload with credentials and headers.
+    #[cfg(feature = "update-service-deprecated")]
+    fn post_http_push_uri_update<U, T>(
+        &self,
+        url: Url,
+        request: HttpPushUriUpdateRequest<U>,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
+    where
+        U: UploadReader,
+        T: DeserializeOwned + Send + Sync;
 
     /// Perform an HTTP PATCH request.
     fn patch<B, T>(
@@ -597,6 +614,31 @@ where
 
         self.client
             .post_multipart_update(
+                endpoint_url,
+                request,
+                credentials.as_ref(),
+                &self.custom_headers,
+            )
+            .await
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    async fn http_push_uri_update<U, R>(
+        &self,
+        uri: &str,
+        request: HttpPushUriUpdateRequest<U>,
+    ) -> Result<ModificationResponse<R>, Self::Error>
+    where
+        U: UploadReader,
+        R: Send + Sync + for<'de> Deserialize<'de>,
+    {
+        // HttpPushUri can be absolute or BMC-relative.
+        // Match existing multipart URI handling before adding auth and headers.
+        let endpoint_url = Url::parse(uri).unwrap_or_else(|_| self.redfish_endpoint.with_path(uri));
+        let credentials = self.read_credentials();
+
+        self.client
+            .post_http_push_uri_update(
                 endpoint_url,
                 request,
                 credentials.as_ref(),

@@ -15,6 +15,7 @@ default = ["reqwest"]
 
 # HTTP client implementations with reqwest
 reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream", "dep:tokio-util"]
+update-service-deprecated = ["nv-redfish-core/update-service-deprecated"]
 
 [dependencies]
 futures-core = { workspace = true }

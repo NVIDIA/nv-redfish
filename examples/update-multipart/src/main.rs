@@ -51,6 +51,10 @@ struct Args {
     #[arg(long, default_value_t = false)]
     force_update: bool,
 
+    #[cfg(feature = "update-service-deprecated")]
+    #[arg(long, default_value_t = false)]
+    http_push_uri: bool,
+
     #[arg(long, default_value_t = false)]
     insecure: bool,
 }
@@ -82,6 +86,21 @@ async fn main() -> Result<(), Box<dyn StdError>> {
         .to_string();
     let update_stream =
         DataStream::new(file_name, AllowStdIo::new(firmware)).with_content_length(content_length);
+
+    #[cfg(feature = "update-service-deprecated")]
+    if args.http_push_uri {
+        let response = update_service
+            .http_push_uri_update_from_reader::<_, serde_json::Value>(
+                update_stream,
+                Duration::from_secs(1800),
+            )
+            .await?;
+
+        println!("{response:#?}");
+
+        return Ok(());
+    }
+
     let parameters = MultipartUpdateParameters::builder()
         .with_force_update(args.force_update)
         .with_targets(args.targets)
