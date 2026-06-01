@@ -26,6 +26,8 @@ use nv_redfish::bmc_http::BmcCredentials;
 use nv_redfish::bmc_http::CacheSettings;
 use nv_redfish::bmc_http::HttpBmc;
 use nv_redfish::core::DataStream;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish::core::UploadStream;
 use nv_redfish::update_service::MultipartUpdateParameters;
 use nv_redfish::ServiceRoot;
 use url::Url;
@@ -78,17 +80,11 @@ async fn main() -> Result<(), Box<dyn StdError>> {
 
     let firmware = std::fs::File::open(&args.file)?;
     let content_length = firmware.metadata()?.len();
-    let file_name = args
-        .file
-        .file_name()
-        .and_then(|name| name.to_str())
-        .ok_or("firmware path does not have a valid file name")?
-        .to_string();
-    let update_stream =
-        DataStream::new(file_name, AllowStdIo::new(firmware)).with_content_length(content_length);
 
     #[cfg(feature = "update-service-deprecated")]
     if args.http_push_uri {
+        let update_stream =
+            UploadStream::new(AllowStdIo::new(firmware)).with_content_length(content_length);
         let response = update_service
             .http_push_uri_update_from_reader::<_, serde_json::Value>(
                 update_stream,
@@ -100,6 +96,15 @@ async fn main() -> Result<(), Box<dyn StdError>> {
 
         return Ok(());
     }
+
+    let file_name = args
+        .file
+        .file_name()
+        .and_then(|name| name.to_str())
+        .ok_or("firmware path does not have a valid file name")?
+        .to_string();
+    let update_stream =
+        DataStream::new(file_name, AllowStdIo::new(firmware)).with_content_length(content_length);
 
     let parameters = MultipartUpdateParameters::builder()
         .with_force_update(args.force_update)

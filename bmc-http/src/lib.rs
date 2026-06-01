@@ -78,6 +78,9 @@ pub use credentials::BmcCredentials;
 #[cfg(feature = "update-service-deprecated")]
 #[doc(inline)]
 pub use nv_redfish_core::HttpPushUriUpdateRequest;
+#[cfg(feature = "update-service-deprecated")]
+#[doc(inline)]
+pub use nv_redfish_core::UploadStream;
 
 #[doc(inline)]
 pub use nv_redfish_core::MultipartUpdateRequest;
@@ -140,7 +143,12 @@ pub trait HttpClient: Send + Sync {
         T: DeserializeOwned + Send + Sync,
         V: Serialize + Send + Sync;
 
-    /// Performs an `UpdateService` raw `HttpPushUri` upload with credentials and headers.
+    /// Performs a deprecated `UpdateService` raw `HttpPushUri` upload with
+    /// credentials and headers.
+    ///
+    /// This supports the deprecated `HttpPushUri` update path that exists in
+    /// the Redfish spec. Prefer multipart update for BMCs that support
+    /// `MultipartHttpPushUri`.
     #[cfg(feature = "update-service-deprecated")]
     fn post_http_push_uri_update<U, T>(
         &self,

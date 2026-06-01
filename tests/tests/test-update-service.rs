@@ -34,6 +34,8 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::MultipartUpdateRequest;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::OemMultipartPart;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::UploadStream;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
@@ -293,7 +295,6 @@ async fn uses_http_push_uri_without_update_parameters() -> Result<(), Box<dyn St
 
     bmc.expect(Expect::http_push_uri_update(
         HTTP_PUSH_URI,
-        "firmware.bin",
         json!({
             "Result": "accepted"
         }),
@@ -307,8 +308,7 @@ async fn uses_http_push_uri_without_update_parameters() -> Result<(), Box<dyn St
 
     let response = update_service
         .http_push_uri_update_from_reader::<_, UploadResponse>(
-            DataStream::new("firmware.bin", Cursor::new(b"firmware".to_vec()))
-                .with_content_length(8),
+            UploadStream::new(Cursor::new(b"firmware".to_vec())).with_content_length(8),
             Duration::from_secs(600),
         )
         .await?;
@@ -492,8 +492,7 @@ async fn requires_http_push_uri() -> Result<(), Box<dyn StdError>> {
 
     let result = update_service
         .http_push_uri_update_from_reader::<_, UploadResponse>(
-            DataStream::new("firmware.bin", Cursor::new(b"firmware".to_vec()))
-                .with_content_length(8),
+            UploadStream::new(Cursor::new(b"firmware".to_vec())).with_content_length(8),
             Duration::from_secs(600),
         )
         .await;

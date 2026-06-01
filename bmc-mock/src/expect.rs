@@ -55,7 +55,8 @@ pub enum ExpectedRequest {
         oem_parts: Vec<String>,
     },
     /// Expected raw HttpPushUri update.
-    HttpPushUriUpdate { uri: String, file_name: String },
+    #[cfg(feature = "update-service-deprecated")]
+    HttpPushUriUpdate { uri: String },
     /// Expected Delete.
     Delete { id: ODataId },
     /// Expected Stream.
@@ -170,15 +171,11 @@ impl<E> Expect<E> {
         }
     }
 
-    pub fn http_push_uri_update(
-        uri: impl Display,
-        file_name: impl Display,
-        response: impl Display,
-    ) -> Self {
+    #[cfg(feature = "update-service-deprecated")]
+    pub fn http_push_uri_update(uri: impl Display, response: impl Display) -> Self {
         Expect {
             request: ExpectedRequest::HttpPushUriUpdate {
                 uri: uri.to_string(),
-                file_name: file_name.to_string(),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }

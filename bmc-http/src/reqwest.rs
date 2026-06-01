@@ -40,6 +40,8 @@ use nv_redfish_core::ODataId;
 use nv_redfish_core::OemMultipartPart;
 use nv_redfish_core::SessionCreateResponse;
 use nv_redfish_core::UploadReader;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::UploadStream;
 use reqwest::multipart::Form;
 use reqwest::multipart::Part;
 use reqwest::redirect::Policy as RedirectPolicy;
@@ -816,10 +818,9 @@ impl HttpClient for Client {
             upload_timeout,
         } = update_request;
 
-        let DataStream {
+        let UploadStream {
             reader,
             content_length,
-            ..
         } = update_stream;
 
         let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));

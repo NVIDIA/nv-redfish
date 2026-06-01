@@ -43,6 +43,8 @@ use nv_redfish_core::HttpPushUriUpdateRequest;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::MultipartUpdateRequest;
 use nv_redfish_core::UploadReader;
+#[cfg(feature = "update-service-deprecated")]
+use nv_redfish_core::UploadStream;
 use serde_json::Value as JsonValue;
 use software_inventory::SoftwareInventoryCollection;
 
@@ -314,7 +316,7 @@ impl<B: Bmc> UpdateService<B> {
     #[cfg(feature = "update-service-deprecated")]
     pub async fn http_push_uri_update_from_reader<U, R>(
         &self,
-        update_stream: DataStream<U>,
+        update_stream: UploadStream<U>,
         upload_timeout: Duration,
     ) -> Result<ModificationResponse<R>, Error<B>>
     where

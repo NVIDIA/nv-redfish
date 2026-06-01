@@ -34,6 +34,8 @@ mod reqwest_client_tests {
     };
     #[cfg(feature = "update-service-deprecated")]
     use nv_redfish_core::HttpPushUriUpdateRequest;
+    #[cfg(feature = "update-service-deprecated")]
+    use nv_redfish_core::UploadStream;
     use serde::Serialize;
     use url::Url;
     use wiremock::{
@@ -315,7 +317,7 @@ mod reqwest_client_tests {
 
         let bmc = create_test_bmc_with_custom_headers(&mock_server, custom_headers);
         let request = HttpPushUriUpdateRequest {
-            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+            update_stream: UploadStream::new(Cursor::new(b"firmware-bytes".to_vec()))
                 .with_content_length(14),
             upload_timeout: Duration::from_secs(600),
         };
@@ -356,7 +358,7 @@ mod reqwest_client_tests {
             BmcCredentials::token("session-token".to_string()),
         );
         let request = HttpPushUriUpdateRequest {
-            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec())),
+            update_stream: UploadStream::new(Cursor::new(b"firmware-bytes".to_vec())),
             upload_timeout: Duration::from_secs(600),
         };
         let upload_url = format!("{}{upload_path}", mock_server.uri());
@@ -385,7 +387,7 @@ mod reqwest_client_tests {
 
         let bmc = create_test_bmc(&mock_server);
         let request = HttpPushUriUpdateRequest {
-            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec()))
+            update_stream: UploadStream::new(Cursor::new(b"firmware-bytes".to_vec()))
                 .with_content_length(14),
             upload_timeout: Duration::from_secs(600),
         };
@@ -444,7 +446,7 @@ mod reqwest_client_tests {
             CacheSettings::default(),
         );
         let request = HttpPushUriUpdateRequest {
-            update_stream: DataStream::new("firmware.bin", Cursor::new(b"firmware-bytes".to_vec())),
+            update_stream: UploadStream::new(Cursor::new(b"firmware-bytes".to_vec())),
             upload_timeout: Duration::from_secs(2),
         };
 

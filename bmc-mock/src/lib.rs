@@ -62,7 +62,8 @@ pub enum Error {
     UnexpectedDelete(ODataId, ExpectedRequest),
     UnexpectedAction(ActionTarget, String, ExpectedRequest),
     UnexpectedMultipartUpdate(String, String, String, ExpectedRequest),
-    UnexpectedHttpPushUriUpdate(String, String, ExpectedRequest),
+    #[cfg(feature = "update-service-deprecated")]
+    UnexpectedHttpPushUriUpdate(String, ExpectedRequest),
     UnexpectedStream(String, ExpectedRequest),
 }
 
@@ -115,10 +116,11 @@ impl Display for Error {
                     "unexpected multipart update: {uri}; json: {json}; file: {file}; expected: {expected:?}"
                 )
             }
-            Self::UnexpectedHttpPushUriUpdate(uri, file, expected) => {
+            #[cfg(feature = "update-service-deprecated")]
+            Self::UnexpectedHttpPushUriUpdate(uri, expected) => {
                 write!(
                     f,
-                    "unexpected HttpPushUri update: {uri}; file: {file}; expected: {expected:?}"
+                    "unexpected HttpPushUri update: {uri}; expected: {expected:?}"
                 )
             }
             Self::UnexpectedStream(uri, expected) => {
@@ -435,7 +437,7 @@ where
     async fn http_push_uri_update<U, R>(
         &self,
         in_uri: &str,
-        update_request: HttpPushUriUpdateRequest<U>,
+        _update_request: HttpPushUriUpdateRequest<U>,
     ) -> Result<ModificationResponse<R>, Self::Error>
     where
         U: UploadReader,
@@ -448,24 +450,17 @@ where
             .pop_front()
             .ok_or(Error::NothingIsExpected)?;
 
-        let file_name = update_request.update_stream.name;
-
         match expect {
             Expect {
-                request:
-                    ExpectedRequest::HttpPushUriUpdate {
-                        uri,
-                        file_name: expected_file_name,
-                    },
+                request: ExpectedRequest::HttpPushUriUpdate { uri },
                 response,
-            } if uri == *in_uri && expected_file_name == file_name => {
+            } if uri == *in_uri => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))
             }
             _ => Err(Error::UnexpectedHttpPushUriUpdate(
                 in_uri.to_string(),
-                file_name,
                 expect.request,
             )),
         }

@@ -27,12 +27,9 @@ pub trait UploadReader: AsyncRead + Send + 'static {}
 
 impl<T> UploadReader for T where T: AsyncRead + Send + 'static {}
 
-/// Named data stream accepted by upload methods.
+/// Named data stream accepted by multipart upload methods.
 pub struct DataStream<R> {
-    /// Name associated with this stream.
-    ///
-    /// Multipart uploads send this as the firmware filename. Raw binary uploads
-    /// keep it for caller-visible context and do not send it as a filename.
+    /// Multipart filename for this stream.
     pub name: String,
 
     /// Streamed upload data.
@@ -48,6 +45,35 @@ impl<R> DataStream<R> {
     pub fn new(name: impl Into<String>, reader: R) -> Self {
         Self {
             name: name.into(),
+            reader,
+            content_length: None,
+        }
+    }
+
+    /// Attach a known content length.
+    #[must_use]
+    pub const fn with_content_length(mut self, content_length: u64) -> Self {
+        self.content_length = Some(content_length);
+        self
+    }
+}
+
+/// Streamed body accepted by deprecated raw upload methods.
+#[cfg(feature = "update-service-deprecated")]
+pub struct UploadStream<R> {
+    /// Streamed upload data.
+    pub reader: R,
+
+    /// Known stream length, when available.
+    pub content_length: Option<u64>,
+}
+
+#[cfg(feature = "update-service-deprecated")]
+impl<R> UploadStream<R> {
+    /// Create a streamed upload body without a known content length.
+    #[must_use]
+    pub const fn new(reader: R) -> Self {
+        Self {
             reader,
             content_length: None,
         }
@@ -161,9 +187,10 @@ pub struct MultipartUpdateRequest<'a, U, V> {
 }
 
 /// `UpdateService` raw `HttpPushUri` upload request data.
+#[cfg(feature = "update-service-deprecated")]
 pub struct HttpPushUriUpdateRequest<U> {
     /// Streamed update image data.
-    pub update_stream: DataStream<U>,
+    pub update_stream: UploadStream<U>,
 
     /// Timeout used only for this upload request.
     pub upload_timeout: Duration,
