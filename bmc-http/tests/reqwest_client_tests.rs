@@ -22,28 +22,28 @@ mod reqwest_client_tests {
     use futures_util::io::Cursor;
     use nv_redfish_bmc_http::reqwest::BmcError;
     use nv_redfish_bmc_http::reqwest::Client;
-    #[cfg(feature = "update-service-deprecated")]
     use nv_redfish_bmc_http::reqwest::ClientParams;
+    use nv_redfish_bmc_http::reqwest::RetryPolicy;
     use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
     use nv_redfish_bmc_http::HttpClient;
-    use nv_redfish_core::{
-        query::{ExpandQuery, FilterQuery},
-        Bmc, DataStream, ModificationResponse, MultipartUpdateRequest,
-    };
     #[cfg(feature = "update-service-deprecated")]
     use nv_redfish_core::HttpPushUriUpdateRequest;
     #[cfg(feature = "update-service-deprecated")]
     use nv_redfish_core::UploadStream;
+    use nv_redfish_core::{
+        query::{ExpandQuery, FilterQuery},
+        Bmc, DataStream, ModificationResponse, MultipartUpdateRequest,
+    };
     use serde::Serialize;
     use url::Url;
+    #[cfg(feature = "update-service-deprecated")]
+    use wiremock::Request;
     use wiremock::{
         matchers::{body_json, header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
-    #[cfg(feature = "update-service-deprecated")]
-    use wiremock::Request;
 
     use crate::common::test_utils::*;
 
@@ -83,6 +83,55 @@ mod reqwest_client_tests {
         let retrieved = result.unwrap();
         assert_eq!(retrieved.name, names::TEST_SYSTEM);
         assert_eq!(retrieved.value, 42);
+    }
+
+    /// Builds a retry policy through the public API only, the way a
+    /// downstream crate without its own reqwest dependency would.
+    #[tokio::test]
+    async fn test_retry_policy_via_public_api() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::SYSTEMS_1;
+
+        let test_resource =
+            create_test_resource(resource_path, Some("123"), names::TEST_SYSTEM, 42);
+
+        // The first request is rejected, the retry succeeds.
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .respond_with(ResponseTemplate::new(503))
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let policy = RetryPolicy::new(|_request, response| {
+            response.status() == http::StatusCode::SERVICE_UNAVAILABLE
+        })
+        .max_retries(1)
+        .delay(Duration::from_millis(10));
+
+        let client = Client::with_params(ClientParams::new().retry(policy))?;
+        let bmc = HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri())?,
+            create_test_credentials(),
+            CacheSettings::default(),
+        );
+
+        let resource_id = create_odata_id(resource_path);
+        let retrieved = bmc.get::<TestResource>(&resource_id).await?;
+
+        assert_eq!(retrieved.name, names::TEST_SYSTEM);
+        assert_eq!(retrieved.value, 42);
+
+        Ok(())
     }
 
     #[tokio::test]
@@ -599,8 +648,8 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
-    async fn test_http_patch_returns_typed_body_without_odata_id()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_http_patch_returns_typed_body_without_odata_id(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mock_server = MockServer::start().await;
         let endpoint_path = "/redfish/v1/Oem/Nvidia/TypedPatch";
 
@@ -736,8 +785,8 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
-    async fn test_action_success_message_without_response_type_returns_empty()
-    -> Result<(), Box<dyn std::error::Error>> {
+    async fn test_action_success_message_without_response_type_returns_empty(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mock_server = MockServer::start().await;
         let action_path = "/redfish/v1/systems/1/Actions/ComputerSystem.Reset";
 
