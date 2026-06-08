@@ -156,11 +156,17 @@ type RetryClassifier =
 
 /// Retry policy with a configurable delay between attempts.
 ///
-/// Retries apply only to received HTTP responses; transport and connection
-/// errors are returned immediately. Requests with non-clonable (streaming)
-/// bodies, such as multipart uploads, are sent exactly once and never retried.
+/// While retries remain, the classifier is called for every received HTTP
+/// response, regardless of the request method, and decides whether to retry.
+/// Transport and connection errors are returned immediately. Requests with
+/// non-clonable (streaming) bodies, such as multipart uploads, are sent exactly
+/// once and never retried.
 ///
 /// # Examples
+///
+/// Retry only `GET` requests that return `503 Service Unavailable`. The
+/// classifier returns `false` for every other method, so requests such as
+/// `POST`, `PATCH`, or `DELETE` are never retried:
 ///
 /// ```rust
 /// use nv_redfish_bmc_http::reqwest::{ClientParams, RetryPolicy};
@@ -1158,6 +1164,41 @@ mod tests {
             .await?;
 
         assert_eq!(response["@odata.id"], resource_path);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_post_is_not_retried() -> Result<(), Box<dyn StdError>> {
+        let mock_server = MockServer::start().await;
+        let resource_path = "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset";
+
+        // The policy retries 503s, but only for GET requests. A POST returning
+        // 503 must therefore reach the server exactly once.
+        Mock::given(method("POST"))
+            .and(path(resource_path))
+            .respond_with(ResponseTemplate::new(503))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::with_params(ClientParams::new().retry(test_retry_policy(3, None)))?;
+        let credentials = BmcCredentials::new("root".to_string(), "password".to_string());
+
+        let response = client
+            .post::<_, serde_json::Value>(
+                Url::parse(&format!("{}{resource_path}", mock_server.uri()))?,
+                &serde_json::json!({ "ResetType": "ForceRestart" }),
+                &credentials,
+                &HeaderMap::new(),
+            )
+            .await;
+
+        assert!(matches!(
+            response,
+            Err(BmcError::InvalidResponse { status, .. })
+                if status == reqwest::StatusCode::SERVICE_UNAVAILABLE
+        ));
 
         Ok(())
     }
