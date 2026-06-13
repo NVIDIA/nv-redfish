@@ -48,16 +48,12 @@ impl<B: Bmc> PowerEquipment<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
-        let data = if let Some(nav) = &root.root.power_equipment {
-            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?
-        } else if bmc.quirks.bug_missing_root_nav_properties() {
-            NavProperty::new_reference(format!("{}/PowerEquipment", root.odata_id()).into())
-                .get(bmc.as_ref())
-                .await
-                .map_err(Error::Bmc)?
-        } else {
+        let Some(nav) = &root.root.power_equipment else {
             return Ok(None);
         };
+
+        let data = nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+
         Ok(Some(Self {
             bmc: bmc.clone(),
             data,
