@@ -408,11 +408,11 @@ impl RedfishEndpoint {
     fn with_uri_reference(&self, uri: UriReference<'_>) -> Url {
         let UriReference(uri) = uri;
 
-        let Ok(url) = self.base_url.join(uri) else {
+        let Ok(resolved) = self.base_url.join(uri) else {
             return self.with_path(uri);
         };
 
-        url
+        resolved
     }
 
     /// Convert a path to a full Redfish endpoint URL with query parameters
