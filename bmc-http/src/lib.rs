@@ -199,6 +199,13 @@ pub trait HttpClient: Send + Sync {
 /// to provide a complete Redfish client implementation. It implements the [`Bmc`] trait
 /// to provide standardized access to Redfish services.
 ///
+/// For Redfish URI-reference fields, such as action targets and update or
+/// stream URIs, this implementation resolves the URI reference and sends the
+/// request with the configured credentials and custom headers. It does not
+/// enforce same-origin policy for absolute URI references. Callers that need
+/// destination-host restrictions or credential/header forwarding controls
+/// should enforce them through a shared outbound URI policy.
+///
 /// # Type Parameters
 ///
 /// * `C` - The HTTP client implementation to use
@@ -346,6 +353,15 @@ pub struct RedfishEndpoint {
     base_url: Url,
 }
 
+/// Service-provided URI reference that must be resolved as a URI reference.
+///
+/// Constructing this marker is the internal opt-in for Redfish fields whose
+/// schemas allow URI references. Keep ordinary `ODataId` paths on
+/// [`RedfishEndpoint::with_path`] so they remain scoped to the configured BMC
+/// endpoint.
+#[derive(Clone, Copy)]
+struct UriReference<'a>(&'a str);
+
 impl RedfishEndpoint {
     /// Create a new `RedfishEndpoint` from a base URL
     #[must_use]
@@ -358,6 +374,44 @@ impl RedfishEndpoint {
     pub fn with_path(&self, path: &str) -> Url {
         let mut url = self.base_url.clone();
         url.set_path(path);
+        url
+    }
+
+    /// Resolve a Redfish-reported URI reference against this BMC endpoint.
+    ///
+    /// Callers must explicitly wrap service-provided values in
+    /// [`UriReference`] before using this method. Use it only for schema fields
+    /// that allow URI references, such as action targets,
+    /// `MultipartHttpPushUri`, `HttpPushUri`, and event stream URIs. Absolute
+    /// URIs are preserved, network-path references inherit the base scheme, and
+    /// path or relative references are resolved against the configured base
+    /// URL. If URL reference resolution rejects the value, fall back to path
+    /// replacement to preserve the historical BMC-relative handling.
+    ///
+    /// With base URL `https://bmc.example`:
+    /// - `https://other.example/redfish/v1/Actions/Reset` stays on
+    ///   `https://other.example`.
+    /// - `//other.example/redfish/v1/EventService/SSE` resolves to
+    ///   `https://other.example/redfish/v1/EventService/SSE`.
+    /// - `/redfish/v1/Systems/1/Actions/ComputerSystem.Reset` resolves to
+    ///   `https://bmc.example/redfish/v1/Systems/1/Actions/ComputerSystem.Reset`.
+    /// - `redfish/v1/UpdateService/upload` resolves relative to the base URL.
+    ///
+    /// Relative values without a leading slash use standard URI-reference
+    /// resolution. If the configured base URL includes a path component, that
+    /// can differ from direct path replacement.
+    ///
+    /// This method only performs URI-reference resolution. It does not decide
+    /// whether cross-host absolute URIs are allowed or whether credentials and
+    /// custom headers should be forwarded. Enforce those requirements as a
+    /// shared outbound URI policy before issuing requests.
+    fn with_uri_reference(&self, uri: UriReference<'_>) -> Url {
+        let UriReference(uri) = uri;
+
+        let Ok(url) = self.base_url.join(uri) else {
+            return self.with_path(uri);
+        };
+
         url
     }
 
@@ -593,7 +647,11 @@ where
         action: &Action<T, R>,
         params: &T,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&action.target.to_string());
+        let action_target = action.target.to_string();
+        let endpoint_url = self
+            .redfish_endpoint
+            .with_uri_reference(UriReference(&action_target));
+
         let credentials = self.read_credentials();
         self.client
             .post(
@@ -617,7 +675,7 @@ where
     {
         // MultipartHttpPushUri can be absolute or BMC-relative.
         // Match existing URI handling before adding auth and headers.
-        let endpoint_url = Url::parse(uri).unwrap_or_else(|_| self.redfish_endpoint.with_path(uri));
+        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
         let credentials = self.read_credentials();
 
         self.client
@@ -642,7 +700,7 @@ where
     {
         // HttpPushUri can be absolute or BMC-relative.
         // Match existing multipart URI handling before adding auth and headers.
-        let endpoint_url = Url::parse(uri).unwrap_or_else(|_| self.redfish_endpoint.with_path(uri));
+        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
         let credentials = self.read_credentials();
 
         self.client
@@ -671,10 +729,63 @@ where
         &self,
         uri: &str,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let endpoint_url = Url::parse(uri).unwrap_or_else(|_| self.redfish_endpoint.with_path(uri));
+        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
         let credentials = self.read_credentials();
         self.client
             .sse(endpoint_url, credentials.as_ref(), &self.custom_headers)
             .await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn uri_reference_resolution_matches_documented_examples(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+        let cases = [
+            (
+                "https://other.example/redfish/v1/Actions/Reset",
+                "https://other.example/redfish/v1/Actions/Reset",
+            ),
+            (
+                "//other.example/redfish/v1/EventService/SSE",
+                "https://other.example/redfish/v1/EventService/SSE",
+            ),
+            (
+                "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset",
+                "https://bmc.example/redfish/v1/Systems/1/Actions/ComputerSystem.Reset",
+            ),
+            (
+                "redfish/v1/UpdateService/upload",
+                "https://bmc.example/redfish/v1/UpdateService/upload",
+            ),
+        ];
+
+        for (uri, expected) in cases {
+            assert_eq!(
+                endpoint.with_uri_reference(UriReference(uri)).as_str(),
+                expected,
+                "{uri}"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn uri_reference_relative_path_follows_base_path() -> Result<(), Box<dyn std::error::Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example/proxy/")?);
+
+        let resolved = endpoint.with_uri_reference(UriReference("redfish/v1/UpdateService/upload"));
+
+        assert_eq!(
+            resolved.as_str(),
+            "https://bmc.example/proxy/redfish/v1/UpdateService/upload"
+        );
+
+        Ok(())
     }
 }

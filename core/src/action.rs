@@ -56,7 +56,11 @@ use serde::Deserialize;
 use serde::Serialize;
 use std::marker::PhantomData;
 
-/// Type for the `target` field of an Action.
+/// URI reference for the `target` field of an action.
+///
+/// The [`Bmc`] implementation resolves this value when the action is run.
+/// Callers that need outbound URI restrictions should validate before calling
+/// or use a policy-enforcing [`Bmc`] implementation.
 #[derive(Debug, Clone, Deserialize, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[repr(transparent)]
 pub struct ActionTarget(String);
@@ -82,7 +86,7 @@ impl Display for ActionTarget {
 /// `R` is the type for the return value.
 #[derive(Deserialize, Debug)]
 pub struct Action<T, R> {
-    /// Path that is used to trigger the action.
+    /// URI reference used to trigger the action.
     #[serde(rename = "target")]
     pub target: ActionTarget,
     // TODO: we can retrieve constraints on attributes here.
@@ -103,6 +107,10 @@ pub trait ActionError {
 
 impl<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'de> Deserialize<'de>> Action<T, R> {
     /// Run specific action with parameters passed as argument.
+    ///
+    /// URI-reference resolution is handled by [`Bmc::action`]. Callers that
+    /// need outbound URI restrictions should validate before calling or use a
+    /// policy-enforcing [`Bmc`] implementation.
     ///
     /// # Errors
     ///
