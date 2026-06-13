@@ -101,6 +101,7 @@ impl BmcQuirks {
         feature = "chassis",
         feature = "computer-systems",
         feature = "managers",
+        feature = "power-equipment",
         feature = "update-service",
     ))]
     pub(crate) const fn bug_missing_root_nav_properties(&self) -> bool {

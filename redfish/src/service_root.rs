@@ -42,6 +42,8 @@ use crate::event_service::EventService;
 use crate::manager::ManagerCollection;
 #[cfg(feature = "oem-hpe")]
 use crate::oem::hpe::HpeiLoServiceExt;
+#[cfg(feature = "power-equipment")]
+use crate::power_equipment::PowerEquipment;
 #[cfg(feature = "session-service")]
 use crate::session_service::SessionService;
 #[cfg(feature = "task-service")]
@@ -302,6 +304,18 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "managers")]
     pub async fn managers(&self) -> Result<Option<ManagerCollection<B>>, Error<B>> {
         ManagerCollection::new(&self.bmc, self).await
+    }
+
+    /// Get power equipment in BMC
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose PowerEquipment.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving power equipment data fails.
+    #[cfg(feature = "power-equipment")]
+    pub async fn power_equipment(&self) -> Result<Option<PowerEquipment<B>>, Error<B>> {
+        PowerEquipment::new(&self.bmc, self).await
     }
 
     /// Get HPE OEM extension in service root

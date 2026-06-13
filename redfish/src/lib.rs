@@ -123,6 +123,9 @@ pub mod network_device_function;
 /// `PCIe` devices.
 #[cfg(feature = "pcie-devices")]
 pub mod pcie_device;
+/// Power equipment.
+#[cfg(feature = "power-equipment")]
+pub mod power_equipment;
 /// Metrics and sensor abstraction.
 #[cfg(feature = "sensors")]
 pub mod sensor;

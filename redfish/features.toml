@@ -312,6 +312,21 @@ patterns = [
 ]
 
 [[features]]
+name = "power-equipment"
+csdl_files = [
+    "PowerEquipment_v1.xml",
+    "PowerDistribution_v1.xml",
+    "PowerDistributionCollection_v1.xml",
+    "Redundancy_v1.xml",
+]
+patterns = [
+    "PowerEquipment.*",
+    "PowerDistribution.*",
+    "PowerDistributionCollection.*",
+    "Redundancy.*",
+]
+
+[[features]]
 name = "power-supplies"
 csdl_files = [
     "PowerSupply_v1.xml",

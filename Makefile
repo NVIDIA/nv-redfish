@@ -27,6 +27,7 @@ all-std-features = accounts \
                    memory \
                    network-adapters \
                    power \
+                   power-equipment \
                    power-supplies \
                    processors \
                    secure-boot \
