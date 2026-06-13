@@ -384,6 +384,8 @@ impl Default for CacheSettings {
 
 impl CacheSettings {
     /// Define capacity of the cache measured in number of items.
+    ///
+    /// A capacity of 0 disables caching.
     #[must_use]
     pub const fn with_capacity(capacity: usize) -> Self {
         Self { capacity }
