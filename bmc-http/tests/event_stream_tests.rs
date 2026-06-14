@@ -19,6 +19,7 @@ mod common;
 mod tests {
     use crate::common::test_utils::*;
     use futures_util::StreamExt;
+    use nv_redfish_bmc_http::reqwest::BmcError;
     use nv_redfish_core::Bmc;
     use serde::Deserialize;
     use serde_json::Value as JsonValue;
@@ -149,5 +150,17 @@ mod tests {
         );
 
         assert!(stream.next().await.is_none());
+    }
+
+    #[tokio::test]
+    async fn test_event_stream_rejects_cross_origin_uri() {
+        let mock_server = MockServer::start().await;
+        let bmc = create_test_bmc(&mock_server);
+
+        let result = bmc
+            .stream::<JsonValue>("https://bmc.example.evil/redfish/v1/EventService/SSE")
+            .await;
+
+        assert!(matches!(result, Err(BmcError::InvalidRequest(_))));
     }
 }

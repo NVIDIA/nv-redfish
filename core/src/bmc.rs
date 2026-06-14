@@ -147,10 +147,8 @@ pub trait Bmc: Send + Sync {
     /// reference. Absolute targets are allowed by Redfish and BMC-relative
     /// targets should remain supported.
     ///
-    /// Absolute URI references can point to a host other than the configured
-    /// BMC. Callers that need destination-host restrictions or
-    /// credential-forwarding controls should enforce them through a shared
-    /// outbound URI policy, not by changing URI resolution for one method.
+    /// Implementations may reject URI references that violate their outbound
+    /// request policy before transport.
     ///
     /// `T` is structure that contains action parameters.
     /// `R` is structure with return type.
@@ -165,10 +163,8 @@ pub trait Bmc: Send + Sync {
     /// `uri` is the service-provided `MultipartHttpPushUri` and should be
     /// resolved as a Redfish URI reference.
     ///
-    /// Absolute URI references can point to a host other than the configured
-    /// BMC. Callers that need destination-host restrictions or
-    /// credential-forwarding controls should enforce them through a shared
-    /// outbound URI policy.
+    /// Implementations may reject URI references that violate their outbound
+    /// request policy before transport.
     fn multipart_update<U, V, R>(
         &self,
         uri: &str,
@@ -184,10 +180,8 @@ pub trait Bmc: Send + Sync {
     /// `uri` is the service-provided `HttpPushUri` and should be resolved as a
     /// Redfish URI reference.
     ///
-    /// Absolute URI references can point to a host other than the configured
-    /// BMC. Callers that need destination-host restrictions or
-    /// credential-forwarding controls should enforce them through a shared
-    /// outbound URI policy.
+    /// Implementations may reject URI references that violate their outbound
+    /// request policy before transport.
     #[cfg(feature = "update-service-deprecated")]
     fn http_push_uri_update<U, R>(
         &self,
@@ -202,10 +196,8 @@ pub trait Bmc: Send + Sync {
     ///
     /// `uri` should be resolved as a Redfish URI reference.
     ///
-    /// Absolute URI references can point to a host other than the configured
-    /// BMC. Callers that need destination-host restrictions or
-    /// credential-forwarding controls should enforce them through a shared
-    /// outbound URI policy.
+    /// Implementations may reject URI references that violate their outbound
+    /// request policy before transport.
     ///
     /// `T` is structure that is used for the stream return type.
     fn stream<T: Sized + for<'de> Deserialize<'de> + Send + 'static>(

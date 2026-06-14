@@ -50,6 +50,7 @@ pub mod reqwest;
 
 use std::collections::HashMap;
 use std::error::Error as StdError;
+use std::fmt;
 use std::future::Future;
 use std::sync::Arc;
 use std::sync::RwLock;
@@ -200,11 +201,11 @@ pub trait HttpClient: Send + Sync {
 /// to provide standardized access to Redfish services.
 ///
 /// For Redfish URI-reference fields, such as action targets and update or
-/// stream URIs, this implementation resolves the URI reference and sends the
-/// request with the configured credentials and custom headers. It does not
-/// enforce same-origin policy for absolute URI references. Callers that need
-/// destination-host restrictions or credential/header forwarding controls
-/// should enforce them through a shared outbound URI policy.
+/// stream URIs, this implementation resolves the URI reference against the
+/// configured BMC endpoint. It sends configured credentials and custom headers
+/// only when the resolved URL has the same parsed origin as the BMC endpoint.
+/// Cross-origin values are rejected before transport so callers can inspect and
+/// handle those targets explicitly.
 ///
 /// # Type Parameters
 ///
@@ -362,6 +363,21 @@ pub struct RedfishEndpoint {
 #[derive(Clone, Copy)]
 struct UriReference<'a>(&'a str);
 
+/// Error for a service URI reference rejected before transport.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct RejectedUriReferenceError {
+    /// Reason the service URI reference was rejected.
+    pub reason: String,
+}
+
+impl StdError for RejectedUriReferenceError {}
+
+impl fmt::Display for RejectedUriReferenceError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        self.reason.fmt(f)
+    }
+}
+
 impl RedfishEndpoint {
     /// Create a new `RedfishEndpoint` from a base URL
     #[must_use]
@@ -377,42 +393,58 @@ impl RedfishEndpoint {
         url
     }
 
-    /// Resolve a Redfish-reported URI reference against this BMC endpoint.
+    /// Resolve a URI reference and verify that it stays on the BMC origin.
     ///
     /// Callers must explicitly wrap service-provided values in
     /// [`UriReference`] before using this method. Use it only for schema fields
     /// that allow URI references, such as action targets,
-    /// `MultipartHttpPushUri`, `HttpPushUri`, and event stream URIs. Absolute
-    /// URIs are preserved, network-path references inherit the base scheme, and
-    /// path or relative references are resolved against the configured base
-    /// URL. If URL reference resolution rejects the value, fall back to path
-    /// replacement to preserve the historical BMC-relative handling.
+    /// `MultipartHttpPushUri`, `HttpPushUri`, and event stream URIs. Same-origin
+    /// is checked with parsed URL origins: scheme, host, and effective port. It
+    /// is not a string prefix check, so prefix lookalikes such as
+    /// `https://bmc.example.evil/...` are rejected.
     ///
     /// With base URL `https://bmc.example`:
-    /// - `https://other.example/redfish/v1/Actions/Reset` stays on
-    ///   `https://other.example`.
-    /// - `//other.example/redfish/v1/EventService/SSE` resolves to
-    ///   `https://other.example/redfish/v1/EventService/SSE`.
+    /// - `https://bmc.example/redfish/v1/Actions/Reset` is accepted.
+    /// - `//bmc.example/redfish/v1/EventService/SSE` resolves to
+    ///   `https://bmc.example/redfish/v1/EventService/SSE`.
     /// - `/redfish/v1/Systems/1/Actions/ComputerSystem.Reset` resolves to
     ///   `https://bmc.example/redfish/v1/Systems/1/Actions/ComputerSystem.Reset`.
     /// - `redfish/v1/UpdateService/upload` resolves relative to the base URL.
+    /// - `https://bmc.example.evil/redfish/v1/Actions/Reset` is rejected.
+    /// - `//host:99999/path` is rejected because the authority is malformed.
     ///
     /// Relative values without a leading slash use standard URI-reference
     /// resolution. If the configured base URL includes a path component, that
-    /// can differ from direct path replacement.
-    ///
-    /// This method only performs URI-reference resolution. It does not decide
-    /// whether cross-host absolute URIs are allowed or whether credentials and
-    /// custom headers should be forwarded. Enforce those requirements as a
-    /// shared outbound URI policy before issuing requests.
-    fn with_uri_reference(&self, uri: UriReference<'_>) -> Url {
+    /// can differ from direct path replacement. Values rejected by
+    /// URI-reference resolution are rejected before transport.
+    fn with_same_origin_uri_reference(
+        &self,
+        uri: UriReference<'_>,
+    ) -> Result<Url, RejectedUriReferenceError> {
         let UriReference(uri) = uri;
 
-        let Ok(resolved) = self.base_url.join(uri) else {
-            return self.with_path(uri);
-        };
+        let resolved = self
+            .base_url
+            .join(uri)
+            .map_err(|source| RejectedUriReferenceError {
+                reason: format!(
+                    "service URI reference `{}` could not be resolved against \
+                     BMC endpoint `{}`: {source}",
+                    uri, self.base_url
+                ),
+            })?;
 
-        resolved
+        if resolved.origin() != self.base_url.origin() {
+            return Err(RejectedUriReferenceError {
+                reason: format!(
+                    "service URI reference `{}` resolved to `{resolved}`, \
+                     which is not same-origin with BMC endpoint `{}`",
+                    uri, self.base_url
+                ),
+            });
+        }
+
+        Ok(resolved)
     }
 
     /// Convert a path to a full Redfish endpoint URL with query parameters
@@ -470,9 +502,15 @@ pub trait CacheableError {
     fn cache_error(reason: String) -> Self;
 }
 
+/// Trait for errors that can represent request failures raised before transport.
+pub trait RequestError {
+    /// Create an error from a rejected service URI reference.
+    fn rejected_uri_reference(error: RejectedUriReferenceError) -> Self;
+}
+
 impl<C: HttpClient> HttpBmc<C>
 where
-    C::Error: CacheableError + StdError + Send + Sync,
+    C::Error: CacheableError + RequestError + StdError + Send + Sync,
 {
     #[allow(clippy::panic)] // See set_credentials Panic doc.
     fn read_credentials(&self) -> Arc<BmcCredentials> {
@@ -559,7 +597,7 @@ where
 
 impl<C: HttpClient> Bmc for HttpBmc<C>
 where
-    C::Error: CacheableError + StdError + Send + Sync,
+    C::Error: CacheableError + RequestError + StdError + Send + Sync,
 {
     type Error = C::Error;
 
@@ -647,10 +685,10 @@ where
         action: &Action<T, R>,
         params: &T,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let action_target = action.target.to_string();
         let endpoint_url = self
             .redfish_endpoint
-            .with_uri_reference(UriReference(&action_target));
+            .with_same_origin_uri_reference(UriReference(action.target.as_str()))
+            .map_err(C::Error::rejected_uri_reference)?;
 
         let credentials = self.read_credentials();
         self.client
@@ -673,9 +711,11 @@ where
         R: Send + Sync + for<'de> Deserialize<'de>,
         V: Send + Sync + Serialize,
     {
-        // MultipartHttpPushUri can be absolute or BMC-relative.
-        // Match existing URI handling before adding auth and headers.
-        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
+        let endpoint_url = self
+            .redfish_endpoint
+            .with_same_origin_uri_reference(UriReference(uri))
+            .map_err(C::Error::rejected_uri_reference)?;
+
         let credentials = self.read_credentials();
 
         self.client
@@ -698,9 +738,11 @@ where
         U: UploadReader,
         R: Send + Sync + for<'de> Deserialize<'de>,
     {
-        // HttpPushUri can be absolute or BMC-relative.
-        // Match existing multipart URI handling before adding auth and headers.
-        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
+        let endpoint_url = self
+            .redfish_endpoint
+            .with_same_origin_uri_reference(UriReference(uri))
+            .map_err(C::Error::rejected_uri_reference)?;
+
         let credentials = self.read_credentials();
 
         self.client
@@ -729,7 +771,11 @@ where
         &self,
         uri: &str,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_uri_reference(UriReference(uri));
+        let endpoint_url = self
+            .redfish_endpoint
+            .with_same_origin_uri_reference(UriReference(uri))
+            .map_err(C::Error::rejected_uri_reference)?;
+
         let credentials = self.read_credentials();
         self.client
             .sse(endpoint_url, credentials.as_ref(), &self.custom_headers)
@@ -740,19 +786,20 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::error::Error;
 
     #[test]
-    fn uri_reference_resolution_matches_documented_examples(
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    fn same_origin_uri_reference_matches_documented_examples() -> Result<(), Box<dyn Error>> {
         let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+
         let cases = [
             (
-                "https://other.example/redfish/v1/Actions/Reset",
-                "https://other.example/redfish/v1/Actions/Reset",
+                "https://bmc.example/redfish/v1/Actions/Reset",
+                "https://bmc.example/redfish/v1/Actions/Reset",
             ),
             (
-                "//other.example/redfish/v1/EventService/SSE",
-                "https://other.example/redfish/v1/EventService/SSE",
+                "//bmc.example/redfish/v1/EventService/SSE",
+                "https://bmc.example/redfish/v1/EventService/SSE",
             ),
             (
                 "/redfish/v1/Systems/1/Actions/ComputerSystem.Reset",
@@ -766,7 +813,9 @@ mod tests {
 
         for (uri, expected) in cases {
             assert_eq!(
-                endpoint.with_uri_reference(UriReference(uri)).as_str(),
+                endpoint
+                    .with_same_origin_uri_reference(UriReference(uri))?
+                    .as_str(),
                 expected,
                 "{uri}"
             );
@@ -776,15 +825,46 @@ mod tests {
     }
 
     #[test]
-    fn uri_reference_relative_path_follows_base_path() -> Result<(), Box<dyn std::error::Error>> {
+    fn uri_reference_relative_path_follows_base_path() -> Result<(), Box<dyn Error>> {
         let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example/proxy/")?);
 
-        let resolved = endpoint.with_uri_reference(UriReference("redfish/v1/UpdateService/upload"));
+        let resolved = endpoint
+            .with_same_origin_uri_reference(UriReference("redfish/v1/UpdateService/upload"))?;
 
         assert_eq!(
             resolved.as_str(),
             "https://bmc.example/proxy/redfish/v1/UpdateService/upload"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_prefix_lookalike_uri_reference() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+
+        let result = endpoint.with_same_origin_uri_reference(UriReference(
+            "https://bmc.example.evil/redfish/v1/Actions/Reset",
+        ));
+
+        let error = result.expect_err("expected cross-origin URI reference error");
+
+        assert!(error.reason.contains("not same-origin"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn rejects_malformed_authority_uri_reference() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+
+        for uri in ["//[:::1]/path", "//host:99999/path"] {
+            let result = endpoint.with_same_origin_uri_reference(UriReference(uri));
+
+            let error = result.expect_err("expected malformed URI reference error");
+
+            assert!(error.reason.contains("could not be resolved"));
+        }
 
         Ok(())
     }

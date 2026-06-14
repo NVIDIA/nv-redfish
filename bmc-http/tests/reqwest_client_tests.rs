@@ -338,6 +338,30 @@ mod reqwest_client_tests {
         Ok(())
     }
 
+    #[tokio::test]
+    async fn multipart_update_rejects_cross_origin_uri() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let bmc = create_test_bmc(&mock_server);
+
+        let request = MultipartUpdateRequest {
+            update_parameters: &(),
+            update_stream: DataStream::new("firmware.bin", Cursor::new(Vec::<u8>::new())),
+            oem_parts: Vec::new(),
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let result = bmc
+            .multipart_update::<_, _, TestResource>(
+                "https://bmc.example.evil/redfish/v1/UpdateService/upload",
+                request,
+            )
+            .await;
+
+        assert!(matches!(result, Err(BmcError::InvalidRequest(_))));
+
+        Ok(())
+    }
+
     #[cfg(feature = "update-service-deprecated")]
     #[tokio::test]
     async fn http_push_uri_relative_task() -> Result<(), Box<dyn std::error::Error>> {
@@ -417,6 +441,29 @@ mod reqwest_client_tests {
             .await?;
 
         assert!(matches!(response, ModificationResponse::Empty));
+
+        Ok(())
+    }
+
+    #[cfg(feature = "update-service-deprecated")]
+    #[tokio::test]
+    async fn http_push_uri_rejects_cross_origin_uri() -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let bmc = create_test_bmc(&mock_server);
+
+        let request = HttpPushUriUpdateRequest {
+            update_stream: UploadStream::new(Cursor::new(b"firmware-bytes".to_vec())),
+            upload_timeout: Duration::from_secs(600),
+        };
+
+        let result = bmc
+            .http_push_uri_update::<_, ()>(
+                "https://bmc.example.evil/redfish/v1/UpdateService/update",
+                request,
+            )
+            .await;
+
+        assert!(matches!(result, Err(BmcError::InvalidRequest(_))));
 
         Ok(())
     }
@@ -506,8 +553,12 @@ mod reqwest_client_tests {
         assert!(matches!(upload, ModificationResponse::Empty));
 
         let resource_id = create_odata_id(resource_path);
-        let get_result = bmc.get::<TestResource>(&resource_id).await;
-        let Err(BmcError::ReqwestError(err)) = get_result else {
+        let error = bmc
+            .get::<TestResource>(&resource_id)
+            .await
+            .expect_err("expected default GET timeout");
+
+        let BmcError::ReqwestError(err) = error else {
             return Err(String::from("expected default GET timeout").into());
         };
 
@@ -790,6 +841,31 @@ mod reqwest_client_tests {
 
         assert_eq!(action_response.result, "Reset initiated");
         assert!(action_response.success);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn test_action_request_rejects_cross_origin_absolute_target(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+
+        let action_request = ActionRequest {
+            parameter: "ForceRestart".to_string(),
+        };
+
+        let bmc = create_test_bmc(&mock_server);
+
+        let action = create_test_action(
+            "https://bmc.example.evil/redfish/v1/systems/1/Actions/ComputerSystem.Reset",
+        );
+
+        let error = bmc
+            .action(&action, &action_request)
+            .await
+            .expect_err("expected cross-origin action target error");
+
+        assert!(matches!(error, BmcError::InvalidRequest(_)));
 
         Ok(())
     }

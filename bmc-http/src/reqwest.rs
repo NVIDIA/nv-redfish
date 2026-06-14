@@ -28,6 +28,8 @@ use crate::HttpClient;
 #[cfg(feature = "update-service-deprecated")]
 use crate::HttpPushUriUpdateRequest;
 use crate::MultipartUpdateRequest;
+use crate::RejectedUriReferenceError;
+use crate::RequestError;
 
 use futures_util::StreamExt as _;
 use http::header;
@@ -81,7 +83,7 @@ pub enum BmcError {
     DecodeError(serde_json::Error),
     /// JSON serialization error.
     EncodeError(serde_json::Error),
-    /// Invalid request error - data in the request didn't pass validation.
+    /// Request rejected before transport.
     InvalidRequest(String),
 }
 
@@ -105,6 +107,12 @@ impl CacheableError for BmcError {
 
     fn cache_error(reason: String) -> Self {
         Self::CacheError(reason)
+    }
+}
+
+impl RequestError for BmcError {
+    fn rejected_uri_reference(error: RejectedUriReferenceError) -> Self {
+        Self::InvalidRequest(error.reason)
     }
 }
 
