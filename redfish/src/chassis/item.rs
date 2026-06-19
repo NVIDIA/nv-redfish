@@ -23,12 +23,14 @@ use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
+use crate::resource::ResetType;
 use crate::schema::chassis::Chassis as ChassisSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::bmc::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::future::Future;
 use std::sync::Arc;
@@ -145,6 +147,35 @@ impl<B: Bmc> Chassis<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<ChassisSchema> {
         self.data.clone()
+    }
+
+    /// Reset this chassis.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the chassis does not support the `Reset` action or
+    /// if invoking the action fails.
+    pub async fn reset(
+        &self,
+        reset_type: Option<ResetType>,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: nv_redfish_core::ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+
+        if actions.reset.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+
+        actions
+            .reset(self.bmc.as_ref(), reset_type)
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Get hardware identifier of the network adpater.

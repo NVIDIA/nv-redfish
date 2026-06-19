@@ -14,13 +14,18 @@
 // limitations under the License.
 //! Integration tests for Computer System resources.
 
+use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::computer_system::SystemCollection;
+use nv_redfish::resource::ResetType;
 use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
+use nv_redfish_tests::expect_redfish_reset_action;
 use nv_redfish_tests::json_merge;
+use nv_redfish_tests::redfish_action_payload;
+use nv_redfish_tests::redfish_empty_actions_payload;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -34,6 +39,50 @@ use tokio::test;
 const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_13_0.ServiceRoot";
 const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSystemCollection";
 const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_20_0.ComputerSystem";
+
+#[test]
+async fn reset_invokes_computer_system_reset_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let action_target = format!("{}/Actions/ComputerSystem.Reset", ids.system_id);
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        computer_system(
+            &ids,
+            redfish_action_payload("ComputerSystem.Reset", &action_target),
+        ),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("GracefulRestart"));
+    system.reset(Some(ResetType::GracefulRestart)).await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, None);
+    system.reset(None).await?;
+
+    Ok(())
+}
+
+#[test]
+async fn reset_returns_action_not_available_when_computer_system_reset_is_absent(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        computer_system(&ids, redfish_empty_actions_payload()),
+    )
+    .await?;
+
+    assert!(matches!(
+        system.reset(Some(ResetType::GracefulRestart)).await,
+        Err(nv_redfish::Error::ActionNotAvailable)
+    ));
+
+    Ok(())
+}
 
 #[test]
 async fn dell_wrong_last_reset_time_workaround() -> Result<(), Box<dyn StdError>> {
@@ -376,4 +425,16 @@ fn computer_system(ids: &ComputerSystemIds, fields: Value) -> Value {
         }
     });
     json_merge([&base, &fields])
+}
+
+async fn get_system(
+    bmc: Arc<Bmc>,
+    ids: &ComputerSystemIds,
+    member: Value,
+) -> Result<ComputerSystem<Bmc>, Box<dyn StdError>> {
+    let systems = get_systems(bmc, ids, "NVIDIA", vec![member]).await?;
+    let mut members = systems.members().await?;
+    members.pop().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "missing computer system").into()
+    })
 }

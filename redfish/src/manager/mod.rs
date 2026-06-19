@@ -36,6 +36,9 @@ use std::sync::Arc;
 
 pub use item::Manager;
 
+#[doc(inline)]
+pub use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;
+
 /// Manager collection.
 ///
 /// Provides functions to access collection members.

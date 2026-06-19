@@ -88,3 +88,27 @@ pub fn anonymous_1_9_service_root(root_id: &ODataId, fields: Value) -> Value {
     });
     json_merge([&base, &fields])
 }
+
+/// Build a Redfish `Actions` payload containing one action target.
+pub fn redfish_action_payload(action: &str, target: &str) -> Value {
+    let mut action_body = serde_json::Map::new();
+    action_body.insert("target".into(), json!(target));
+
+    let mut actions = serde_json::Map::new();
+    actions.insert(format!("#{action}"), Value::Object(action_body));
+
+    let mut payload = serde_json::Map::new();
+    payload.insert("Actions".into(), Value::Object(actions));
+    Value::Object(payload)
+}
+
+/// Build a Redfish payload with an empty `Actions` object.
+pub fn redfish_empty_actions_payload() -> Value {
+    json!({ "Actions": {} })
+}
+
+/// Expect a Redfish reset action request with an empty action response.
+pub fn expect_redfish_reset_action(bmc: &Bmc, target: &str, reset_type: Option<&str>) {
+    let request = reset_type.map_or_else(|| json!({}), |value| json!({ "ResetType": value }));
+    bmc.expect(Expect::action(target, request, json!(null)));
+}

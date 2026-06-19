@@ -26,6 +26,7 @@ use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
 use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::resource::PowerState;
+use crate::resource::ResetType;
 use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -185,6 +186,35 @@ impl<B: Bmc> ComputerSystem<B> {
     #[must_use]
     pub fn power_state(&self) -> Option<PowerState> {
         self.data.power_state.and_then(identity)
+    }
+
+    /// Reset this computer system.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the system does not support the `Reset` action or
+    /// if invoking the action fails.
+    pub async fn reset(
+        &self,
+        reset_type: Option<ResetType>,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: nv_redfish_core::ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+
+        if actions.reset.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+
+        actions
+            .reset(self.bmc.as_ref(), reset_type)
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// An array of `BootOptionReference` strings that represent the persistent boot order for with this

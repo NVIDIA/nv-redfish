@@ -14,13 +14,19 @@
 // limitations under the License.
 //! Integration tests for Chassis collection workaround behavior.
 
+use nv_redfish::chassis::Chassis;
+use nv_redfish::chassis::PowerSupply;
 use nv_redfish::control::ControlUpdate;
+use nv_redfish::resource::ResetType;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
+use nv_redfish_tests::expect_redfish_reset_action;
 use nv_redfish_tests::json_merge;
+use nv_redfish_tests::redfish_action_payload;
+use nv_redfish_tests::redfish_empty_actions_payload;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -33,6 +39,93 @@ use tokio::test;
 
 const CHASSIS_COLLECTION_DATA_TYPE: &str = "#ChassisCollection.ChassisCollection";
 const CHASSIS_DATA_TYPE: &str = "#Chassis.v1_23_0.Chassis";
+const POWER_SUBSYSTEM_DATA_TYPE: &str = "#PowerSubsystem.v1_1_0.PowerSubsystem";
+const POWER_SUPPLY_COLLECTION_DATA_TYPE: &str = "#PowerSupplyCollection.PowerSupplyCollection";
+const POWER_SUPPLY_DATA_TYPE: &str = "#PowerSupply.v1_5_0.PowerSupply";
+
+#[test]
+async fn reset_invokes_chassis_reset_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let action_target = format!("{}/Actions/Chassis.Reset", ids.chassis_id);
+    let chassis = get_chassis(
+        bmc.clone(),
+        &ids,
+        chassis_payload(
+            &ids,
+            redfish_action_payload("Chassis.Reset", &action_target),
+        ),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("ForceRestart"));
+    chassis.reset(Some(ResetType::ForceRestart)).await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, None);
+    chassis.reset(None).await?;
+
+    Ok(())
+}
+
+#[test]
+async fn reset_returns_action_not_available_when_chassis_reset_is_absent(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let chassis = get_chassis(
+        bmc.clone(),
+        &ids,
+        chassis_payload(&ids, redfish_empty_actions_payload()),
+    )
+    .await?;
+
+    assert!(matches!(
+        chassis.reset(Some(ResetType::ForceRestart)).await,
+        Err(nv_redfish::Error::ActionNotAvailable)
+    ));
+
+    Ok(())
+}
+
+#[test]
+async fn reset_invokes_power_supply_reset_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let power_ids = power_supply_ids(&ids);
+    let action_target = format!("{}/Actions/PowerSupply.Reset", power_ids.power_supply_id);
+    let power_supply = get_power_supply(
+        bmc.clone(),
+        &ids,
+        &power_ids,
+        redfish_action_payload("PowerSupply.Reset", &action_target),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("GracefulRestart"));
+    power_supply.reset(Some(ResetType::GracefulRestart)).await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, None);
+    power_supply.reset(None).await?;
+
+    Ok(())
+}
+
+#[test]
+async fn reset_returns_action_not_available_when_power_supply_reset_is_absent(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let power_ids = power_supply_ids(&ids);
+    let power_supply =
+        get_power_supply(bmc, &ids, &power_ids, redfish_empty_actions_payload()).await?;
+
+    assert!(matches!(
+        power_supply.reset(Some(ResetType::GracefulRestart)).await,
+        Err(nv_redfish::Error::ActionNotAvailable)
+    ));
+
+    Ok(())
+}
 
 #[test]
 async fn ami_viking_missing_root_chassis_nav_workaround() -> Result<(), Box<dyn StdError>> {
@@ -544,6 +637,10 @@ fn valid_chassis_payload(ids: &Ids) -> Value {
     })
 }
 
+fn chassis_payload(ids: &Ids, fields: Value) -> Value {
+    json_merge([&valid_chassis_payload(ids), &fields])
+}
+
 fn control_payload(control_id: &str, set_point: f64) -> Value {
     json!({
         ODATA_ID: control_id,
@@ -557,6 +654,123 @@ fn control_payload(control_id: &str, set_point: f64) -> Value {
         "AllowableMin": 400.0,
         "AllowableMax": 900.0
     })
+}
+
+async fn get_chassis(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    payload: Value,
+) -> Result<Chassis<Bmc>, Box<dyn StdError>> {
+    let root = expect_anonymous_1_9_service_root(
+        bmc.clone(),
+        ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    expect_chassis_collection(bmc.clone(), ids);
+    let collection = root.chassis().await?.unwrap();
+    expect_chassis_get(bmc, ids, payload);
+    let mut members = collection.members().await?;
+    members.pop().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "missing chassis").into()
+    })
+}
+
+async fn get_power_supply(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    power_ids: &PowerSupplyIds,
+    power_supply_fields: Value,
+) -> Result<PowerSupply<Bmc>, Box<dyn StdError>> {
+    let chassis = get_chassis(
+        bmc.clone(),
+        ids,
+        chassis_payload(
+            ids,
+            json!({
+                "PowerSubsystem": {
+                    ODATA_ID: &power_ids.power_subsystem_id
+                }
+            }),
+        ),
+    )
+    .await?;
+
+    expect_power_supply(
+        bmc,
+        power_ids,
+        power_supply_payload(power_ids, power_supply_fields),
+    );
+    let mut power_supplies = chassis.power_supplies().await?;
+    power_supplies.pop().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "missing power supply").into()
+    })
+}
+
+struct PowerSupplyIds {
+    power_subsystem_id: String,
+    power_supply_collection_id: String,
+    power_supply_id: String,
+}
+
+fn power_supply_ids(ids: &Ids) -> PowerSupplyIds {
+    let power_subsystem_id = format!("{}/PowerSubsystem", ids.chassis_id);
+    let power_supply_collection_id = format!("{power_subsystem_id}/PowerSupplies");
+    let power_supply_id = format!("{power_supply_collection_id}/1");
+    PowerSupplyIds {
+        power_subsystem_id,
+        power_supply_collection_id,
+        power_supply_id,
+    }
+}
+
+fn expect_power_supply(bmc: Arc<Bmc>, ids: &PowerSupplyIds, payload: Value) {
+    bmc.expect(Expect::get(
+        &ids.power_subsystem_id,
+        json!({
+            ODATA_ID: &ids.power_subsystem_id,
+            ODATA_TYPE: POWER_SUBSYSTEM_DATA_TYPE,
+            "Id": "PowerSubsystem",
+            "Name": "Power Subsystem",
+            "PowerSupplies": {
+                ODATA_ID: &ids.power_supply_collection_id
+            }
+        }),
+    ));
+    bmc.expect(Expect::get(
+        &ids.power_supply_collection_id,
+        json!({
+            ODATA_ID: &ids.power_supply_collection_id,
+            ODATA_TYPE: POWER_SUPPLY_COLLECTION_DATA_TYPE,
+            "Id": "PowerSupplies",
+            "Name": "Power Supply Collection",
+            "Members": [
+                {
+                    ODATA_ID: &ids.power_supply_id
+                }
+            ]
+        }),
+    ));
+    bmc.expect(Expect::get(&ids.power_supply_id, payload));
+}
+
+fn power_supply_payload(ids: &PowerSupplyIds, fields: Value) -> Value {
+    let base = json!({
+        ODATA_ID: &ids.power_supply_id,
+        ODATA_TYPE: POWER_SUPPLY_DATA_TYPE,
+        "Id": "1",
+        "Name": "Power Supply 1",
+        "Manufacturer": "NVIDIA",
+        "Model": "PSU-1",
+        "PowerState": true,
+        "Status": {
+            "Health": "OK",
+            "State": "Enabled"
+        }
+    });
+    json_merge([&base, &fields])
 }
 
 struct Ids {

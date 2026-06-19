@@ -39,6 +39,14 @@ pub use crate::schema::resource::State;
 #[cfg(feature = "computer-systems")]
 pub use crate::schema::resource::PowerState;
 
+#[doc(inline)]
+#[cfg(any(
+    feature = "chassis",
+    feature = "computer-systems",
+    feature = "managers"
+))]
+pub use crate::schema::resource::ResetType;
+
 /// Redfish resource identifier.
 pub type ResourceId = TaggedType<String, ResourceIdTag>;
 /// Reference to Redfish resource identifier.

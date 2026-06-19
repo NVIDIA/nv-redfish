@@ -13,12 +13,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::resource::ResetType;
 use crate::schema::manager::Manager as ManagerSchema;
+use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -70,6 +73,64 @@ impl<B: Bmc> Manager<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<ManagerSchema> {
         self.data.clone()
+    }
+
+    /// Reset this manager.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the manager does not support the `Reset` action or
+    /// if invoking the action fails.
+    pub async fn reset(
+        &self,
+        reset_type: Option<ResetType>,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: nv_redfish_core::ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+
+        if actions.reset.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+
+        actions
+            .reset(self.bmc.as_ref(), reset_type)
+            .await
+            .map_err(Error::Bmc)
+    }
+
+    /// Reset this manager's settings to defaults.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the manager does not support the `ResetToDefaults`
+    /// action or if invoking the action fails.
+    pub async fn reset_to_defaults(
+        &self,
+        reset_type: ManagerResetToDefaultsType,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: nv_redfish_core::ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+
+        if actions.reset_to_defaults.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+
+        actions
+            .reset_to_defaults(self.bmc.as_ref(), Some(reset_type))
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Get ethernet interfaces for this manager.
