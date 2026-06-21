@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::resource::ResetType;
 use crate::schema::power_supply::PowerSupply as PowerSupplySchema;
 use crate::schema::power_supply_metrics::PowerSupplyMetrics;
 use crate::Error;
@@ -20,6 +21,7 @@ use crate::NvBmc;
 use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
@@ -58,6 +60,35 @@ impl<B: Bmc> PowerSupply<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<PowerSupplySchema> {
         self.data.clone()
+    }
+
+    /// Reset this power supply.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the power supply does not support the `Reset`
+    /// action or if invoking the action fails.
+    pub async fn reset(
+        &self,
+        reset_type: Option<ResetType>,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: nv_redfish_core::ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+
+        if actions.reset.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+
+        actions
+            .reset(self.bmc.as_ref(), reset_type)
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Get power supply metrics.

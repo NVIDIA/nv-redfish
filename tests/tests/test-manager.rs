@@ -14,22 +14,104 @@
 // limitations under the License.
 //! Integration tests for Manager collection behavior.
 
+use nv_redfish::manager::Manager;
+use nv_redfish::manager::ManagerResetToDefaultsType;
+use nv_redfish::resource::ResetType;
 use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
+use nv_redfish_tests::expect_redfish_reset_action;
+use nv_redfish_tests::json_merge;
+use nv_redfish_tests::redfish_action_payload;
+use nv_redfish_tests::redfish_empty_actions_payload;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
 use serde_json::json;
+use serde_json::Value;
 use std::error::Error as StdError;
 use std::sync::Arc;
 use tokio::test;
 
 const MANAGER_COLLECTION_DATA_TYPE: &str = "#ManagerCollection.ManagerCollection";
 const MANAGER_DATA_TYPE: &str = "#Manager.v1_16_0.Manager";
+
+#[test]
+async fn reset_invokes_manager_reset_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let action_target = format!("{}/Actions/Manager.Reset", ids.manager_id);
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload_with_fields(
+            &ids,
+            redfish_action_payload("Manager.Reset", &action_target),
+        ),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("ForceRestart"));
+    manager.reset(Some(ResetType::ForceRestart)).await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, None);
+    manager.reset(None).await?;
+
+    Ok(())
+}
+
+#[test]
+async fn reset_to_defaults_invokes_manager_reset_to_defaults_action(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let action_target = format!("{}/Actions/Manager.ResetToDefaults", ids.manager_id);
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload_with_fields(
+            &ids,
+            redfish_action_payload("Manager.ResetToDefaults", &action_target),
+        ),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("ResetAll"));
+    manager
+        .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
+        .await?;
+
+    Ok(())
+}
+
+#[test]
+async fn reset_helpers_return_action_not_available_when_manager_actions_are_absent(
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload_with_fields(&ids, redfish_empty_actions_payload()),
+    )
+    .await?;
+
+    assert!(matches!(
+        manager.reset(Some(ResetType::ForceRestart)).await,
+        Err(nv_redfish::Error::ActionNotAvailable)
+    ));
+    assert!(matches!(
+        manager
+            .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
+            .await,
+        Err(nv_redfish::Error::ActionNotAvailable)
+    ));
+
+    Ok(())
+}
 
 #[test]
 async fn ami_viking_missing_root_managers_nav_workaround() -> Result<(), Box<dyn StdError>> {
@@ -194,20 +276,25 @@ fn manager_payload(ids: &Ids) -> serde_json::Value {
     manager_payload_with_state(ids, "Enabled")
 }
 
-fn manager_payload_with_state(ids: &Ids, state: &str) -> serde_json::Value {
-    json!({
+fn manager_payload_with_state(ids: &Ids, state: &str) -> Value {
+    manager_payload_with_fields(ids, json!({ "Status": { "State": state } }))
+}
+
+fn manager_payload_with_fields(ids: &Ids, fields: Value) -> Value {
+    let base = json!({
         ODATA_ID: &ids.manager_id,
         ODATA_TYPE: MANAGER_DATA_TYPE,
         "Id": "1",
         "Name": "Manager",
-        "Status": { "State": state }
-    })
+        "Status": { "State": "Enabled" }
+    });
+    json_merge([&base, &fields])
 }
 
 async fn expect_anonymous_1_9_service_root(
     bmc: Arc<Bmc>,
     ids: &Ids,
-    fields: serde_json::Value,
+    fields: Value,
 ) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
     bmc.expect(Expect::get(
         &ids.root_id,
@@ -216,7 +303,7 @@ async fn expect_anonymous_1_9_service_root(
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
 
-fn manager_payload_with_id(id: &str) -> serde_json::Value {
+fn manager_payload_with_id(id: &str) -> Value {
     let name = id.rsplit('/').next().unwrap_or("Manager");
     json!({
         ODATA_ID: id,
@@ -224,5 +311,36 @@ fn manager_payload_with_id(id: &str) -> serde_json::Value {
         "Id": name,
         "Name": name,
         "Status": { "State": "Enabled" }
+    })
+}
+
+async fn get_manager(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    member: Value,
+) -> Result<Manager<Bmc>, Box<dyn StdError>> {
+    let root = expect_anonymous_1_9_service_root(
+        bmc.clone(),
+        ids,
+        json!({
+            "Managers": { ODATA_ID: &ids.managers_id }
+        }),
+    )
+    .await?;
+    bmc.expect(Expect::get(
+        &ids.managers_id,
+        json!({
+            ODATA_ID: &ids.managers_id,
+            ODATA_TYPE: MANAGER_COLLECTION_DATA_TYPE,
+            "Id": "Managers",
+            "Name": "Manager Collection",
+            "Members": [member]
+        }),
+    ));
+
+    let collection = root.managers().await?.unwrap();
+    let mut members = collection.members().await?;
+    members.pop().ok_or_else(|| {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, "missing manager").into()
     })
 }
