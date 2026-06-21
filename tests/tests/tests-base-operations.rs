@@ -19,6 +19,8 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::RedfishSettings;
+use nv_redfish_core::Reference;
+use nv_redfish_core::ReferenceLeaf;
 use nv_redfish_core::Updatable;
 use nv_redfish_tests::base::expect_root;
 use nv_redfish_tests::base::expect_root_srv;
@@ -28,6 +30,7 @@ use nv_redfish_tests::base::redfish::service_root::ActionType;
 use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeUpdate;
 use nv_redfish_tests::base::redfish::service_root::RootSetOnlyComplexType;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
+use nv_redfish_tests::base::redfish::service_root::TestActionsServiceTestSerializationActionAction;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
@@ -36,6 +39,7 @@ use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
 use serde_json::json;
+use serde_json::Value;
 use tokio::test;
 
 // Check trivial service root retrieval and version read.
@@ -616,6 +620,105 @@ async fn action_method_test() -> Result<(), Error> {
         .test_action(&bmc, Some(ActionType::Option1))
         .await
         .map_err(Error::Bmc)?;
+
+    Ok(())
+}
+
+#[test]
+async fn action_parameter_serialization_test() -> Result<(), Error> {
+    struct TestCase {
+        name: &'static str,
+        request: TestActionsServiceTestSerializationActionAction,
+        expected: Value,
+    }
+
+    fn reference(id: &str) -> Reference {
+        Reference::from(&ReferenceLeaf {
+            odata_id: id.to_string().into(),
+        })
+    }
+
+    let cases = [
+        TestCase {
+            name: "optional fields are omitted and required nullable null is present",
+            request: TestActionsServiceTestSerializationActionAction {
+                required_value: "required".into(),
+                required_nullable_value: None,
+                required_collection: vec!["required collection".into()],
+                required_nullable_collection: None,
+                optional_value: None,
+                optional_nullable_value: None,
+                optional_collection: None,
+                optional_nullable_collection: None,
+                optional_nullable_entity: None,
+            },
+            expected: json!({
+                "RequiredValue": "required",
+                "RequiredNullableValue": null,
+                "RequiredCollection": ["required collection"],
+                "RequiredNullableCollection": null,
+            }),
+        },
+        TestCase {
+            name: "optional nullable fields can serialize explicit null",
+            request: TestActionsServiceTestSerializationActionAction {
+                required_value: "required".into(),
+                required_nullable_value: Some("required nullable".into()),
+                required_collection: vec!["required collection".into()],
+                required_nullable_collection: Some(vec!["required nullable collection".into()]),
+                optional_value: None,
+                optional_nullable_value: Some(None),
+                optional_collection: None,
+                optional_nullable_collection: Some(None),
+                optional_nullable_entity: Some(None),
+            },
+            expected: json!({
+                "RequiredValue": "required",
+                "RequiredNullableValue": "required nullable",
+                "RequiredCollection": ["required collection"],
+                "RequiredNullableCollection": ["required nullable collection"],
+                "OptionalNullableValue": null,
+                "OptionalNullableCollection": null,
+                "OptionalNullableEntity": null,
+            }),
+        },
+        TestCase {
+            name: "optional fields serialize values when present",
+            request: TestActionsServiceTestSerializationActionAction {
+                required_value: "required".into(),
+                required_nullable_value: Some("required nullable".into()),
+                required_collection: vec!["required collection".into()],
+                required_nullable_collection: Some(vec!["required nullable collection".into()]),
+                optional_value: Some("optional".into()),
+                optional_nullable_value: Some(Some("optional nullable".into())),
+                optional_collection: Some(vec!["a".into(), "b".into()]),
+                optional_nullable_collection: Some(Some(vec!["c".into(), "d".into()])),
+                optional_nullable_entity: Some(Some(reference("/redfish/v1/TestRequiredService"))),
+            },
+            expected: json!({
+                "RequiredValue": "required",
+                "RequiredNullableValue": "required nullable",
+                "RequiredCollection": ["required collection"],
+                "RequiredNullableCollection": ["required nullable collection"],
+                "OptionalValue": "optional",
+                "OptionalNullableValue": "optional nullable",
+                "OptionalCollection": ["a", "b"],
+                "OptionalNullableCollection": ["c", "d"],
+                "OptionalNullableEntity": {
+                    "@odata.id": "/redfish/v1/TestRequiredService",
+                },
+            }),
+        },
+    ];
+
+    for case in cases {
+        assert_eq!(
+            serde_json::to_value(&case.request).expect("action request should serialize"),
+            case.expected,
+            "{}",
+            case.name
+        );
+    }
 
     Ok(())
 }

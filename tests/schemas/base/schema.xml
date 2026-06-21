@@ -190,6 +190,26 @@
         <Parameter Name="TestActionsService" Type="ServiceRoot.v1_0_0.TestActionsServiceActions"/>
         <Parameter Name="ActionType" Type="ServiceRoot.v1_0_0.ActionType" Nullable="false"/>
       </Action>
+      <Action Name="TestSerializationAction" IsBound="true">
+        <Parameter Name="TestActionsService" Type="ServiceRoot.v1_0_0.TestActionsServiceActions"/>
+        <Parameter Name="RequiredValue" Type="Edm.String" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="RequiredNullableValue" Type="Edm.String" Nullable="true">
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="RequiredCollection" Type="Collection(Edm.String)" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="RequiredNullableCollection" Type="Collection(Edm.String)" Nullable="true">
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="OptionalValue" Type="Edm.String" Nullable="false"/>
+        <Parameter Name="OptionalNullableValue" Type="Edm.String" Nullable="true"/>
+        <Parameter Name="OptionalCollection" Type="Collection(Edm.String)" Nullable="false"/>
+        <Parameter Name="OptionalNullableCollection" Type="Collection(Edm.String)" Nullable="true"/>
+        <Parameter Name="OptionalNullableEntity" Type="ServiceRoot.v1_0_0.TestRequiredService" Nullable="true"/>
+      </Action>
       <EnumType Name="ActionType">
         <Member Name="Option1"/>
         <Member Name="Option2"/>

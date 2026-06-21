@@ -89,6 +89,14 @@ struct SerializableProperty<'a> {
     required_on_create: bool,
 }
 
+// Action request fields are generated as two coordinated token streams. Keeping
+// them in one value makes it harder to change the serde omission rule without
+// also considering the generated Rust field type.
+struct ActionParameterField {
+    serde_annotation: TokenStream,
+    field_type: TokenStream,
+}
+
 impl<'a> StructDef<'a> {
     /// Create `StructDef` builder.
     #[must_use]
@@ -601,7 +609,7 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    // Returns serde annotation and field type token streams.
+    // Returns the Rust field type token stream.
     fn gen_de_struct_field_type<T>(
         cardinality: &OneOrCollection<T>,
         ftype: impl ToTokens,
@@ -697,7 +705,7 @@ impl<'a> StructDef<'a> {
         let doc = doc_format_and_generate(p.name, &p.odata);
         let rename = Literal::string(p.name.inner().inner());
         let name = StructFieldName::new_parameter(p.name);
-        let (serde, ptype) = match p.ptype {
+        let field = match p.ptype {
             ParameterType::Type(
                 ptype
                 @ (PropertyType::One((typeinfo, v)) | PropertyType::Collection((typeinfo, v))),
@@ -706,31 +714,80 @@ impl<'a> StructDef<'a> {
                     return quote! {};
                 }
                 let full_type = FullTypeName::new(v, config).for_update(Some(typeinfo.class));
-                Self::gen_de_struct_field(
-                    &ptype,
-                    full_type,
-                    rename,
-                    p.nullable,
-                    p.required,
-                    RigidArraySupport::new(false),
-                )
+                Self::gen_action_parameter_field(&ptype, full_type, &rename, p.nullable, p.required)
             }
             ParameterType::Entity(e) => {
                 let top = &config.top_module_alias;
-                Self::gen_de_struct_field(
+                Self::gen_action_parameter_field(
                     &e,
                     quote! { #top::Reference },
-                    rename,
+                    &rename,
                     p.nullable,
                     p.required,
-                    RigidArraySupport::new(false),
                 )
             }
         };
+        let serde = field.serde_annotation;
+        let ptype = field.field_type;
         quote! {
             #doc
             #serde
             pub #name: #ptype,
+        }
+    }
+
+    fn gen_action_parameter_field<T>(
+        cardinality: &OneOrCollection<T>,
+        ftype: impl ToTokens,
+        rename: impl ToTokens,
+        nullable: IsNullable,
+        required: IsRequired,
+    ) -> ActionParameterField {
+        //
+        // NOTE:
+        //
+        // Action request serialization depends on the generated Rust field
+        // type and serde annotation agreeing on the same `required` and
+        // `nullable` facts.
+        //
+        // `gen_de_struct_field_type` decides the Rust field type, such as
+        // `Option<T>` or `Option<Option<T>>`, so nullability is encoded in that
+        // type.
+        //
+        // `gen_action_parameter_serde_annotation` controls whether the field is
+        // always present in the action request body, or omitted when the outer
+        // `Option` is `None`. `skip_serializing_if = "Option::is_none"` is only
+        // valid when the generated field type has an outer `Option`; otherwise,
+        // a required field such as `Vec<T>` could be annotated with
+        // `Option::is_none`.
+        //
+        // The non-obvious coordination is that both helpers branch on
+        // `required`. In `gen_de_struct_field_type`, `required` generates a
+        // non-`Option` type, or an `Option` whose `None` should serialize as
+        // JSON `null`. That matches `gen_action_parameter_serde_annotation`:
+        // required fields have no `skip_serializing_if`, while optional fields
+        // omit outer `None`.
+        //
+        ActionParameterField {
+            serde_annotation: Self::gen_action_parameter_serde_annotation(rename, required),
+            field_type: Self::gen_de_struct_field_type(
+                cardinality,
+                ftype,
+                nullable,
+                required,
+                RigidArraySupport::new(false),
+            ),
+        }
+    }
+
+    fn gen_action_parameter_serde_annotation(
+        rename: impl ToTokens,
+        required: IsRequired,
+    ) -> TokenStream {
+        if required.into_inner() {
+            quote! { #[serde(rename=#rename)] }
+        } else {
+            quote! { #[serde(rename=#rename, skip_serializing_if = "Option::is_none")] }
         }
     }
 
@@ -1001,3 +1058,6 @@ impl<'a> StructDefBuilder<'a> {
         Ok(self.0)
     }
 }
+
+#[cfg(test)]
+mod tests;
