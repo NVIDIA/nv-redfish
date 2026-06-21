@@ -20,12 +20,68 @@ mod cache_integration_tests {
     use crate::common::test_utils::*;
 
     use nv_redfish_bmc_http::reqwest::BmcError;
+    use nv_redfish_core::query::{ExpandQuery, FilterQuery};
     use nv_redfish_core::Bmc;
     use std::sync::Arc;
     use wiremock::{
-        matchers::{header, method, path},
+        matchers::{header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
     };
+
+    async fn mount_distinct_query_cache_mocks(
+        mock_server: &MockServer,
+        resource_path: &str,
+        query_name: &str,
+        first_query_value: &str,
+        first_resource: &TestResource,
+        second_query_value: &str,
+        second_resource: &TestResource,
+        etag_value: &str,
+    ) {
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(query_param(query_name, first_query_value))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(first_resource)
+                    .insert_header("etag", etag_value),
+            )
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(query_param(query_name, second_query_value))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(second_resource)
+                    .insert_header("etag", etag_value),
+            )
+            .up_to_n_times(1)
+            .expect(1)
+            .mount(mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(query_param(query_name, first_query_value))
+            .and(header("if-none-match", etag_value))
+            .respond_with(ResponseTemplate::new(304))
+            .expect(1)
+            .mount(mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(query_param(query_name, second_query_value))
+            .and(header("if-none-match", etag_value))
+            .respond_with(ResponseTemplate::new(304))
+            .expect(1)
+            .mount(mock_server)
+            .await;
+    }
 
     #[tokio::test]
     async fn test_initial_request_caches_resource() {
@@ -104,6 +160,119 @@ mod cache_integration_tests {
         assert_eq!(retrieved1.value, retrieved2.value);
 
         assert!(Arc::ptr_eq(&retrieved1, &retrieved2));
+    }
+
+    #[tokio::test]
+    async fn test_expand_cache_key_includes_query() {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::SYSTEMS_1;
+        let etag_value = "shared-expand";
+
+        let shallow_resource =
+            create_test_resource(resource_path, Some(etag_value), "Shallow System", 1);
+        let deep_resource = create_test_resource(resource_path, Some(etag_value), "Deep System", 2);
+
+        mount_distinct_query_cache_mocks(
+            &mock_server,
+            resource_path,
+            "$expand",
+            ".($levels=1)",
+            &shallow_resource,
+            ".($levels=2)",
+            &deep_resource,
+            etag_value,
+        )
+        .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let resource_id = create_odata_id(resource_path);
+
+        let shallow = bmc
+            .expand::<TestResource>(&resource_id, ExpandQuery::current().levels(1))
+            .await
+            .unwrap();
+        assert_eq!(shallow.name, "Shallow System");
+        assert_eq!(shallow.value, 1);
+
+        let deep = bmc
+            .expand::<TestResource>(&resource_id, ExpandQuery::current().levels(2))
+            .await
+            .unwrap();
+        assert_eq!(deep.name, "Deep System");
+        assert_eq!(deep.value, 2);
+
+        let shallow_cached = bmc
+            .expand::<TestResource>(&resource_id, ExpandQuery::current().levels(1))
+            .await
+            .unwrap();
+        assert_eq!(shallow_cached.name, "Shallow System");
+        assert_eq!(shallow_cached.value, 1);
+        assert!(Arc::ptr_eq(&shallow, &shallow_cached));
+
+        let deep_cached = bmc
+            .expand::<TestResource>(&resource_id, ExpandQuery::current().levels(2))
+            .await
+            .unwrap();
+        assert_eq!(deep_cached.name, "Deep System");
+        assert_eq!(deep_cached.value, 2);
+        assert!(Arc::ptr_eq(&deep, &deep_cached));
+    }
+
+    #[tokio::test]
+    async fn test_filter_cache_key_includes_query() {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::SYSTEMS_1;
+        let etag_value = "shared-filter";
+
+        let smaller_resource =
+            create_test_resource(resource_path, Some(etag_value), "Smaller System", 10);
+        let larger_resource =
+            create_test_resource(resource_path, Some(etag_value), "Larger System", 100);
+
+        mount_distinct_query_cache_mocks(
+            &mock_server,
+            resource_path,
+            "$filter",
+            "value gt 10",
+            &smaller_resource,
+            "value gt 100",
+            &larger_resource,
+            etag_value,
+        )
+        .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let resource_id = create_odata_id(resource_path);
+
+        let smaller = bmc
+            .filter::<TestResource>(&resource_id, FilterQuery::gt(&"value", 10))
+            .await
+            .unwrap();
+        assert_eq!(smaller.name, "Smaller System");
+        assert_eq!(smaller.value, 10);
+
+        let larger = bmc
+            .filter::<TestResource>(&resource_id, FilterQuery::gt(&"value", 100))
+            .await
+            .unwrap();
+        assert_eq!(larger.name, "Larger System");
+        assert_eq!(larger.value, 100);
+
+        let smaller_cached = bmc
+            .filter::<TestResource>(&resource_id, FilterQuery::gt(&"value", 10))
+            .await
+            .unwrap();
+        assert_eq!(smaller_cached.name, "Smaller System");
+        assert_eq!(smaller_cached.value, 10);
+        assert!(Arc::ptr_eq(&smaller, &smaller_cached));
+
+        let larger_cached = bmc
+            .filter::<TestResource>(&resource_id, FilterQuery::gt(&"value", 100))
+            .await
+            .unwrap();
+        assert_eq!(larger_cached.name, "Larger System");
+        assert_eq!(larger_cached.value, 100);
+        assert!(Arc::ptr_eq(&larger, &larger_cached));
     }
 
     #[tokio::test]
