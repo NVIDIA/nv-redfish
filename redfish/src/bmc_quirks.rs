@@ -32,6 +32,7 @@ enum Platform {
     Hpe,
     Dell,
     AmiViking,
+    Ami,
     Nvidia,
     NvidiaDpu,
     Anonymous1_9_0,
@@ -47,6 +48,7 @@ impl BmcQuirks {
             Some("HPE") => Some(Platform::Hpe),
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
+            Some("AMI") => Some(Platform::Ami),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
@@ -202,8 +204,13 @@ impl BmcQuirks {
 
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
-    /// expand api
+    /// expand api.
+    ///
+    /// AMI host BMCs (Viking and the GB300-class `Ami`) return `$expand`
+    /// responses that drop Required fields (Id/Name/ChassisType) from embedded
+    /// members; the standalone resource GETs are complete, so disabling expand
+    /// makes nv-redfish fetch each member individually and parse correctly.
     pub(crate) fn expand_is_not_working_properly(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
+        matches!(self.platform, Some(Platform::AmiViking | Platform::Ami))
     }
 }
