@@ -32,6 +32,7 @@ enum Platform {
     Hpe,
     Dell,
     AmiViking,
+    AmiGb300,
     Nvidia,
     NvidiaDpu,
     Anonymous1_9_0,
@@ -43,10 +44,22 @@ impl BmcQuirks {
         let vendor_str = root.vendor.as_ref().and_then(Option::as_deref);
         let redfish_version_str = root.redfish_version.as_deref();
         let product_str = root.product.as_ref().and_then(Option::as_deref);
+        // The GB300 host BMC exposes an AMI OEM `RtpVersion` in the service
+        // root; use it to distinguish GB300 from other AMI BMCs so the
+        // expand workaround is not applied to every AMI platform.
+        let rtp_version = root
+            .base
+            .base
+            .oem
+            .as_ref()
+            .and_then(|oem| oem.additional_properties.get("Ami"))
+            .and_then(|ami| ami.get("RtpVersion"))
+            .and_then(|v| v.as_str());
         let platform = match vendor_str {
             Some("HPE") => Some(Platform::Hpe),
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
+            Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
@@ -202,8 +215,13 @@ impl BmcQuirks {
 
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
-    /// expand api
-    pub(crate) fn expand_is_not_working_properly(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
+    /// expand api.
+    ///
+    /// AMI host BMCs (Viking and the GB300-class `Ami`) return `$expand`
+    /// responses that drop Required fields (Id/Name/ChassisType) from embedded
+    /// members; the standalone resource GETs are complete, so disabling expand
+    /// makes nv-redfish fetch each member individually and parse correctly.
+    pub(crate) const fn expand_is_not_working_properly(&self) -> bool {
+        matches!(self.platform, Some(Platform::AmiViking | Platform::AmiGb300))
     }
 }

@@ -66,6 +66,40 @@ pub fn ami_viking_service_root(root_id: &ODataId, fields: Value) -> Value {
     json_merge([&base, &fields])
 }
 
+/// Build an AMI ServiceRoot payload (`Vendor=AMI`) with the given
+/// `RedfishVersion` and optional AMI OEM `RtpVersion`, merged with `fields`.
+///
+/// `RtpVersion=Some("13.09.1")` identifies a Grace-based NVIDIA GB300 host BMC.
+pub fn ami_service_root(
+    root_id: &ODataId,
+    redfish_version: &str,
+    rtp_version: Option<&str>,
+    fields: Value,
+) -> Value {
+    let mut base = json!({
+        ODATA_ID: root_id,
+        ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+        "Id": "RootService",
+        "Name": "RootService",
+        "ProtocolFeaturesSupported": {
+            "ExpandQuery": {
+                "NoLinks": true
+            }
+        },
+        "Vendor": "AMI",
+        "RedfishVersion": redfish_version,
+        "Links": {
+            "Sessions": {
+                ODATA_ID: format!("{root_id}/SessionService/Sessions"),
+            }
+        },
+    });
+    if let Some(rtp) = rtp_version {
+        base["Oem"] = json!({ "Ami": { "RtpVersion": rtp } });
+    }
+    json_merge([&base, &fields])
+}
+
 /// Build a ServiceRoot payload for anonymous Redfish 1.9.0 platforms
 /// (Liteon powershelf class) merged with the provided `fields`.
 pub fn anonymous_1_9_service_root(root_id: &ODataId, fields: Value) -> Value {
