@@ -15,16 +15,16 @@
 
 use std::sync::Arc;
 
-use crate::bmc_quirks::BmcQuirks;
-use crate::core::Bmc;
-use crate::core::NavProperty;
-use crate::core::ODataId;
-use crate::schema::service_root::ServiceRoot as SchemaServiceRoot;
 use crate::Error;
 use crate::NvBmc;
 use crate::ProtocolFeatures;
 use crate::Resource;
 use crate::ResourceSchema;
+use crate::bmc_quirks::BmcQuirks;
+use crate::core::Bmc;
+use crate::core::NavProperty;
+use crate::core::ODataId;
+use crate::schema::service_root::ServiceRoot as SchemaServiceRoot;
 
 use tagged_types::TaggedType;
 
@@ -40,6 +40,8 @@ use crate::computer_system::SystemCollection;
 use crate::event_service::EventService;
 #[cfg(feature = "managers")]
 use crate::manager::ManagerCollection;
+#[cfg(feature = "oem-ami")]
+use crate::oem::ami::AmiServiceRoot;
 #[cfg(feature = "oem-hpe")]
 use crate::oem::hpe::HpeiLoServiceExt;
 #[cfg(feature = "power-equipment")]
@@ -328,6 +330,18 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "oem-hpe")]
     pub fn oem_hpe_ilo_service_ext(&self) -> Result<Option<HpeiLoServiceExt<B>>, Error<B>> {
         HpeiLoServiceExt::new(&self.root)
+    }
+
+    /// Get AMI OEM extension in service root
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose AMI extension.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving service root data fails.
+    #[cfg(feature = "oem-ami")]
+    pub fn oem_ami_service_root(&self) -> Result<Option<AmiServiceRoot<B>>, Error<B>> {
+        AmiServiceRoot::new(&self.bmc, &self.root)
     }
 }
 

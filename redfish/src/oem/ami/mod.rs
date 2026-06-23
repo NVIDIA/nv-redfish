@@ -18,7 +18,12 @@
 #[cfg(feature = "managers")]
 pub mod config_bmc;
 
+pub mod ami_service_root;
+
 mod compiled_schema;
 
 /// AMI OEM schema.
 pub use compiled_schema::redfish as schema;
+
+#[doc(inline)]
+pub use ami_service_root::AmiServiceRoot;
