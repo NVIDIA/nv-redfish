@@ -21,6 +21,7 @@ use nv_redfish::resource::ResetType;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
+use nv_redfish_tests::ami_service_root;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
 use nv_redfish_tests::expect_redfish_reset_action;
@@ -333,6 +334,68 @@ async fn ami_viking_missing_chassis_name_workaround() -> Result<(), Box<dyn StdE
 }
 
 #[test]
+async fn ami_gb300_disables_expand_for_chassis_collection() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: Grace-based NVIDIA GB300 host BMC (AMI, RtpVersion 13.09.1).
+    // Quirk under test: its `$expand` drops Required fields (Id/Name/ChassisType)
+    // from embedded members, so the collection is fetched with a plain GET and
+    // members are fetched individually (complete) rather than via `$expand`.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_gb300_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    // A plain (non-`$expand`) collection GET; if the quirk did not apply the
+    // collection would be fetched via `$expand` and this expectation would not
+    // match.
+    expect_chassis_collection(bmc.clone(), &ids);
+
+    let collection = root.chassis().await?.unwrap();
+    expect_chassis_get(bmc.clone(), &ids, valid_chassis_payload(&ids));
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+async fn ami_without_gb300_rtp_version_uses_expand() -> Result<(), Box<dyn StdError>> {
+    // A non-GB300 AMI BMC (no GB300 `RtpVersion`) must NOT be penalized: it keeps
+    // using `$expand` for collections.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_generic_ami_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    // Collection fetched via `$expand` with the member inline.
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [valid_chassis_payload(&ids)]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+
+    Ok(())
+}
+
+#[test]
 async fn anonymous_1_9_0_wrong_chassis_status_state_workaround() -> Result<(), Box<dyn StdError>> {
     // Platform under test: Liteon powershelf class (anonymous Redfish 1.9.0 root).
     // Quirk under test: invalid Chassis.Status.State="Standby".
@@ -526,6 +589,30 @@ async fn expect_viking_service_root(
     bmc.expect(Expect::get(
         &ids.root_id,
         ami_viking_service_root(&ids.root_id, fields),
+    ));
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_gb300_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    fields: Value,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        ami_service_root(&ids.root_id, "1.21.1", Some("13.09.1"), fields),
+    ));
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_generic_ami_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    fields: Value,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        ami_service_root(&ids.root_id, "1.21.1", None, fields),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
