@@ -293,7 +293,9 @@ impl<K, V> CarCache<K, V>
 where
     K: Eq + Hash + Clone,
 {
-    /// Create new CAR cache with given capacity
+    /// Create new CAR cache with given capacity.
+    ///
+    /// A capacity of 0 creates a disabled cache that never stores entries.
     #[must_use]
     pub fn new(capacity: usize) -> Self {
         Self {
@@ -337,6 +339,10 @@ where
     /// Returns `Option<Evicted<K, V>>` containing the evicted entry (key and value)
     /// if an entry was evicted from the cache, or `None` if no eviction occurred.
     pub fn put(&mut self, key: K, value: V) -> Option<Evicted<K, V>> {
+        if self.c == 0 {
+            return None;
+        }
+
         // Check if it's a cache hit first
         if let Some(location) = self.index.get(&key).copied() {
             match location {
@@ -816,6 +822,20 @@ mod tests {
 
         let entry = clock_list.get_mut(slot1).unwrap();
         assert_eq!(entry.ref_bit, false);
+    }
+
+    #[test]
+    fn test_zero_capacity_cache_is_disabled() {
+        let mut cache = CarCache::new(0);
+
+        assert_eq!(cache.capacity(), 0);
+        assert!(cache.is_empty());
+        assert!(cache.put("a", 1).is_none());
+        assert!(cache.put("b", 2).is_none());
+        assert_eq!(cache.get(&"a"), None);
+        assert_eq!(cache.get(&"b"), None);
+        assert_eq!(cache.len(), 0);
+        assert_eq!(cache.adaptation_parameter(), 0);
     }
 
     #[test]
