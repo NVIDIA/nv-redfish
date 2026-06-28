@@ -15,11 +15,11 @@
 
 //! Support AMI Service root extensions
 
-use crate::Error;
-use crate::NvBmc;
 use crate::core::Bmc;
 use crate::oem::ami::schema::ami_service_root::AmiServiceRoot as AmiServiceRootSchema;
 use crate::schema::service_root::ServiceRoot as ServiceRootSchema;
+use crate::Error;
+use crate::NvBmc;
 use std::marker::PhantomData;
 use std::sync::Arc;
 

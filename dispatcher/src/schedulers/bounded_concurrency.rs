@@ -95,9 +95,9 @@ mod tests {
     use std::time::Instant;
 
     use super::BoundedConcurrency;
-    use crate::schedulers::round_robin::RoundRobin;
-    use crate::schedulers::tests::{MockLeaf, TestPayload, dispatch_and_complete};
     use crate::scheduler::Scheduler as _;
+    use crate::schedulers::round_robin::RoundRobin;
+    use crate::schedulers::tests::{dispatch_and_complete, MockLeaf, TestPayload};
     use crate::work::{Completion, CompletionOutcome, RoutingPath};
 
     fn cap(value: u32) -> NonZeroU32 {
@@ -108,7 +108,8 @@ mod tests {
     fn under_cap_passes_work_through() {
         let leaf = MockLeaf::ready_firing(0, 7);
         let handle = leaf.handle();
-        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> = BoundedConcurrency::new(cap(2), leaf);
+        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
+            BoundedConcurrency::new(cap(2), leaf);
 
         assert!(bc.update_ready(Instant::now()).ready);
         let work = bc.take_next().expect("ready");
@@ -176,13 +177,18 @@ mod tests {
     fn passes_meta_and_routing_unmodified() {
         let leaf = MockLeaf::ready_firing(0, 99);
         let handle = leaf.handle();
-        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> = BoundedConcurrency::new(cap(1), leaf);
+        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
+            BoundedConcurrency::new(cap(1), leaf);
 
-        let routing = dispatch_and_complete(&mut bc, CompletionOutcome::Failed, Duration::from_millis(3))
-            .expect("ready");
+        let routing =
+            dispatch_and_complete(&mut bc, CompletionOutcome::Failed, Duration::from_millis(3))
+                .expect("ready");
 
         assert_eq!(routing, RoutingPath::empty());
         assert_eq!(handle.completion_count(), 1);
-        assert_eq!(handle.last_completion_outcome(), Some(CompletionOutcome::Failed));
+        assert_eq!(
+            handle.last_completion_outcome(),
+            Some(CompletionOutcome::Failed)
+        );
     }
 }

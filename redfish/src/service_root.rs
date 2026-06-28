@@ -15,16 +15,16 @@
 
 use std::sync::Arc;
 
-use crate::Error;
-use crate::NvBmc;
-use crate::ProtocolFeatures;
-use crate::Resource;
-use crate::ResourceSchema;
 use crate::bmc_quirks::BmcQuirks;
 use crate::core::Bmc;
 use crate::core::NavProperty;
 use crate::core::ODataId;
 use crate::schema::service_root::ServiceRoot as SchemaServiceRoot;
+use crate::Error;
+use crate::NvBmc;
+use crate::ProtocolFeatures;
+use crate::Resource;
+use crate::ResourceSchema;
 
 use tagged_types::TaggedType;
 

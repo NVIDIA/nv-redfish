@@ -30,15 +30,15 @@
 //! [`RuntimeHandle::with_root`] / [`RuntimeHandle::with_root_mut`] share
 //! the same lock, so user mutations and driver steps serialize naturally.
 
+use crate::scheduler::private::SchedulerObj;
+use crate::scheduler::Scheduler;
+use crate::stats::RuntimeStats;
+use crate::work::WorkMeta;
 use crate::Completion;
 use crate::CompletionOutcome;
 use crate::RoutingPath;
 use crate::RuntimeEventType;
 use crate::ScheduledWork;
-use crate::scheduler::Scheduler;
-use crate::scheduler::private::SchedulerObj;
-use crate::stats::RuntimeStats;
-use crate::work::WorkMeta;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;

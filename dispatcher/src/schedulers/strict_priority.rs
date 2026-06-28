@@ -135,8 +135,8 @@ mod tests {
     use std::time::Instant;
 
     use super::StrictPriority;
-    use crate::schedulers::tests::{MockLeaf, TestPayload, dispatch_and_complete};
     use crate::scheduler::Scheduler as _;
+    use crate::schedulers::tests::{dispatch_and_complete, MockLeaf, TestPayload};
     use crate::work::CompletionOutcome;
 
     #[test]

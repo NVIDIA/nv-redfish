@@ -238,17 +238,21 @@ async fn main() {
     let handle = runtime.handle();
 
     // 3a. Add another leaf to the root, dynamically.
-    handle.with_root_mut(|root: &mut RoundRobin<Work, ()>| {
-        root.add_child(PollLeaf::new("sensor-C", Duration::from_secs(3)));
-    }).expect("downcast failed");
+    handle
+        .with_root_mut(|root: &mut RoundRobin<Work, ()>| {
+            root.add_child(PollLeaf::new("sensor-C", Duration::from_secs(3)));
+        })
+        .expect("downcast failed");
 
     // 3b. Add an entirely new sub-branch with its own children.
-    handle.with_root_mut(|root: &mut RoundRobin<Work, ()>| {
-        let mut subnet: RoundRobin<Work, ()> = RoundRobin::new();
-        subnet.add_child(PollLeaf::new("subnet-1-a", Duration::from_secs(5)));
-        subnet.add_child(PollLeaf::new("subnet-1-b", Duration::from_secs(5)));
-        root.add_child(subnet);
-    }).expect("downcast failed");
+    handle
+        .with_root_mut(|root: &mut RoundRobin<Work, ()>| {
+            let mut subnet: RoundRobin<Work, ()> = RoundRobin::new();
+            subnet.add_child(PollLeaf::new("subnet-1-a", Duration::from_secs(5)));
+            subnet.add_child(PollLeaf::new("subnet-1-b", Duration::from_secs(5)));
+            root.add_child(subnet);
+        })
+        .expect("downcast failed");
 
     // 4. Drive the runtime. `next()` is the single ordered output stream.
     let start = Instant::now();

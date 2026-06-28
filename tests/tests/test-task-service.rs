@@ -20,11 +20,11 @@ use std::io::Error as IoError;
 use std::io::ErrorKind;
 use std::sync::Arc;
 
-use nv_redfish::ServiceRoot;
 use nv_redfish::core::AsyncTask;
 use nv_redfish::core::ODataId;
 use nv_redfish::schema::resource::Health as TaskStatus;
 use nv_redfish::schema::task::TaskState;
+use nv_redfish::ServiceRoot;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;

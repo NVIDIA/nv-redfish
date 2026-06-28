@@ -222,6 +222,9 @@ impl BmcQuirks {
     /// members; the standalone resource GETs are complete, so disabling expand
     /// makes nv-redfish fetch each member individually and parse correctly.
     pub(crate) const fn expand_is_not_working_properly(&self) -> bool {
-        matches!(self.platform, Some(Platform::AmiViking | Platform::AmiGb300))
+        matches!(
+            self.platform,
+            Some(Platform::AmiViking | Platform::AmiGb300)
+        )
     }
 }

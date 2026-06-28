@@ -68,12 +68,7 @@ fn run() -> Result<(), Box<dyn StdError>> {
         .copied()
         .chain(service_root.iter().copied())
         .map(redfish_schema)
-        .chain(
-            features
-                .csdl_files
-                .iter()
-                .map(|f| redfish_schema(f)),
-        )
+        .chain(features.csdl_files.iter().map(|f| redfish_schema(f)))
         .chain(
             features
                 .swordfish_csdl_files

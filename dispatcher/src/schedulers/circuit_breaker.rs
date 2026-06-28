@@ -232,8 +232,8 @@ mod tests {
     use std::time::Instant;
 
     use super::{BreakerState, CircuitBreaker, CircuitBreakerConfig};
-    use crate::schedulers::tests::{MockLeaf, TestPayload};
     use crate::scheduler::Scheduler as _;
+    use crate::schedulers::tests::{MockLeaf, TestPayload};
     use crate::work::{Completion, CompletionOutcome};
 
     fn cfg(cool_down: Duration) -> CircuitBreakerConfig {

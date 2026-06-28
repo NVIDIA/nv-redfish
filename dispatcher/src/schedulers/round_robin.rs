@@ -141,8 +141,8 @@ mod tests {
     use std::time::Instant;
 
     use super::RoundRobin;
-    use crate::schedulers::tests::{MockLeaf, dispatch_and_complete};
     use crate::scheduler::Scheduler as _;
+    use crate::schedulers::tests::{dispatch_and_complete, MockLeaf};
     use crate::work::CompletionOutcome;
 
     #[test]
@@ -262,12 +262,19 @@ mod tests {
         rr.add_child(l0);
         rr.add_child(l1);
 
-        dispatch_and_complete(&mut rr, CompletionOutcome::Succeeded, Duration::from_millis(7))
-            .expect("l1 should fire");
+        dispatch_and_complete(
+            &mut rr,
+            CompletionOutcome::Succeeded,
+            Duration::from_millis(7),
+        )
+        .expect("l1 should fire");
 
         // The completion must have landed on l1, not l0.
         assert_eq!(h0.completion_count(), 0);
         assert_eq!(h1.completion_count(), 1);
-        assert_eq!(h1.last_completion_outcome(), Some(CompletionOutcome::Succeeded));
+        assert_eq!(
+            h1.last_completion_outcome(),
+            Some(CompletionOutcome::Succeeded)
+        );
     }
 }
