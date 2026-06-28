@@ -37,7 +37,7 @@ use crate::ServiceRoot;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::DataStream;
 #[cfg(feature = "update-service-deprecated")]
-use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::EntityTypeRef as _;
 #[cfg(feature = "update-service-deprecated")]
 use nv_redfish_core::HttpPushUriUpdateRequest;
 use nv_redfish_core::ModificationResponse;

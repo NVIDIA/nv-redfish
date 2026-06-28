@@ -51,7 +51,8 @@ std-not-standalone-features = assembly \
              power-supplies \
              secure-boot \
              sensors \
-             storages
+             storages \
+             update-service-deprecated
 
 std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-features))
 
