@@ -17,12 +17,17 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod cache_integration_tests {
+    use std::{error::Error, sync::Arc};
+
     use crate::common::test_utils::*;
 
-    use nv_redfish_bmc_http::reqwest::BmcError;
+    use nv_redfish_bmc_http::{
+        reqwest::{BmcError, Client},
+        CacheSettings, HttpBmc,
+    };
     use nv_redfish_core::query::{ExpandQuery, FilterQuery};
     use nv_redfish_core::Bmc;
-    use std::sync::Arc;
+    use url::Url;
     use wiremock::{
         matchers::{header, method, path, query_param},
         Mock, MockServer, ResponseTemplate,
@@ -365,6 +370,58 @@ mod cache_integration_tests {
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert!(matches!(error, BmcError::CacheMiss));
+    }
+
+    #[tokio::test]
+    async fn zero_capacity_disables_etag_and_body_caching() -> Result<(), Box<dyn Error>> {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::SYSTEMS_1;
+        let etag_value = "zero-capacity-etag";
+        let test_resource =
+            create_test_resource(resource_path, Some(etag_value), names::TEST_SYSTEM, 42);
+
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(&test_resource)
+                    .insert_header("etag", etag_value),
+            )
+            .expect(2)
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::new()?;
+        let bmc = HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri())?,
+            create_test_credentials(),
+            // Capacity zero must disable both response-body and ETag caching.
+            CacheSettings::with_capacity(0),
+        );
+
+        let resource_id = create_odata_id(resource_path);
+
+        let first_result = bmc.get::<TestResource>(&resource_id).await?;
+        let second_result = bmc.get::<TestResource>(&resource_id).await?;
+
+        mock_server.verify().await;
+
+        let Some(received_requests) = mock_server.received_requests().await else {
+            panic!("request recording should be enabled");
+        };
+
+        assert_eq!(first_result.name, names::TEST_SYSTEM);
+        assert_eq!(first_result.value, 42);
+        assert_eq!(second_result.name, names::TEST_SYSTEM);
+        assert_eq!(second_result.value, 42);
+        assert!(!Arc::ptr_eq(&first_result, &second_result));
+        assert_eq!(received_requests.len(), 2);
+        assert!(received_requests
+            .iter()
+            .all(|request| !request.headers.contains_key("if-none-match")));
+
+        Ok(())
     }
 
     #[tokio::test]

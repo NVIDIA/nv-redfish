@@ -217,6 +217,10 @@ pub struct HttpBmc<C: HttpClient> {
     cache: RwLock<TypeErasedCarCache<Url>>,
     etags: RwLock<HashMap<Url, ODataETag>>,
     custom_headers: HeaderMap,
+
+    // Response bodies and ETags are enabled or disabled together because a
+    // 304 Not Modified response contains no replacement body.
+    cache_enabled: bool,
 }
 
 impl<C: HttpClient> HttpBmc<C>
@@ -329,6 +333,7 @@ where
             cache: RwLock::new(TypeErasedCarCache::new(cache_settings.capacity)),
             etags: RwLock::new(HashMap::new()),
             custom_headers,
+            cache_enabled: cache_settings.capacity > 0,
         }
     }
 
@@ -536,14 +541,20 @@ where
     ) -> Result<Arc<T>, C::Error> {
         let cache_key = endpoint_url.clone();
 
-        // Retrieve cached etag
-        let etag: Option<ODataETag> = {
+        // The `etag` is always `None` when caching is disabled. Check the flag here so we can save
+        // a read lock acquisition and guarantee that disabled caching never sends If-None-Match,
+        // which could produce a 304 response without a cached body.
+        let etag = if self.cache_enabled {
             let etags = self
                 .etags
                 .read()
                 .map_err(|e| C::Error::cache_error(e.to_string()))?;
+
             etags.get(&cache_key).cloned()
+        } else {
+            None
         };
+
         let credentials = self.read_credentials();
 
         // Perform GET request
@@ -559,6 +570,12 @@ where
         {
             Ok(response) => {
                 let entity = Arc::new(response);
+
+                // With capacity zero, `put_typed` stores no representation and always returns
+                // `None`, and we can return early with the response entity.
+                if !self.cache_enabled {
+                    return Ok(entity);
+                }
 
                 // Update cache if entity has etag
                 if let Some(etag) = entity.etag() {
