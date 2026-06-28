@@ -268,8 +268,12 @@ pub struct ClientParams {
     pub user_agent: Option<String>,
     /// Whether to accept invalid TLS certificates
     pub accept_invalid_certs: bool,
-    /// Maximum number of HTTP redirects to follow
+
+    /// Maximum number of same-origin HTTP redirects to follow.
+    ///
+    /// `None` uses reqwest's default redirect limit. Cross-origin redirects are always rejected.
     pub max_redirects: Option<usize>,
+
     /// TCP keep-alive timeout
     pub tcp_keepalive: Option<Duration>,
     /// Connection pool idle timeout
@@ -337,7 +341,7 @@ impl ClientParams {
         self
     }
 
-    /// See: [`reqwest::ClientBuilder::redirect`].
+    /// Sets the maximum number of same-origin redirects to follow.
     #[must_use]
     pub const fn max_redirects(mut self, max: usize) -> Self {
         self.max_redirects = Some(max);
@@ -438,9 +442,15 @@ impl Client {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
-        if let Some(max_redirects) = params.max_redirects {
-            builder = builder.redirect(RedirectPolicy::limited(max_redirects));
-        }
+        // Reqwest's standard policies enforce redirect limits but still follow cross-origin
+        // targets, where Redfish-specific and custom authentication headers can be forwarded.
+        // Wrap the selected standard policy so its limit and error behavior remain unchanged
+        // while every redirect also receives the same-origin check.
+        let redirect_policy = params
+            .max_redirects
+            .map_or_else(RedirectPolicy::default, RedirectPolicy::limited);
+
+        builder = builder.redirect(same_origin_redirect_policy(redirect_policy));
 
         if let Some(keepalive) = params.tcp_keepalive {
             builder = builder.tcp_keepalive(keepalive);
@@ -464,7 +474,15 @@ impl Client {
         })
     }
 
-    /// Use pre-built [`reqwest::Client`] as internal client.
+    /// Uses a pre-built [`reqwest::Client`] as the internal client.
+    ///
+    /// Unlike [`Self::new`] and [`Self::with_params`], this constructor cannot install or inspect
+    /// the client's redirect policy.
+    ///
+    /// # Security
+    ///
+    /// The supplied client must reject cross-origin redirects. Reqwest's default redirect policy
+    /// can forward Redfish `X-Auth-Token` and arbitrary custom headers to another origin.
     #[must_use]
     pub const fn with_client(client: ReqwestClient) -> Self {
         Self {
@@ -697,6 +715,21 @@ impl Client {
             }),
         }
     }
+}
+
+/// Wraps a redirect policy to reject cross-origin targets.
+fn same_origin_redirect_policy(redirect_policy: RedirectPolicy) -> RedirectPolicy {
+    RedirectPolicy::custom(move |attempt| {
+        let Some(original_url) = attempt.previous().first() else {
+            return attempt.error("redirect attempt is missing the original URL");
+        };
+
+        if attempt.url().origin() != original_url.origin() {
+            return attempt.error("cross-origin redirects are not allowed");
+        }
+
+        redirect_policy.redirect(attempt)
+    })
 }
 
 fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
@@ -1080,6 +1113,7 @@ mod tests {
     use wiremock::matchers::method;
     use wiremock::matchers::path;
     use wiremock::Mock;
+    use wiremock::MockBuilder;
     use wiremock::MockServer;
     use wiremock::Request;
     use wiremock::ResponseTemplate;
@@ -1091,6 +1125,34 @@ mod tests {
 
         #[serde(rename = "Targets")]
         targets: Vec<String>,
+    }
+
+    fn session_auth() -> (BmcCredentials, HeaderMap) {
+        let credentials = BmcCredentials::token("session-secret".to_string());
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            "X-Custom-Secret",
+            http::HeaderValue::from_static("custom-secret"),
+        );
+
+        (credentials, headers)
+    }
+
+    fn credentialed_get(resource_path: &str) -> MockBuilder {
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(header("X-Auth-Token", "session-secret"))
+            .and(header("X-Custom-Secret", "custom-secret"))
+    }
+
+    async fn mount_redirect(mock_server: &MockServer, source_path: &str, location: &str) {
+        Mock::given(method("GET"))
+            .and(path(source_path))
+            .respond_with(ResponseTemplate::new(302).insert_header("Location", location))
+            .expect(1)
+            .mount(mock_server)
+            .await;
     }
 
     #[test]
@@ -1113,6 +1175,83 @@ mod tests {
 
         let created_miss = BmcError::cache_miss();
         assert!(matches!(created_miss, BmcError::CacheMiss));
+    }
+
+    #[tokio::test]
+    async fn cross_origin_redirect_is_rejected_before_forwarding_credentials(
+    ) -> Result<(), Box<dyn StdError>> {
+        let source_server = MockServer::start().await;
+        let destination_server = MockServer::start().await;
+        let source_path = "/redfish/v1";
+        let destination_path = "/capture";
+        let destination_url = format!("{}{destination_path}", destination_server.uri());
+
+        mount_redirect(&source_server, source_path, &destination_url).await;
+
+        credentialed_get(destination_path)
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .expect(0)
+            .mount(&destination_server)
+            .await;
+
+        let client = Client::new()?;
+        let (credentials, headers) = session_auth();
+
+        let response = client
+            .get::<serde_json::Value>(
+                Url::parse(&format!("{}{source_path}", source_server.uri()))?,
+                &credentials,
+                None,
+                &headers,
+            )
+            .await;
+
+        assert!(matches!(
+            response,
+            Err(BmcError::ReqwestError(error)) if error.is_redirect()
+        ));
+
+        destination_server.verify().await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn same_origin_redirect_with_reqwest_default_policy_preserves_credentials(
+    ) -> Result<(), Box<dyn StdError>> {
+        let mock_server = MockServer::start().await;
+        let source_path = "/redfish/v1";
+        let destination_path = "/redfish/v1/redirected";
+
+        mount_redirect(&mock_server, source_path, destination_path).await;
+
+        credentialed_get(destination_path)
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({ "redirected": true })),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut params = ClientParams::new();
+        params.max_redirects = None;
+
+        let client = Client::with_params(params)?;
+        let (credentials, headers) = session_auth();
+
+        let response: serde_json::Value = client
+            .get(
+                Url::parse(&format!("{}{source_path}", mock_server.uri()))?,
+                &credentials,
+                None,
+                &headers,
+            )
+            .await?;
+
+        assert_eq!(response["redirected"], true);
+        mock_server.verify().await;
+
+        Ok(())
     }
 
     /// Retry policy used in tests: retries GET requests on 503 responses.
