@@ -568,15 +568,13 @@ where
             )
             .await
         {
-            Ok(response) => {
-                let entity = Arc::new(response);
-
+            Ok(response) if !self.cache_enabled => {
                 // With capacity zero, `put_typed` stores no representation and always returns
                 // `None`, and we can return early with the response entity.
-                if !self.cache_enabled {
-                    return Ok(entity);
-                }
-
+                Ok(Arc::new(response))
+            }
+            Ok(response) => {
+                let entity = Arc::new(response);
                 // Update cache if entity has etag
                 if let Some(etag) = entity.etag() {
                     let mut cache = self
