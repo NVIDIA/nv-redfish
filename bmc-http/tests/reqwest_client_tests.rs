@@ -184,6 +184,7 @@ mod reqwest_client_tests {
 
         Mock::given(method("GET"))
             .and(path(resource_path))
+            .and(query_param("$skiptoken", "abc"))
             .and(query_param("$expand", ".($levels=2)"))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
             .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
@@ -193,7 +194,7 @@ mod reqwest_client_tests {
 
         let bmc = create_test_bmc(&mock_server);
 
-        let resource_id = create_odata_id(resource_path);
+        let resource_id = create_odata_id(&format!("{resource_path}?$skiptoken=abc"));
         let expand_query = ExpandQuery::current().levels(2);
         let result = bmc.expand::<TestResource>(&resource_id, expand_query).await;
 
@@ -213,6 +214,7 @@ mod reqwest_client_tests {
 
         Mock::given(method("GET"))
             .and(path(resource_path))
+            .and(query_param("$skiptoken", "abc"))
             .and(query_param("$filter", "value gt 10"))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
             .respond_with(ResponseTemplate::new(200).set_body_json(&test_resource))
@@ -222,7 +224,7 @@ mod reqwest_client_tests {
 
         let bmc = create_test_bmc(&mock_server);
 
-        let resource_id = create_odata_id(resource_path);
+        let resource_id = create_odata_id(&format!("{resource_path}?$skiptoken=abc"));
         let filter_query = FilterQuery::gt(&"value", 10);
         let result = bmc.filter::<TestResource>(&resource_id, filter_query).await;
 
@@ -233,7 +235,8 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
-    async fn test_post_create_request() {
+    async fn body_bearing_create_response_ignores_invalid_location(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mock_server = MockServer::start().await;
         let collection_path = paths::SYSTEMS_1;
 
@@ -249,46 +252,9 @@ mod reqwest_client_tests {
             .and(path(collection_path))
             .and(body_json(&create_request))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(ResponseTemplate::new(201).set_body_json(&created_resource))
-            .expect(1)
-            .mount(&mock_server)
-            .await;
-
-        let bmc = create_test_bmc(&mock_server);
-
-        let collection_id = create_odata_id(collection_path);
-        let result = bmc
-            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
-            .await;
-
-        assert!(result.is_ok());
-        let created = match result.unwrap() {
-            ModificationResponse::Entity(created) => created,
-            _ => panic!("expected entity response"),
-        };
-        assert_eq!(created.name, names::TEST_SYSTEM);
-        assert_eq!(created.value, 999);
-    }
-
-    #[tokio::test]
-    async fn test_create_session_response() {
-        let mock_server = MockServer::start().await;
-        let collection_path = "/redfish/v1/SessionService/Sessions";
-        let session_path = "/redfish/v1/SessionService/Sessions/1";
-
-        let create_request = CreateRequest {
-            name: names::TEST_SYSTEM.to_string(),
-            value: 999,
-        };
-        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 999);
-
-        Mock::given(method("POST"))
-            .and(path(collection_path))
-            .and(body_json(&create_request))
             .respond_with(
                 ResponseTemplate::new(201)
-                    .insert_header("X-Auth-Token", "session-token-123")
-                    .insert_header("Location", format!("https://bmc.example{session_path}"))
+                    .insert_header("Location", "#fragment")
                     .set_body_json(&created_resource),
             )
             .expect(1)
@@ -299,14 +265,222 @@ mod reqwest_client_tests {
 
         let collection_id = create_odata_id(collection_path);
         let response = bmc
+            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await?;
+
+        let ModificationResponse::Entity(created) = response else {
+            return Err(String::from("expected entity response").into());
+        };
+
+        assert_eq!(created.name, names::TEST_SYSTEM);
+        assert_eq!(created.value, 999);
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn relative_session_location_with_query_is_used_for_delete(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/SessionService/Sessions";
+        let session_path = "/redfish/v1/SessionService/Sessions/1";
+        let expected_location = format!("{session_path}?session=abc");
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+
+        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 999);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .insert_header("X-Auth-Token", "session-token-123")
+                    .insert_header("Location", "Sessions/1?session=abc")
+                    .set_body_json(&created_resource),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("DELETE"))
+            .and(path(session_path))
+            .and(query_param("session", "abc"))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let collection_id = create_odata_id(collection_path);
+
+        let response = bmc
             .create_session::<CreateRequest, TestResource>(&collection_id, &create_request)
-            .await
-            .unwrap();
+            .await?;
 
         assert_eq!(response.auth_token, "session-token-123");
-        assert_eq!(response.location.to_string(), session_path);
+        assert_eq!(response.location.to_string(), expected_location);
         assert_eq!(response.entity.name, names::TEST_SYSTEM);
         assert_eq!(response.entity.value, 999);
+
+        let deleted = bmc.delete::<TestResource>(&response.location).await?;
+
+        assert!(matches!(deleted, ModificationResponse::Empty));
+        mock_server.verify().await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn absolute_session_location_is_used_for_delete() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/SessionService/Sessions";
+        let session_path = "/redfish/v1/SessionService/Sessions/2";
+        let absolute_location = format!("{}{session_path}", mock_server.uri());
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 1000,
+        };
+
+        let created_resource = create_test_resource(session_path, None, names::TEST_SYSTEM, 1000);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .respond_with(
+                ResponseTemplate::new(201)
+                    .insert_header("X-Auth-Token", "session-token-456")
+                    .insert_header("Location", absolute_location)
+                    .set_body_json(&created_resource),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("DELETE"))
+            .and(path(session_path))
+            .respond_with(ResponseTemplate::new(204))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let collection_id = create_odata_id(collection_path);
+
+        let response = bmc
+            .create_session::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await?;
+
+        assert_eq!(response.auth_token, "session-token-456");
+        assert_eq!(response.location.to_string(), session_path);
+        assert_eq!(response.entity.value, 1000);
+
+        let deleted = bmc.delete::<TestResource>(&response.location).await?;
+
+        assert!(matches!(deleted, ModificationResponse::Empty));
+        mock_server.verify().await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn relative_task_location_with_query_can_be_polled(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/Systems";
+        let task_path = "/redfish/v1/TaskService/Tasks/42";
+        let expected_location = format!("{task_path}?monitor=abc");
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+
+        let task_resource = create_test_resource(task_path, None, "Update task", 50);
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .respond_with(
+                ResponseTemplate::new(202)
+                    .insert_header("Location", "TaskService/Tasks/42?monitor=abc"),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        Mock::given(method("GET"))
+            .and(path(task_path))
+            .and(query_param("monitor", "abc"))
+            .respond_with(ResponseTemplate::new(200).set_body_json(&task_resource))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let collection_id = create_odata_id(collection_path);
+
+        let response = bmc
+            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await?;
+
+        let ModificationResponse::Task(task) = response else {
+            return Err(String::from("expected task response").into());
+        };
+
+        assert_eq!(task.location.0.to_string(), expected_location);
+
+        let task = bmc.get::<TestResource>(&task.location.0).await?;
+
+        assert_eq!(task.name, "Update task");
+        assert_eq!(task.value, 50);
+        mock_server.verify().await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn async_operation_rejects_cross_origin_location(
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mock_server = MockServer::start().await;
+        let collection_path = "/redfish/v1/Systems";
+
+        let create_request = CreateRequest {
+            name: names::TEST_SYSTEM.to_string(),
+            value: 999,
+        };
+
+        Mock::given(method("POST"))
+            .and(path(collection_path))
+            .and(body_json(&create_request))
+            .respond_with(ResponseTemplate::new(202).insert_header(
+                "Location",
+                "https://other.example/redfish/v1/TaskService/Tasks/42",
+            ))
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let collection_id = create_odata_id(collection_path);
+
+        let result = bmc
+            .create::<CreateRequest, TestResource>(&collection_id, &create_request)
+            .await;
+
+        let Err(BmcError::InvalidResponse { status, text, .. }) = result else {
+            return Err(String::from("expected invalid response error").into());
+        };
+
+        assert_eq!(status, reqwest::StatusCode::ACCEPTED);
+        assert_eq!(text, "Location header resolves to a different origin");
+
+        Ok(())
     }
 
     #[tokio::test]
@@ -378,7 +552,7 @@ mod reqwest_client_tests {
             .and(|request: &Request| request.body == b"firmware-bytes")
             .respond_with(
                 ResponseTemplate::new(202)
-                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Location", format!("{}{task_path}", mock_server.uri()))
                     .insert_header("Retry-After", "15"),
             )
             .expect(1)
@@ -748,14 +922,15 @@ mod reqwest_client_tests {
     }
 
     #[tokio::test]
-    async fn test_delete_request() {
+    async fn no_content_delete_response_ignores_invalid_location(
+    ) -> Result<(), Box<dyn std::error::Error>> {
         let mock_server = MockServer::start().await;
         let resource_path = "/redfish/v1/systems/1";
 
         Mock::given(method("DELETE"))
             .and(path(resource_path))
             .and(header("authorization", "Basic cm9vdDpwYXNzd29yZA=="))
-            .respond_with(ResponseTemplate::new(204))
+            .respond_with(ResponseTemplate::new(204).insert_header("Location", "#fragment"))
             .expect(1)
             .mount(&mock_server)
             .await;
@@ -763,9 +938,11 @@ mod reqwest_client_tests {
         let bmc = create_test_bmc(&mock_server);
 
         let resource_id = create_odata_id(resource_path);
-        let result = bmc.delete::<TestResource>(&resource_id).await;
+        let response = bmc.delete::<TestResource>(&resource_id).await?;
 
-        assert!(result.is_ok());
+        assert!(matches!(response, ModificationResponse::Empty));
+
+        Ok(())
     }
 
     #[tokio::test]

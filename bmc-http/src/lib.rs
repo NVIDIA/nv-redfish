@@ -398,6 +398,41 @@ impl RedfishEndpoint {
         url
     }
 
+    /// Convert an OData identifier, including its optional query, to an endpoint URL.
+    ///
+    /// `ODataId` is opaque and can contain a query, particularly when it comes
+    /// from a task or session `Location` header. Passing the whole identifier to
+    /// `Url::set_path` would encode `?` as path data, so split the two URL
+    /// components before applying them.
+    fn with_odata_id(&self, id: &ODataId) -> Url {
+        let id = id.to_string();
+        let (path, query) = id
+            .split_once('?')
+            .map_or((id.as_str(), None), |(path, query)| (path, Some(query)));
+
+        let mut url = self.with_path(path);
+        url.set_query(query);
+        url
+    }
+
+    /// Convert an OData identifier and append query parameters.
+    ///
+    /// Existing parameters can carry continuation or monitor tokens and must
+    /// survive when callers add `$expand` or `$filter` parameters.
+    fn with_odata_id_and_query(&self, id: &ODataId, query: &str) -> Url {
+        let mut url = self.with_odata_id(id);
+
+        match url.query() {
+            Some(existing) if !existing.is_empty() => {
+                let combined_query = format!("{existing}&{query}");
+                url.set_query(Some(&combined_query));
+            }
+            _ => url.set_query(Some(query)),
+        }
+
+        url
+    }
+
     /// Resolve a URI reference and verify that it stays on the BMC origin.
     ///
     /// Callers must explicitly wrap service-provided values in
@@ -625,7 +660,7 @@ where
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         self.get_with_cache(endpoint_url).await
     }
 
@@ -636,7 +671,7 @@ where
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self
             .redfish_endpoint
-            .with_path_and_query(&id.to_string(), &query.to_query_string());
+            .with_odata_id_and_query(id, &query.to_query_string());
 
         self.get_with_cache(endpoint_url).await
     }
@@ -646,7 +681,7 @@ where
         id: &ODataId,
         v: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let credentials = self.read_credentials();
         self.client
             .post(endpoint_url, v, credentials.as_ref(), &self.custom_headers)
@@ -661,7 +696,7 @@ where
         id: &ODataId,
         v: &V,
     ) -> Result<SessionCreateResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         self.client
             .post_session(endpoint_url, v, &self.custom_headers)
             .await
@@ -673,7 +708,7 @@ where
         etag: Option<&ODataETag>,
         v: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let etag = etag
             .cloned()
             .unwrap_or_else(|| ODataETag::from(String::from("*")));
@@ -693,7 +728,7 @@ where
         &self,
         id: &ODataId,
     ) -> Result<ModificationResponse<T>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let credentials = self.read_credentials();
         self.client
             .delete(endpoint_url, credentials.as_ref(), &self.custom_headers)
@@ -782,7 +817,7 @@ where
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self
             .redfish_endpoint
-            .with_path_and_query(&id.to_string(), &query.to_query_string());
+            .with_odata_id_and_query(id, &query.to_query_string());
 
         self.get_with_cache(endpoint_url).await
     }
@@ -840,6 +875,37 @@ mod tests {
                 "{uri}"
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn odata_id_query_is_preserved_as_url_query() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+        let id =
+            ODataId::from("/redfish/v1/TaskService/Tasks/42?token=a%2Fb&state=ready".to_string());
+
+        let resolved = endpoint.with_odata_id(&id);
+
+        assert_eq!(resolved.path(), "/redfish/v1/TaskService/Tasks/42");
+        assert_eq!(resolved.query(), Some("token=a%2Fb&state=ready"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn odata_id_query_is_combined_with_request_query() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+        let id = ODataId::from("/redfish/v1/Systems?$skiptoken=abc".to_string());
+
+        let resolved = endpoint.with_odata_id_and_query(&id, "$filter=value%20gt%2010");
+
+        assert_eq!(resolved.path(), "/redfish/v1/Systems");
+
+        assert_eq!(
+            resolved.query(),
+            Some("$skiptoken=abc&$filter=value%20gt%2010")
+        );
 
         Ok(())
     }
