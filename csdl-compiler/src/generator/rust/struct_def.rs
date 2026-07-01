@@ -582,7 +582,7 @@ impl<'a> StructDef<'a> {
         rigid_array_support: RigidArraySupport,
     ) -> (TokenStream, TokenStream) {
         (
-            Self::gen_de_struct_field_serde_annot(rename, nullable, required),
+            Self::gen_de_struct_field_serde_annot(cardinality, rename, nullable, required),
             Self::gen_de_struct_field_type(
                 cardinality,
                 ftype,
@@ -593,16 +593,24 @@ impl<'a> StructDef<'a> {
         )
     }
 
-    fn gen_de_struct_field_serde_annot(
+    fn gen_de_struct_field_serde_annot<T>(
+        cardinality: &OneOrCollection<T>,
         rename: impl ToTokens,
         nullable: IsNullable,
         required: IsRequired,
     ) -> TokenStream {
-        if required.into_inner() && nullable.into_inner() {
+        let nullable = nullable.into_inner();
+        let required = required.into_inner();
+
+        if matches!( (cardinality, true, false), (OneOrCollection::Collection(_), req , nul)
+            if req == required && nul == nullable)
+        {
+            quote! { #[serde(rename=#rename, deserialize_with="de_null_to_empty_vec")] }
+        } else if required && nullable {
             quote! { #[serde(rename=#rename, deserialize_with="de_required_nullable")] }
-        } else if required.into_inner() {
+        } else if required {
             quote! { #[serde(rename=#rename)] }
-        } else if nullable.into_inner() {
+        } else if nullable {
             quote! { #[serde(rename=#rename, default, deserialize_with="de_optional_nullable")] }
         } else {
             quote! { #[serde(rename=#rename, default)] }

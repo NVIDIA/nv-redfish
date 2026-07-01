@@ -44,3 +44,13 @@ where
 {
     Deserialize::deserialize(de)
 }
+
+/// Deserialize a `null` field as an empty array.
+/// Some BMCs return `{"Members": null}` instead of `{"Members": []}`.
+pub fn de_null_to_empty_vec<'de, D, T>(deserializer: D) -> Result<Vec<T>, D::Error>
+where
+    D: Deserializer<'de>,
+    T: Deserialize<'de>,
+{
+    Ok(Option::<Vec<T>>::deserialize(deserializer)?.unwrap_or_default())
+}

@@ -384,7 +384,7 @@ impl<'a> ModDef<'a> {
                 Self::generate_ref_to_top_module(self.depth, config),
                 quote! {
                     use serde::{Serialize, Deserialize};
-                    use #top::{NavProperty, ODataId, ODataETag, de_optional_nullable, de_required_nullable};
+                    use #top::{NavProperty, ODataId, ODataETag, de_optional_nullable, de_required_nullable, de_null_to_empty_vec};
                     use #top::ActionError as _;
                 },
             ]);

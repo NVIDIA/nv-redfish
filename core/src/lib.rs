@@ -101,6 +101,8 @@ pub use action::ActionError;
 #[doc(inline)]
 pub use bmc::Bmc;
 #[doc(inline)]
+pub use deserialize::de_null_to_empty_vec;
+#[doc(inline)]
 pub use deserialize::de_optional_nullable;
 #[doc(inline)]
 pub use deserialize::de_required_nullable;

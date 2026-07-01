@@ -187,6 +187,7 @@ impl<'a> RustGenerator<'a> {
                 ToSnakeCase,
                 de_optional_nullable,
                 de_required_nullable,
+                de_null_to_empty_vec,
             };
 
             pub mod edm {

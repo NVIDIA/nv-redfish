@@ -537,6 +537,43 @@ async fn create_collection_member_test() -> Result<(), Error> {
     Ok(())
 }
 
+// Check that collection with {"Members":null} returns empty collection.
+#[test]
+async fn null_collection_member_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let root_id = ODataId::service_root();
+    let collection_name = "TestCollection";
+    let collection_id = format!("{root_id}/{collection_name}");
+    let collection_data_type = format!("ServiceRoot.v1_0_0.{collection_name}");
+    bmc.expect(expect_root_srv(collection_name, &collection_id));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+
+    assert!(matches!(
+        service_root.test_collection.as_ref(),
+        Some(NavProperty::Reference(_))
+    ));
+
+    let collection_tpl = json!({
+        ODATA_ID: &collection_id,
+        ODATA_TYPE: &collection_data_type,
+    });
+    bmc.expect(Expect::get(
+        &collection_id,
+        json_merge([&collection_tpl, &json!({ "Members": null })]),
+    ));
+    let collection = service_root
+        .test_collection
+        .as_ref()
+        .ok_or(Error::ExpectedProperty("test_collection"))?
+        .get(&bmc)
+        .await
+        .map_err(Error::Bmc)?;
+    let members_numbers = collection.members.len();
+    assert_eq!(members_numbers, 0);
+
+    Ok(())
+}
+
 #[test]
 async fn create_struct_required_on_create_and_writable_fields_test() -> Result<(), Error> {
     let create = TestCollectionMemberCreate::builder(
