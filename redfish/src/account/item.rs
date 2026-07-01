@@ -118,32 +118,49 @@ impl<B: Bmc> Account<B> {
 
     /// Update the account.
     ///
-    /// Returns the new (updated) account.
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated account.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
     ///
     /// # Errors
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update(&self, update: &ManagerAccountUpdate) -> Result<Option<Self>, Error<B>> {
+    pub async fn update(
+        &self,
+        update: &ManagerAccountUpdate,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
         match self.update_with_patch(update).await? {
-            ModificationResponse::Entity(ma) => Ok(Some(Self::from_data(
+            ModificationResponse::Entity(ma) => Ok(ModificationResponse::Entity(Self::from_data(
                 self.bmc.clone(),
                 ma,
                 self.config.clone(),
             ))),
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
         }
     }
 
     /// Update the account's password.
     ///
-    /// Returns the new (updated) account.
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated account.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
     ///
     /// # Errors
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update_password(&self, password: String) -> Result<Option<Self>, Error<B>> {
+    pub async fn update_password(
+        &self,
+        password: String,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
                 .with_password(password)
@@ -154,13 +171,21 @@ impl<B: Bmc> Account<B> {
 
     /// Update the account's user name.
     ///
-    /// Returns the new (updated) account.
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated account.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
     ///
     /// # Errors
     ///
     /// Returns an error if the server responds with an error or if the
     /// response cannot be parsed.
-    pub async fn update_user_name(&self, user_name: String) -> Result<Option<Self>, Error<B>> {
+    pub async fn update_user_name(
+        &self,
+        user_name: String,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.update(
             &ManagerAccountUpdate::builder()
                 .with_user_name(user_name)
@@ -171,10 +196,19 @@ impl<B: Bmc> Account<B> {
 
     /// Delete the current account.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the account returned by the
+    ///   server. When deletion is configured to disable the account, this is the
+    ///   updated account.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if deletion fails.
-    pub async fn delete(&self) -> Result<Option<Self>, Error<B>> {
+    pub async fn delete(&self) -> Result<ModificationResponse<Self>, Error<B>> {
         if self.config.disable_account_on_delete {
             self.update(&ManagerAccountUpdate::builder().with_enabled(false).build())
                 .await
@@ -186,10 +220,11 @@ impl<B: Bmc> Account<B> {
                 .await
                 .map_err(Error::Bmc)?
             {
-                ModificationResponse::Entity(nav) => {
-                    Self::new(&self.bmc, &nav, &self.config).await.map(Some)
-                }
-                ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
+                ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav, &self.config)
+                    .await
+                    .map(ModificationResponse::Entity),
+                ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
+                ModificationResponse::Empty => Ok(ModificationResponse::Empty),
             }
         }
     }

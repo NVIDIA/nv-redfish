@@ -18,7 +18,9 @@
 use std::fmt::Display;
 
 use nv_redfish_core::action::ActionTarget;
+use nv_redfish_core::AsyncTask;
 use nv_redfish_core::ODataId;
+
 use serde_json::from_str;
 use serde_json::Value as JsonValue;
 
@@ -29,12 +31,36 @@ pub type Response<E> = Result<JsonValue, E>;
 pub enum ExpectedRequest {
     /// Expected Get.
     Get { id: ODataId },
+
     /// Expected Expand.
     Expand { id: ODataId },
+
     /// Expected Update.
     Update { id: ODataId, request: JsonValue },
+
+    /// Expected asynchronous update.
+    UpdateTask {
+        id: ODataId,
+        request: JsonValue,
+        task: AsyncTask,
+    },
+
+    /// Expected update with no response body.
+    UpdateEmpty { id: ODataId, request: JsonValue },
+
     /// Expected Create.
     Create { id: ODataId, request: JsonValue },
+
+    /// Expected asynchronous create.
+    CreateTask {
+        id: ODataId,
+        request: JsonValue,
+        task: AsyncTask,
+    },
+
+    /// Expected create with no response body.
+    CreateEmpty { id: ODataId, request: JsonValue },
+
     /// Expected Redfish session creation.
     CreateSession {
         id: ODataId,
@@ -42,11 +68,13 @@ pub enum ExpectedRequest {
         auth_token: String,
         location: ODataId,
     },
+
     /// Expected ActionTarget
     Action {
         target: ActionTarget,
         request: JsonValue,
     },
+
     /// Expected multipart update.
     MultipartUpdate {
         uri: String,
@@ -54,11 +82,17 @@ pub enum ExpectedRequest {
         file_name: String,
         oem_parts: Vec<String>,
     },
+
     /// Expected raw HttpPushUri update.
     #[cfg(feature = "update-service-deprecated")]
     HttpPushUriUpdate { uri: String },
+
     /// Expected Delete.
     Delete { id: ODataId },
+
+    /// Expected asynchronous delete.
+    DeleteTask { id: ODataId, task: AsyncTask },
+
     /// Expected Stream.
     Stream { uri: String },
 }
@@ -96,6 +130,28 @@ impl<E> Expect<E> {
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }
     }
+
+    pub fn update_task(uri: impl Display, request: impl Display, task: AsyncTask) -> Self {
+        Expect {
+            request: ExpectedRequest::UpdateTask {
+                id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+                task,
+            },
+            response: Ok(JsonValue::Null),
+        }
+    }
+
+    pub fn update_empty(uri: impl Display, request: impl Display) -> Self {
+        Expect {
+            request: ExpectedRequest::UpdateEmpty {
+                id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+            },
+            response: Ok(JsonValue::Null),
+        }
+    }
+
     pub fn create(uri: impl Display, request: impl Display, response: impl Display) -> Self {
         Expect {
             request: ExpectedRequest::Create {
@@ -105,6 +161,28 @@ impl<E> Expect<E> {
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }
     }
+
+    pub fn create_task(uri: impl Display, request: impl Display, task: AsyncTask) -> Self {
+        Expect {
+            request: ExpectedRequest::CreateTask {
+                id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+                task,
+            },
+            response: Ok(JsonValue::Null),
+        }
+    }
+
+    pub fn create_empty(uri: impl Display, request: impl Display) -> Self {
+        Expect {
+            request: ExpectedRequest::CreateEmpty {
+                id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+            },
+            response: Ok(JsonValue::Null),
+        }
+    }
+
     pub fn create_session(
         uri: impl Display,
         request: impl Display,
@@ -185,6 +263,16 @@ impl<E> Expect<E> {
         Expect {
             request: ExpectedRequest::Delete {
                 id: uri.to_string().into(),
+            },
+            response: Ok(JsonValue::Null),
+        }
+    }
+
+    pub fn delete_task(uri: impl Display, task: AsyncTask) -> Self {
+        Expect {
+            request: ExpectedRequest::DeleteTask {
+                id: uri.to_string().into(),
+                task,
             },
             response: Ok(JsonValue::Null),
         }
