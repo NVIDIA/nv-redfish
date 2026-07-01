@@ -136,7 +136,7 @@ impl ODataType<'_> {
     pub fn parse_from(v: &serde_json::Value) -> Option<ODataType<'_>> {
         v.get("@odata.type")
             .and_then(|v| v.as_str())
-            .and_then(|v| v.starts_with('#').then_some(&v[1..]))
+            .and_then(|v| v.strip_prefix('#'))
             .and_then(|v| {
                 let mut all = v.split('.').collect::<Vec<_>>();
                 all.pop().map(|type_name| ODataType {
@@ -149,7 +149,16 @@ impl ODataType<'_> {
 
 #[cfg(test)]
 mod tests {
-    use super::ODataId;
+    use super::*;
+
+    #[test]
+    fn parse_from_returns_none_for_empty_odata_type() {
+        let value = serde_json::json!({ "@odata.type": "" });
+
+        let odata_type = ODataType::parse_from(&value);
+
+        assert!(odata_type.is_none());
+    }
 
     #[test]
     fn last_segment_returns_last_path_segment() {
