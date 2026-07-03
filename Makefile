@@ -90,7 +90,7 @@ define build-and-test
 	cargo build -p nv-redfish --features managers,oem-dell-attributes
 	$(foreach f,$(std-standalone-features),$(call compile-one-feature,$f))
 	cargo build -p nv-redfish --features ""
-	cargo doc $1
+	cargo doc --no-deps $1
 	cargo build
 
 endef
