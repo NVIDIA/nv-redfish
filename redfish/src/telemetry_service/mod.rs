@@ -94,16 +94,22 @@ impl<B: Bmc> TelemetryService<B> {
 
     /// Enable or disable telemetry service.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated telemetry service.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if updating telemetry service fails.
-    pub async fn set_enabled(&self, enabled: bool) -> Result<Option<Self>, Error<B>> {
+    pub async fn set_enabled(&self, enabled: bool) -> Result<ModificationResponse<Self>, Error<B>> {
         let update = TelemetryServiceUpdate::builder()
             .with_service_enabled(enabled)
             .build();
 
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<TelemetryServiceSchema>>(
                 self.data.odata_id(),
@@ -112,16 +118,15 @@ impl<B: Bmc> TelemetryService<B> {
             )
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => {
+            .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-                Ok(Some(Self {
+
+                Ok(Self {
                     data,
                     bmc: self.bmc.clone(),
-                }))
-            }
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+                })
+            })
+            .await
     }
 
     /// Get `Vec<MetricReportLink>` associated with this telemetry service.
@@ -208,6 +213,13 @@ impl<B: Bmc> TelemetryService<B> {
 
     /// Create a metric definition.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the created metric definition.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -216,28 +228,31 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_definition(
         &self,
         create: &MetricDefinitionCreate,
-    ) -> Result<Option<MetricDefinition<B>>, Error<B>> {
+    ) -> Result<ModificationResponse<MetricDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_definitions
             .as_ref()
             .ok_or(Error::MetricDefinitionsNotAvailable)?;
 
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .create::<_, NavProperty<MetricDefinitionSchema>>(collection_ref.id(), create)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => {
-                MetricDefinition::new(&self.bmc, &nav).await.map(Some)
-            }
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .try_map_entity_async(|nav| async move { MetricDefinition::new(&self.bmc, &nav).await })
+            .await
     }
 
     /// Create a metric report definition.
+    ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the created metric report
+    ///   definition.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
     ///
     /// # Errors
     ///
@@ -247,25 +262,22 @@ impl<B: Bmc> TelemetryService<B> {
     pub async fn create_metric_report_definition(
         &self,
         create: &MetricReportDefinitionCreate,
-    ) -> Result<Option<MetricReportDefinition<B>>, Error<B>> {
+    ) -> Result<ModificationResponse<MetricReportDefinition<B>>, Error<B>> {
         let collection_ref = self
             .data
             .metric_report_definitions
             .as_ref()
             .ok_or(Error::MetricReportDefinitionsNotAvailable)?;
 
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .create::<_, NavProperty<MetricReportDefinitionSchema>>(collection_ref.id(), create)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => {
-                MetricReportDefinition::new(&self.bmc, &nav).await.map(Some)
-            }
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .try_map_entity_async(|nav| async move {
+                MetricReportDefinition::new(&self.bmc, &nav).await
+            })
+            .await
     }
 }
 

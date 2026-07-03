@@ -19,13 +19,23 @@
 //!
 //! ```ignore
 //! use nv_redfish::control::ControlUpdate;
+//! use nv_redfish_core::ModificationResponse;
 //!
 //! let Some(power_limit) = chassis.environment_power_limit_control().await? else {
 //!     return Ok(());
 //! };
 //!
 //! let update = ControlUpdate::builder().with_set_point(700.0).build();
-//! power_limit.update(&update).await?;
+//!
+//! match power_limit.update(&update).await? {
+//!     ModificationResponse::Entity(updated) => {
+//!         let _updated_control = updated.raw();
+//!     }
+//!     ModificationResponse::Task(task) => {
+//!         let _task = task;
+//!     }
+//!     ModificationResponse::Empty => {}
+//! }
 //! ```
 
 use std::sync::Arc;
@@ -182,19 +192,13 @@ impl<B: Bmc> Control<B> {
         &self,
         update: &ControlUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<ControlSchema>>(self.data.odata_id(), self.data.etag(), update)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav)
-                .await
-                .map(ModificationResponse::Entity),
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 }
 

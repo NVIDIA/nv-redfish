@@ -14,11 +14,15 @@
 // limitations under the License.
 //! Integration tests for Manager collection behavior.
 
+use std::error::Error as StdError;
+use std::sync::Arc;
+
 use nv_redfish::manager::Manager;
 use nv_redfish::manager::ManagerResetToDefaultsType;
 use nv_redfish::resource::ResetType;
 use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
@@ -30,10 +34,9 @@ use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
+
 use serde_json::json;
 use serde_json::Value;
-use std::error::Error as StdError;
-use std::sync::Arc;
 use tokio::test;
 
 const MANAGER_COLLECTION_DATA_TYPE: &str = "#ManagerCollection.ManagerCollection";
@@ -55,10 +58,18 @@ async fn reset_invokes_manager_reset_action() -> Result<(), Box<dyn StdError>> {
     .await?;
 
     expect_redfish_reset_action(&bmc, &action_target, Some("ForceRestart"));
-    manager.reset(Some(ResetType::ForceRestart)).await?;
+
+    assert!(matches!(
+        manager.reset(Some(ResetType::ForceRestart)).await?,
+        ModificationResponse::Entity(())
+    ));
 
     expect_redfish_reset_action(&bmc, &action_target, None);
-    manager.reset(None).await?;
+
+    assert!(matches!(
+        manager.reset(None).await?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }
@@ -80,9 +91,13 @@ async fn reset_to_defaults_invokes_manager_reset_to_defaults_action(
     .await?;
 
     expect_redfish_reset_action(&bmc, &action_target, Some("ResetAll"));
-    manager
-        .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
-        .await?;
+
+    assert!(matches!(
+        manager
+            .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
+            .await?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }

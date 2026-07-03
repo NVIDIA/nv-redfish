@@ -42,6 +42,7 @@ nv-redfish = { workspace = true, features = [
     "sensors",
     "session-service",
     "task-service",
+    "telemetry-service",
     "update-service",
 ] }
 serde = { workspace = true, features = ["derive"] }

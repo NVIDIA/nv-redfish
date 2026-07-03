@@ -136,7 +136,7 @@ impl<B: Bmc> Account<B> {
         Ok(self
             .update_with_patch(update)
             .await?
-            .map(|ma| Self::from_data(self.bmc.clone(), ma, self.config.clone())))
+            .map_entity(|ma| Self::from_data(self.bmc.clone(), ma, self.config.clone())))
     }
 
     /// Update the account's password.
@@ -208,19 +208,15 @@ impl<B: Bmc> Account<B> {
             self.update(&ManagerAccountUpdate::builder().with_enabled(false).build())
                 .await
         } else {
-            match self
-                .bmc
+            self.bmc
                 .as_ref()
                 .delete::<NavProperty<ManagerAccount>>(self.data.odata_id())
                 .await
                 .map_err(Error::Bmc)?
-            {
-                ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav, &self.config)
-                    .await
-                    .map(ModificationResponse::Entity),
-                ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-                ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-            }
+                .try_map_entity_async(|nav| async move {
+                    Self::new(&self.bmc, &nav, &self.config).await
+                })
+                .await
         }
     }
 }

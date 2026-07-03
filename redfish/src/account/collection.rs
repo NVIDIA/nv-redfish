@@ -212,9 +212,12 @@ impl<B: Bmc> AccountCollection<B> {
             // No available slot found
             Err(Error::AccountSlotNotAvailable)
         } else {
-            Ok(self.create_with_patch(&create).await?.map(|account| {
-                Account::from_data(self.bmc.clone(), account, self.config.account.clone())
-            }))
+            Ok(self
+                .create_with_patch(&create)
+                .await?
+                .map_entity(|account| {
+                    Account::from_data(self.bmc.clone(), account, self.config.account.clone())
+                }))
         }
     }
 

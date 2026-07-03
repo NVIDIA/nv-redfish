@@ -204,16 +204,9 @@ impl Updator<'_> {
         U: Serialize + Send + Sync,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        match bmc
-            .update::<U, Payload>(self.odata_id(), self.etag(), update)
+        bmc.update::<U, Payload>(self.odata_id(), self.etag(), update)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(payload) => payload
-                .to_target::<T, B, _>(&patch_fn)
-                .map(ModificationResponse::Entity),
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+            .try_map_entity(|payload| payload.to_target::<T, B, _>(&patch_fn))
     }
 }

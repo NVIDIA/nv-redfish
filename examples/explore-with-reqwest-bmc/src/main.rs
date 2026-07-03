@@ -112,7 +112,7 @@ async fn main() -> Result<(), BmcError> {
         .get(&bmc)
         .await?;
 
-    system
+    let _change_password = system
         .bios
         .as_ref()
         .expect("no bios")
@@ -159,7 +159,7 @@ async fn main() -> Result<(), BmcError> {
         .get(&bmc)
         .await?;
 
-    acc.delete(&bmc).await?;
+    let _delete = acc.delete(&bmc).await?;
 
     let _ = NavProperty::<ManagerAccount>::new_reference(account.odata_id().clone())
         .get(&bmc)

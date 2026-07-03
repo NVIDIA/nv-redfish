@@ -85,12 +85,19 @@ impl<B: Bmc> Session<B> {
 
     /// Delete the current session.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the session returned by the
+    ///   server.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if deletion fails.
-    pub async fn delete(&self) -> Result<Option<Self>, Error<B>> {
-        match self
-            .bmc
+    pub async fn delete(&self) -> Result<ModificationResponse<Self>, Error<B>> {
+        self.bmc
             .as_ref()
             .delete::<NavProperty<SessionSchema>>(
                 self.delete_location
@@ -99,10 +106,8 @@ impl<B: Bmc> Session<B> {
             )
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav).await.map(Some),
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 }
 

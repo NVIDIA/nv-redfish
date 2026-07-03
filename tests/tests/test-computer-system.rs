@@ -14,14 +14,22 @@
 // limitations under the License.
 //! Integration tests for Computer System resources.
 
+use std::error::Error as StdError;
+use std::sync::Arc;
+
+use nv_redfish::computer_system::BootOptionReference;
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::computer_system::SystemCollection;
 use nv_redfish::resource::ResetType;
 use nv_redfish::Resource;
 use nv_redfish::ServiceRoot;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::ami_viking_service_root;
 use nv_redfish_tests::anonymous_1_9_service_root;
+use nv_redfish_tests::assert_empty;
+use nv_redfish_tests::assert_task;
+use nv_redfish_tests::async_task;
 use nv_redfish_tests::expect_redfish_reset_action;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::redfish_action_payload;
@@ -30,10 +38,9 @@ use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
+
 use serde_json::json;
 use serde_json::Value;
-use std::error::Error as StdError;
-use std::sync::Arc;
 use tokio::test;
 
 const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_13_0.ServiceRoot";
@@ -56,10 +63,60 @@ async fn reset_invokes_computer_system_reset_action() -> Result<(), Box<dyn StdE
     .await?;
 
     expect_redfish_reset_action(&bmc, &action_target, Some("GracefulRestart"));
-    system.reset(Some(ResetType::GracefulRestart)).await?;
+
+    assert!(matches!(
+        system.reset(Some(ResetType::GracefulRestart)).await?,
+        ModificationResponse::Entity(())
+    ));
 
     expect_redfish_reset_action(&bmc, &action_target, None);
-    system.reset(None).await?;
+
+    assert!(matches!(
+        system.reset(None).await?,
+        ModificationResponse::Entity(())
+    ));
+
+    Ok(())
+}
+
+#[test]
+async fn set_boot_order_preserves_task_and_empty_responses() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        computer_system(&ids, json!({ "Boot": { "BootOrder": ["Boot0001"] } })),
+    )
+    .await?;
+
+    let task_id = "/redfish/v1/TaskService/Tasks/52";
+
+    bmc.expect(Expect::update_task(
+        &ids.system_id,
+        json!({ "Boot": { "BootOrder": ["Boot0002"] } }),
+        async_task(task_id, 7),
+    ));
+
+    assert_task(
+        system
+            .set_boot_order(vec![BootOptionReference::new("Boot0002".into())])
+            .await?,
+        task_id,
+        7,
+    );
+
+    bmc.expect(Expect::update_empty(
+        &ids.system_id,
+        json!({ "Boot": { "BootOrder": ["Boot0003"] } }),
+    ));
+
+    assert_empty(
+        system
+            .set_boot_order(vec![BootOptionReference::new("Boot0003".into())])
+            .await?,
+    );
 
     Ok(())
 }
@@ -412,7 +469,8 @@ fn computer_system(ids: &ComputerSystemIds, fields: Value) -> Value {
         .as_object()
         .and_then(|obj| obj.get(ODATA_ID))
         .and_then(Value::as_str);
-    let system_id = override_id.unwrap_or_else(|| ids.system_id.as_str());
+
+    let system_id = override_id.unwrap_or(ids.system_id.as_str());
     let name = resource_name(system_id);
     let base = json!({
         ODATA_ID: system_id,

@@ -236,13 +236,20 @@ impl<B: Bmc> ComputerSystem<B> {
 
     /// Update the persistent boot order for this computer system.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated computer system.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if updating the system fails.
     pub async fn set_boot_order(
         &self,
         boot_order: Vec<BootOptionReference<String>>,
-    ) -> Result<Option<Self>, Error<B>> {
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
         let update = ComputerSystemBootOrderUpdate {
             boot: BootPatch { boot_order },
         };
@@ -253,22 +260,20 @@ impl<B: Bmc> ComputerSystem<B> {
             .as_ref()
             .map_or_else(|| self.data.odata_id(), |settings| settings.odata_id());
 
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<ComputerSystemSchema>>(update_odata, None, &update)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => {
+            .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
-                Ok(Some(Self {
+
+                Ok(Self {
                     bmc: self.bmc.clone(),
                     data,
-                }))
-            }
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+                })
+            })
+            .await
     }
 
     /// Bios associated with this system.

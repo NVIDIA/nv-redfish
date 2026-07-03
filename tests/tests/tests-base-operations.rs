@@ -325,9 +325,10 @@ async fn update_property_test() -> Result<(), Error> {
     bmc.expect(Expect::update(
         root_id.clone(),
         json!({ write_only_name: &value }),
-        &json_merge([&root_json, &json!({})]),
+        json_merge([&root_json, &json!({})]),
     ));
-    service_root
+
+    let response = service_root
         .update(
             &bmc,
             &ServiceRootUpdate {
@@ -340,6 +341,9 @@ async fn update_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+
+    assert!(matches!(response, ModificationResponse::Entity(_)));
+
     Ok(())
 }
 
@@ -433,7 +437,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
 
     // Ensure field is omitted when not set in update struct.
     bmc.expect(Expect::update(root_id.clone(), json!({}), &root_json));
-    service_root
+    let response = service_root
         .update(
             &bmc,
             &ServiceRootUpdate {
@@ -446,6 +450,8 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+
+    assert!(matches!(response, ModificationResponse::Entity(_)));
 
     // Refresh keeps null element in rigid array payload.
     bmc.expect(Expect::get(
@@ -611,15 +617,19 @@ async fn action_method_test() -> Result<(), Error> {
 
     bmc.expect(Expect::action(
         &action_target,
-        &json!({
+        json!({
             "ActionType": "Option1"
         }),
         &json!(null),
     ));
-    service_actions
-        .test_action(&bmc, Some(ActionType::Option1))
-        .await
-        .map_err(Error::Bmc)?;
+
+    assert!(matches!(
+        service_actions
+            .test_action(&bmc, Some(ActionType::Option1))
+            .await
+            .map_err(Error::Bmc)?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }

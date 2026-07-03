@@ -212,21 +212,22 @@ pub struct AsyncTask {
 }
 
 /// Outcome of a mutating Redfish operation.
+#[must_use = "mutating Redfish responses may contain an asynchronous task handle"]
 #[derive(Debug)]
 pub enum ModificationResponse<T> {
-    /// Request completed synchronously
+    /// Request completed synchronously.
     Entity(T),
+
     /// Request is completing asynchronously with the provided task location.
     Task(AsyncTask),
-    /// Request completed successfully with no response body
+
+    /// Request completed successfully with no response body.
     Empty,
 }
 
 impl<T> ModificationResponse<T> {
-    /// Maps a synchronous entity response while preserving task and empty
-    /// outcomes.
-    #[must_use]
-    pub fn map<U, F>(self, f: F) -> ModificationResponse<U>
+    /// Maps an entity outcome while preserving task and empty outcomes.
+    pub fn map_entity<U, F>(self, f: F) -> ModificationResponse<U>
     where
         F: FnOnce(T) -> U,
     {
@@ -234,6 +235,44 @@ impl<T> ModificationResponse<T> {
             Self::Entity(entity) => ModificationResponse::Entity(f(entity)),
             Self::Task(task) => ModificationResponse::Task(task),
             Self::Empty => ModificationResponse::Empty,
+        }
+    }
+
+    /// Maps an entity outcome with a fallible function while preserving task
+    /// and empty outcomes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error produced by `f` when this response contains an entity.
+    pub fn try_map_entity<U, E, F>(self, f: F) -> Result<ModificationResponse<U>, E>
+    where
+        F: FnOnce(T) -> Result<U, E>,
+    {
+        match self {
+            Self::Entity(entity) => f(entity).map(ModificationResponse::Entity),
+            Self::Task(task) => Ok(ModificationResponse::Task(task)),
+            Self::Empty => Ok(ModificationResponse::Empty),
+        }
+    }
+
+    /// Asynchronously maps an entity outcome with a fallible function while
+    /// preserving task and empty outcomes.
+    ///
+    /// # Errors
+    ///
+    /// Returns the error produced by `f` when this response contains an entity.
+    pub async fn try_map_entity_async<U, E, F, Fut>(
+        self,
+        f: F,
+    ) -> Result<ModificationResponse<U>, E>
+    where
+        F: FnOnce(T) -> Fut,
+        Fut: Future<Output = Result<U, E>>,
+    {
+        match self {
+            Self::Entity(entity) => f(entity).await.map(ModificationResponse::Entity),
+            Self::Task(task) => Ok(ModificationResponse::Task(task)),
+            Self::Empty => Ok(ModificationResponse::Empty),
         }
     }
 }
@@ -317,4 +356,125 @@ pub trait ToSnakeCase {
 pub trait FilterProperty {
     /// Returns the `OData` property path for this property
     fn property_path(&self) -> &str;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn assert_entity(
+        response: ModificationResponse<u32>,
+        expected: u32,
+    ) -> Result<(), &'static str> {
+        let ModificationResponse::Entity(value) = response else {
+            return Err("expected an entity response");
+        };
+
+        assert_eq!(value, expected);
+
+        Ok(())
+    }
+
+    fn assert_task<T>(response: ModificationResponse<T>) -> Result<(), &'static str> {
+        let ModificationResponse::Task(task) = response else {
+            return Err("expected a task response");
+        };
+
+        assert_eq!(
+            task.location.0.to_string(),
+            "/redfish/v1/TaskService/Tasks/1"
+        );
+
+        Ok(())
+    }
+
+    fn assert_empty<T>(response: ModificationResponse<T>) -> Result<(), &'static str> {
+        if !matches!(response, ModificationResponse::Empty) {
+            return Err("expected an empty response");
+        }
+
+        Ok(())
+    }
+
+    fn task_response() -> ModificationResponse<()> {
+        ModificationResponse::Task(AsyncTask {
+            location: ODataId::from("/redfish/v1/TaskService/Tasks/1".to_string()).into(),
+            retry_after: None,
+        })
+    }
+
+    #[test]
+    fn map_entity_maps_entity_and_preserves_task_and_empty() -> Result<(), &'static str> {
+        assert_entity(
+            ModificationResponse::Entity(21_u32).map_entity(|value| value * 2),
+            42,
+        )?;
+
+        assert_task(task_response().map_entity(|()| 42_u32))?;
+        assert_empty(ModificationResponse::<()>::Empty.map_entity(|()| 42_u32))?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn try_map_entity_maps_entity_and_propagates_error() -> Result<(), &'static str> {
+        assert_entity(
+            ModificationResponse::Entity(21_u32).try_map_entity(|value| Ok(value * 2))?,
+            42,
+        )?;
+
+        let error = ModificationResponse::Entity(21_u32)
+            .try_map_entity(|_| Err::<u32, _>("mapping failed"));
+
+        assert!(matches!(error, Err("mapping failed")));
+
+        Ok(())
+    }
+
+    #[test]
+    fn try_map_entity_preserves_task_and_empty() -> Result<(), &'static str> {
+        assert_task(task_response().try_map_entity(|()| Ok::<u32, &'static str>(42))?)?;
+
+        assert_empty(
+            ModificationResponse::<()>::Empty.try_map_entity(|()| Ok::<u32, &'static str>(42))?,
+        )?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn try_map_entity_async_maps_entity_and_preserves_task_and_empty(
+    ) -> Result<(), &'static str> {
+        assert_entity(
+            ModificationResponse::Entity(21_u32)
+                .try_map_entity_async(|value| async move { Ok(value * 2) })
+                .await?,
+            42,
+        )?;
+
+        assert_task(
+            task_response()
+                .try_map_entity_async(|()| async { Ok::<u32, &'static str>(42) })
+                .await?,
+        )?;
+
+        assert_empty(
+            ModificationResponse::<()>::Empty
+                .try_map_entity_async(|()| async { Ok::<u32, &'static str>(42) })
+                .await?,
+        )?;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn try_map_entity_async_propagates_mapper_error() {
+        let response = ModificationResponse::Entity(21_u32);
+
+        let mapped = response
+            .try_map_entity_async(|_| async { Err::<u32, _>("mapping failed") })
+            .await;
+
+        assert!(matches!(mapped, Err("mapping failed")));
+    }
 }

@@ -14,6 +14,9 @@
 // limitations under the License.
 //! Integration tests for Chassis collection workaround behavior.
 
+use std::error::Error as StdError;
+use std::sync::Arc;
+
 use nv_redfish::chassis::Chassis;
 use nv_redfish::chassis::PowerSupply;
 use nv_redfish::control::ControlUpdate;
@@ -32,10 +35,9 @@ use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
+
 use serde_json::json;
 use serde_json::Value;
-use std::error::Error as StdError;
-use std::sync::Arc;
 use tokio::test;
 
 const CHASSIS_COLLECTION_DATA_TYPE: &str = "#ChassisCollection.ChassisCollection";
@@ -60,10 +62,18 @@ async fn reset_invokes_chassis_reset_action() -> Result<(), Box<dyn StdError>> {
     .await?;
 
     expect_redfish_reset_action(&bmc, &action_target, Some("ForceRestart"));
-    chassis.reset(Some(ResetType::ForceRestart)).await?;
+
+    assert!(matches!(
+        chassis.reset(Some(ResetType::ForceRestart)).await?,
+        ModificationResponse::Entity(())
+    ));
 
     expect_redfish_reset_action(&bmc, &action_target, None);
-    chassis.reset(None).await?;
+
+    assert!(matches!(
+        chassis.reset(None).await?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }
@@ -103,10 +113,18 @@ async fn reset_invokes_power_supply_reset_action() -> Result<(), Box<dyn StdErro
     .await?;
 
     expect_redfish_reset_action(&bmc, &action_target, Some("GracefulRestart"));
-    power_supply.reset(Some(ResetType::GracefulRestart)).await?;
+
+    assert!(matches!(
+        power_supply.reset(Some(ResetType::GracefulRestart)).await?,
+        ModificationResponse::Entity(())
+    ));
 
     expect_redfish_reset_action(&bmc, &action_target, None);
-    power_supply.reset(None).await?;
+
+    assert!(matches!(
+        power_supply.reset(None).await?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }

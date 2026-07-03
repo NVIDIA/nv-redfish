@@ -131,20 +131,13 @@ impl Collection {
         C: Serialize + Sync + Send,
         F: Fn(JsonValue) -> JsonValue + Sync + Send,
     {
-        let result = Creator {
+        Creator {
             id: orig.odata_id(),
         }
         .create(bmc, create)
         .await
-        .map_err(Error::Bmc)?;
-
-        match result {
-            ModificationResponse::Entity(payload) => payload
-                .to_target::<V, B, _>(&f)
-                .map(ModificationResponse::Entity),
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+        .map_err(Error::Bmc)?
+        .try_map_entity(|payload| payload.to_target::<V, B, _>(&f))
     }
 
     fn base(&self) -> ResourceCollection {

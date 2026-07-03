@@ -279,8 +279,7 @@ impl<B: Bmc> UpdateService<B> {
         &self,
         update: &UpdateServiceUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
-        let response = self
-            .bmc
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<UpdateServiceSchema>>(
                 self.data.odata_id(),
@@ -288,21 +287,17 @@ impl<B: Bmc> UpdateService<B> {
                 update,
             )
             .await
-            .map_err(Error::Bmc)?;
-
-        match response {
-            ModificationResponse::Entity(nav) => {
+            .map_err(Error::Bmc)?
+            .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
 
-                Ok(ModificationResponse::Entity(Self {
+                Ok(Self {
                     bmc: self.bmc.clone(),
                     data,
                     fw_inventory_read_patch_fn: self.fw_inventory_read_patch_fn.clone(),
-                }))
-            }
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+                })
+            })
+            .await
     }
 
     /// Upload a raw binary stream using this service's deprecated `HttpPushUri`.

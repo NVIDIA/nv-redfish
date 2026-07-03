@@ -32,15 +32,45 @@ pub const ODATA_ID: &str = "@odata.id";
 /// Used in tests for `@odata.type` fields.
 pub const ODATA_TYPE: &str = "@odata.type";
 
+use std::time::Duration;
+
 use error::TestError;
+
 use nv_redfish_bmc_mock::Bmc as MockBmc;
 use nv_redfish_bmc_mock::Expect as MockExpect;
+use nv_redfish_core::AsyncTask;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
+
 use serde_json::json;
 use serde_json::Value;
 
 pub type Bmc = MockBmc<TestError>;
 pub type Expect = MockExpect<TestError>;
+
+pub fn async_task(location: &str, retry_after_secs: u64) -> AsyncTask {
+    AsyncTask {
+        location: ODataId::from(location.to_string()).into(),
+        retry_after: Some(Duration::from_secs(retry_after_secs)),
+    }
+}
+
+pub fn assert_task<T>(response: ModificationResponse<T>, location: &str, retry_after_secs: u64) {
+    let ModificationResponse::Task(task) = response else {
+        panic!("expected an asynchronous task response");
+    };
+
+    assert_eq!(task.location.0.to_string(), location);
+
+    assert_eq!(
+        task.retry_after,
+        Some(Duration::from_secs(retry_after_secs))
+    );
+}
+
+pub fn assert_empty<T>(response: ModificationResponse<T>) {
+    assert!(matches!(response, ModificationResponse::Empty));
+}
 
 /// Build a ServiceRoot payload for AMI Viking (`Vendor=AMI`, `RedfishVersion=1.11.0`)
 /// merged with the provided `fields`.
