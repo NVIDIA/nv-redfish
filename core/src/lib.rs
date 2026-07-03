@@ -222,6 +222,22 @@ pub enum ModificationResponse<T> {
     Empty,
 }
 
+impl<T> ModificationResponse<T> {
+    /// Maps a synchronous entity response while preserving task and empty
+    /// outcomes.
+    #[must_use]
+    pub fn map<U, F>(self, f: F) -> ModificationResponse<U>
+    where
+        F: FnOnce(T) -> U,
+    {
+        match self {
+            Self::Entity(entity) => ModificationResponse::Entity(f(entity)),
+            Self::Task(task) => ModificationResponse::Task(task),
+            Self::Empty => ModificationResponse::Empty,
+        }
+    }
+}
+
 /// Redfish session creation returns the session resource in the response body,
 /// the authentication token in the `X-Auth-Token` header, and the session URI in
 /// the `Location` header.

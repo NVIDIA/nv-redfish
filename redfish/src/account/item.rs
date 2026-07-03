@@ -133,15 +133,10 @@ impl<B: Bmc> Account<B> {
         &self,
         update: &ManagerAccountUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
-        match self.update_with_patch(update).await? {
-            ModificationResponse::Entity(ma) => Ok(ModificationResponse::Entity(Self::from_data(
-                self.bmc.clone(),
-                ma,
-                self.config.clone(),
-            ))),
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+        Ok(self
+            .update_with_patch(update)
+            .await?
+            .map(|ma| Self::from_data(self.bmc.clone(), ma, self.config.clone())))
     }
 
     /// Update the account's password.
