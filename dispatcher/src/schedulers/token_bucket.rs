@@ -334,7 +334,7 @@ mod tests {
         let leaf = costed_leaf(1);
         let mut tb = TokenBucket::new(cfg(2, 10, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
-        tb.update_ready(t0 + Duration::from_mins(1));
+        tb.update_ready(t0 + Duration::from_secs(100));
         assert_eq!(tb.available(), 2);
     }
 
@@ -462,7 +462,7 @@ mod tests {
         let t0 = Instant::now();
         tb.update_ready(t0);
         drain(&mut tb);
-        let r = tb.update_ready(t0 + Duration::from_hours(1));
+        let r = tb.update_ready(t0 + Duration::from_secs(9999));
         assert!(!r.ready);
         assert!(r.next_update_at.is_none(), "no ETA when rate is zero");
     }

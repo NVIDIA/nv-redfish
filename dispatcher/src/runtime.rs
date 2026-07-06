@@ -688,7 +688,7 @@ mod tests {
 
         let id = handle
             .with_root_mut::<TestRoot, _>(|root| {
-                root.add_child(PeriodicLeaf::new(Duration::from_hours(1), || {
+                root.add_child(PeriodicLeaf::new(Duration::from_secs(9999), || {
                     Box::pin(async { Ok(vec![9_u64]) }) as TestWork
                 }))
             })
