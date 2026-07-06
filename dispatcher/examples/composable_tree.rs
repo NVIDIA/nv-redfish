@@ -44,9 +44,14 @@
 //! added through the branch's own API, reached by downcasting the root to
 //! its concrete type.
 //!
-//! NOTE: the dispatcher is currently a scaffold. `Runtime::new`, `next`, and
-//! `with_root_mut` panic with `unimplemented!`; the example illustrates the
-//! API shape and will run unchanged once the runtime body lands.
+//! The `RoundRobin` and `PollLeaf` here are hand-rolled to show how to
+//! write custom nodes; production trees can compose the built-ins from
+//! `nv_redfish_dispatcher::schedulers` instead.
+//!
+//! A background task calls `graceful_shutdown` after a few seconds; the
+//! driver drains, prints runtime stats, and exits. The driver honors
+//! `SleepUntil` with a plain sleep, so a shutdown issued mid-sleep is
+//! observed at the next `next()` call (see `RuntimeOutput::SleepUntil`).
 
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -254,7 +259,15 @@ async fn main() {
         })
         .expect("downcast failed");
 
-    // 4. Drive the runtime. `next()` is the single ordered output stream.
+    // 4. Shut down from the outside after a few seconds. In-flight work
+    //    still drains; `next()` then emits a sticky `Shutdown`.
+    let shutdown_handle = handle.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(6)).await;
+        shutdown_handle.graceful_shutdown();
+    });
+
+    // 5. Drive the runtime. `next()` is the single ordered output stream.
     let start = Instant::now();
     loop {
         match runtime.next().await {
@@ -277,4 +290,11 @@ async fn main() {
             RuntimeOutput::Shutdown => break,
         }
     }
+
+    let stats = handle.stats();
+    println!(
+        "shut down after {:?}: {} items dispatched",
+        Instant::now().duration_since(start),
+        stats.dispatched
+    );
 }

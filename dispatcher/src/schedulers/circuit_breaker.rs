@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn closed_passes_through_until_failure_threshold() {
-        let leaf = MockLeaf::ready_firing(0, 1);
+        let leaf = MockLeaf::ready_firing(1);
         let mut cb = CircuitBreaker::new(cfg(Duration::from_millis(100)), leaf);
         let t0 = Instant::now();
 
@@ -289,7 +289,7 @@ mod tests {
 
     #[test]
     fn cool_down_promotes_to_half_open() {
-        let leaf = MockLeaf::ready_firing(0, 1);
+        let leaf = MockLeaf::ready_firing(1);
         let cool_down = Duration::from_millis(50);
         let mut cb = CircuitBreaker::new(cfg(cool_down), leaf);
         let t0 = Instant::now();
@@ -308,7 +308,7 @@ mod tests {
 
     #[test]
     fn half_open_success_closes_breaker() {
-        let leaf = MockLeaf::ready_firing(0, 1);
+        let leaf = MockLeaf::ready_firing(1);
         let cool_down = Duration::from_millis(50);
         let mut cb = CircuitBreaker::new(cfg(cool_down), leaf);
         let t0 = Instant::now();
@@ -323,7 +323,7 @@ mod tests {
 
     #[test]
     fn half_open_failure_re_opens_with_fresh_cool_down() {
-        let leaf = MockLeaf::ready_firing(0, 1);
+        let leaf = MockLeaf::ready_firing(1);
         let cool_down = Duration::from_millis(50);
         let mut cb = CircuitBreaker::new(cfg(cool_down), leaf);
         let t0 = Instant::now();
@@ -345,7 +345,7 @@ mod tests {
     fn half_open_caps_concurrent_probes() {
         // half_open_max_probes = 1: once a probe is in-flight, the
         // breaker reports not-ready until that probe completes.
-        let leaf = MockLeaf::ready_firing(0, 1);
+        let leaf = MockLeaf::ready_firing(1);
         let cool_down = Duration::from_millis(10);
         let mut cb = CircuitBreaker::new(cfg(cool_down), leaf);
         let t0 = Instant::now();

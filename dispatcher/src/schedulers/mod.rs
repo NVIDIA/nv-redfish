@@ -21,17 +21,22 @@
 
 mod bounded_concurrency;
 mod circuit_breaker;
+mod fixed_cost;
+mod periodic_leaf;
 mod round_robin;
 mod strict_priority;
+mod token_bucket;
 
 pub use bounded_concurrency::BoundedConcurrency;
 pub use circuit_breaker::{BreakerState, CircuitBreaker, CircuitBreakerConfig};
-pub use round_robin::RoundRobin;
+pub use fixed_cost::FixedCost;
+pub use periodic_leaf::PeriodicLeaf;
+pub use round_robin::{RemovedChild, RoundRobin};
 pub use strict_priority::StrictPriority;
+pub use token_bucket::{TokenBucket, TokenBucketConfig};
 
 #[cfg(test)]
 mod tests {
-
     use core::sync::atomic::{AtomicU32, Ordering};
     use core::time::Duration;
     use std::sync::{Arc, Mutex};
@@ -85,34 +90,17 @@ mod tests {
                 .last()
                 .map(|c| c.outcome)
         }
-
-        pub fn set_ready(&self, readiness: Readiness) {
-            *self.readiness.lock().expect("MockLeaf state poisoned") = readiness;
-        }
-
-        pub fn set_fire(&self, payload: Option<TestPayload>) {
-            *self.fire.lock().expect("MockLeaf state poisoned") = payload;
-        }
-
-        pub fn clear_completions(&self) {
-            self.completions
-                .lock()
-                .expect("MockLeaf completions log poisoned")
-                .clear();
-        }
     }
 
     /// Scriptable leaf used to exercise branch policies in isolation.
     pub struct MockLeaf<M: WorkMeta + Clone> {
-        label: u32,
         meta: M,
         handle: MockLeafHandle<M>,
     }
 
     impl<M: WorkMeta + Clone> MockLeaf<M> {
-        pub fn new(label: u32, meta: M, readiness: Readiness, fire: Option<TestPayload>) -> Self {
+        pub fn new(meta: M, readiness: Readiness, fire: Option<TestPayload>) -> Self {
             Self {
-                label,
                 meta,
                 handle: MockLeafHandle {
                     readiness: Arc::new(Mutex::new(readiness)),
@@ -126,26 +114,22 @@ mod tests {
         pub fn handle(&self) -> MockLeafHandle<M> {
             self.handle.clone()
         }
-
-        pub const fn label(&self) -> u32 {
-            self.label
-        }
     }
 
     impl MockLeaf<()> {
         /// Always-ready leaf that produces `payload` on every call.
-        pub fn ready_firing(label: u32, payload: TestPayload) -> Self {
-            Self::new(label, (), Readiness::ready(None), Some(payload))
+        pub fn ready_firing(payload: TestPayload) -> Self {
+            Self::new((), Readiness::ready(None), Some(payload))
         }
 
         /// Always-ready leaf with no payload to fire.
-        pub fn ready_idle(label: u32) -> Self {
-            Self::new(label, (), Readiness::ready(None), None)
+        pub fn ready_idle() -> Self {
+            Self::new((), Readiness::ready(None), None)
         }
 
         /// Not-ready leaf with an optional `next_update_at` hint.
-        pub fn not_ready(label: u32, next_update_at: Option<Instant>) -> Self {
-            Self::new(label, (), Readiness::not_ready(next_update_at), None)
+        pub fn not_ready(next_update_at: Option<Instant>) -> Self {
+            Self::new((), Readiness::not_ready(next_update_at), None)
         }
     }
 

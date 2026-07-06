@@ -141,8 +141,8 @@ mod tests {
 
     #[test]
     fn high_priority_preempts_low() {
-        let high = MockLeaf::ready_firing(0, 100);
-        let low = MockLeaf::ready_firing(1, 200);
+        let high = MockLeaf::ready_firing(100);
+        let low = MockLeaf::ready_firing(200);
         let h_high = high.handle();
         let h_low = low.handle();
 
@@ -162,8 +162,8 @@ mod tests {
 
     #[test]
     fn lower_advances_when_higher_is_not_ready() {
-        let high = MockLeaf::ready_idle(0); // ready but no payload
-        let low = MockLeaf::ready_firing(1, 200);
+        let high = MockLeaf::ready_idle();
+        let low = MockLeaf::ready_firing(200);
         let h_high = high.handle();
         let h_low = low.handle();
 
@@ -183,8 +183,8 @@ mod tests {
     #[test]
     fn next_update_at_is_min_across_classes() {
         let now = Instant::now();
-        let early = MockLeaf::not_ready(0, Some(now + Duration::from_millis(100))); // low prio, early
-        let late = MockLeaf::not_ready(1, Some(now + Duration::from_millis(500))); // high prio, late
+        let early = MockLeaf::not_ready(Some(now + Duration::from_millis(100))); // low prio, early
+        let late = MockLeaf::not_ready(Some(now + Duration::from_millis(500))); // high prio, late
 
         let mut sp: StrictPriority<TestPayload, MockLeaf<()>> = StrictPriority::new();
         sp.add_child(early, 1);
@@ -198,9 +198,9 @@ mod tests {
 
     #[test]
     fn completion_routes_to_correct_class_and_child() {
-        let high0 = MockLeaf::ready_firing(0, 1);
-        let high1 = MockLeaf::ready_idle(1);
-        let low0 = MockLeaf::ready_idle(2);
+        let high0 = MockLeaf::ready_firing(1);
+        let high1 = MockLeaf::ready_idle();
+        let low0 = MockLeaf::ready_idle();
         let h_high0 = high0.handle();
         let h_high1 = high1.handle();
         let h_low0 = low0.handle();

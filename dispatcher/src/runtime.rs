@@ -32,6 +32,7 @@
 
 use crate::scheduler::private::SchedulerObj;
 use crate::scheduler::Scheduler;
+use crate::stats::OutputQueueStats;
 use crate::stats::RuntimeStats;
 use crate::work::WorkMeta;
 use crate::Completion;
@@ -42,6 +43,9 @@ use crate::ScheduledWork;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;
+use core::sync::atomic::AtomicU64;
+use core::sync::atomic::AtomicUsize;
+use core::sync::atomic::Ordering;
 use core::task::Context;
 use core::task::Poll;
 use core::time::Duration;
@@ -83,6 +87,7 @@ pub struct Runtime<Ev, Err, M: WorkMeta> {
     completion: Vec<Completion<M>>,
     output: VecDeque<RuntimeOutput<Ev, Err>>,
     shared: Arc<Mutex<Shared<Ev, Err, M>>>,
+    stats: Arc<StatsCells>,
     _phantom: RuntimePhantom<Ev, Err, M>,
 }
 
@@ -122,9 +127,11 @@ where
             shared: Mutex::new(Shared {
                 root: Box::new(root),
                 waker: None,
+                shutdown: false,
                 _phantom: PhantomData,
             })
             .into(),
+            stats: Arc::new(StatsCells::default()),
             _phantom: PhantomData,
         }
     }
@@ -134,7 +141,43 @@ where
     pub fn handle(&self) -> RuntimeHandle<Ev, Err, M> {
         RuntimeHandle {
             shared: self.shared.clone(),
+            stats: self.stats.clone(),
         }
+    }
+
+    /// Poll the in-flight set, converting finished payloads into pending
+    /// completions and `Work` outputs. Returns `true` if anything
+    /// finished.
+    fn drain_completed(
+        &mut self,
+        in_flight: &mut FuturesUnordered<InFlight<Ev, Err, M>>,
+        cx: &mut Context<'_>,
+        now: Instant,
+    ) -> bool {
+        let mut progress = false;
+        while let Poll::Ready(Some(completed)) = Pin::new(&mut *in_flight).poll_next(cx) {
+            let CompletedWork {
+                start,
+                meta,
+                result,
+                routing,
+            } = completed;
+            let latency = now.duration_since(start);
+            progress = true;
+            self.completion.push(Completion {
+                latency,
+                meta,
+                routing,
+                outcome: if result.is_ok() {
+                    CompletionOutcome::Succeeded
+                } else {
+                    CompletionOutcome::Failed
+                },
+            });
+            self.output
+                .push_back(RuntimeOutput::Work { result, latency });
+        }
+        progress
     }
 
     /// Advance until an output is available or no progress is possible.
@@ -187,6 +230,10 @@ where
                 }
             }
             if let Some(output) = self.runtime.output.pop_front() {
+                self.runtime
+                    .stats
+                    .output_queued
+                    .store(self.runtime.output.len(), Ordering::Relaxed);
                 return Poll::Ready(output);
             }
             progress = false;
@@ -194,15 +241,21 @@ where
             let now = self.runtime.clock.now();
             let mut in_flight = mem::take(&mut self.runtime.in_flight);
             let global_max_in_flight = self.runtime.config.global_max_in_flight;
+            let mut shutdown = false;
             if in_flight.len() < global_max_in_flight.into() {
                 let mut shared = self
                     .runtime
                     .shared
                     .lock()
                     .expect("dispatcher runtime mutex is poisoned");
-                while in_flight.len() < global_max_in_flight.into() {
+                shutdown = shared.shutdown;
+                while !shutdown && in_flight.len() < global_max_in_flight.into() {
                     match shared.next(now) {
                         SharedNextResult::Work(work) => {
+                            self.runtime
+                                .stats
+                                .dispatched
+                                .fetch_add(1, Ordering::Relaxed);
                             in_flight.push(InFlight {
                                 start: now,
                                 work: Some(work),
@@ -225,31 +278,30 @@ where
                     shared.maybe_setup_waker(cx);
                 }
             }
+            self.runtime
+                .stats
+                .in_flight
+                .store(in_flight.len() as u64, Ordering::Relaxed);
 
-            while let Poll::Ready(Some(completed)) = Pin::new(&mut in_flight).poll_next(cx) {
-                let CompletedWork {
-                    start,
-                    meta,
-                    result,
-                    routing,
-                } = completed;
-                let latency = now.duration_since(start);
-                progress = true;
-                self.runtime.completion.push(Completion {
-                    latency,
-                    meta,
-                    routing,
-                    outcome: if result.is_ok() {
-                        CompletionOutcome::Succeeded
-                    } else {
-                        CompletionOutcome::Failed
-                    },
-                });
-                self.runtime
-                    .output
-                    .push_back(RuntimeOutput::Work { result, latency });
-            }
+            progress |= self.runtime.drain_completed(&mut in_flight, cx, now);
+            self.runtime
+                .stats
+                .in_flight
+                .store(in_flight.len() as u64, Ordering::Relaxed);
+            self.runtime
+                .stats
+                .output_queued
+                .store(self.runtime.output.len(), Ordering::Relaxed);
             self.runtime.in_flight = in_flight;
+
+            // Shutdown is emitted only once everything has drained.
+            if shutdown
+                && self.runtime.in_flight.is_empty()
+                && self.runtime.output.is_empty()
+                && self.runtime.completion.is_empty()
+            {
+                return Poll::Ready(RuntimeOutput::Shutdown);
+            }
         }
         Poll::Pending
     }
@@ -284,12 +336,14 @@ pub enum ClockConfig {
 /// itself is not `Clone`.
 pub struct RuntimeHandle<Ev, Err, M: WorkMeta> {
     shared: Arc<Mutex<Shared<Ev, Err, M>>>,
+    stats: Arc<StatsCells>,
 }
 
 impl<Ev, Err, M: WorkMeta> Clone for RuntimeHandle<Ev, Err, M> {
     fn clone(&self) -> Self {
         Self {
             shared: self.shared.clone(),
+            stats: self.stats.clone(),
         }
     }
 }
@@ -303,26 +357,62 @@ where
     /// Begin graceful shutdown. Idempotent. In-flight items still complete,
     /// queued outputs still drain, then [`Runtime::next`] emits a sticky
     /// shutdown.
+    ///
+    /// Wakes a driver parked inside [`Runtime::next`]; a driver sleeping
+    /// on a [`RuntimeOutput::SleepUntil`] hint observes the shutdown at
+    /// its next `next()` call.
+    ///
+    /// # Panics
+    ///
+    /// Can panic if the runtime mutex is poisoned, which only happens if
+    /// a closure passed to [`Self::with_root_mut`] panicked.
     pub fn graceful_shutdown(&self) {
-        unimplemented!("scaffold")
+        let mut guard = self
+            .shared
+            .lock()
+            .expect("dispatcher runtime mutex is poisoned");
+        guard.shutdown = true;
+        let waker = guard.waker.take();
+        drop(guard);
+        if let Some(waker) = waker {
+            waker.wake();
+        }
     }
 
-    /// Snapshot of runtime statistics.
+    /// Snapshot of runtime statistics. Lock-free; values are relaxed
+    /// snapshots and may trail the driver by one step.
     #[must_use]
     pub fn stats(&self) -> RuntimeStats {
-        unimplemented!("scaffold")
+        RuntimeStats {
+            in_flight: self.stats.in_flight.load(Ordering::Relaxed),
+            dispatched: self.stats.dispatched.load(Ordering::Relaxed),
+            output_queue: OutputQueueStats {
+                queued: self.stats.output_queued.load(Ordering::Relaxed),
+                capacity: None,
+                dropped: 0,
+            },
+        }
     }
 
     /// Run `f` with shared access to the root downcast to `S`. `None` if
     /// the downcast fails.
     ///
     /// Holds the root lock for the duration of `f`; keep it short and do
-    /// not re-enter the runtime from inside.
-    pub fn with_root<S, R>(&self, _f: impl FnOnce(&S) -> R) -> Option<R>
+    /// not re-enter the runtime from inside (it will deadlock).
+    ///
+    /// # Panics
+    ///
+    /// Can panic if the runtime mutex is poisoned, which only happens if
+    /// a closure passed to [`Self::with_root_mut`] panicked.
+    pub fn with_root<S, R>(&self, f: impl FnOnce(&S) -> R) -> Option<R>
     where
         S: 'static,
     {
-        unimplemented!("scaffold")
+        let guard = self
+            .shared
+            .lock()
+            .expect("dispatcher runtime mutex is poisoned");
+        guard.root.as_any().downcast_ref::<S>().map(f)
     }
 
     /// Run `f` with exclusive access to the root downcast to `S`. `None`
@@ -369,10 +459,14 @@ pub enum RuntimeOutput<Ev, Err, R = RuntimeEventType> {
     },
     /// Out-of-band runtime event (only when `runtime-events` is enabled).
     Runtime(R),
-    /// Runtime requested to sleep specified duration. In tokio it is
-    /// expected that caller will call
-    /// tokio::time::sleep(v.duration_since(now)).await before calling
-    /// next() next time.
+    /// Runtime requested to sleep until the given instant before the
+    /// next `next()` call (e.g. `tokio::time::sleep`); calling earlier
+    /// is always safe.
+    ///
+    /// Control-plane changes ([`RuntimeHandle::graceful_shutdown`],
+    /// [`RuntimeHandle::with_root_mut`]) are only observed at the next
+    /// `next()` call. Drivers needing a prompt reaction should race the
+    /// sleep against their own wake signal (e.g. `tokio::select!`).
     SleepUntil(Instant),
     /// Sticky terminal output after graceful shutdown drains. Subsequent
     /// `next()` calls return this immediately.
@@ -396,9 +490,19 @@ impl RuntimeClock {
     }
 }
 
+/// Runtime-wide counters shared lock-free between the driver and
+/// [`RuntimeHandle::stats`].
+#[derive(Default)]
+struct StatsCells {
+    dispatched: AtomicU64,
+    in_flight: AtomicU64,
+    output_queued: AtomicUsize,
+}
+
 struct Shared<Ev, Err, M> {
     waker: Option<Waker>,
     root: Box<dyn SchedulerObj<FutureWork<Ev, Err>, M>>,
+    shutdown: bool,
     _phantom: PhantomData<(Ev, Err)>,
 }
 
@@ -479,4 +583,123 @@ struct CompletedWork<Ev, Err, M> {
     meta: M,
     result: Result<Vec<Ev>, Err>,
     routing: RoutingPath,
+}
+
+#[cfg(test)]
+mod tests {
+    #![allow(clippy::expect_used)]
+
+    use core::time::Duration;
+    use std::num::NonZeroUsize;
+
+    use futures_util::future::poll_immediate;
+
+    use super::{ClockConfig, FutureWork, Runtime, RuntimeConfig, RuntimeOutput};
+    use crate::schedulers::{PeriodicLeaf, RoundRobin};
+
+    type TestWork = FutureWork<u64, String>;
+    type TestRoot = RoundRobin<TestWork, ()>;
+
+    fn config() -> RuntimeConfig {
+        RuntimeConfig {
+            global_max_in_flight: NonZeroUsize::new(2).expect("non-zero"),
+            clock: ClockConfig::Wallclock,
+        }
+    }
+
+    fn firing_root() -> TestRoot {
+        let mut root = TestRoot::new();
+        root.add_child(PeriodicLeaf::new(Duration::ZERO, || {
+            Box::pin(async { Ok(vec![7_u64]) }) as TestWork
+        }));
+        root
+    }
+
+    #[tokio::test]
+    async fn graceful_shutdown_drains_then_is_sticky() {
+        let mut rt: Runtime<u64, String, ()> = Runtime::new(config(), firing_root());
+        let handle = rt.handle();
+
+        let mut works = 0_u64;
+        while works < 3 {
+            if let RuntimeOutput::Work { result, .. } = rt.next().await {
+                assert_eq!(result.expect("payload succeeds"), vec![7]);
+                works += 1;
+            }
+        }
+
+        handle.graceful_shutdown();
+        // Anything already in flight still drains as Work outputs, then
+        // the terminal Shutdown arrives.
+        loop {
+            match rt.next().await {
+                RuntimeOutput::Work { .. } => works += 1,
+                RuntimeOutput::Shutdown => break,
+                RuntimeOutput::SleepUntil(_) | RuntimeOutput::Runtime(_) => {}
+            }
+        }
+        // Sticky: every subsequent call returns Shutdown immediately.
+        assert!(matches!(rt.next().await, RuntimeOutput::Shutdown));
+        assert!(matches!(rt.next().await, RuntimeOutput::Shutdown));
+
+        let stats = handle.stats();
+        assert_eq!(stats.dispatched, works, "every dispatch was drained");
+        assert_eq!(stats.in_flight, 0);
+        assert_eq!(stats.output_queue.queued, 0);
+    }
+
+    #[tokio::test]
+    async fn graceful_shutdown_wakes_a_parked_driver() {
+        // An empty root reports not-ready with no hint: the driver parks.
+        let mut rt: Runtime<u64, String, ()> = Runtime::new(config(), TestRoot::new());
+        let handle = rt.handle();
+
+        let mut fut = rt.next();
+        assert!(
+            poll_immediate(&mut fut).await.is_none(),
+            "nothing to do: the driver must park"
+        );
+        handle.graceful_shutdown();
+        assert!(matches!(fut.await, RuntimeOutput::Shutdown));
+    }
+
+    #[tokio::test]
+    async fn stats_count_dispatches() {
+        let mut rt: Runtime<u64, String, ()> = Runtime::new(config(), firing_root());
+        let handle = rt.handle();
+        assert_eq!(handle.stats().dispatched, 0);
+
+        let mut works = 0_u64;
+        while works < 5 {
+            if let RuntimeOutput::Work { .. } = rt.next().await {
+                works += 1;
+            }
+        }
+        assert!(handle.stats().dispatched >= 5);
+    }
+
+    #[tokio::test]
+    async fn with_root_reads_and_with_root_mut_mutates() {
+        let rt: Runtime<u64, String, ()> = Runtime::new(config(), firing_root());
+        let handle = rt.handle();
+
+        assert_eq!(handle.with_root::<TestRoot, _>(TestRoot::len), Some(1));
+        assert_eq!(handle.with_root::<u32, _>(|_| ()), None, "wrong type");
+
+        let id = handle
+            .with_root_mut::<TestRoot, _>(|root| {
+                root.add_child(PeriodicLeaf::new(Duration::from_hours(1), || {
+                    Box::pin(async { Ok(vec![9_u64]) }) as TestWork
+                }))
+            })
+            .expect("root downcasts");
+        assert_eq!(handle.with_root::<TestRoot, _>(TestRoot::len), Some(2));
+
+        handle
+            .with_root_mut::<TestRoot, _>(|root| {
+                root.remove_child(id).expect("child exists");
+            })
+            .expect("root downcasts");
+        assert_eq!(handle.with_root::<TestRoot, _>(TestRoot::len), Some(1));
+    }
 }

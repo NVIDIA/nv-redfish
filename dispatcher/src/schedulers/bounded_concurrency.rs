@@ -106,7 +106,7 @@ mod tests {
 
     #[test]
     fn under_cap_passes_work_through() {
-        let leaf = MockLeaf::ready_firing(0, 7);
+        let leaf = MockLeaf::ready_firing(7);
         let handle = leaf.handle();
         let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
             BoundedConcurrency::new(cap(2), leaf);
@@ -130,8 +130,8 @@ mod tests {
     #[test]
     fn cap_blocks_further_dispatch_until_completion() {
         let mut rr: RoundRobin<TestPayload, ()> = RoundRobin::new();
-        for label in 0..3 {
-            rr.add_child(MockLeaf::ready_firing(label, u64::from(label)));
+        for id in 0..3 {
+            rr.add_child(MockLeaf::ready_firing(id));
         }
         let mut bc: BoundedConcurrency<TestPayload, RoundRobin<TestPayload, ()>> =
             BoundedConcurrency::new(cap(2), rr);
@@ -175,7 +175,7 @@ mod tests {
 
     #[test]
     fn passes_meta_and_routing_unmodified() {
-        let leaf = MockLeaf::ready_firing(0, 99);
+        let leaf = MockLeaf::ready_firing(99);
         let handle = leaf.handle();
         let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
             BoundedConcurrency::new(cap(1), leaf);
