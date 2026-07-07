@@ -147,6 +147,10 @@ Pass a Redfish task location returned by an async operation, such as
 - Support standard Redfish and selected OEM extensions.
 - Keep vendor compatibility fixes isolated behind feature-gated patch helpers.
 
+## Security
+- Vulnerability disclosure: [SECURITY.md](SECURITY.md)
+- Do not file public issues for security reports.
+
 ## License
 
 See workspace `Cargo.toml`.
