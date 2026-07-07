@@ -17,6 +17,7 @@ members = [
    "examples/task-service",
    "examples/update-multipart",
    "dispatcher",
+   "dispatcher/sim",
    "tests"
 ]
 

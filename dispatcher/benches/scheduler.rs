@@ -16,10 +16,6 @@
 //! Instruction-count benchmarks (gungraun / Valgrind Callgrind).
 
 #[cfg(unix)]
-#[path = "../tests/common/mod.rs"]
-mod common;
-
-#[cfg(unix)]
 mod unix {
     use core::sync::atomic::AtomicBool;
     use core::time::Duration;
@@ -32,7 +28,7 @@ mod unix {
         Completion, CompletionOutcome, RemovedChild, RoundRobin, ScheduledWork, Scheduler,
     };
 
-    use crate::common::{ample_bucket, source, source_due_at, Meta, Work};
+    use nv_redfish_dispatcher_sim::{ample_bucket, source, source_due_at, Meta, Work};
 
     pub type Tree = RoundRobin<Work, Meta>;
     type Removed = Option<RemovedChild<Work, Meta>>;

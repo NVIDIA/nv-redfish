@@ -29,9 +29,6 @@
 //! `SleepUntil` target instead of sleeping, so runs are deterministic
 //! and identical on any host.
 
-// Shared across test binaries; not every binary uses every item.
-#![allow(dead_code)]
-
 use core::convert::TryFrom as _;
 use core::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use core::time::Duration;
@@ -46,11 +43,13 @@ use nv_redfish_dispatcher::{
     RuntimeOutput, ScheduledWork, Scheduler, TokenBucket, TokenBucketConfig, WithCost,
 };
 
-/// Successful work reports (source, task); failed work reports the
-/// source as the error.
+/// Successful work reports (source, task).
 pub type Ev = (u32, u8);
+/// Failed work reports the source as the error.
 pub type Err = u32;
+/// Work payload executed by the simulated runtime.
 pub type Work = FutureWork<Ev, Err>;
+/// Meta produced by the per-source subtrees.
 pub type Meta = WithCost<()>;
 
 /// Periodic task: fires every `interval`, costing `cost` units.
@@ -92,6 +91,7 @@ pub fn expected_dispatches(window: Duration) -> u64 {
     TASKS.iter().map(|t| expected_fires(*t, window)).sum()
 }
 
+/// Cost of the task with the given id (0 for unknown ids).
 pub fn cost_of(task: u8) -> u64 {
     TASKS.iter().find(|t| t.id == task).map_or(0, |t| t.cost)
 }
@@ -115,6 +115,7 @@ pub fn scarce_bucket() -> TokenBucketConfig {
     }
 }
 
+/// Breaker used by every [`source`].
 pub fn breaker() -> CircuitBreakerConfig {
     CircuitBreakerConfig {
         failure_threshold: 0.5,
@@ -178,8 +179,11 @@ pub fn add_sources(
 /// Scheduler-trait entry counters shared by every [`Counted`] wrapper.
 #[derive(Default)]
 pub struct OpCounts {
+    /// `update_ready` entries.
     pub update_ready: AtomicU64,
+    /// `take_next` entries.
     pub take_next: AtomicU64,
+    /// `on_complete` entries.
     pub on_complete: AtomicU64,
 }
 
@@ -191,6 +195,7 @@ pub struct Counted<S> {
 }
 
 impl<S> Counted<S> {
+    /// Wrap `inner`, tallying its trait entries into `counts`.
     pub fn new(counts: Arc<OpCounts>, inner: S) -> Self {
         Self { inner, counts }
     }
@@ -222,12 +227,17 @@ where
 /// One observed dispatch: virtual time since start, source, task
 /// (`u8::MAX` for failures), outcome.
 pub struct Dispatch {
+    /// Virtual time since the start of the run.
     pub at: Duration,
+    /// Originating source.
     pub source: u32,
+    /// Originating task (`u8::MAX` for failures).
     pub task: u8,
+    /// Whether the work succeeded.
     pub ok: bool,
 }
 
+/// Dispatches in `log` matching `f`.
 pub fn count(log: &[Dispatch], f: impl Fn(&Dispatch) -> bool) -> u64 {
     log.iter().filter(|d| f(d)).count() as u64
 }

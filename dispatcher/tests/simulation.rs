@@ -15,17 +15,15 @@
 
 //! Scheduling-invariant scenarios on the shared virtual-time harness.
 
-mod common;
-
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use std::sync::Arc;
 
-use common::{
+use nv_redfish_dispatcher::{ManualClock, RoundRobin};
+use nv_redfish_dispatcher_sim::{
     add_sources, ample_bucket, assert_interval_exact, breaker, cost_of, count, scarce_bucket,
     simulate, Dispatch, TASKS,
 };
-use nv_redfish_dispatcher::{ManualClock, RoundRobin};
 
 /// Half the sources have rate headroom, half are throttled below their
 /// demand. The unconstrained half must stay interval-exact; the
@@ -88,7 +86,12 @@ async fn breaker_isolates_an_outage_and_recovers() {
     let flags: Vec<_> = (HEALTHY..HEALTHY + FAILING)
         .map(|idx| {
             let flag = Arc::new(AtomicBool::new(false));
-            root.add_child(common::source(now, idx, ample_bucket(), flag.clone()));
+            root.add_child(nv_redfish_dispatcher_sim::source(
+                now,
+                idx,
+                ample_bucket(),
+                flag.clone(),
+            ));
             flag
         })
         .collect();

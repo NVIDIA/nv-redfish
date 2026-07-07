@@ -15,14 +15,14 @@
 
 //! Hardware-independent cost measurements.
 
-mod common;
-
 use core::sync::atomic::{AtomicBool, Ordering};
 use core::time::Duration;
 use std::sync::Arc;
 
-use common::{ample_bucket, expected_dispatches, simulate, source, Counted, OpCounts, Work};
 use nv_redfish_dispatcher::{CostUnits, FixedCost, ManualClock, PeriodicLeaf, RoundRobin};
+use nv_redfish_dispatcher_sim::{
+    ample_bucket, expected_dispatches, simulate, source, Counted, OpCounts, Work,
+};
 
 /// Root passes beyond one-per-dispatch over a run: the initial pass,
 /// one per wave boundary ending in a `SleepUntil`, and the shutdown

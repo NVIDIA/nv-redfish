@@ -14,8 +14,9 @@
 # limitations under the License.
 
 [package]
-name = "nv-redfish-dispatcher"
-description = "Generic cooperative task dispatcher"
+name = "nv-redfish-dispatcher-sim"
+description = "Deterministic virtual-time simulation harness for nv-redfish-dispatcher tests and benchmarks"
+publish = false
 version.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -23,32 +24,6 @@ readme.workspace = true
 edition.workspace = true
 keywords.workspace = true
 categories.workspace = true
-documentation = "https://docs.rs/nv-redfish-dispatcher"
-
-[package.metadata.docs.rs]
-all-features = true
-
-[features]
-default = []
-
-runtime-events = []
-
-serde = ["dep:serde", "serde/rc"]
 
 [dependencies]
-futures-core = { workspace = true }
-futures-util = { workspace = true }
-serde = { workspace = true, optional = true, features = ["derive"] }
-
-[dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt", "time"] }
-nv-redfish-dispatcher-sim = { path = "./sim" }
-
-# Compiles only on unix: the runner library it pulls in uses
-# std::os::unix and nix unconditionally.
-[target.'cfg(unix)'.dev-dependencies]
-gungraun = { workspace = true }
-
-[[bench]]
-name = "scheduler"
-harness = false
+nv-redfish-dispatcher = { path = ".." }
