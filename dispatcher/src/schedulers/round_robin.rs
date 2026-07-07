@@ -16,16 +16,19 @@
 //! Plain round-robin branch with dynamic membership.
 //!
 //! Children live in a slab (`Vec` indexed by the `u32` id, which is also
-//! the routing tag): readiness passes iterate contiguous memory and
-//! rotation lookups are direct indexing. Iteration order is a
-//! `VecDeque<(id, generation)>`: `take_next` pops the front, asks that
-//! child, pushes the entry back, and stops on the first `Some`. Children
-//! appended mid-scan are visited within one cycle.
+//! the routing tag): rotation lookups are direct indexing, and a live-id
+//! list keeps readiness passes at O(live) even when the slab holds freed
+//! slots. Iteration order is a `VecDeque<(id, generation)>`: `take_next`
+//! pops the front, asks that child, pushes the entry back, and stops on
+//! the first `Some`. Children appended mid-scan are visited within one
+//! cycle.
 //!
-//! Children can be removed at any time, in O(1): the queue is purged
-//! lazily. A slot's generation bumps when its id is reused, so a stale
-//! queue entry — surviving either a removal or a removal-then-reuse —
-//! identifies itself and drops out of rotation on its next pop.
+//! Children can be removed at any time in amortized O(1): the queue is
+//! purged lazily on pop, plus a full sweep whenever stale entries
+//! outnumber the live ones, bounding the queue at 2 × live under any
+//! churn pattern. A slot's generation bumps when its id is reused, so a
+//! stale queue entry — surviving either a removal or a removal-then-reuse
+//! — identifies itself and drops out of rotation.
 //!
 //! A child removed with nothing in flight is handed back
 //! ([`RemovedChild::Detached`]); one with items outstanding is
@@ -60,6 +63,8 @@ struct Slot<T, M: WorkMeta> {
     /// carry the generation they were enqueued under.
     generation: u32,
     in_flight: u32,
+    /// Position in `live_ids` (valid while `entry` is `Live`).
+    live_pos: usize,
 }
 
 /// Outcome of [`RoundRobin::remove_child`].
@@ -76,10 +81,16 @@ pub enum RemovedChild<T, M: WorkMeta> {
 /// Round robing over boxed children
 pub struct RoundRobin<T, M: WorkMeta> {
     slots: Vec<Slot<T, M>>,
+    /// Ids of `Live` slots, so readiness passes cost O(live) rather
+    /// than O(slots); order is maintained by swap-remove.
+    live_ids: Vec<u32>,
     /// Slot indices safe to hand out again.
     free: Vec<u32>,
     queue: VecDeque<(u32, u32)>,
-    live: usize,
+    /// Stale rotation entries currently in `queue`; when they outnumber
+    /// the live children the queue is purged, so its length stays
+    /// bounded by 2 × live regardless of churn.
+    stale: usize,
     _t: PhantomData<fn() -> T>,
 }
 
@@ -95,9 +106,10 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     pub const fn new() -> Self {
         Self {
             slots: Vec::new(),
+            live_ids: Vec::new(),
             free: Vec::new(),
             queue: VecDeque::new(),
-            live: 0,
+            stale: 0,
             _t: PhantomData,
         }
     }
@@ -116,6 +128,7 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     where
         S: Scheduler<T, Meta = M>,
     {
+        let live_pos = self.live_ids.len();
         let (id, generation) = if let Some(id) = self.free.pop() {
             let slot = self
                 .slots
@@ -124,6 +137,7 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
             slot.generation = slot.generation.wrapping_add(1);
             slot.entry = Entry::Live(Box::new(child));
             slot.in_flight = 0;
+            slot.live_pos = live_pos;
             (id, slot.generation)
         } else {
             let id = u32::try_from(self.slots.len())
@@ -132,16 +146,17 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
                 entry: Entry::Live(Box::new(child)),
                 generation: 0,
                 in_flight: 0,
+                live_pos,
             });
             (id, 0)
         };
+        self.live_ids.push(id);
         self.queue.push_back((id, generation));
-        self.live += 1;
         id
     }
 
     /// Remove the child with the given id, or `None` if no such child
-    /// exists. O(1): the rotation queue is purged lazily.
+    /// exists. Amortized O(1): the rotation queue is purged lazily.
     ///
     /// With nothing in flight the subtree is returned
     /// ([`RemovedChild::Detached`]); otherwise it stays quarantined —
@@ -150,32 +165,61 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     /// reusable by [`Self::add_child`] only after the drain finishes.
     pub fn remove_child(&mut self, id: u32) -> Option<RemovedChild<T, M>> {
         let slot = self.slots.get_mut(id as usize)?;
-        if !matches!(slot.entry, Entry::Live(_)) {
-            return None;
-        }
-        let Entry::Live(sched) = mem::replace(&mut slot.entry, Entry::Free) else {
-            return None;
+        let removed = match mem::replace(&mut slot.entry, Entry::Free) {
+            Entry::Live(sched) => {
+                if slot.in_flight > 0 {
+                    slot.entry = Entry::Draining(sched);
+                    RemovedChild::Draining
+                } else {
+                    self.free.push(id);
+                    RemovedChild::Detached(sched)
+                }
+            }
+            other => {
+                slot.entry = other;
+                return None;
+            }
         };
-        self.live -= 1;
-        if slot.in_flight > 0 {
-            slot.entry = Entry::Draining(sched);
-            Some(RemovedChild::Draining)
-        } else {
-            self.free.push(id);
-            Some(RemovedChild::Detached(sched))
+
+        let pos = slot.live_pos;
+        self.live_ids.swap_remove(pos);
+        if let Some(&moved) = self.live_ids.get(pos) {
+            if let Some(moved_slot) = self.slots.get_mut(moved as usize) {
+                moved_slot.live_pos = pos;
+            }
         }
+
+        // The removed child's rotation entry is now stale; purge the
+        // queue once stale entries outnumber the live ones, so churn
+        // cannot grow it without bound.
+        self.stale += 1;
+        if self.stale > self.live_ids.len() {
+            let slots = &self.slots;
+            self.queue.retain(|&(qid, qgen)| {
+                slots
+                    .get(qid as usize)
+                    .is_some_and(|s| s.generation == qgen && matches!(s.entry, Entry::Live(_)))
+            });
+            self.stale = 0;
+        }
+        Some(removed)
     }
 
     /// Number of children currently held by this branch.
     #[must_use]
     pub const fn len(&self) -> usize {
-        self.live
+        self.live_ids.len()
     }
 
     /// `true` when the branch currently holds no children.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.live == 0
+        self.live_ids.is_empty()
+    }
+
+    #[cfg(test)]
+    fn queue_len(&self) -> usize {
+        self.queue.len()
     }
 }
 
@@ -189,7 +233,10 @@ where
     fn update_ready(&mut self, now: Instant) -> Readiness {
         let mut ready = false;
         let mut next_at: Option<Instant> = None;
-        for slot in &mut self.slots {
+        for &id in &self.live_ids {
+            let Some(slot) = self.slots.get_mut(id as usize) else {
+                continue;
+            };
             let Entry::Live(sched) = &mut slot.entry else {
                 continue;
             };
@@ -213,21 +260,21 @@ where
             let (id, generation) = self.queue.pop_front()?;
             // Lazy purge: entries whose slot was removed (not Live) or
             // reused (generation mismatch) drop out of rotation here.
-            let current = self
-                .slots
-                .get(id as usize)
-                .is_some_and(|s| s.generation == generation && matches!(s.entry, Entry::Live(_)));
-            if !current {
+            let Some(slot) = self.slots.get_mut(id as usize) else {
+                self.stale = self.stale.saturating_sub(1);
+                continue;
+            };
+            if slot.generation != generation {
+                self.stale = self.stale.saturating_sub(1);
                 continue;
             }
-            self.queue.push_back((id, generation));
-            let Some(slot) = self.slots.get_mut(id as usize) else {
-                continue;
-            };
             let Entry::Live(sched) = &mut slot.entry else {
+                self.stale = self.stale.saturating_sub(1);
                 continue;
             };
-            if let Some(mut work) = sched.take_next() {
+            let work = sched.take_next();
+            self.queue.push_back((id, generation));
+            if let Some(mut work) = work {
                 slot.in_flight = slot.in_flight.saturating_add(1);
                 work.routing.push(id);
                 return Some(work);
@@ -243,19 +290,21 @@ where
         let Some(slot) = self.slots.get_mut(id as usize) else {
             return;
         };
-        slot.in_flight = slot.in_flight.saturating_sub(1);
         let drained = match &mut slot.entry {
+            // Stale completion for a freed slot: leave its state alone.
+            Entry::Free => return,
             Entry::Live(sched) => {
+                slot.in_flight = slot.in_flight.saturating_sub(1);
                 sched.on_complete(completion);
                 false
             }
             // Forward to the quarantined child; recycle the id and drop
             // the subtree once drained.
             Entry::Draining(sched) => {
+                slot.in_flight = slot.in_flight.saturating_sub(1);
                 sched.on_complete(completion);
                 slot.in_flight == 0
             }
-            Entry::Free => false,
         };
         if drained {
             slot.entry = Entry::Free;
@@ -470,6 +519,43 @@ mod tests {
         assert!(rr.remove_child(id0).is_some());
         let id1 = rr.add_child(MockLeaf::ready_firing(2));
         assert_eq!(id1, id0);
+    }
+
+    #[test]
+    fn idle_churn_keeps_the_rotation_queue_bounded() {
+        // Add/remove churn with no take_next in between must not grow
+        // the queue: stale entries are swept once they outnumber the
+        // live children.
+        let mut rr: RoundRobin<u64, ()> = RoundRobin::new();
+        rr.add_child(MockLeaf::ready_firing(1));
+        for _ in 0..1_000 {
+            let id = rr.add_child(MockLeaf::ready_firing(2));
+            assert!(rr.remove_child(id).is_some());
+        }
+        assert_eq!(rr.len(), 1);
+        assert!(
+            rr.queue_len() <= 2 * rr.len() + 1,
+            "queue grew to {} entries",
+            rr.queue_len()
+        );
+    }
+
+    #[test]
+    fn update_ready_skips_freed_slots_after_mass_removal() {
+        let mut rr: RoundRobin<u64, ()> = RoundRobin::new();
+        let keep = rr.add_child(MockLeaf::ready_firing(1));
+        let ids: Vec<u32> = (0..100)
+            .map(|_| rr.add_child(MockLeaf::not_ready(None)))
+            .collect();
+        for id in ids {
+            assert!(rr.remove_child(id).is_some());
+        }
+        assert_eq!(rr.len(), 1);
+        assert!(rr.update_ready(Instant::now()).ready);
+        let work = rr.take_next().expect("surviving child fires");
+        assert_eq!(work.routing.depth(), 1);
+        drop(work);
+        let _ = keep;
     }
 
     #[test]

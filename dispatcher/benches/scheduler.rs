@@ -73,6 +73,16 @@ mod unix {
         (root, work)
     }
 
+    /// Fleet with half its sources removed while idle, leaving stale
+    /// rotation entries for this dispatch to purge lazily.
+    fn fleet_half_removed(n: u32) -> (Tree, Instant) {
+        let (mut root, now) = fleet(n, false);
+        for id in 0..n / 2 {
+            black_box(root.remove_child(id));
+        }
+        (root, now)
+    }
+
     fn dispatch((mut root, now): (Tree, Instant)) -> Tree {
         black_box(root.update_ready(now));
         if let Some(work) = root.take_next() {
@@ -122,15 +132,24 @@ mod unix {
         let removed = root.remove_child(0);
         (root, removed, work)
     }
+
+
+    // Measures the deferred cost of O(1) removal: the take_next sweep
+    // over stale queue entries.
+    #[library_benchmark]
+    #[bench::n_1000(fleet_half_removed(1000))]
+    pub fn stale_purge_dispatch(input: (Tree, Instant)) -> Tree {
+        dispatch(input)
+    }
 }
 
 #[cfg(unix)]
-use unix::{churn_detached, churn_draining, dense_dispatch, sparse_dispatch};
+use unix::{churn_detached, churn_draining, dense_dispatch, sparse_dispatch, stale_purge_dispatch};
 
 #[cfg(unix)]
 gungraun::library_benchmark_group!(
     name = scheduler;
-    benchmarks = dense_dispatch, sparse_dispatch, churn_detached, churn_draining
+    benchmarks = dense_dispatch, sparse_dispatch, churn_detached, churn_draining, stale_purge_dispatch
 );
 
 #[cfg(unix)]
