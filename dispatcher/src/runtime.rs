@@ -40,6 +40,7 @@ use crate::CompletionOutcome;
 use crate::RoutingPath;
 use crate::RuntimeEventType;
 use crate::ScheduledWork;
+use core::convert::TryFrom as _;
 use core::future::Future;
 use core::marker::PhantomData;
 use core::pin::Pin;
@@ -119,6 +120,7 @@ where
                     now: Instant::now(),
                     increment,
                 },
+                ClockConfig::Manual(ref clock) => RuntimeClock::Manual(clock.clone()),
             },
             in_flight: FuturesUnordered::new(),
             completion: Vec::new(),
@@ -142,6 +144,16 @@ where
         RuntimeHandle {
             shared: self.shared.clone(),
             stats: self.stats.clone(),
+        }
+    }
+
+    /// Handle to the manual clock; `None` unless configured with
+    /// [`ClockConfig::Manual`].
+    #[must_use]
+    pub fn manual_clock(&self) -> Option<ManualClock> {
+        match &self.clock {
+            RuntimeClock::Manual(clock) => Some(clock.clone()),
+            RuntimeClock::Wallclock | RuntimeClock::Virtual { .. } => None,
         }
     }
 
@@ -309,7 +321,7 @@ where
 
 /// Runtime-wide configuration. Per-node policy lives inside each
 /// [`Scheduler`]; this struct only carries knobs no node owns.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct RuntimeConfig {
     /// Global cap on in-flight items, applied at dispatch admission
     /// on top of any per-subtree admission a branch enforces.
@@ -319,7 +331,7 @@ pub struct RuntimeConfig {
 }
 
 /// Runtime clock configuration.
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub enum ClockConfig {
     /// Clock that ticks with real time.
     #[default]
@@ -327,6 +339,62 @@ pub enum ClockConfig {
     /// Clock that increments on specified duration each time it is
     /// requested.
     Virtual(Duration),
+    /// Clock driven by the given [`ManualClock`] handle. Construct the
+    /// clock first and build time-holding scheduler nodes with
+    /// `clock.now()`, so the tree and the runtime share one epoch.
+    Manual(ManualClock),
+}
+
+/// Manually advanced clock for [`ClockConfig::Manual`] runtimes.
+///
+/// Cloneable; time starts at the construction instant and only moves
+/// forward via [`ManualClock::advance`] / [`ManualClock::advance_to`].
+/// Advancing does not wake the runtime — call [`Runtime::next`] afterwards.
+#[derive(Clone, Debug)]
+pub struct ManualClock {
+    epoch: Instant,
+    offset_nanos: Arc<AtomicU64>,
+}
+
+impl Default for ManualClock {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl ManualClock {
+    /// Clock whose epoch is the construction instant.
+    #[must_use]
+    pub fn new() -> Self {
+        Self {
+            epoch: Instant::now(),
+            offset_nanos: Arc::new(AtomicU64::new(0)),
+        }
+    }
+
+    /// Current virtual time.
+    #[must_use]
+    pub fn now(&self) -> Instant {
+        self.epoch + Duration::from_nanos(self.offset_nanos.load(Ordering::Relaxed))
+    }
+
+    /// Move time forward by `by`.
+    pub fn advance(&self, by: Duration) {
+        let by = u64::try_from(by.as_nanos()).unwrap_or(u64::MAX);
+        let _ = self
+            .offset_nanos
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |cur| {
+                Some(cur.saturating_add(by))
+            });
+    }
+
+    /// Move time forward to `to`. Targets in the past are ignored: the
+    /// clock is monotonic.
+    pub fn advance_to(&self, to: Instant) {
+        let target =
+            u64::try_from(to.saturating_duration_since(self.epoch).as_nanos()).unwrap_or(u64::MAX);
+        self.offset_nanos.fetch_max(target, Ordering::Relaxed);
+    }
 }
 
 /// Cloneable handle to a running [`Runtime`].
@@ -477,6 +545,7 @@ pub enum RuntimeOutput<Ev, Err, R = RuntimeEventType> {
 enum RuntimeClock {
     Wallclock,
     Virtual { now: Instant, increment: Duration },
+    Manual(ManualClock),
 }
 
 impl RuntimeClock {
@@ -487,6 +556,7 @@ impl RuntimeClock {
                 *now += *increment;
                 *now
             }
+            Self::Manual(clock) => clock.now(),
         }
     }
 }

@@ -78,6 +78,7 @@ define build-and-test
 	cargo test -p nv-redfish-tests --test test-update-service --features update-service-deprecated
 	cargo build -p update-multipart --features update-service-deprecated
 	cargo clippy $1
+	cargo clippy -p nv-redfish-dispatcher --all-targets
 	cargo build  $1
 	cargo build -p nv-redfish --features computer-systems,bios,boot-options,storages,memory,processors
 	cargo build -p nv-redfish --features oem-hpe,accounts

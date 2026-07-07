@@ -42,3 +42,12 @@ serde = { workspace = true, optional = true, features = ["derive"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
+
+# Compiles only on unix: the runner library it pulls in uses
+# std::os::unix and nix unconditionally.
+[target.'cfg(unix)'.dev-dependencies]
+gungraun = { workspace = true }
+
+[[bench]]
+name = "scheduler"
+harness = false

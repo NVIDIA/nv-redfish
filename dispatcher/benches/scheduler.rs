@@ -1,0 +1,144 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Instruction-count benchmarks (gungraun / Valgrind Callgrind).
+
+#[cfg(unix)]
+#[path = "../tests/common/mod.rs"]
+mod common;
+
+#[cfg(unix)]
+mod unix {
+    use core::sync::atomic::AtomicBool;
+    use core::time::Duration;
+    use std::hint::black_box;
+    use std::sync::Arc;
+    use std::time::Instant;
+
+    use gungraun::library_benchmark;
+    use nv_redfish_dispatcher::{
+        Completion, CompletionOutcome, RemovedChild, RoundRobin, ScheduledWork, Scheduler,
+    };
+
+    use crate::common::{ample_bucket, source, source_due_at, Meta, Work};
+
+    pub type Tree = RoundRobin<Work, Meta>;
+    type Removed = Option<RemovedChild<Work, Meta>>;
+
+    /// Fleet of `n` sources; when `sparse`, only the last one in
+    /// rotation order has work due, so a dispatch scans the other n-1.
+    fn fleet(n: u32, sparse: bool) -> (Tree, Instant) {
+        let now = Instant::now();
+        let no_fail = Arc::new(AtomicBool::new(false));
+        let mut root = Tree::new();
+        for idx in 0..n {
+            let first_due = if sparse && idx != n - 1 {
+                now + Duration::from_secs(3600)
+            } else {
+                now
+            };
+            root.add_child(source_due_at(
+                now,
+                first_due,
+                idx,
+                ample_bucket(),
+                no_fail.clone(),
+            ));
+        }
+        (root, now)
+    }
+
+    /// Fleet plus a pre-built extra source, so churn benchmarks measure
+    /// only the mutation, not subtree construction.
+    fn fleet_with_spare(n: u32) -> (Tree, Box<dyn Scheduler<Work, Meta = Meta>>) {
+        let (root, now) = fleet(n, false);
+        let no_fail = Arc::new(AtomicBool::new(false));
+        (root, Box::new(source(now, n, ample_bucket(), no_fail)))
+    }
+
+    /// Fleet with one item already dispatched (and still in flight)
+    /// from the first source in rotation.
+    fn fleet_with_in_flight(n: u32) -> (Tree, ScheduledWork<Work, Meta>) {
+        let (mut root, now) = fleet(n, false);
+        black_box(root.update_ready(now));
+        let work = root.take_next().expect("a due source dispatches");
+        (root, work)
+    }
+
+    fn dispatch((mut root, now): (Tree, Instant)) -> Tree {
+        black_box(root.update_ready(now));
+        if let Some(work) = root.take_next() {
+            root.on_complete(Completion {
+                outcome: CompletionOutcome::Succeeded,
+                latency: Duration::ZERO,
+                meta: work.meta,
+                routing: work.routing,
+            });
+        }
+        root
+    }
+
+    #[library_benchmark]
+    #[bench::one_source(fleet(1, false))]
+    #[bench::dense_100(fleet(100, false))]
+    #[bench::dense_1000(fleet(1000, false))]
+    pub fn dense_dispatch(input: (Tree, Instant)) -> Tree {
+        dispatch(input)
+    }
+
+    #[library_benchmark]
+    #[bench::sparse_100(fleet(100, true))]
+    #[bench::sparse_1000(fleet(1000, true))]
+    pub fn sparse_dispatch(input: (Tree, Instant)) -> Tree {
+        dispatch(input)
+    }
+
+    // Nothing in flight: removal detaches the subtree immediately.
+    #[library_benchmark]
+    #[bench::n_1000(fleet_with_spare(1000))]
+    pub fn churn_detached(
+        (mut root, child): (Tree, Box<dyn Scheduler<Work, Meta = Meta>>),
+    ) -> (Tree, Removed) {
+        let id = root.add_child(child);
+        let removed = root.remove_child(id);
+        (root, removed)
+    }
+
+    // An item is in flight: removal quarantines the subtree until its
+    // completion drains.
+    #[library_benchmark]
+    #[bench::n_1000(fleet_with_in_flight(1000))]
+    pub fn churn_draining(
+        (mut root, work): (Tree, ScheduledWork<Work, Meta>),
+    ) -> (Tree, Removed, ScheduledWork<Work, Meta>) {
+        let removed = root.remove_child(0);
+        (root, removed, work)
+    }
+}
+
+#[cfg(unix)]
+use unix::{churn_detached, churn_draining, dense_dispatch, sparse_dispatch};
+
+#[cfg(unix)]
+gungraun::library_benchmark_group!(
+    name = scheduler;
+    benchmarks = dense_dispatch, sparse_dispatch, churn_detached, churn_draining
+);
+
+#[cfg(unix)]
+gungraun::main!(library_benchmark_groups = scheduler);
+
+#[cfg(not(unix))]
+fn main() {}

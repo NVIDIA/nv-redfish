@@ -26,3 +26,65 @@ jobs:
         with:
           toolchain: "1.90.0"
       - run: make ci
+
+  bench-regression:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.90.0"
+
+      - name: Install valgrind
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y valgrind
+          valgrind --version
+
+      - name: Benchmark merge-base
+        # Installs the runner matching the *base* lockfile, so a PR that
+        # bumps gungraun still measures the base correctly. Only the
+        # specific "no bench target at base" case is tolerated; every
+        # other failure fails the job so the gate can never silently
+        # stop comparing.
+        run: |
+          set -euo pipefail
+          BASE=$(git merge-base HEAD origin/main)
+          if [ "$BASE" = "$(git rev-parse HEAD)" ]; then
+            echo "HEAD is the merge-base; nothing to compare"
+            echo "SKIP_COMPARE=1" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          echo "baseline commit: $BASE"
+          git checkout --recurse-submodules "$BASE"
+          HAS_BENCH=$(cargo metadata --format-version=1 --no-deps \
+            | jq '[.packages[] | select(.name == "nv-redfish-dispatcher")
+                   | .targets[] | select(.kind == ["bench"] and .name == "scheduler")] | length')
+          if [ "$HAS_BENCH" = "0" ]; then
+            echo "no scheduler bench at merge-base; head run records the initial baseline"
+          else
+            VERSION=$(cargo metadata --format-version=1 \
+              | jq -r '[.packages[] | select(.name == "gungraun") | .version] | first')
+            echo "base gungraun $VERSION"
+            cargo install gungraun-runner --version "$VERSION" --locked
+            cargo bench -p nv-redfish-dispatcher --bench scheduler -- --save-baseline=base
+          fi
+          git checkout --recurse-submodules -f -
+
+      - name: Benchmark head against base
+        if: env.SKIP_COMPARE != '1'
+        # The runner version must match the head's library version;
+        # taken from the lockfile so they cannot drift.
+        run: |
+          set -euo pipefail
+          VERSION=$(cargo metadata --format-version=1 \
+            | jq -r '[.packages[] | select(.name == "gungraun") | .version] | first')
+          echo "head gungraun $VERSION"
+          cargo install gungraun-runner --version "$VERSION" --locked
+          cargo bench -p nv-redfish-dispatcher --bench scheduler -- \
+            --baseline=base \
+            --callgrind-limits='ir=2%'

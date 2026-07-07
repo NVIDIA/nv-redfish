@@ -97,6 +97,8 @@ pub use runtime::ClockConfig;
 #[doc(inline)]
 pub use runtime::FutureWork;
 #[doc(inline)]
+pub use runtime::ManualClock;
+#[doc(inline)]
 pub use runtime::Runtime;
 #[doc(inline)]
 pub use runtime::RuntimeConfig;
