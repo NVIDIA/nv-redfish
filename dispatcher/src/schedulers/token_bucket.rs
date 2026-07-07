@@ -86,14 +86,15 @@ where
     C::Meta: crate::HasCost,
 {
     /// Create a new [`TokenBucket`] with the given config and child
-    /// scheduler. The bucket starts at full `capacity`.
+    /// scheduler. The bucket starts at full `capacity`; `now` is the
+    /// accounting epoch — pass the driving clock's current time (e.g.
+    /// [`crate::ManualClock::now`] under a manual-clock runtime).
     ///
     /// The child's meta must expose [`crate::HasCost`] so the actual
     /// cost of each dispatched item can be charged; adapt cost-naive
     /// children with [`crate::schedulers::FixedCost`].
     #[must_use]
-    pub fn new(cfg: TokenBucketConfig, child: C) -> Self {
-        let now = Instant::now();
+    pub fn new(now: Instant, cfg: TokenBucketConfig, child: C) -> Self {
         Self {
             inner: child,
             scaled_balance: Self::scale(&cfg, cfg.capacity),
@@ -130,7 +131,7 @@ where
         self.cfg = cfg;
         let new_interval = i128::from(self.interval_nanos());
         let cap = Self::scale(&self.cfg, self.cfg.capacity);
-        self.scaled_balance = (tokens * new_interval).min(cap);
+        self.scaled_balance = tokens.saturating_mul(new_interval).min(cap);
     }
 
     /// Current configuration.
@@ -145,7 +146,7 @@ where
 
     fn scale(cfg: &TokenBucketConfig, cost: CostUnits) -> i128 {
         let interval = u64::try_from(cfg.refill_interval.as_nanos()).unwrap_or(u64::MAX);
-        i128::from(cost.get()) * i128::from(interval)
+        i128::from(cost.get()).saturating_mul(i128::from(interval))
     }
 
     fn refill(&mut self, now: Instant) {
@@ -158,8 +159,9 @@ where
         }
         let elapsed = now.saturating_duration_since(self.last_refill);
         self.last_refill = now;
-        let accrued = i128::try_from(elapsed.as_nanos()).unwrap_or(i128::MAX)
-            * i128::from(self.cfg.refill_amount.get());
+        let accrued = i128::try_from(elapsed.as_nanos())
+            .unwrap_or(i128::MAX)
+            .saturating_mul(i128::from(self.cfg.refill_amount.get()));
         self.scaled_balance = self.scaled_balance.saturating_add(accrued).min(cap);
     }
 
@@ -174,9 +176,9 @@ where
     }
 
     /// Instant at which the balance will cover `cost`, or `None` when it
-    /// never will (zero refill rate).
+    /// never will (zero refill rate, or an ETA beyond `Instant` range).
     fn covered_at(&self, cost: CostUnits) -> Option<Instant> {
-        let deficit = Self::scale(&self.cfg, cost) - self.scaled_balance;
+        let deficit = Self::scale(&self.cfg, cost).saturating_sub(self.scaled_balance);
         if deficit <= 0 {
             return Some(self.last_refill);
         }
@@ -185,9 +187,10 @@ where
             return None;
         }
 
-        let nanos = (deficit + amount - 1) / amount;
+        // Ceiling division; both operands are positive here.
+        let nanos = deficit.saturating_add(amount - 1) / amount;
         let nanos = u64::try_from(nanos).unwrap_or(u64::MAX);
-        Some(self.last_refill + Duration::from_nanos(nanos))
+        self.last_refill.checked_add(Duration::from_nanos(nanos))
     }
 }
 
@@ -296,27 +299,27 @@ mod tests {
     fn burst_up_to_capacity_then_blocks() {
         let leaf = costed_leaf(1);
         let handle = leaf.handle();
-        let mut tb = TokenBucket::new(cfg(3, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(3, 1, Duration::from_secs(1)), leaf);
 
         assert!(tb.update_ready(t0).ready);
         drain(&mut tb);
         assert_eq!(handle.take_next_count(), 3);
         assert_eq!(tb.available(), 0);
 
-        // Exhausted: not ready, with a refill hint one interval out.
+        // Exhausted: not ready, with a refill hint exactly one interval
+        // out (the accounting epoch is t0, so no sliver of drift).
         let r = tb.update_ready(t0);
         assert!(!r.ready);
         let eta = r.next_update_at.expect("refill hint");
-        assert!(eta > t0);
-        assert!(eta <= t0 + Duration::from_secs(1));
+        assert_eq!(eta, t0 + Duration::from_secs(1));
     }
 
     #[test]
     fn refills_continuously_over_time() {
         let leaf = costed_leaf(1);
-        let mut tb = TokenBucket::new(cfg(4, 2, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(4, 2, Duration::from_secs(1)), leaf);
         tb.update_ready(t0);
         drain(&mut tb);
         assert_eq!(tb.available(), 0);
@@ -332,8 +335,8 @@ mod tests {
     #[test]
     fn balance_clamps_at_capacity() {
         let leaf = costed_leaf(1);
-        let mut tb = TokenBucket::new(cfg(2, 10, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 10, Duration::from_secs(1)), leaf);
         tb.update_ready(t0 + Duration::from_secs(100));
         assert_eq!(tb.available(), 2);
     }
@@ -346,8 +349,8 @@ mod tests {
             Readiness::ready(Some(CostUnits::new(1))),
             Some(1),
         );
-        let mut tb = TokenBucket::new(cfg(2, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 1, Duration::from_secs(1)), leaf);
         assert!(tb.update_ready(t0).ready);
         let work = tb.take_next().expect("admitted on the estimate");
         tb.on_complete(Completion {
@@ -356,15 +359,13 @@ mod tests {
             meta: work.meta,
             routing: work.routing,
         });
-        // 2 - 5 = -3: in debt, and the ETA covers deficit + next cost.
+        // 2 - 5 = -3: in debt, and the ETA covers deficit + next cost:
+        // exactly 3 + 1 at 1 token/s.
         assert_eq!(tb.available(), -3);
         let r = tb.update_ready(t0);
         assert!(!r.ready);
-        // 3 deficit + 1 admission cost at 1 token/s, minus the sliver of
-        // accrual between construction and t0.
         let eta = r.next_update_at.expect("refill hint");
-        let wait = eta.duration_since(t0);
-        assert!(wait > Duration::from_secs(3) && wait <= Duration::from_secs(4));
+        assert_eq!(eta, t0 + Duration::from_secs(4));
     }
 
     #[test]
@@ -375,8 +376,8 @@ mod tests {
             Readiness::ready(None),
             Some(1),
         );
-        let mut tb = TokenBucket::new(cfg(2, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 1, Duration::from_secs(1)), leaf);
 
         assert!(tb.update_ready(t0).ready, "one token suffices to admit");
         let work = tb.take_next().expect("admitted without a hint");
@@ -396,8 +397,8 @@ mod tests {
         // Hinted cost 5 with capacity 2: coverage is unreachable, so the
         // gate clamps to "bucket full" and the item runs on debt.
         let leaf = costed_leaf(5);
-        let mut tb = TokenBucket::new(cfg(2, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 1, Duration::from_secs(1)), leaf);
 
         assert!(tb.update_ready(t0).ready, "full bucket admits");
         let work = tb.take_next().expect("dispatched at full burst");
@@ -415,8 +416,8 @@ mod tests {
         let r = tb.update_ready(t0);
         assert!(!r.ready);
         let eta = r.next_update_at.expect("finite refill hint");
-        assert!(eta <= t0 + Duration::from_secs(5));
-        assert!(tb.update_ready(t0 + Duration::from_secs(5)).ready);
+        assert_eq!(eta, t0 + Duration::from_secs(5));
+        assert!(tb.update_ready(eta).ready);
     }
 
     #[test]
@@ -427,8 +428,8 @@ mod tests {
             Readiness::ready(None),
             Some(1),
         );
-        let mut tb = TokenBucket::new(cfg(2, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 1, Duration::from_secs(1)), leaf);
         tb.update_ready(t0);
         let work = tb.take_next().expect("admitted on the 1-token gate");
         tb.on_complete(Completion {
@@ -444,8 +445,8 @@ mod tests {
     fn take_next_gates_without_fresh_update_ready() {
         let leaf = costed_leaf(1);
         let handle = leaf.handle();
-        let mut tb = TokenBucket::new(cfg(1, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(1, 1, Duration::from_secs(1)), leaf);
         tb.update_ready(t0);
         assert!(tb.take_next().is_some());
         // Second pull without update_ready must be refused, and must not
@@ -456,10 +457,25 @@ mod tests {
     }
 
     #[test]
+    fn huge_elapsed_and_refill_amount_saturate_instead_of_panicking() {
+        let leaf = costed_leaf(1);
+        let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(3, u64::MAX, Duration::from_secs(1)), leaf);
+        tb.update_ready(t0);
+        drain(&mut tb);
+
+        // ~317k years of accrual at u64::MAX tokens/s: the i128 product
+        // saturates and the balance clamps at capacity.
+        let t1 = t0 + Duration::from_secs(10_000_000_000_000);
+        assert!(tb.update_ready(t1).ready);
+        assert_eq!(tb.available(), 3);
+    }
+
+    #[test]
     fn zero_refill_rate_never_recovers() {
         let leaf = costed_leaf(1);
-        let mut tb = TokenBucket::new(cfg(1, 0, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(1, 0, Duration::from_secs(1)), leaf);
         tb.update_ready(t0);
         drain(&mut tb);
         let r = tb.update_ready(t0 + Duration::from_secs(9999));
@@ -471,8 +487,8 @@ mod tests {
     fn zero_interval_is_unlimited() {
         let leaf = costed_leaf(1);
         let handle = leaf.handle();
-        let mut tb = TokenBucket::new(cfg(2, 1, Duration::ZERO), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(2, 1, Duration::ZERO), leaf);
         for _ in 0..10 {
             assert!(tb.update_ready(t0).ready);
             let work = tb.take_next().expect("always admitted");
@@ -489,8 +505,8 @@ mod tests {
     #[test]
     fn set_config_preserves_balance_and_clamps() {
         let leaf = costed_leaf(1);
-        let mut tb = TokenBucket::new(cfg(10, 1, Duration::from_secs(1)), leaf);
         let t0 = Instant::now();
+        let mut tb = TokenBucket::new(t0, cfg(10, 1, Duration::from_secs(1)), leaf);
         tb.update_ready(t0);
         assert_eq!(tb.available(), 10);
         tb.set_config(cfg(4, 2, Duration::from_millis(500)));
@@ -504,7 +520,8 @@ mod tests {
             Readiness::not_ready(None),
             None,
         );
-        let mut tb = TokenBucket::new(cfg(3, 1, Duration::from_secs(1)), leaf);
-        assert!(!tb.update_ready(Instant::now()).ready);
+        let now = Instant::now();
+        let mut tb = TokenBucket::new(now, cfg(3, 1, Duration::from_secs(1)), leaf);
+        assert!(!tb.update_ready(now).ready);
     }
 }

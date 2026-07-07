@@ -60,15 +60,17 @@ where
     F: FnMut() -> T + Send + 'static,
 {
     /// Leaf firing `make()` every `interval`, starting immediately.
+    /// `now` is the scheduling epoch — pass the driving clock's current
+    /// time.
     ///
     /// An `interval` too large for `Instant` arithmetic (e.g.
     /// [`Duration::MAX`]) fires the first item and then never again.
     #[must_use]
-    pub fn new(interval: Duration, make: F) -> Self {
+    pub fn new(now: Instant, interval: Duration, make: F) -> Self {
         Self {
             interval,
             next_due: Due::Now,
-            last_now: Instant::now(),
+            last_now: now,
             make,
             _t: PhantomData,
         }
@@ -77,11 +79,11 @@ where
     /// Leaf whose first item is due at `first_due` instead of
     /// immediately. Use to stagger a fleet of leaves sharing an interval.
     #[must_use]
-    pub fn starting_at(first_due: Instant, interval: Duration, make: F) -> Self {
+    pub fn starting_at(now: Instant, first_due: Instant, interval: Duration, make: F) -> Self {
         Self {
             interval,
             next_due: Due::At(first_due),
-            last_now: Instant::now(),
+            last_now: now,
             make,
             _t: PhantomData,
         }
@@ -156,8 +158,8 @@ mod tests {
     #[test]
     fn fires_immediately_then_respects_interval() {
         let interval = Duration::from_secs(5);
-        let mut leaf = PeriodicLeaf::new(interval, || 42_u64);
         let t0 = Instant::now();
+        let mut leaf = PeriodicLeaf::new(t0, interval, || 42_u64);
 
         assert!(leaf.update_ready(t0).ready);
         let work = leaf.take_next().expect("due immediately");
@@ -176,8 +178,8 @@ mod tests {
     #[test]
     fn no_catch_up_burst_after_a_long_stall() {
         let interval = Duration::from_secs(1);
-        let mut leaf = PeriodicLeaf::new(interval, || 1_u64);
         let t0 = Instant::now();
+        let mut leaf = PeriodicLeaf::new(t0, interval, || 1_u64);
         leaf.update_ready(t0);
         leaf.take_next().expect("first tick");
 
@@ -193,8 +195,8 @@ mod tests {
 
     #[test]
     fn take_next_without_due_tick_yields_nothing() {
-        let mut leaf = PeriodicLeaf::new(Duration::from_secs(1), || 1_u64);
         let t0 = Instant::now();
+        let mut leaf = PeriodicLeaf::new(t0, Duration::from_secs(1), || 1_u64);
         leaf.update_ready(t0);
         assert!(leaf.take_next().is_some());
         // A branch probing again in the same pass gets nothing.
@@ -203,8 +205,8 @@ mod tests {
 
     #[test]
     fn overflowing_interval_fires_once_then_never_without_panicking() {
-        let mut leaf = PeriodicLeaf::new(Duration::MAX, || 1_u64);
         let t0 = Instant::now();
+        let mut leaf = PeriodicLeaf::new(t0, Duration::MAX, || 1_u64);
         assert!(leaf.update_ready(t0).ready);
         assert!(leaf.take_next().is_some(), "first tick fires");
 
@@ -221,7 +223,7 @@ mod tests {
         let interval = Duration::from_secs(1);
         let t0 = Instant::now();
         let first = t0 + Duration::from_millis(300);
-        let mut leaf = PeriodicLeaf::starting_at(first, interval, || 1_u64);
+        let mut leaf = PeriodicLeaf::starting_at(t0, first, interval, || 1_u64);
 
         let r = leaf.update_ready(t0);
         assert!(!r.ready);
