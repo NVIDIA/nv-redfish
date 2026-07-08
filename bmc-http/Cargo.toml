@@ -47,3 +47,12 @@ nv-redfish-schema = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt"] }
 tokio-test = { workspace = true }
 wiremock = { workspace = true }
+
+# Compiles only on unix: the runner library it pulls in uses
+# std::os::unix and nix unconditionally.
+[target.'cfg(unix)'.dev-dependencies]
+gungraun = { workspace = true }
+
+[[bench]]
+name = "cache"
+harness = false

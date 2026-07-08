@@ -18,7 +18,11 @@
 //! Based on "CAR: Clock with Adaptive Replacement" by Bansal & Modha
 //! USENIX Conference on File and Storage Technologies, 2004
 //!
-//! This implementation follows the exact pseudocode from the [paper](https://www.usenix.org/legacy/publications/library/proceedings/fast04/tech/full_papers/bansal/bansal.pdf).
+//! This implementation follows the pseudocode from the [paper](https://www.usenix.org/legacy/publications/library/proceedings/fast04/tech/full_papers/bansal/bansal.pdf),
+//! with one clock-native reading: "make it the tail page in T2"
+//! (line 36) is realized by clearing the reference bit and advancing
+//! the hand — in a circular list that leaves the page as the last one
+//! the hand revisits.
 
 use std::any::Any;
 use std::collections::HashMap;
@@ -64,7 +68,7 @@ impl<K, V> CacheEntry<K, V> {
 }
 
 /// Node in the ghost list doubly-linked structure
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct GhostNode<K> {
     key: K,
     prev: Option<usize>,
@@ -74,7 +78,10 @@ struct GhostNode<K> {
 /// Intrusive doubly linked list for ghost entries (B1, B2)
 #[derive(Debug)]
 struct GhostList<K> {
+    /// Grows on demand up to `capacity`, so an idle cache holds no
+    /// slot storage.
     entries: Vec<Option<GhostNode<K>>>,
+    capacity: usize,
     head: Option<usize>, // LRU end
     tail: Option<usize>, // MRU end
     free_slots: Vec<usize>,
@@ -82,13 +89,26 @@ struct GhostList<K> {
 }
 
 impl<K: Clone> GhostList<K> {
-    fn new(capacity: usize) -> Self {
+    const fn new(capacity: usize) -> Self {
         Self {
-            entries: vec![None; capacity],
+            entries: Vec::new(),
+            capacity,
             head: None,
             tail: None,
-            free_slots: (0..capacity).rev().collect(),
+            free_slots: Vec::new(),
             size: 0,
+        }
+    }
+
+    fn acquire_slot(&mut self) -> Option<usize> {
+        if let Some(slot) = self.free_slots.pop() {
+            return Some(slot);
+        }
+        if self.entries.len() < self.capacity {
+            self.entries.push(None);
+            Some(self.entries.len() - 1)
+        } else {
+            None
         }
     }
 
@@ -96,13 +116,13 @@ impl<K: Clone> GhostList<K> {
     /// Returns `(slot, evicted_key)` where `evicted_key` is Some if an item was evicted
     fn insert_at_tail(&mut self, key: K) -> Option<(usize, Option<K>)> {
         // If we're at capacity, remove LRU first
-        let evicted_key = if self.free_slots.is_empty() {
+        let evicted_key = if self.size == self.capacity {
             self.remove_lru()
         } else {
             None
         };
 
-        let slot = self.free_slots.pop()?;
+        let slot = self.acquire_slot()?;
         let new_node = GhostNode {
             key,
             prev: self.tail,
@@ -185,74 +205,136 @@ impl<K: Clone> GhostList<K> {
     }
 }
 
-/// Clock-based list for T1 and T2
+/// Node in the clock's circular intrusive list
+#[derive(Debug)]
+struct ClockNode<K, V> {
+    entry: CacheEntry<K, V>,
+    prev: usize,
+    next: usize,
+}
+
+/// Clock-based list for T1 and T2.
+///
+/// Occupied slots form a circular doubly-linked ring in insertion
+/// order; the hand points at the head (next victim candidate), so head
+/// access, removal and hand advancement are O(1) regardless of how
+/// sparsely the slot vector is populated.
 #[derive(Debug)]
 struct ClockList<K, V> {
-    entries: Vec<Option<CacheEntry<K, V>>>,
-    hand: usize, // Clock hand position
+    /// Grows on demand up to `capacity`, so an idle cache holds no
+    /// slot storage.
+    nodes: Vec<Option<ClockNode<K, V>>>,
+    capacity: usize,
+    /// Clock hand: slot of the current head, `None` when empty
+    hand: Option<usize>,
     free_slots: Vec<usize>,
     size: usize,
 }
 
 impl<K: Clone, V> ClockList<K, V> {
-    fn new(capacity: usize) -> Self {
-        let mut entries = Vec::with_capacity(capacity);
-        for _ in 0..capacity {
-            entries.push(None);
-        }
+    const fn new(capacity: usize) -> Self {
         Self {
-            entries,
-            hand: 0,
-            free_slots: (0..capacity).rev().collect(),
+            nodes: Vec::new(),
+            capacity,
+            hand: None,
+            free_slots: Vec::new(),
             size: 0,
         }
     }
 
-    /// Insert at tail (any available slot)
-    fn insert_at_tail(&mut self, key: K, value: V) -> Option<usize> {
-        let slot = self.free_slots.pop()?;
-        self.entries[slot] = Some(CacheEntry::new(key, value));
-        self.size += 1;
-        Some(slot)
+    fn acquire_slot(&mut self) -> Option<usize> {
+        if let Some(slot) = self.free_slots.pop() {
+            return Some(slot);
+        }
+        if self.nodes.len() < self.capacity {
+            self.nodes.push(None);
+            Some(self.nodes.len() - 1)
+        } else {
+            None
+        }
     }
 
-    /// Get head page for clock algorithm
+    /// Insert at tail — immediately behind the hand, so the new entry
+    /// is the last the clock visits — O(1). On failure (list full, or
+    /// a broken hand invariant) the pair is handed back untouched.
+    fn insert_at_tail(&mut self, key: K, value: V) -> Result<usize, (K, V)> {
+        let links = match self.hand {
+            Some(hand) => match self.nodes.get(hand).and_then(Option::as_ref) {
+                Some(node) => Some((node.prev, hand)),
+                None => return Err((key, value)),
+            },
+            None => None,
+        };
+        let Some(slot) = self.acquire_slot() else {
+            return Err((key, value));
+        };
+        let (prev, next) = links.unwrap_or((slot, slot));
+        self.nodes[slot] = Some(ClockNode {
+            entry: CacheEntry::new(key, value),
+            prev,
+            next,
+        });
+        if links.is_some() {
+            if let Some(prev_node) = self.nodes.get_mut(prev).and_then(Option::as_mut) {
+                prev_node.next = slot;
+            }
+            if let Some(next_node) = self.nodes.get_mut(next).and_then(Option::as_mut) {
+                next_node.prev = slot;
+            }
+        } else {
+            self.hand = Some(slot);
+        }
+        self.size += 1;
+        Ok(slot)
+    }
+
+    /// Get head page for clock algorithm - O(1)
     fn get_head_page(&mut self) -> Option<&mut CacheEntry<K, V>> {
-        // Find the entry at the current hand position
-        let start_hand = self.hand;
-        loop {
-            if self.size == 0 {
-                return None;
+        let hand = self.hand?;
+        self.nodes
+            .get_mut(hand)?
+            .as_mut()
+            .map(|node| &mut node.entry)
+    }
+
+    /// Remove head page (at the hand) - O(1)
+    fn remove_head_page(&mut self) -> Option<CacheEntry<K, V>> {
+        let hand = self.hand?;
+        let node = self.nodes.get_mut(hand)?.take()?;
+        self.free_slots.push(hand);
+        self.size -= 1;
+        if self.size == 0 {
+            self.hand = None;
+        } else {
+            if let Some(prev_node) = self.nodes.get_mut(node.prev).and_then(Option::as_mut) {
+                prev_node.next = node.next;
             }
-
-            if self.entries[self.hand].is_some() {
-                return self.entries[self.hand].as_mut();
+            if let Some(next_node) = self.nodes.get_mut(node.next).and_then(Option::as_mut) {
+                next_node.prev = node.prev;
             }
+            self.hand = Some(node.next);
+        }
+        Some(node.entry)
+    }
 
-            self.advance_hand();
-
-            // Prevent infinite loop
-            if self.hand == start_hand {
-                return None;
+    /// Move the hand past the current head - O(1)
+    fn advance_hand(&mut self) {
+        if let Some(hand) = self.hand {
+            if let Some(node) = self.nodes.get(hand).and_then(Option::as_ref) {
+                self.hand = Some(node.next);
             }
         }
     }
 
-    /// Remove head page (at current hand position)
-    fn remove_head_page(&mut self) -> Option<CacheEntry<K, V>> {
-        let entry = self.entries[self.hand].take()?;
-        self.free_slots.push(self.hand);
-        self.size -= 1;
-        self.advance_hand();
-        Some(entry)
-    }
-
-    const fn advance_hand(&mut self) {
-        self.hand = (self.hand + 1) % self.entries.len();
-    }
-
     fn get_mut(&mut self, slot: usize) -> Option<&mut CacheEntry<K, V>> {
-        self.entries.get_mut(slot)?.as_mut()
+        self.nodes
+            .get_mut(slot)?
+            .as_mut()
+            .map(|node| &mut node.entry)
+    }
+
+    fn get(&self, slot: usize) -> Option<&CacheEntry<K, V>> {
+        self.nodes.get(slot)?.as_ref().map(|node| &node.entry)
     }
 
     const fn len(&self) -> usize {
@@ -368,21 +450,33 @@ where
         }
 
         let mut evicted = None;
+        // The key's post-replace location; when the cache is not full,
+        // invariant I5 guarantees B1 ∪ B2 is empty, so `None` is exact.
+        let mut location = None;
+        debug_assert!(
+            self.t1.len() + self.t2.len() == self.c || self.b1.len() + self.b2.len() == 0,
+            "I5 violated: ghosts exist while the cache is not full"
+        );
         // Line 3: else /* cache miss */
         // Line 4: if (|T1| + |T2| = c) then
         if self.t1.len() + self.t2.len() == self.c {
             // Line 5: replace()
             evicted = self.replace();
 
+            // replace() can discard ghosts, so look the key up after it;
+            // one lookup serves lines 6, 8 and the B1/B2 dispatch below.
+            location = self.index.get(&key).copied();
+            let in_ghosts = matches!(location, Some(Location::B1(_) | Location::B2(_)));
+
             // Line 6: if ((x is not in B1 ∪ B2) and (|T1| + |B1| = c)) then
-            if !self.is_in_b1_or_b2(&key) && (self.t1.len() + self.b1.len() == self.c) {
+            if !in_ghosts && (self.t1.len() + self.b1.len() == self.c) {
                 // Line 7: Discard the LRU page in B1
                 if let Some(discarded_key) = self.b1.remove_lru() {
                     self.index.remove(&discarded_key);
                 }
             }
             // Line 8: elseif ((|T1| + |T2| + |B1| + |B2| = 2c) and (x is not in B1 ∪ B2)) then
-            else if !self.is_in_b1_or_b2(&key)
+            else if !in_ghosts
                 && (self.t1.len() + self.t2.len() + self.b1.len() + self.b2.len() == 2 * self.c)
             {
                 // Line 9: Discard the LRU page in B2
@@ -392,7 +486,7 @@ where
             }
         }
 
-        match self.index.get(&key).copied() {
+        match location {
             Some(Location::B1(slot)) => {
                 // Line 14: elseif (x is in B1) then
                 // Line 15: Adapt: Increase the target size for the list T1 as: p = min {p + max{1, |B2|/|B1|}, c}
@@ -407,10 +501,7 @@ where
                 self.b1.remove(slot);
 
                 // Line 16: Move x at the tail of T2. Set the page reference bit of x to 0.
-                if let Some(t2_slot) = self.t2.insert_at_tail(key.clone(), value) {
-                    self.index.insert(key, Location::T2(t2_slot));
-                    // ref_bit is already 0 from CacheEntry::new()
-                }
+                self.move_to_t2(key, value);
             }
             Some(Location::B2(slot)) => {
                 // Line 17: else /* x must be in B2 */
@@ -426,22 +517,39 @@ where
                 self.b2.remove(slot);
 
                 // Line 19: Move x at the tail of T2. Set the page reference bit of x to 0.
-                if let Some(t2_slot) = self.t2.insert_at_tail(key.clone(), value) {
-                    self.index.insert(key, Location::T2(t2_slot));
-                }
+                self.move_to_t2(key, value);
             }
             None => {
                 // Line 12: if (x is not in B1 ∪ B2) then
                 // Line 13: Insert x at the tail of T1. Set the page reference bit of x to 0.
-                if let Some(t1_slot) = self.t1.insert_at_tail(key.clone(), value) {
+                if let Ok(t1_slot) = self.t1.insert_at_tail(key.clone(), value) {
                     self.index.insert(key, Location::T1(t1_slot));
                 }
             }
-            _ => {
-                // Should not happen - T1/T2 cases handled above
+            Some(Location::T1(_) | Location::T2(_)) => {
+                debug_assert!(false, "T1/T2 hits are handled before the miss path");
             }
         }
         evicted.map(|e| Evicted::new(e.key, e.value))
+    }
+
+    /// Move an already-indexed key to the tail of T2 and repoint its
+    /// index entry, without cloning the key. If T2 cannot take the
+    /// entry the index entry is removed, keeping index and lists
+    /// consistent.
+    fn move_to_t2(&mut self, key: K, value: V) {
+        match self.t2.insert_at_tail(key, value) {
+            Ok(t2_slot) => {
+                if let Some(moved) = self.t2.get(t2_slot) {
+                    if let Some(location) = self.index.get_mut(&moved.key) {
+                        *location = Location::T2(t2_slot);
+                    }
+                }
+            }
+            Err((key, _value)) => {
+                self.index.remove(&key);
+            }
+        }
     }
 
     /// Line 5: `replace()` - exact implementation of pseudocode
@@ -453,12 +561,17 @@ where
                 if let Some(found) = self.try_replace_from_t1() {
                     return Some(found);
                 }
-                self.t1.advance_hand();
+                // No advance here: a T1 pass that found no victim has
+                // recirculated the head to T2, which already moved the
+                // hand to the next page. An extra advance would skip
+                // that page without examining its reference bit.
             } else {
                 // Line 31: else
                 if let Some(found) = self.try_replace_from_t2() {
                     return Some(found);
                 }
+                // A T2 pass that found no victim only cleared the head's
+                // reference bit; move the hand past it.
                 self.t2.advance_hand();
             }
         }
@@ -481,7 +594,11 @@ where
                         if let Some(evicted) = evicted_key {
                             self.index.remove(&evicted);
                         }
-                        self.index.insert(entry.key.clone(), Location::B1(b1_slot));
+                        // The key is already indexed (it was in T1):
+                        // update the location in place.
+                        if let Some(location) = self.index.get_mut(&entry.key) {
+                            *location = Location::B1(b1_slot);
+                        }
                     } else {
                         self.index.remove(&entry.key);
                     }
@@ -491,9 +608,7 @@ where
                 // Line 28-29: else Set the page reference bit of head page in T1 to 0, and make it the tail page in T2
                 head_entry.ref_bit = false; // Line 29: Set the page reference bit of head page in T1 to 0
                 if let Some(entry) = self.t1.remove_head_page() {
-                    if let Some(t2_slot) = self.t2.insert_at_tail(entry.key.clone(), entry.value) {
-                        self.index.insert(entry.key, Location::T2(t2_slot));
-                    }
+                    self.move_to_t2(entry.key, entry.value);
                 }
             }
         }
@@ -516,7 +631,11 @@ where
                         if let Some(evicted) = evicted_key {
                             self.index.remove(&evicted);
                         }
-                        self.index.insert(entry.key.clone(), Location::B2(b2_slot));
+                        // The key is already indexed (it was in T2):
+                        // update the location in place.
+                        if let Some(location) = self.index.get_mut(&entry.key) {
+                            *location = Location::B2(b2_slot);
+                        }
                     } else {
                         self.index.remove(&entry.key);
                     }
@@ -524,20 +643,15 @@ where
                 }
             } else {
                 // Line 35-36: else Set the page reference bit of head page in T2 to 0, and make it the tail page in T2
+                //
+                // In a clock, "make it the tail" is the hand passing
+                // over the page: clear the bit and leave the entry in
+                // its slot; once the caller advances the hand, this
+                // page is the last the hand will revisit.
                 head_entry.ref_bit = false; // Line 36: Set the page reference bit of head page in T2 to 0
-                if let Some(entry) = self.t2.remove_head_page() {
-                    if let Some(t2_slot) = self.t2.insert_at_tail(entry.key.clone(), entry.value) {
-                        self.index.insert(entry.key, Location::T2(t2_slot));
-                    }
-                }
             }
         }
         None
-    }
-
-    /// Helper function to check if key is in B1 or B2
-    fn is_in_b1_or_b2(&self, key: &K) -> bool {
-        matches!(self.index.get(key), Some(Location::B1(_) | Location::B2(_)))
     }
 
     /// Get current cache size (items in T1 + T2)
@@ -825,6 +939,24 @@ mod tests {
     }
 
     #[test]
+    fn test_clock_examines_every_page_during_replacement() {
+        // T1 = [a(ref=1), b, c]: the clock recirculates `a` to T2 and
+        // must then examine `b` — the victim is `b`, not `c`.
+        let mut cache = CarCache::new(3);
+        cache.put("a", 1);
+        cache.put("b", 2);
+        cache.put("c", 3);
+        cache.get(&"a");
+
+        let evicted = cache.put("d", 4).expect("full cache evicts");
+        assert_eq!(evicted.key, "b");
+        assert_eq!(evicted.value, 2);
+        assert_car_invariants(&cache);
+        // `a` survived via recirculation to T2.
+        assert_eq!(cache.get(&"a"), Some(&1));
+    }
+
+    #[test]
     fn test_zero_capacity_cache_is_disabled() {
         let mut cache = CarCache::new(0);
 
@@ -850,9 +982,12 @@ mod tests {
         cache.get(&"a");
 
         cache.put("e", 5);
+        // Fills the cache; the next put replaces: `a` (referenced)
+        // recirculates to T2 and `b` demotes to B1.
         cache.put("f", 6);
 
-        cache.put("c", 10);
+        // B1 hit on `b` adapts p upward.
+        cache.put("b", 10);
 
         assert!(cache.adaptation_parameter() > initial_p);
         assert!(cache.adaptation_parameter() <= cache.capacity());
@@ -865,24 +1000,19 @@ mod tests {
         cache.put("a", 1);
         cache.put("b", 2);
         cache.put("c", 3);
-
         cache.get(&"a");
-
         cache.put("e", 5);
         cache.put("f", 6);
 
+        // Three B1 hits grow p to 3, forcing replacements to come from
+        // T2; `a` (recirculated there with a cleared bit) demotes to B2.
+        cache.put("b", 10);
         cache.put("c", 10);
+        cache.put("e", 10);
 
         let p_before = cache.adaptation_parameter();
 
-        cache.put("f", 6);
-        cache.get(&"f");
-        cache.put("g", 7);
-        cache.get(&"g");
-        cache.put("x", 7);
-        cache.put("y", 7);
-        cache.put("z", 7);
-
+        // B2 hit on `a` adapts p downward.
         cache.put("a", 10);
 
         assert!(cache.adaptation_parameter() < p_before);

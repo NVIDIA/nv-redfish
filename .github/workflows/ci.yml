@@ -61,17 +61,25 @@ jobs:
           fi
           echo "baseline commit: $BASE"
           git checkout --recurse-submodules "$BASE"
-          HAS_BENCH=$(cargo metadata --format-version=1 --no-deps \
-            | jq '[.packages[] | select(.name == "nv-redfish-dispatcher")
-                   | .targets[] | select(.kind == ["bench"] and .name == "scheduler")] | length')
-          if [ "$HAS_BENCH" = "0" ]; then
-            echo "no scheduler bench at merge-base; head run records the initial baseline"
+          VERSION=$(cargo metadata --format-version=1 \
+            | jq -r '[.packages[] | select(.name == "gungraun") | .version] | first // empty')
+          if [ -z "$VERSION" ]; then
+            echo "no gungraun at merge-base; head run records the initial baselines"
           else
-            VERSION=$(cargo metadata --format-version=1 \
-              | jq -r '[.packages[] | select(.name == "gungraun") | .version] | first')
             echo "base gungraun $VERSION"
             cargo install gungraun-runner --version "$VERSION" --locked
-            cargo bench -p nv-redfish-dispatcher --bench scheduler -- --save-baseline=base
+            for entry in "nv-redfish-dispatcher scheduler" "nv-redfish-bmc-http cache"; do
+              set -- $entry
+              HAS_BENCH=$(cargo metadata --format-version=1 --no-deps \
+                | jq --arg p "$1" --arg b "$2" \
+                  '[.packages[] | select(.name == $p)
+                    | .targets[] | select(.kind == ["bench"] and .name == $b)] | length')
+              if [ "$HAS_BENCH" = "0" ]; then
+                echo "no $2 bench in $1 at merge-base; head run records its baseline"
+              else
+                cargo bench -p "$1" --bench "$2" -- --save-baseline=base
+              fi
+            done
           fi
           git checkout --recurse-submodules -f -
 
@@ -85,6 +93,9 @@ jobs:
             | jq -r '[.packages[] | select(.name == "gungraun") | .version] | first')
           echo "head gungraun $VERSION"
           cargo install gungraun-runner --version "$VERSION" --locked
-          cargo bench -p nv-redfish-dispatcher --bench scheduler -- \
-            --baseline=base \
-            --callgrind-limits='ir=2%'
+          for entry in "nv-redfish-dispatcher scheduler" "nv-redfish-bmc-http cache"; do
+            set -- $entry
+            cargo bench -p "$1" --bench "$2" -- \
+              --baseline=base \
+              --callgrind-limits='ir=2%'
+          done
