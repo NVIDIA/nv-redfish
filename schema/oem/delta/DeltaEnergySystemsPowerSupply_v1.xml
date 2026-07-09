@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+
+  <edmx:DataServices>
+    <!-- Delta Energy Systems power shelves expose per-PSU state through this OEM
+         object nested under `Oem/deltaenergysystems` on a standard PowerSupply.
+         Delta does not populate the standard `PowerState` field, so `Power`
+         below is the authoritative indication of whether a PSU is outputting
+         power. -->
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DeltaEnergySystemsPowerSupply.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="deltaenergysystems"/>
+      <ComplexType Name="PowerSupply">
+        <Annotation Term="OData.Description" String="Delta OEM extension for a PowerSupply."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the Delta OEM extension properties for a PowerSupply resource."/>
+        <Property Name="Power" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Reflects whether this PSU outputs power."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether this power supply is currently outputting power."/>
+        </Property>
+        <Property Name="FanSpeedTarget" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The target fan speed for the PSU in percent."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the target fan speed for the power supply in percent. A value of 0 indicates the fan is controlled by the PSU."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

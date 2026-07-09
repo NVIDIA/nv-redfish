@@ -38,5 +38,8 @@ pub mod supermicro;
 #[cfg(feature = "oem-liteon")]
 pub mod liteon;
 
+#[cfg(feature = "oem-delta")]
+pub mod delta;
+
 #[doc(inline)]
 pub use identifier::Identifier as OemIdentifier;
