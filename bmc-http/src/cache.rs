@@ -113,15 +113,10 @@ impl<K: Clone> GhostList<K> {
     }
 
     /// Insert at tail (MRU position) - O(1)
-    /// Returns `(slot, evicted_key)` where `evicted_key` is Some if an item was evicted
-    fn insert_at_tail(&mut self, key: K) -> Option<(usize, Option<K>)> {
-        // If we're at capacity, remove LRU first
-        let evicted_key = if self.size == self.capacity {
-            self.remove_lru()
-        } else {
-            None
-        };
-
+    /// Returns the slot the key was stored in. Callers must keep the
+    /// list below capacity; see [`CarCache::new`] for the sizing.
+    fn insert_at_tail(&mut self, key: K) -> Option<usize> {
+        debug_assert!(self.size < self.capacity, "insert into a full ghost list");
         let slot = self.acquire_slot()?;
         let new_node = GhostNode {
             key,
@@ -141,7 +136,7 @@ impl<K: Clone> GhostList<K> {
         self.entries[slot] = Some(new_node);
         self.size += 1;
 
-        Some((slot, evicted_key))
+        Some(slot)
     }
 
     /// Remove LRU (head) entry - O(1)
@@ -385,8 +380,14 @@ where
             p: 0,
             t1: ClockList::new(capacity),
             t2: ClockList::new(capacity),
-            b1: GhostList::new(capacity),
-            b2: GhostList::new(capacity),
+            // One slack slot: a put demotes at most one page into a
+            // ghost list and ends with both lists at or below c (the
+            // guarded discards, lines 6-9, or the requested ghost's
+            // own removal restore the bound). Only B2 can transiently
+            // reach c+1, keeping the requested key's ghost alive for
+            // its adaptation hit; B1 peaks at c and is sized alike.
+            b1: GhostList::new(capacity.saturating_add(1)),
+            b2: GhostList::new(capacity.saturating_add(1)),
             index: HashMap::new(),
         }
     }
@@ -426,27 +427,18 @@ where
         }
 
         // Check if it's a cache hit first
-        if let Some(location) = self.index.get(&key).copied() {
-            match location {
-                Location::T1(slot) | Location::T2(slot) => {
-                    // Cache hit - update value and set reference bit
-                    let entry = if matches!(location, Location::T1(_)) {
-                        self.t1.get_mut(slot)
-                    } else {
-                        self.t2.get_mut(slot)
-                    };
-
-                    if let Some(entry) = entry {
-                        entry.value = value;
-                    }
-
-                    // We are not removed anything, as we just updated value
-                    return None;
-                }
-                _ => {
-                    // Will handle B1/B2 hits below
-                }
-            }
+        let hit = match self.index.get(&key).copied() {
+            Some(Location::T1(slot)) => self.t1.get_mut(slot),
+            Some(Location::T2(slot)) => self.t2.get_mut(slot),
+            // B1/B2 hits are handled in the miss path below.
+            _ => None,
+        };
+        if let Some(entry) = hit {
+            // Line 2: a hit sets the page reference bit, whether the
+            // request reads or refreshes.
+            entry.ref_bit = true;
+            entry.value = value;
+            return None;
         }
 
         let mut evicted = None;
@@ -588,12 +580,7 @@ where
                 // Line 26: found = 1;
                 // Line 27: Demote the head page in T1 and make it the MRU page in B1
                 if let Some(entry) = self.t1.remove_head_page() {
-                    if let Some((b1_slot, evicted_key)) = self.b1.insert_at_tail(entry.key.clone())
-                    {
-                        // Clean up evicted key from index if any
-                        if let Some(evicted) = evicted_key {
-                            self.index.remove(&evicted);
-                        }
+                    if let Some(b1_slot) = self.b1.insert_at_tail(entry.key.clone()) {
                         // The key is already indexed (it was in T1):
                         // update the location in place.
                         if let Some(location) = self.index.get_mut(&entry.key) {
@@ -625,12 +612,7 @@ where
                 // Line 33: found = 1;
                 // Line 34: Demote the head page in T2 and make it the MRU page in B2
                 if let Some(entry) = self.t2.remove_head_page() {
-                    if let Some((b2_slot, evicted_key)) = self.b2.insert_at_tail(entry.key.clone())
-                    {
-                        // Clean up evicted key from index if any
-                        if let Some(evicted) = evicted_key {
-                            self.index.remove(&evicted);
-                        }
+                    if let Some(b2_slot) = self.b2.insert_at_tail(entry.key.clone()) {
                         // The key is already indexed (it was in T2):
                         // update the location in place.
                         if let Some(location) = self.index.get_mut(&entry.key) {
@@ -905,10 +887,10 @@ mod tests {
         assert_eq!(ghost_list.len(), 0);
         assert_eq!(ghost_list.remove_lru(), None);
 
-        let (_slot1, _) = ghost_list.insert_at_tail("a").unwrap();
+        let _slot1 = ghost_list.insert_at_tail("a").unwrap();
         assert_eq!(ghost_list.len(), 1);
 
-        let (slot2, _) = ghost_list.insert_at_tail("b").unwrap();
+        let slot2 = ghost_list.insert_at_tail("b").unwrap();
         assert_eq!(ghost_list.len(), 2);
 
         assert_eq!(ghost_list.remove_lru(), Some("a"));
@@ -954,6 +936,56 @@ mod tests {
         assert_car_invariants(&cache);
         // `a` survived via recirculation to T2.
         assert_eq!(cache.get(&"a"), Some(&1));
+    }
+
+    #[test]
+    fn test_put_hit_sets_reference_bit() {
+        // A refresh is a request for x (paper line 2): the refreshed
+        // entry must survive the next replacement via recirculation.
+        let mut cache = CarCache::new(3);
+        cache.put("a", 1);
+        cache.put("b", 2);
+        cache.put("c", 3);
+        cache.put("a", 10);
+
+        let evicted = cache.put("d", 4).expect("full cache evicts");
+        assert_eq!(evicted.key, "b");
+        assert_car_invariants(&cache);
+        assert_eq!(cache.get(&"a"), Some(&10));
+    }
+
+    #[test]
+    fn test_mid_put_demotion_spares_requested_ghost() {
+        // Build |B2| = c with the requested key as B2's LRU (forcing
+        // B1 empty and a full 2c directory), so replace()'s demotion
+        // inside the same put pushes B2 to c+1 before the hit is
+        // processed — the case the ghost lists' slack slot absorbs.
+        let mut cache = CarCache::new(2);
+        cache.put("a", 1);
+        cache.put("b", 2);
+        cache.get(&"a");
+        cache.put("c", 3); // a recirculates to T2; b demotes to B1
+        cache.put("b", 20); // B1 hit: c demotes to B1, b joins T2, p = 1
+        cache.put("d", 4); // a demotes to B2
+        cache.put("c", 30); // B1 hit: d demotes to B1, c joins T2, p = 2
+        cache.put("e", 5); // b demotes to B2; line 8 discards ghost a
+        cache.put("d", 40); // B1 hit: c demotes to B2, d joins T2
+        assert_eq!(cache.b1.len(), 0);
+        assert_eq!(cache.b2.len(), cache.capacity());
+        assert!(matches!(cache.index.get(&"b"), Some(Location::B2(_))));
+
+        // replace() demotes T2's head (d) into the full B2 first; b's
+        // own ghost must survive it for the adaptation hit to land.
+        let p_before = cache.adaptation_parameter();
+        cache.put("b", 100);
+        assert!(
+            cache.adaptation_parameter() < p_before,
+            "B2 hit must adapt p downward"
+        );
+        // Line 19: a ghost hit promotes to T2, not T1.
+        assert!(matches!(cache.index.get(&"b"), Some(Location::T2(_))));
+        assert_eq!(cache.get(&"b"), Some(&100));
+        assert_car_invariants(&cache);
     }
 
     #[test]
@@ -1016,6 +1048,58 @@ mod tests {
         cache.put("a", 10);
 
         assert!(cache.adaptation_parameter() < p_before);
+    }
+
+    /// Full capacity-8 cache with T1 = {5..8}, T2 = {0..3} and `4` in
+    /// B1: fill, reference the first half, then evict once.
+    fn cache_with_mixed_directory() -> CarCache<i32, i32> {
+        let mut cache = CarCache::new(8);
+        for i in 0..8 {
+            cache.put(i, i);
+        }
+        for i in 0..4 {
+            cache.get(&i);
+        }
+        cache.put(8, 8); // 0-3 recirculate to T2; 4 demotes to B1
+        cache
+    }
+
+    #[test]
+    fn test_b1_adaptation_delta_scales_with_ghost_ratio() {
+        // Line 15: delta = max(1, |B2|/|B1|). Plant a B2-heavy ghost
+        // directory and pin the exact jump.
+        let mut cache = cache_with_mixed_directory();
+        for k in 200..204 {
+            let slot = cache.b2.insert_at_tail(k).expect("planted ghost fits");
+            cache.index.insert(k, Location::B2(slot));
+        }
+        assert_car_invariants(&cache);
+
+        // replace() demotes T1's head into B1 first, so at line 15
+        // |B1| = 2 and |B2| = 4: p jumps by 4/2 = 2, not by 1.
+        cache.put(4, 40);
+        assert_eq!(cache.adaptation_parameter(), 2);
+        assert_car_invariants(&cache);
+    }
+
+    #[test]
+    fn test_b2_adaptation_delta_scales_with_ghost_ratio() {
+        // Line 18: delta = max(1, |B1|/|B2|), saturating at zero.
+        let mut cache = cache_with_mixed_directory();
+        for k in 100..103 {
+            let slot = cache.b1.insert_at_tail(k).expect("planted ghost fits");
+            cache.index.insert(k, Location::B1(slot));
+        }
+        let slot = cache.b2.insert_at_tail(200).expect("planted ghost fits");
+        cache.index.insert(200, Location::B2(slot));
+        cache.p = 4;
+        assert_car_invariants(&cache);
+
+        // replace() demotes T1's head into B1 first (|T1| = 4 >= p),
+        // so at line 18 |B1| = 5 and |B2| = 1: p drops by 5, not 1.
+        cache.put(200, 0);
+        assert_eq!(cache.adaptation_parameter(), 0);
+        assert_car_invariants(&cache);
     }
 
     #[test]
@@ -1175,7 +1259,16 @@ mod tests {
             "NOTE: Adaptation parameter remained at {} (may need different workload)",
             p_values[0]
         );
-        assert_eq!(cache.adaptation_parameter(), 5);
+        // The workload drives p across its full range: B1 hits push it
+        // to the capacity clamp, B2 hits pull it back down.
+        let peak = p_values
+            .iter()
+            .position(|&p| p == cache.capacity())
+            .expect("B1 hits must push p to the capacity clamp");
+        assert!(
+            p_values[peak..].iter().any(|&p| p < cache.capacity()),
+            "B2 hits must pull p back down from the clamp"
+        );
     }
 
     #[test]

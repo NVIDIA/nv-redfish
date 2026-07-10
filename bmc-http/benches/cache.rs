@@ -24,9 +24,9 @@
 //! unix-only, so the whole benchmark is `cfg(unix)`.
 //!
 //! Slot storage allocates lazily on first use, so benchmarks that
-//! perform a cache's first eviction (insert_with_headroom,
-//! evict_first_probe, evict_full_clock_sweep) include that one-time
-//! allocation; steady-state evictions cost less by that share.
+//! perform a cache's first eviction (evict_first_probe,
+//! evict_full_clock_sweep) include that one-time allocation;
+//! steady-state evictions cost less by that share.
 
 #[cfg(unix)]
 mod unix {
@@ -50,6 +50,18 @@ mod unix {
     fn full(c: usize) -> Cache {
         let mut cache = Cache::new(c);
         for i in 0..c {
+            cache.put(key(i), i as u64);
+        }
+        cache
+    }
+
+    /// Cache filled to half its capacity, so insertion takes the
+    /// no-eviction path. Fills one entry past c/2 so the measured
+    /// insert doesn't land on the slot vector's doubling boundary
+    /// and pay its reallocation.
+    fn half_full(c: usize) -> Cache {
+        let mut cache = Cache::new(c);
+        for i in 0..=c / 2 {
             cache.put(key(i), i as u64);
         }
         cache
@@ -104,7 +116,7 @@ mod unix {
 
     #[library_benchmark]
     #[bench::update_existing((full(CAPACITY), key(0)))]
-    #[bench::insert_with_headroom((full(CAPACITY / 2), key(CAPACITY)))]
+    #[bench::insert_with_headroom((half_full(CAPACITY), key(CAPACITY)))]
     #[bench::evict_first_probe((full(CAPACITY), key(CAPACITY + 1)))]
     #[bench::evict_full_clock_sweep((full_referenced(CAPACITY), key(CAPACITY + 1)))]
     #[bench::ghost_hit(ghost_input(CAPACITY))]
