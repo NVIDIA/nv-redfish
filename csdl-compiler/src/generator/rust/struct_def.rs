@@ -82,11 +82,18 @@ enum ImplType {
     None,
 }
 
+#[derive(Clone, Copy)]
+enum SerializableStructKind {
+    Create,
+    Update,
+}
+
 struct SerializableProperty<'a> {
     rename: Literal,
     name: StructFieldName<'a>,
     prop_type: TokenStream,
     required_on_create: bool,
+    write_only: bool,
 }
 
 // Action request fields are generated as two coordinated token streams. Keeping
@@ -359,8 +366,9 @@ impl<'a> StructDef<'a> {
 
         let properties = self.serializable_properties(config);
 
-        let additional_properties = if self.odata.additional_properties.is_some_and(|v| *v.inner())
-        {
+        let has_additional_properties =
+            self.odata.additional_properties.is_some_and(|v| *v.inner());
+        let additional_properties = if has_additional_properties {
             let top = &config.top_module_alias;
             // If additional_properties are explicitly set then we add
             // placeholder with serde_json::Value to
@@ -387,9 +395,17 @@ impl<'a> StructDef<'a> {
         content.extend(properties_content);
         let comment = format!(" Update struct corresponding to `{}`", self.name);
         let name = self.name.for_update(None);
+        let (debug_derive, debug_impl) = Self::debug_serializable(
+            &name,
+            &properties,
+            SerializableStructKind::Update,
+            self.base.is_some(),
+            has_additional_properties,
+        );
         tokens.extend(quote! {
             #[doc = #comment]
-            #[derive(Serialize, Default, Debug)]
+            #[derive(Serialize, Default)]
+            #debug_derive
             pub struct #name { #base #content #additional_properties }
         });
 
@@ -413,6 +429,7 @@ impl<'a> StructDef<'a> {
                 #base_impl
                 #content
             }
+            #debug_impl
         });
     }
 
@@ -441,9 +458,17 @@ impl<'a> StructDef<'a> {
         content.extend(properties_content);
         let comment = format!(" Create struct corresponding to `{}`", self.name);
         let name = self.name.for_create();
+        let (debug_derive, debug_impl) = Self::debug_serializable(
+            &name,
+            &properties,
+            SerializableStructKind::Create,
+            false,
+            false,
+        );
         tokens.extend([quote! {
             #[doc = #comment]
-            #[derive(Serialize, Debug)]
+            #[derive(Serialize)]
+            #debug_derive
             pub struct #name { #content }
         }]);
 
@@ -487,6 +512,7 @@ impl<'a> StructDef<'a> {
                 }
                 #prop_fn_content
             }
+            #debug_impl
         }]);
     }
 
@@ -519,9 +545,62 @@ impl<'a> StructDef<'a> {
                     name: StructFieldName::new_property(p.name),
                     prop_type,
                     required_on_create: p.redfish.is_required_on_create.into_inner(),
+                    write_only: p.odata.permissions_is_write_only(),
                 })
             })
             .collect()
+    }
+
+    fn debug_serializable<N: ToTokens>(
+        name: N,
+        properties: &[SerializableProperty<'a>],
+        kind: SerializableStructKind,
+        has_base: bool,
+        has_additional_properties: bool,
+    ) -> (TokenStream, TokenStream) {
+        if properties.iter().any(|p| p.write_only) || has_additional_properties {
+            let mut fields = TokenStream::new();
+            for p in properties {
+                let name = p.name;
+                let debug_name = Literal::string(&name.to_string());
+                if p.write_only {
+                    let optional =
+                        matches!(kind, SerializableStructKind::Update) || !p.required_on_create;
+                    if optional {
+                        // Preserve whether an optional value was supplied while replacing the
+                        // sensitive value itself with a redaction marker.
+                        fields.extend(quote! {
+                            .field(#debug_name, &self.#name.as_ref().map(|_| "<redacted>"))
+                        });
+                    } else {
+                        fields.extend(quote! { .field(#debug_name, &"<redacted>") });
+                    }
+                } else {
+                    fields.extend(quote! { .field(#debug_name, &self.#name) });
+                }
+            }
+            let base = has_base.then(|| quote! { .field("base", &self.base) });
+            // Additional properties are arbitrary OEM-provided request values with no schema
+            // metadata that can identify sensitive entries, so never expose their contents.
+            let additional_properties = has_additional_properties
+                .then(|| quote! { .field("additional_properties", &"<redacted>") });
+            (
+                quote! {},
+                quote! {
+                    impl core::fmt::Debug for #name {
+                        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                            f.debug_struct(stringify!(#name))
+                                #base
+                                #fields
+                                #additional_properties
+                                .finish()
+                        }
+                    }
+                },
+            )
+        } else {
+            (quote! { #[derive(Debug)] }, quote! {})
+        }
     }
 
     fn generate_optional_property_setter(p: &SerializableProperty<'_>) -> TokenStream {
@@ -548,8 +627,12 @@ impl<'a> StructDef<'a> {
         let name = self.name;
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
+            // Action parameters can contain sensitive values such as passwords, keys, or
+            // tokens. Redfish CSDL schemas do not reliably identify which action parameters
+            // are sensitive, so generating a safe Debug implementation requires explicit
+            // sensitivity metadata. Do not derive Debug until those fields can be redacted.
             quote! {
-                #[derive(Serialize, Debug)]
+                #[derive(Serialize)]
                 pub struct #name { #content }
             },
         ]);

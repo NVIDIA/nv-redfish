@@ -1,0 +1,11 @@
+error[E0277]: `TestActionsServiceTestSerializationActionAction` doesn't implement `Debug`
+  --> tests/compile-fails/no-debug-for-action-parameters.rs:28:21
+   |
+28 |     require_debug::<TestActionsServiceTestSerializationActionAction>();
+   |                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ the trait `Debug` is not implemented for `TestActionsServiceTestSerializationActionAction`
+   |
+note: required by a bound in `require_debug`
+  --> tests/compile-fails/no-debug-for-action-parameters.rs:23:21
+   |
+23 | fn require_debug<T: Debug>() {}
+   |                     ^^^^^ required by this bound in `require_debug`
