@@ -34,8 +34,7 @@ use url::Url;
 
 #[tokio::main]
 async fn main() -> Result<(), BmcError> {
-    let client = Client::with_params(ClientParams::new().accept_invalid_certs(true))
-        .map_err(BmcError::ReqwestError)?;
+    let client = Client::with_params(ClientParams::new()).map_err(BmcError::ReqwestError)?;
 
     let creds = BmcCredentials::new("username".into(), "password".into());
     let bmc = HttpBmc::new(
