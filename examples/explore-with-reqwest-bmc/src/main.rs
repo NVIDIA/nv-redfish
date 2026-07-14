@@ -13,6 +13,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use clap::Parser;
 use nv_redfish_bmc_http::reqwest::BmcError;
 use nv_redfish_bmc_http::reqwest::Client;
 use nv_redfish_bmc_http::reqwest::ClientParams;
@@ -32,9 +33,17 @@ use redfish_std::redfish::manager_account::ManagerAccountCreate;
 use redfish_std::redfish::service_root::ServiceRoot;
 use url::Url;
 
+#[derive(Debug, Parser)]
+struct Args {
+    /// Accept invalid TLS certificates.
+    #[arg(long, default_value_t = false)]
+    insecure: bool,
+}
+
 #[tokio::main]
 async fn main() -> Result<(), BmcError> {
-    let client = Client::with_params(ClientParams::new().accept_invalid_certs(true))
+    let args = Args::parse();
+    let client = Client::with_params(ClientParams::new().accept_invalid_certs(args.insecure))
         .map_err(BmcError::ReqwestError)?;
 
     let creds = BmcCredentials::new("username".into(), "password".into());
