@@ -527,7 +527,11 @@ impl<'a> StructDef<'a> {
     fn generate_optional_property_setter(p: &SerializableProperty<'_>) -> TokenStream {
         let name = p.name;
         let prop_type = &p.prop_type;
-        let fn_name = Ident::new(&format!("with_{name}"), Span::call_site());
+        // Field names for digit-leading properties carry a leading underscore.
+        let fn_name = Ident::new(
+            &format!("with_{}", name.to_string().trim_start_matches('_')),
+            Span::call_site(),
+        );
         quote! {
             #[must_use]
             pub fn #fn_name(mut self, v: #prop_type) -> Self {
