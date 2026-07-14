@@ -91,7 +91,7 @@ pub enum Commands {
         /// Pattern is a wildcard over the qualified name.
         /// Examples:
         /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
-        #[arg(short = 'r', long = "rigid-arrays")]
+        #[arg(short = 'a', long = "rigid-arrays")]
         rigid_array_patterns: Vec<PropertyPattern>,
     },
     /// Compile OEM CSDL schemas.
@@ -121,7 +121,7 @@ pub enum Commands {
         /// Pattern is a wildcard over the qualified name.
         /// Examples:
         /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
-        #[arg(short = 'r', long = "rigid-arrays")]
+        #[arg(short = 'a', long = "rigid-arrays")]
         rigid_array_patterns: Vec<PropertyPattern>,
     },
 }
