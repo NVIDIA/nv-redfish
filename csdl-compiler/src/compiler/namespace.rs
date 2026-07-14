@@ -57,6 +57,16 @@ impl<'a> Namespace<'a> {
         }
     }
 
+    /// Namespace truncated to at most `len` identifiers (a no-op when
+    /// it is already shorter).
+    #[must_use]
+    pub const fn truncated(&self, len: usize) -> Self {
+        Self {
+            edmx_ns: self.edmx_ns,
+            len: if len < self.len { len } else { self.len },
+        }
+    }
+
     /// Parent namespace (for namespaces with at least two identifiers).
     #[must_use]
     pub const fn parent(&self) -> Option<Self> {
@@ -107,5 +117,24 @@ impl Display for Namespace<'_> {
 impl Debug for Namespace<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(self, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Namespace;
+    use crate::edmx::Namespace as EdmxNamespace;
+    use std::str::FromStr as _;
+
+    #[test]
+    fn truncated_shortens_and_clamps() {
+        let edmx = EdmxNamespace::from_str("NvidiaPortMetrics.v1_6_0").expect("valid namespace");
+        let ns = Namespace::new(&edmx);
+
+        assert_eq!(ns.to_string(), "NvidiaPortMetrics.v1_6_0");
+        assert_eq!(ns.truncated(1).to_string(), "NvidiaPortMetrics");
+        assert_eq!(ns.truncated(2).to_string(), "NvidiaPortMetrics.v1_6_0");
+        // Truncating beyond the length is a no-op, not a panic.
+        assert_eq!(ns.truncated(9).to_string(), "NvidiaPortMetrics.v1_6_0");
     }
 }

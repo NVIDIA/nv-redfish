@@ -60,7 +60,12 @@ impl<'a> ModDef<'a> {
     pub fn new(name: ModName<'a>, namespace: Namespace<'a>, depth: usize) -> Self {
         Self {
             name: Some(name),
-            namespace: Some(namespace),
+            // A module is shared by every schema version that maps to
+            // it, so record only the namespace prefix that names this
+            // module; the full namespace of whichever type happened to
+            // create it would otherwise leak into the doc comment and
+            // vary with map iteration order.
+            namespace: Some(namespace.truncated(depth + 1)),
             structs: HashMap::new(),
             sub_mods: HashMap::new(),
             enums: HashMap::new(),
