@@ -25,6 +25,7 @@ use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::RigidArraySupport;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::generator::rust::ActionFullTypeName;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
@@ -797,9 +798,13 @@ impl<'a> StructDef<'a> {
 
     fn generate_action_property(a: &Action, config: &Config) -> TokenStream {
         let top = &config.top_module_alias;
-        let rename = Literal::string(&format!("#{}.{}", a.binding_name, a.name));
+        // Redfish serializes an action under its defining schema's
+        // namespace ("#NvidiaChassis.Reset"), which for OEM actions
+        // differs from the binding parameter's name.
+        let rename = Literal::string(&format!("#{}.{}", a.defining_namespace, a.name));
         let name = ActionName::new(a.name);
-        let typename = TypeName::new_action(a.binding_name, a.name);
+        let typename =
+            ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {
             Some(OneOrCollection::One(v)) => FullTypeName::new(v, config).to_token_stream(),
             Some(OneOrCollection::Collection(v)) => {
@@ -872,7 +877,8 @@ impl<'a> StructDef<'a> {
     fn generate_action_function(content: &mut TokenStream, a: &Action, config: &Config) {
         let top = &config.top_module_alias;
         let name = ActionName::new(a.name);
-        let typename = TypeName::new_action(a.binding_name, a.name);
+        let typename =
+            ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {
             Some(OneOrCollection::One(v)) => FullTypeName::new(v, config).to_token_stream(),
             Some(OneOrCollection::Collection(v)) => {

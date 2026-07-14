@@ -319,11 +319,11 @@ impl<'a> ModDef<'a> {
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
-        if let Some(id) = t.binding.namespace.get_id(depth) {
+        if let Some(id) = t.defining_namespace.get_id(depth) {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, t.binding.namespace, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.defining_namespace, depth))
                 .inner_add_action_type(t, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);

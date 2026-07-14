@@ -70,7 +70,7 @@ impl Debug for ActionName<'_> {
 ///
 /// `redfish::computer_system::ComputerSystemResetAction`
 pub struct ActionFullTypeName<'a, 'config> {
-    binding_ns: Namespace<'a>,
+    defining_ns: Namespace<'a>,
     binding_name: &'a ParameterName,
     action_name: &'a EdmxActionName,
     config: &'config Config,
@@ -80,13 +80,13 @@ impl<'a, 'config> ActionFullTypeName<'a, 'config> {
     /// Create new fully qualified action name type.
     #[must_use]
     pub const fn new(
-        binding_ns: Namespace<'a>,
+        defining_ns: Namespace<'a>,
         binding_name: &'a ParameterName,
         action_name: &'a EdmxActionName,
         config: &'config Config,
     ) -> Self {
         Self {
-            binding_ns,
+            defining_ns,
             binding_name,
             action_name,
             config,
@@ -98,8 +98,8 @@ impl ToTokens for ActionFullTypeName<'_, '_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
         let top = &self.config.top_module_alias;
         tokens.extend(quote! { #top });
-        for depth in 0..self.binding_ns.len() {
-            if let Some(id) = self.binding_ns.get_id(depth) {
+        for depth in 0..self.defining_ns.len() {
+            if let Some(id) = self.defining_ns.get_id(depth) {
                 let name = ModName::new(id);
                 tokens.append(Punct::new(':', Spacing::Joint));
                 tokens.append(Punct::new(':', Spacing::Joint));

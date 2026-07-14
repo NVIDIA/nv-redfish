@@ -57,6 +57,16 @@ impl<'a> Namespace<'a> {
         }
     }
 
+    /// Namespace truncated to its first identifier: the schema family
+    /// root, without version segments.
+    #[must_use]
+    pub const fn root(&self) -> Self {
+        Self {
+            edmx_ns: self.edmx_ns,
+            len: 1,
+        }
+    }
+
     /// Namespace truncated to at most `len` identifiers (a no-op when
     /// it is already shorter).
     #[must_use]

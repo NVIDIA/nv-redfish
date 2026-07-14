@@ -21,6 +21,7 @@ use crate::compiler::EntityType;
 use crate::compiler::Error;
 use crate::compiler::MapType;
 use crate::compiler::MustHaveId;
+use crate::compiler::Namespace;
 use crate::compiler::OData;
 use crate::compiler::Parameter;
 use crate::compiler::ParameterType;
@@ -37,6 +38,8 @@ use crate::OneOrCollection;
 /// Compiled action.
 #[derive(Debug)]
 pub struct Action<'a> {
+    /// Root namespace of the schema that defines the action.
+    pub defining_namespace: Namespace<'a>,
     /// Bound type.
     pub binding: QualifiedName<'a>,
     /// Bound parameter name.
@@ -59,6 +62,7 @@ impl<'a> MapType<'a> for Action<'a> {
     {
         Self {
             name: self.name,
+            defining_namespace: self.defining_namespace,
             binding: f(self.binding),
             binding_name: self.binding_name,
             return_type: self.return_type.map(|rt| rt.map(&f)),
@@ -74,6 +78,7 @@ impl<'a> MapType<'a> for Action<'a> {
 
 pub(crate) fn compile_action<'a>(
     action: &'a EdmxAction,
+    defining_namespace: Namespace<'a>,
     ctx: &Context<'a>,
     stack: &Stack<'a, '_>,
 ) -> Result<Compiled<'a>, Error<'a>> {
@@ -152,6 +157,7 @@ pub(crate) fn compile_action<'a>(
     })?;
     Ok(stack
         .merge(Compiled::new_action(Action {
+            defining_namespace: defining_namespace.root(),
             binding,
             binding_name,
             name: &action.name,

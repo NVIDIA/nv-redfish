@@ -183,9 +183,13 @@
       <!-- Typical actions in Redfish -->
       <EntityType Name="TestActionsService">
         <Property Name="Actions" Type="ServiceRoot.v1_0_0.TestActionsServiceActions" Nullable="false"/>
+        <Property Name="OemActions" Type="ServiceRoot.v1_0_0.TestActionsServiceOemActions" Nullable="false"/>
       </EntityType>
 
       <ComplexType Name="TestActionsServiceActions"/>
+      <!-- OEM-style extension point: a vendor schema binds its own
+           action with a clashing name to this type. -->
+      <ComplexType Name="TestActionsServiceOemActions"/>
       <Action Name="TestAction" IsBound="true">
         <Parameter Name="TestActionsService" Type="ServiceRoot.v1_0_0.TestActionsServiceActions"/>
         <Parameter Name="ActionType" Type="ServiceRoot.v1_0_0.ActionType" Nullable="false"/>
@@ -266,6 +270,14 @@
         </NavigationProperty>
       </ComplexType>
       <ComplexType Name="PreferredApplyTime"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="TestVendor">
+      <!-- Vendor action whose name clashes with the standard
+           TestAction; the generated struct must land in the vendor's
+           module and serialize under the vendor's namespace. -->
+      <Action Name="TestAction" IsBound="true">
+        <Parameter Name="TestActionsService" Type="ServiceRoot.v1_0_0.TestActionsServiceOemActions"/>
+      </Action>
     </Schema>
   </edmx:DataServices>
 </edmx:Edmx>

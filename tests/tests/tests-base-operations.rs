@@ -30,8 +30,10 @@ use nv_redfish_tests::base::redfish::service_root::ActionType;
 use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeUpdate;
 use nv_redfish_tests::base::redfish::service_root::RootSetOnlyComplexType;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
+use nv_redfish_tests::base::redfish::service_root::TestActionsServiceOemActions;
 use nv_redfish_tests::base::redfish::service_root::TestActionsServiceTestSerializationActionAction;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
+use nv_redfish_tests::base::redfish::test_vendor::TestActionsServiceTestActionAction as VendorTestAction;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Error;
@@ -567,6 +569,22 @@ async fn create_struct_required_on_create_and_writable_fields_test() -> Result<(
     Ok(())
 }
 
+// A vendor schema binds its own `TestAction` to the OEM extension
+// point: the generated struct must live in the vendor's module
+// (not collide with the standard `TestAction`) and its field must
+// serialize under the vendor's namespace.
+#[test]
+async fn oem_action_disambiguation_test() {
+    let oem_actions: TestActionsServiceOemActions = serde_json::from_value(json!({
+        "#TestVendor.TestAction": {
+            "target": "/redfish/v1/TestActionsService/Actions/Oem/TestVendor.TestAction"
+        }
+    }))
+    .expect("vendor action deserializes under its own namespace");
+    assert!(oem_actions.test_action.is_some());
+    let _distinct_from_standard: VendorTestAction = VendorTestAction {};
+}
+
 // Check that actions method.
 #[test]
 async fn action_method_test() -> Result<(), Error> {
@@ -575,8 +593,10 @@ async fn action_method_test() -> Result<(), Error> {
     let service_name = "TestActionsService";
     let service_id = format!("{root_id}/{service_name}");
     let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
-    let action_field = format!("#{service_name}.TestAction");
-    let action_target = format!("{root_id}/{service_name}/Actions/{service_name}.TestAction");
+    // Actions key by their defining schema's namespace (the fixture
+    // defines TestAction inside ServiceRoot), not the entity name.
+    let action_field = "#ServiceRoot.TestAction";
+    let action_target = format!("{root_id}/{service_name}/Actions/ServiceRoot.TestAction");
     bmc.expect(expect_root_srv(service_name, &service_id));
     let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
 

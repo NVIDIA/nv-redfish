@@ -451,9 +451,10 @@ impl SchemaBundle {
         s.actions
             .iter()
             .try_fold(stack, |stack, action| {
-                let compiled = action::compile_action(action, ctx, &stack)
-                    .map_err(Box::new)
-                    .map_err(|e| Error::Action(&action.name, e))?;
+                let compiled =
+                    action::compile_action(action, Namespace::new(&s.namespace), ctx, &stack)
+                        .map_err(Box::new)
+                        .map_err(|e| Error::Action(&action.name, e))?;
                 Ok(stack.merge(compiled))
             })
             .map_err(Box::new)
