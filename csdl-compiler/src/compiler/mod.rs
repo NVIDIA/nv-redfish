@@ -225,7 +225,7 @@ impl SchemaBundle {
         root_patterns: &EntityTypeFilter,
         config: Config,
     ) -> Result<Compiled<'_>, Error<'_>> {
-        let schema_index = SchemaIndex::build(&self.edmx_docs);
+        let schema_index = SchemaIndex::build(&self.edmx_docs)?;
         let root_set = self.root_set_from_singletons(&schema_index, singletons, root_patterns)?;
         let ctx = Context {
             schema_index,
@@ -245,7 +245,7 @@ impl SchemaBundle {
     pub fn compile_all(&self, config: Config) -> Result<Compiled<'_>, Error<'_>> {
         let root_set = self.root_set_all();
         let ctx = Context {
-            schema_index: SchemaIndex::build(&self.edmx_docs),
+            schema_index: SchemaIndex::build(&self.edmx_docs)?,
             config,
             root_set_entities: root_set.entity_types.iter().copied().collect(),
         };
@@ -507,6 +507,32 @@ mod test {
     use super::*;
     use crate::edmx::Edmx;
     use crate::edmx::QualifiedTypeName;
+
+    #[test]
+    fn compile_all_propagates_cyclic_type_error() {
+        let schema = r#"<edmx:Edmx Version="4.0">
+             <edmx:DataServices>
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Cycle">
+                 <EntityType Name="A" BaseType="Cycle.B"/>
+                 <EntityType Name="B" BaseType="Cycle.A"/>
+               </Schema>
+             </edmx:DataServices>
+           </edmx:Edmx>"#;
+        let bundle = SchemaBundle {
+            edmx_docs: vec![Edmx::parse(schema).expect("entity cycle schema must be valid")],
+            root_set_threshold: None,
+        };
+
+        let result = bundle.compile_all(Config::default());
+        assert!(
+            matches!(
+                result,
+                Err(Error::CyclicType(cycle))
+                    if cycle.len() >= 2 && cycle.first() == cycle.last()
+            ),
+            "compile_all must propagate the closed inheritance cycle"
+        );
+    }
 
     #[test]
     fn schema_test() {

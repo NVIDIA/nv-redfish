@@ -476,6 +476,14 @@ async fn no_write_only_in_read_struct() {
     t.compile_fail("tests/compile-fails/no-write-only-in-read.rs");
 }
 
+// Action parameters can contain sensitive information and must not implement Debug until the
+// schema compiler can explicitly identify and redact sensitive fields.
+#[test]
+async fn no_debug_for_action_parameters() {
+    let t = trybuild::TestCases::new();
+    t.compile_fail("tests/compile-fails/no-debug-for-action-parameters.rs");
+}
+
 // Check that collection provides create method.
 #[test]
 async fn create_collection_member_test() -> Result<(), Error> {

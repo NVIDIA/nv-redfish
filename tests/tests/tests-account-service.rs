@@ -46,6 +46,57 @@ const MANAGER_ACCOUNT_DATA_TYPE: &str = "#ManagerAccount.v1_3_0.ManagerAccount";
 type TestResult<T> = Result<T, Box<dyn StdError>>;
 
 #[test]
+async fn account_request_debug_redacts_passwords() {
+    const SECRET: &str = "debug-secret-sentinel";
+
+    let create =
+        ManagerAccountCreate::builder(SECRET.into(), "debug-user".into(), "Operator".into())
+            .build();
+    let create_debug = format!("{create:?}");
+    assert!(!create_debug.contains(SECRET));
+    assert!(create_debug.contains("password: \"<redacted>\""));
+    assert!(create_debug.contains("user_name: \"debug-user\""));
+    assert_eq!(
+        serde_json::to_value(&create).expect("create request must serialize")["Password"],
+        SECRET
+    );
+
+    let update = ManagerAccountUpdate::builder()
+        .with_password(SECRET.into())
+        .with_user_name("debug-user".into())
+        .build();
+    let update_debug = format!("{update:?}");
+    assert!(!update_debug.contains(SECRET));
+    assert!(update_debug.contains("base: None"));
+    assert!(update_debug.contains("password: Some(\"<redacted>\")"));
+    assert!(update_debug.contains("user_name: Some(\"debug-user\")"));
+    assert_eq!(
+        serde_json::to_value(&update).expect("update request must serialize")["Password"],
+        SECRET
+    );
+
+    // An unset optional write-only field remains None, while a supplied value is redacted above.
+    let unset_update_debug = format!("{:?}", ManagerAccountUpdate::builder().build());
+    assert!(unset_update_debug.contains("password: None"));
+}
+
+#[test]
+async fn additional_properties_debug_is_fully_redacted() {
+    const SECRET: &str = "oem-debug-secret-sentinel";
+
+    let update = nv_redfish::schema::resource::OemUpdate {
+        additional_properties: json!({ "Secret": SECRET }),
+    };
+    let debug = format!("{update:?}");
+    assert!(!debug.contains(SECRET));
+    assert!(debug.contains("additional_properties: \"<redacted>\""));
+    assert_eq!(
+        serde_json::to_value(&update).expect("OEM update must serialize")["Secret"],
+        SECRET
+    );
+}
+
+#[test]
 async fn list_accounts() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();

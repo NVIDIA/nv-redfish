@@ -15,6 +15,7 @@
 
 use crate::edmx::Namespace as EdmxNamespace;
 use crate::edmx::SimpleIdentifier;
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -104,6 +105,18 @@ impl PartialEq for Namespace<'_> {
 }
 
 impl Eq for Namespace<'_> {}
+
+impl PartialOrd for Namespace<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Namespace<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.edmx_ns.ids[..self.len].cmp(&other.edmx_ns.ids[..other.len])
+    }
+}
 
 impl Hash for Namespace<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
