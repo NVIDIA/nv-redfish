@@ -59,6 +59,9 @@ pub mod type_def;
 /// Enum definitions
 pub mod enum_def;
 
+/// Generation helpers for properties in create and update request structures.
+pub mod serializable_properties;
+
 use crate::compiler::Compiled;
 use crate::compiler::ForcedUpdate;
 use crate::compiler::IsCreatable;
@@ -85,6 +88,8 @@ pub use mod_def::ModDef;
 pub use mod_name::ModName;
 #[doc(inline)]
 pub use property_name::StructFieldName;
+#[doc(inline)]
+pub use serializable_properties::SerializableProperties;
 #[doc(inline)]
 pub use struct_def::StructDef;
 #[doc(inline)]
