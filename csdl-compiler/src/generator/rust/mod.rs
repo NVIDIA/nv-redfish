@@ -200,6 +200,8 @@ impl<'a> RustGenerator<'a> {
                 pub type DateTimeOffset = nv_redfish_core::EdmDateTimeOffset;
                 /// Mapping of `Edm.Decimal`
                 pub type Decimal = f64;
+                /// Mapping of `Edm.Double` type
+                pub type Double = f64;
                 /// Mapping of `Edm.Duration` type
                 pub type Duration = nv_redfish_core::EdmDuration;
                 /// Mapping of `Guid` type
