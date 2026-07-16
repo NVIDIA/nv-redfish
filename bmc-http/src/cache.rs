@@ -380,7 +380,7 @@ impl<K: Clone, V> CarCache<K, V> {
 impl<K: Clone, V, S: BuildHasher> CarCache<K, V, S> {
     /// Create a CAR cache with a custom hash builder.
     #[must_use]
-    pub fn with_hasher(capacity: usize, hasher: S) -> Self {
+    pub const fn with_hasher(capacity: usize, hasher: S) -> Self {
         Self {
             c: capacity,
             p: 0,
