@@ -34,11 +34,12 @@ mod unix {
 
     use gungraun::library_benchmark;
     use nv_redfish_bmc_http::cache::CarCache;
+    use rustc_hash::FxBuildHasher;
     use url::Url;
 
     const CAPACITY: usize = 1024;
 
-    type Cache = CarCache<Url, u64>;
+    type Cache = CarCache<Url, u64, FxBuildHasher>;
 
     fn key(i: usize) -> Url {
         let url = format!("https://bmc.local/redfish/v1/Systems/{i}/Sensors/{i}");
@@ -48,7 +49,7 @@ mod unix {
     /// Cache filled to capacity; every entry in T1 with a clear
     /// reference bit, so eviction finds a victim on the first probe.
     fn full(c: usize) -> Cache {
-        let mut cache = Cache::new(c);
+        let mut cache = Cache::with_hasher(c, FxBuildHasher);
         for i in 0..c {
             cache.put(key(i), i as u64);
         }
@@ -60,7 +61,7 @@ mod unix {
     /// insert doesn't land on the slot vector's doubling boundary
     /// and pay its reallocation.
     fn half_full(c: usize) -> Cache {
-        let mut cache = Cache::new(c);
+        let mut cache = Cache::with_hasher(c, FxBuildHasher);
         for i in 0..=c / 2 {
             cache.put(key(i), i as u64);
         }

@@ -52,6 +52,7 @@ wiremock = { workspace = true }
 # std::os::unix and nix unconditionally.
 [target.'cfg(unix)'.dev-dependencies]
 gungraun = { workspace = true }
+rustc-hash = { workspace = true }
 
 [[bench]]
 name = "cache"
