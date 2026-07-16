@@ -25,8 +25,8 @@
 //! the hand revisits.
 
 use std::any::Any;
-use std::collections::HashMap;
 use std::collections::hash_map::RandomState;
+use std::collections::HashMap;
 use std::hash::{BuildHasher, Hash};
 
 /// Information about an evicted cache entry.
@@ -403,7 +403,6 @@ impl<K, V, S: BuildHasher> CarCache<K, V, S>
 where
     K: Eq + Hash + Clone,
 {
-
     /// Get value from cache
     /// Returns Some(value) if found, None if not in cache
     pub fn get(&mut self, key: &K) -> Option<&V> {
@@ -647,7 +646,6 @@ where
         }
         None
     }
-
 }
 
 impl<K: Clone, V, S> CarCache<K, V, S> {
