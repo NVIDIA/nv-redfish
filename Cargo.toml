@@ -55,6 +55,7 @@ url = { version = "2.5" }
 uuid = { version = "1.18", default-features = false }
 time = { version = "0.3", default-features = false }
 rust_decimal = { version = "1.38", default-features = false }
+rustc-hash = { version = "2" }
 nv-redfish-core = { version = "0.1", path = "./core" }
 nv-redfish-bmc-http = { version = "0.1", path = "./bmc-http" }
 nv-redfish-bmc-mock = { version = "0.1", path = "./bmc-mock" }

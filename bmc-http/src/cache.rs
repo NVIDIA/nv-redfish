@@ -26,7 +26,8 @@
 
 use std::any::Any;
 use std::collections::HashMap;
-use std::hash::Hash;
+use std::collections::hash_map::RandomState;
+use std::hash::{BuildHasher, Hash};
 
 /// Information about an evicted cache entry.
 ///
@@ -347,7 +348,7 @@ enum Location {
 }
 
 /// CAR Cache implementation following the exact pseudocode
-pub struct CarCache<K, V> {
+pub struct CarCache<K, V, S = RandomState> {
     /// Cache capacity
     c: usize,
     /// Target size for T1 (adaptive parameter)
@@ -363,18 +364,23 @@ pub struct CarCache<K, V> {
     b2: GhostList<K>,
 
     /// Index to track key locations
-    index: HashMap<K, Location>,
+    index: HashMap<K, Location, S>,
 }
 
-impl<K, V> CarCache<K, V>
-where
-    K: Eq + Hash + Clone,
-{
+impl<K: Clone, V> CarCache<K, V> {
     /// Create new CAR cache with given capacity.
     ///
     /// A capacity of 0 creates a disabled cache that never stores entries.
     #[must_use]
     pub fn new(capacity: usize) -> Self {
+        Self::with_hasher(capacity, RandomState::new())
+    }
+}
+
+impl<K: Clone, V, S: BuildHasher> CarCache<K, V, S> {
+    /// Create a CAR cache with a custom hash builder.
+    #[must_use]
+    pub fn with_hasher(capacity: usize, hasher: S) -> Self {
         Self {
             c: capacity,
             p: 0,
@@ -388,9 +394,15 @@ where
             // its adaptation hit; B1 peaks at c and is sized alike.
             b1: GhostList::new(capacity.saturating_add(1)),
             b2: GhostList::new(capacity.saturating_add(1)),
-            index: HashMap::new(),
+            index: HashMap::with_hasher(hasher),
         }
     }
+}
+
+impl<K, V, S: BuildHasher> CarCache<K, V, S>
+where
+    K: Eq + Hash + Clone,
+{
 
     /// Get value from cache
     /// Returns Some(value) if found, None if not in cache
@@ -636,6 +648,9 @@ where
         None
     }
 
+}
+
+impl<K: Clone, V, S> CarCache<K, V, S> {
     /// Get current cache size (items in T1 + T2)
     #[must_use]
     pub const fn len(&self) -> usize {
