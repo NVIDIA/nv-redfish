@@ -1082,7 +1082,7 @@ impl HttpClient for Client {
             });
         }
 
-        let stream = sse_stream::SseStream::from_byte_stream(response.bytes_stream()).filter_map(
+        let stream = sse_stream::SseStream::from_bytes_stream(response.bytes_stream()).filter_map(
             |event| async move {
                 match event {
                     Err(err) => Some(Err(BmcError::SseStreamError(err))),
