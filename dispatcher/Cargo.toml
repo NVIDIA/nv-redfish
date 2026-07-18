@@ -20,6 +20,12 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
+# These repository-only tests and benchmarks depend on the unpublished
+# simulation helper crate.
+exclude = [
+    "benches/**",
+    "tests/**",
+]
 edition.workspace = true
 keywords.workspace = true
 categories.workspace = true
