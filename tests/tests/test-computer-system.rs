@@ -199,41 +199,9 @@ async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
                 computer_system(&ids, json!({
                 "Storage": { "@odata.id": "/redfish/v1/Systems/Bluefield/Storage" },
                 "Boot": {
-                    "AutomaticRetryAttempts": 3,
-                    "AutomaticRetryConfig": "Disabled",
-                    "AutomaticRetryConfig@Redfish.AllowableValues": [
-                        "Disabled",
-                        "RetryAttempts"
-                    ],
                     "BootOptions": {
                         "@odata.id": "/redfish/v1/Systems/Bluefield/BootOptions"
                     },
-                    "BootOrder": [],
-                    "BootOrderPropertySelection": "BootOrder",
-                    "BootSourceOverrideEnabled": "Disabled",
-                    "BootSourceOverrideEnabled@Redfish.AllowableValues": [
-                        "Once",
-                        "Continuous",
-                        "Disabled"
-                    ],
-                    "BootSourceOverrideMode": "UEFI",
-                    "BootSourceOverrideMode@Redfish.AllowableValues": [
-                        "Legacy",
-                        "UEFI"
-                    ],
-                    "BootSourceOverrideTarget": "None",
-                    "BootSourceOverrideTarget@Redfish.AllowableValues": [
-                        "None",
-                        "Pxe",
-                        "Hdd",
-                        "Cd",
-                        "Diags",
-                        "BiosSetup",
-                        "Usb"
-                    ],
-                    "RemainingAutomaticRetryAttempts": 2,
-                    "StopBootOnFault": "Never",
-                    "TrustedModuleRequiredToBoot": "Disabled"
                 }
                 }))
             ]
@@ -262,19 +230,15 @@ async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
                 "Accounts": {
                     "@odata.id": "/redfish/v1/AccountService/Accounts"
                 },
-                "Description": "Account Service",
                 "Id": "AccountService",
                 "MultiFactorAuth": {
                     "ClientCertificate": {
-                        "CertificateMappingAttribute": "CommonName",
                         "Certificates": {
                             "@odata.id": "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates",
                             "@odata.type": "#CertificateCollection.CertificateCollection",
                             "Members": null,
                             "Members@odata.count": 0
                         },
-                        "Enabled": true,
-                        "RespondToUnauthenticatedClients": true
                     }
                 }
             }
