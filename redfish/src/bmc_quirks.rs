@@ -37,6 +37,7 @@ enum Platform {
     NvidiaDpu,
     Anonymous1_9_0,
     NvSwitch,
+    Supermicro,
 }
 
 impl BmcQuirks {
@@ -63,6 +64,7 @@ impl BmcQuirks {
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
+            Some("Supermicro") => Some(Platform::Supermicro),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
@@ -130,15 +132,21 @@ impl BmcQuirks {
     /// property is Required in according to specification but some
     /// systems doesn't provide it.
     #[cfg(feature = "chassis")]
-    pub(crate) fn bug_missing_chassis_type_field(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
+    pub(crate) const fn bug_missing_chassis_type_field(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::AmiViking | Platform::Supermicro)
+        )
     }
 
     /// Missing Name property in Chassis resource. This property is
     /// required in any resource.
     #[cfg(feature = "chassis")]
-    pub(crate) fn bug_missing_chassis_name_field(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
+    pub(crate) const fn bug_missing_chassis_name_field(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::AmiViking | Platform::Supermicro)
+        )
     }
 
     /// NVIDIA DPU sometimes returns empty string UUID in

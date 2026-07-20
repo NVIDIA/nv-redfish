@@ -31,6 +31,7 @@ use nv_redfish_tests::expect_redfish_reset_action;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::redfish_action_payload;
 use nv_redfish_tests::redfish_empty_actions_payload;
+use nv_redfish_tests::supermicro_service_root;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -352,6 +353,79 @@ async fn ami_viking_missing_chassis_name_workaround() -> Result<(), Box<dyn StdE
 }
 
 #[test]
+async fn supermicro_missing_chassis_type_workaround() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_supermicro_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    // Supermicro keeps `$expand`, so the collection is fetched with the member
+    // inline. A SmartNIC chassis omits the Redfish-required `ChassisType`; the
+    // workaround injects a default so the member still deserializes.
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [{
+                ODATA_ID: &ids.chassis_id,
+                ODATA_TYPE: CHASSIS_DATA_TYPE,
+                "Id": "1",
+                "Name": "Chassis"
+            }]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+
+    Ok(())
+}
+
+#[test]
+async fn supermicro_missing_chassis_name_workaround() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_supermicro_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+        }),
+    )
+    .await?;
+    bmc.expect(Expect::expand(
+        &ids.chassis_collection_id,
+        json!({
+            ODATA_ID: &ids.chassis_collection_id,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Id": "Chassis",
+            "Name": "Chassis Collection",
+            "Members": [{
+                ODATA_ID: &ids.chassis_id,
+                ODATA_TYPE: CHASSIS_DATA_TYPE,
+                "Id": "1",
+                "ChassisType": "RackMount"
+            }]
+        }),
+    ));
+
+    let collection = root.chassis().await?.unwrap();
+    let members = collection.members().await?;
+    assert_eq!(members.len(), 1);
+
+    Ok(())
+}
+
+#[test]
 async fn ami_gb300_disables_expand_for_chassis_collection() -> Result<(), Box<dyn StdError>> {
     // Platform under test: Grace-based NVIDIA GB300 host BMC (AMI, RtpVersion 13.09.1).
     // Quirk under test: its `$expand` drops Required fields (Id/Name/ChassisType)
@@ -607,6 +681,18 @@ async fn expect_viking_service_root(
     bmc.expect(Expect::get(
         &ids.root_id,
         ami_viking_service_root(&ids.root_id, fields),
+    ));
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+async fn expect_supermicro_service_root(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    fields: Value,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        supermicro_service_root(&ids.root_id, fields),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
