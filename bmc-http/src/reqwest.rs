@@ -17,6 +17,8 @@
 
 use std::error::Error as StdErr;
 use std::fmt;
+use std::sync::atomic::AtomicUsize;
+use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,6 +33,7 @@ use crate::MultipartUpdateRequest;
 use crate::RejectedUriReferenceError;
 use crate::RequestError;
 
+use futures_util::stream::unfold;
 use futures_util::StreamExt as _;
 use http::header;
 use http::HeaderMap;
@@ -53,6 +56,7 @@ use reqwest::Error as ReqwestError;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::time::sleep;
+use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt as _;
 use tokio_util::io::ReaderStream;
 use url::Url;
@@ -85,6 +89,16 @@ pub enum BmcError {
     EncodeError(serde_json::Error),
     /// Request rejected before transport.
     InvalidRequest(String),
+    /// A single SSE event exceeded the configured maximum buffered size.
+    SseEventTooLarge {
+        /// Configured byte limit that was exceeded.
+        limit: usize,
+    },
+    /// No SSE event was received within the configured idle timeout.
+    SseIdleTimeout {
+        /// Idle duration that elapsed with no event.
+        idle: Duration,
+    },
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -139,6 +153,13 @@ impl fmt::Display for BmcError {
             Self::DecodeError(e) => write!(f, "JSON Decode error: {e}"),
             Self::EncodeError(e) => write!(f, "JSON Encode error: {e}"),
             Self::InvalidRequest(e) => write!(f, "Invalid request: {e}"),
+            Self::SseEventTooLarge { limit } => write!(
+                f,
+                "SSE event exceeded maximum buffered size of {limit} bytes"
+            ),
+            Self::SseIdleTimeout { idle } => {
+                write!(f, "SSE stream idle for longer than {idle:?}")
+            }
         }
     }
 }
@@ -152,6 +173,54 @@ impl StdErr for BmcError {
             Self::DecodeError(e) | Self::EncodeError(e) => Some(e),
             _ => None,
         }
+    }
+}
+
+/// Default maximum number of bytes buffered for a single, not-yet-terminated
+/// SSE event before [`Client::sse`] aborts the stream (1 MiB).
+pub const DEFAULT_SSE_MAX_EVENT_BYTES: usize = 1024 * 1024;
+
+/// Error produced by the byte-counting adapter that feeds the SSE decoder.
+///
+/// It is passed through the decoder's error channel so a transport failure and
+/// the "event too large" guard can be distinguished once the decoder surfaces
+/// them (see [`map_sse_error`]).
+#[derive(Debug)]
+enum SseByteError {
+    /// Underlying transport error from the response body stream.
+    Upstream(reqwest::Error),
+    /// The per-event byte budget was exceeded before the event terminated.
+    EventTooLarge {
+        /// Configured byte limit that was exceeded.
+        limit: usize,
+    },
+}
+
+impl fmt::Display for SseByteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Upstream(e) => write!(f, "{e}"),
+            Self::EventTooLarge { limit } => {
+                write!(f, "SSE event exceeded {limit} bytes without terminating")
+            }
+        }
+    }
+}
+
+impl StdErr for SseByteError {}
+
+/// Translate an [`sse_stream::Error`] back into a [`BmcError`], recovering the
+/// [`SseByteError`] that the byte-counting adapter passed through the decoder.
+fn map_sse_error(err: sse_stream::Error) -> BmcError {
+    match err {
+        sse_stream::Error::Body(boxed) => match boxed.downcast::<SseByteError>() {
+            Ok(inner) => match *inner {
+                SseByteError::Upstream(e) => BmcError::ReqwestError(e),
+                SseByteError::EventTooLarge { limit } => BmcError::SseEventTooLarge { limit },
+            },
+            Err(other) => BmcError::SseStreamError(sse_stream::Error::Body(other)),
+        },
+        other => BmcError::SseStreamError(other),
     }
 }
 
@@ -190,6 +259,7 @@ type RetryClassifier =
 /// let params = ClientParams::new().retry(policy);
 /// ```
 #[derive(Clone)]
+#[allow(clippy::struct_field_names)]
 pub struct RetryPolicy {
     /// Number of extra attempts after the first one.
     max_retries: u32,
@@ -286,6 +356,16 @@ pub struct ClientParams {
     pub use_rust_tls: bool,
     /// Retry policy for received responses, `None` disables retries
     pub retry: Option<RetryPolicy>,
+    /// Maximum bytes buffered for a single, not-yet-terminated SSE event before
+    /// [`Client::sse`] aborts with [`BmcError::SseEventTooLarge`]. Guards against
+    /// a server that never sends the SSE event terminator.
+    pub sse_max_event_bytes: usize,
+    /// Maximum idle time between SSE events before [`Client::sse`] aborts with
+    /// [`BmcError::SseIdleTimeout`]. `None` disables the check.
+    pub sse_idle_timeout: Option<Duration>,
+    /// Optional overall deadline applied to the SSE request. `None` leaves the
+    /// long-lived SSE request without a total-request timeout.
+    pub sse_total_timeout: Option<Duration>,
 }
 
 impl Default for ClientParams {
@@ -302,6 +382,9 @@ impl Default for ClientParams {
             default_headers: None,
             use_rust_tls: true,
             retry: None,
+            sse_max_event_bytes: DEFAULT_SSE_MAX_EVENT_BYTES,
+            sse_idle_timeout: None,
+            sse_total_timeout: None,
         }
     }
 }
@@ -389,6 +472,40 @@ impl ClientParams {
         self.retry = Some(retry);
         self
     }
+
+    /// Sets the maximum buffered size of a single, not-yet-terminated SSE event.
+    ///
+    /// See [`ClientParams::sse_max_event_bytes`].
+    #[must_use]
+    pub const fn sse_max_event_bytes(mut self, bytes: usize) -> Self {
+        self.sse_max_event_bytes = bytes;
+        self
+    }
+
+    /// Sets the maximum idle time between SSE events.
+    ///
+    /// See [`ClientParams::sse_idle_timeout`].
+    #[must_use]
+    pub const fn sse_idle_timeout(mut self, timeout: Duration) -> Self {
+        self.sse_idle_timeout = Some(timeout);
+        self
+    }
+
+    /// Disables the SSE idle timeout.
+    #[must_use]
+    pub const fn no_sse_idle_timeout(mut self) -> Self {
+        self.sse_idle_timeout = None;
+        self
+    }
+
+    /// Sets an overall deadline for the SSE request.
+    ///
+    /// See [`ClientParams::sse_total_timeout`].
+    #[must_use]
+    pub const fn sse_total_timeout(mut self, timeout: Duration) -> Self {
+        self.sse_total_timeout = Some(timeout);
+        self
+    }
 }
 
 /// HTTP client implementation using the reqwest library.
@@ -397,9 +514,13 @@ impl ClientParams {
 /// reqwest HTTP client library. It supports all standard HTTP features including
 /// TLS, authentication, and connection pooling.
 #[derive(Clone)]
+#[allow(clippy::struct_field_names)]
 pub struct Client {
     client: ReqwestClient,
     retry: Option<RetryPolicy>,
+    sse_max_event_bytes: usize,
+    sse_idle_timeout: Option<Duration>,
+    sse_total_timeout: Option<Duration>,
 }
 
 impl Client {
@@ -471,6 +592,9 @@ impl Client {
         Ok(Self {
             client: builder.build()?,
             retry: params.retry,
+            sse_max_event_bytes: params.sse_max_event_bytes,
+            sse_idle_timeout: params.sse_idle_timeout,
+            sse_total_timeout: params.sse_total_timeout,
         })
     }
 
@@ -488,6 +612,9 @@ impl Client {
         Self {
             client,
             retry: None,
+            sse_max_event_bytes: DEFAULT_SSE_MAX_EVENT_BYTES,
+            sse_idle_timeout: None,
+            sse_total_timeout: None,
         }
     }
 }
@@ -1061,16 +1188,24 @@ impl HttpClient for Client {
         self.handle_modification_response(response).await
     }
 
+    // The idle-timeout branch matches on `Option<Duration>` where both arms
+    // await distinct future types, which cannot be expressed as an `Option`
+    // combinator without boxing; `option_if_let_else`'s suggestion does not apply.
+    #[allow(clippy::option_if_let_else)]
     async fn sse<T: Send + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let request = auth_headers(self.client.get(url), credentials)
+        // An SSE stream is long-lived; apply an overall deadline only when
+        // one is explicitly configured, otherwise leave it unbounded.
+        let mut request = auth_headers(self.client.get(url), credentials)
             .headers(custom_headers.clone())
-            .header(header::ACCEPT, "text/event-stream")
-            .timeout(Duration::MAX);
+            .header(header::ACCEPT, "text/event-stream");
+        if let Some(total_timeout) = self.sse_total_timeout {
+            request = request.timeout(total_timeout);
+        }
 
         let response = self.send(request.build()?).await?;
 
@@ -1082,21 +1217,81 @@ impl HttpClient for Client {
             });
         }
 
-        let stream = sse_stream::SseStream::from_bytes_stream(response.bytes_stream()).filter_map(
-            |event| async move {
-                match event {
-                    Err(err) => Some(Err(BmcError::SseStreamError(err))),
-                    Ok(sse) => sse.data.map(|data| {
-                        serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(
-                            &data,
-                        ))
-                        .map_err(BmcError::JsonError)
-                    }),
+        // Hard memory bound: cap the bytes buffered for a single, not-yet-
+        // terminated event. `counter` tracks bytes pulled from the transport
+        // since the last completed event and is reset each time the decoder
+        // emits one (below), so a well-behaved long-lived stream is never
+        // penalized while an endless unterminated event is aborted.
+        //
+        // Arc is required because BoxTryStream is Send, so all captured state
+        // must be Send. The stream is polled sequentially (no concurrent access);
+        // Relaxed ordering is correct throughout.
+        let limit = self.sse_max_event_bytes;
+        let counter = Arc::new(AtomicUsize::new(0));
+
+        let capped_bytes = {
+            let counter = Arc::clone(&counter);
+            response.bytes_stream().map(move |chunk| match chunk {
+                Ok(bytes) => {
+                    let total = counter.fetch_add(bytes.len(), Ordering::Relaxed) + bytes.len();
+                    if total > limit {
+                        Err(SseByteError::EventTooLarge { limit })
+                    } else {
+                        Ok(bytes)
+                    }
+                }
+                Err(e) => Err(SseByteError::Upstream(e)),
+            })
+        };
+
+        let events = {
+            let counter = Arc::clone(&counter);
+            sse_stream::SseStream::from_bytes_stream(capped_bytes).filter_map(move |event| {
+                let counter = Arc::clone(&counter);
+                async move {
+                    match event {
+                        Err(err) => Some(Err(map_sse_error(err))),
+                        Ok(sse) => {
+                            // A completed event flushed the decoder's buffers;
+                            // reset the per-event byte budget.
+                            counter.store(0, Ordering::Relaxed);
+                            sse.data.map(|data| {
+                                serde_path_to_error::deserialize(
+                                    &mut serde_json::Deserializer::from_str(&data),
+                                )
+                                .map_err(BmcError::JsonError)
+                            })
+                        }
+                    }
+                }
+            })
+        };
+
+        // Liveness bound: optionally abort if no event arrives within the idle
+        // window. Keyed on completed events, not raw byte activity.
+        let idle = self.sse_idle_timeout;
+        let guarded = unfold(
+            (Box::pin(events), false),
+            move |(mut events, done)| async move {
+                if done {
+                    return None;
+                }
+                let next = match idle {
+                    Some(d) => match timeout(d, events.next()).await {
+                        Ok(item) => item,
+                        Err(_) => Some(Err(BmcError::SseIdleTimeout { idle: d })),
+                    },
+                    None => events.next().await,
+                };
+                match next {
+                    Some(item @ Err(_)) => Some((item, (events, true))),
+                    Some(item) => Some((item, (events, false))),
+                    None => None,
                 }
             },
         );
 
-        Ok(Box::pin(stream))
+        Ok(Box::pin(guarded))
     }
 }
 

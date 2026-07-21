@@ -153,6 +153,113 @@ mod tests {
     }
 
     #[tokio::test]
+    async fn sse_aborts_when_event_exceeds_byte_limit() {
+        use nv_redfish_bmc_http::reqwest::{Client, ClientParams};
+        use nv_redfish_bmc_http::{CacheSettings, HttpBmc};
+        use url::Url;
+
+        let mock_server = MockServer::start().await;
+
+        // 6-byte prefix ("data: ") + 20 bytes of data + newline = 27 bytes total,
+        // well over the 16-byte limit. No event terminator (\n\n) so the decoder
+        // never emits a complete event — the counter fires first.
+        let sse_body = format!("data: {}\n", "x".repeat(20));
+
+        Mock::given(method("GET"))
+            .and(path(SSE_URI))
+            .and(header("accept", "text/event-stream"))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .insert_header("content-type", "text/event-stream")
+                    .set_body_string(sse_body),
+            )
+            .mount(&mock_server)
+            .await;
+
+        let client = Client::with_params(ClientParams::new().sse_max_event_bytes(16)).unwrap();
+        let bmc = HttpBmc::new(
+            client,
+            Url::parse(&mock_server.uri()).unwrap(),
+            create_test_credentials(),
+            CacheSettings::default(),
+        );
+
+        let mut stream = bmc
+            .stream::<JsonValue>(SSE_URI)
+            .await
+            .expect("stream must open");
+
+        let result = stream.next().await.expect("expected an error item");
+        assert!(
+            matches!(result, Err(BmcError::SseEventTooLarge { limit: 16 })),
+            "expected SseEventTooLarge, got: {result:?}",
+        );
+    }
+
+    #[tokio::test]
+    async fn sse_aborts_on_idle_timeout() {
+        use nv_redfish_bmc_http::reqwest::{Client, ClientParams};
+        use nv_redfish_bmc_http::{CacheSettings, HttpBmc};
+        use std::time::Duration;
+        use tokio::io::AsyncWriteExt as _;
+        use tokio::net::TcpListener;
+        use url::Url;
+
+        // Bind to an OS-assigned port so we never collide with other tests.
+        let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        // Spawn a minimal HTTP server that sends one SSE event then stalls,
+        // keeping the connection open so the client has nothing to time out on.
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.unwrap();
+            socket
+                .write_all(
+                    b"HTTP/1.1 200 OK\r\n\
+                      Content-Type: text/event-stream\r\n\
+                      Connection: keep-alive\r\n\
+                      \r\n\
+                      data: {}\n\n",
+                )
+                .await
+                .unwrap();
+            socket.flush().await.unwrap();
+            // Hold the connection open so the idle timeout is what fires, not EOF.
+            tokio::time::sleep(Duration::from_secs(30)).await;
+        });
+
+        let client =
+            Client::with_params(ClientParams::new().sse_idle_timeout(Duration::from_millis(100)))
+                .unwrap();
+        let bmc = HttpBmc::new(
+            client,
+            Url::parse(&format!("http://{addr}")).unwrap(),
+            create_test_credentials(),
+            CacheSettings::default(),
+        );
+
+        let mut stream = bmc
+            .stream::<JsonValue>(SSE_URI)
+            .await
+            .expect("stream must open");
+
+        // First poll delivers the one event the server sent.
+        let first = stream
+            .next()
+            .await
+            .expect("first event expected")
+            .expect("first event must be Ok");
+        assert_eq!(first, serde_json::json!({}));
+
+        // Second poll blocks until the idle timeout fires.
+        let result = stream.next().await.expect("expected an error item");
+        assert!(
+            matches!(result, Err(BmcError::SseIdleTimeout { .. })),
+            "expected SseIdleTimeout, got: {result:?}",
+        );
+    }
+
+    #[tokio::test]
     async fn test_event_stream_rejects_cross_origin_uri() {
         let mock_server = MockServer::start().await;
         let bmc = create_test_bmc(&mock_server);

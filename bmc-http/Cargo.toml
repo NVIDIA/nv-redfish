@@ -44,7 +44,7 @@ nv-redfish-csdl-compiler = { workspace = true }
 nv-redfish-schema = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util"] }
 tokio-test = { workspace = true }
 wiremock = { workspace = true }
 
