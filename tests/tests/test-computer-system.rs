@@ -238,6 +238,98 @@ async fn nvidia_dpu_empty_system_uuid_in_expanded_members_workaround(
     Ok(())
 }
 
+// Check that collection with {"Members":null} returns empty collection for Bluefield BMC.
+#[test]
+async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids_blue_field();
+    let service_root = expect_nvidia_dpu_service_root_bf3(bmc.clone()).await?;
+
+    bmc.expect(Expect::expand(
+        &ids.systems_id,
+        json!({
+            ODATA_ID: &ids.systems_id,
+            ODATA_TYPE: &SYSTEM_COLLECTION_DATA_TYPE,
+            "Id": resource_name(&ids.systems_id),
+            "Name": "Computer System Collection",
+            "Members": [
+                computer_system(&ids, json!({
+                "Storage": { "@odata.id": "/redfish/v1/Systems/Bluefield/Storage" },
+                "Boot": {
+                    "BootOptions": {
+                        "@odata.id": "/redfish/v1/Systems/Bluefield/BootOptions"
+                    },
+                }
+                }))
+            ]
+        }),
+    ));
+
+    bmc.expect(Expect::expand(
+        "/redfish/v1/Systems/Bluefield/BootOptions",
+        json!({
+            "@odata.id": "/redfish/v1/Systems/Bluefield/BootOptions",
+            "@odata.type": "#BootOptionCollection.BootOptionCollection",
+            "Members": null,
+            "Members@odata.count": 0,
+            "Name": "Boot Option Collection"
+        }),
+    ));
+
+
+    bmc.expect(Expect::get(
+        "/redfish/v1/AccountService",
+        json!(
+            {
+                "@odata.id": "/redfish/v1/AccountService",
+                "@odata.type": "#AccountService.v1_15_0.AccountService",
+                "Name": "Account Service",
+                "Accounts": {
+                    "@odata.id": "/redfish/v1/AccountService/Accounts"
+                },
+                "Id": "AccountService",
+                "MultiFactorAuth": {
+                    "ClientCertificate": {
+                        "Certificates": {
+                            "@odata.id": "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates",
+                            "@odata.type": "#CertificateCollection.CertificateCollection",
+                            "Members": null,
+                            "Members@odata.count": 0
+                        },
+                    }
+                }
+            }
+        ),
+    ));
+
+    bmc.expect(Expect::expand(
+    "/redfish/v1/Systems/Bluefield/Storage",
+    json!({
+        "@odata.id": "/redfish/v1/Systems/Bluefield/Storage",
+        "@odata.type": "#StorageCollection.StorageCollection",
+        "Members": null,
+        "Members@odata.count": 0,
+        "Name": "Storage Collection"
+        }),
+    ));
+
+    let systems = service_root.systems().await?.unwrap();
+    let systems = systems.members().await?;
+    let boot_options = systems[0].boot_options().await?;
+    let members = boot_options.unwrap().members().await?;
+
+    assert_eq!(members.len(), 0);
+    
+    let _account_service = service_root.account_service().await?.unwrap().raw();
+
+
+    let storage = systems[0].storage_controllers().await?.unwrap();
+    assert_eq!(storage.len(), 0);
+
+    Ok(())
+
+}
+
 #[test]
 async fn nvidia_dpu_empty_system_uuid_on_member_fetch_workaround() -> Result<(), Box<dyn StdError>>
 {
@@ -328,6 +420,42 @@ async fn expect_nvidia_dpu_service_root(
 
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
+
+async fn expect_nvidia_dpu_service_root_bf3(
+    bmc: Arc<Bmc>,
+) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
+    let root_id = ODataId::service_root();
+    let systems_id = format!("{root_id}/Systems");
+    bmc.expect(Expect::get(
+        &root_id,
+        json!({
+            ODATA_ID: &root_id,
+            ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+            "AccountService": {
+                "@odata.id": "/redfish/v1/AccountService"
+            },
+            "Id": "RootService",
+            "Name": "RootService",
+            "ProtocolFeaturesSupported": {
+                "ExpandQuery": {
+                    "NoLinks": true
+                }
+            },
+            "Systems": { ODATA_ID: &systems_id },
+            "Vendor": "Nvidia",
+            "Product": "BlueField-3 DPU",
+            "Links": {
+                "Sessions": {
+                    ODATA_ID: format!("{}/SessionService/Sessions", &root_id),
+                }
+            },
+        }),
+    ));
+
+    ServiceRoot::new(bmc).await.map_err(Into::into)
+}
+
+
 
 async fn expect_service_root(
     bmc: Arc<Bmc>,
@@ -453,6 +581,17 @@ fn computer_system_ids() -> ComputerSystemIds {
     let root_id = ODataId::service_root();
     let systems_id = format!("{root_id}/Systems");
     let system_id = format!("{systems_id}/System-1");
+    ComputerSystemIds {
+        root_id,
+        systems_id,
+        system_id,
+    }
+}
+
+fn computer_system_ids_blue_field() -> ComputerSystemIds {
+    let root_id = ODataId::service_root();
+    let systems_id = format!("{root_id}/Systems");
+    let system_id = format!("{systems_id}/Bluefield");
     ComputerSystemIds {
         root_id,
         systems_id,

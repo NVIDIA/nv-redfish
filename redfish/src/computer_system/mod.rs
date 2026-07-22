@@ -46,6 +46,10 @@ use crate::schema::resource::ResourceCollection;
 use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
+#[cfg(feature = "storages")]
+use crate::schema::storage::Storage as StorageSchema;
+#[cfg(feature = "storages")]
+use crate::schema::storage_collection::StorageCollection as StorageCollectionSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::convert::identity;
@@ -198,3 +202,54 @@ fn normalize_empty_uuid_field(mut v: JsonValue) -> JsonValue {
     }
     v
 }
+
+/// Storage collection.
+///
+/// Provides functions to access collection members.
+#[cfg(feature = "storages")]
+pub struct StorageCollection<B: Bmc> {
+    bmc: NvBmc<B>,
+    collection: Arc<StorageCollectionSchema>,
+}
+
+#[cfg(feature = "storages")]
+impl <B:Bmc> StorageCollection <B> {
+    
+    /// Create a new storage collection handle.
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<StorageCollectionSchema>,
+    ) -> Result<Self, Error<B>> {
+        let collection = Self::expand_collection(bmc, nav, None, None).await?;
+        Ok(Self {
+            bmc: bmc.clone(),
+            collection,
+        })
+    }
+
+    /// List all storages available in this BMC.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching storage data fails.
+    pub async fn members(&self) -> Result<Vec<Storage<B>>, Error<B>> {
+        let mut members = Vec::new();
+        for m in &self.collection.members {
+            members.push(Storage::new(&self.bmc, m).await?);
+        }
+        Ok(members)
+    }
+}
+
+#[cfg(feature = "storages")]
+impl<B: Bmc> CollectionWithPatch<StorageCollectionSchema, StorageSchema, B>
+    for StorageCollection<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<StorageSchema>>,
+    ) -> StorageCollectionSchema {
+        StorageCollectionSchema { base, members }
+    }
+}
+

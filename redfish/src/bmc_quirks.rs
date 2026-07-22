@@ -63,6 +63,7 @@ impl BmcQuirks {
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
+            Some("Nvidia") if product_str == Some("BlueField-3 DPU") => Some(Platform::NvidiaDpu),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
@@ -226,5 +227,11 @@ impl BmcQuirks {
             self.platform,
             Some(Platform::AmiViking | Platform::AmiGb300)
         )
+    }
+    
+    /// Some implementations return the `Members` field of
+    /// a collection as `null` instead of an empty array (`[]`).
+    pub(crate) fn bug_nullable_members(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
     }
 }
