@@ -17,8 +17,7 @@
 
 use std::error::Error as StdErr;
 use std::fmt;
-use std::sync::atomic::AtomicUsize;
-use std::sync::atomic::Ordering;
+use std::future::ready;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -33,7 +32,9 @@ use crate::MultipartUpdateRequest;
 use crate::RejectedUriReferenceError;
 use crate::RequestError;
 
+use bytes::Bytes;
 use futures_util::stream::unfold;
+use futures_util::Stream;
 use futures_util::StreamExt as _;
 use http::header;
 use http::HeaderMap;
@@ -176,9 +177,15 @@ impl StdErr for BmcError {
     }
 }
 
-/// Default maximum number of bytes buffered for a single, not-yet-terminated
-/// SSE event before [`Client::sse`] aborts the stream (1 MiB).
-pub const DEFAULT_SSE_MAX_EVENT_BYTES: usize = 1024 * 1024;
+impl BmcError {
+    /// Returns `true` if this error should terminate an SSE stream.
+    ///
+    /// A JSON decode error is scoped to a single event and is therefore
+    /// non-fatal; every other error ends the stream.
+    const fn is_stream_fatal(&self) -> bool {
+        !matches!(self, Self::JsonError(_))
+    }
+}
 
 /// Error produced by the byte-counting adapter that feeds the SSE decoder.
 ///
@@ -224,6 +231,72 @@ fn map_sse_error(err: sse_stream::Error) -> BmcError {
     }
 }
 
+/// Line-terminator state used by [`cap_event_bytes`] to detect SSE record
+/// boundaries (blank lines) directly in the raw byte stream.
+#[derive(Clone, Copy)]
+enum DelimiterState {
+    /// Inside a line.
+    Data,
+    /// Saw `\r`; a following `\n` belongs to the same terminator.
+    Cr,
+    /// Saw one complete line terminator.
+    Eol,
+}
+
+/// Bound the bytes buffered for a single, not-yet-terminated SSE event.
+///
+/// Counts bytes on the raw transport stream and resets the count at each SSE
+/// record boundary (a blank line), aborting with [`SseByteError::EventTooLarge`]
+/// once an unterminated event exceeds `limit`. Working on raw bytes (rather than
+/// decoded events) means comment/heartbeat records that end in a blank line also
+/// reset the budget, and a well-behaved long-lived stream is never penalized.
+fn cap_event_bytes(
+    bytes: impl Stream<Item = Result<Bytes, reqwest::Error>>,
+    limit: usize,
+) -> impl Stream<Item = Result<Bytes, SseByteError>> {
+    use DelimiterState::{Cr, Data, Eol};
+    bytes.scan((0_usize, Data), move |(count, state), chunk| {
+        let item = chunk.map_err(SseByteError::Upstream).and_then(|bytes| {
+            for &b in bytes.as_ref() {
+                *count += 1;
+                *state = match (*state, b) {
+                    (Data, b'\r') => Cr,
+                    (Data | Cr, b'\n') => Eol,
+                    (Cr | Eol, b'\r') => {
+                        *count = 0; // blank line: event delimited
+                        Cr
+                    }
+                    (Eol, b'\n') => {
+                        *count = 0; // blank line: event delimited
+                        Eol
+                    }
+                    _ => Data,
+                };
+            }
+            if *count > limit {
+                Err(SseByteError::EventTooLarge { limit })
+            } else {
+                Ok(bytes)
+            }
+        });
+        ready(Some(item))
+    })
+}
+
+/// Decode one SSE record into a typed item, or `None` for records without data
+/// (e.g. comments) so they are filtered out of the stream.
+fn event_to_item<T: DeserializeOwned>(
+    event: Result<sse_stream::Sse, sse_stream::Error>,
+) -> Option<Result<T, BmcError>> {
+    match event {
+        Err(err) => Some(Err(map_sse_error(err))),
+        Ok(sse) => sse.data.map(|data| {
+            serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&data))
+                .map_err(BmcError::JsonError)
+        }),
+    }
+}
+
 /// Classifier deciding whether a response should be retried.
 ///
 /// Receives the request and the response, returns `true` if the request
@@ -259,7 +332,6 @@ type RetryClassifier =
 /// let params = ClientParams::new().retry(policy);
 /// ```
 #[derive(Clone)]
-#[allow(clippy::struct_field_names)]
 pub struct RetryPolicy {
     /// Number of extra attempts after the first one.
     max_retries: u32,
@@ -363,9 +435,6 @@ pub struct ClientParams {
     /// Maximum idle time between SSE events before [`Client::sse`] aborts with
     /// [`BmcError::SseIdleTimeout`]. `None` disables the check.
     pub sse_idle_timeout: Option<Duration>,
-    /// Optional overall deadline applied to the SSE request. `None` leaves the
-    /// long-lived SSE request without a total-request timeout.
-    pub sse_total_timeout: Option<Duration>,
 }
 
 impl Default for ClientParams {
@@ -382,9 +451,8 @@ impl Default for ClientParams {
             default_headers: None,
             use_rust_tls: true,
             retry: None,
-            sse_max_event_bytes: DEFAULT_SSE_MAX_EVENT_BYTES,
+            sse_max_event_bytes: 1024 * 1024,
             sse_idle_timeout: None,
-            sse_total_timeout: None,
         }
     }
 }
@@ -490,22 +558,6 @@ impl ClientParams {
         self.sse_idle_timeout = Some(timeout);
         self
     }
-
-    /// Disables the SSE idle timeout.
-    #[must_use]
-    pub const fn no_sse_idle_timeout(mut self) -> Self {
-        self.sse_idle_timeout = None;
-        self
-    }
-
-    /// Sets an overall deadline for the SSE request.
-    ///
-    /// See [`ClientParams::sse_total_timeout`].
-    #[must_use]
-    pub const fn sse_total_timeout(mut self, timeout: Duration) -> Self {
-        self.sse_total_timeout = Some(timeout);
-        self
-    }
 }
 
 /// HTTP client implementation using the reqwest library.
@@ -520,7 +572,6 @@ pub struct Client {
     retry: Option<RetryPolicy>,
     sse_max_event_bytes: usize,
     sse_idle_timeout: Option<Duration>,
-    sse_total_timeout: Option<Duration>,
 }
 
 impl Client {
@@ -594,7 +645,6 @@ impl Client {
             retry: params.retry,
             sse_max_event_bytes: params.sse_max_event_bytes,
             sse_idle_timeout: params.sse_idle_timeout,
-            sse_total_timeout: params.sse_total_timeout,
         })
     }
 
@@ -612,9 +662,8 @@ impl Client {
         Self {
             client,
             retry: None,
-            sse_max_event_bytes: DEFAULT_SSE_MAX_EVENT_BYTES,
+            sse_max_event_bytes: 1024 * 1024,
             sse_idle_timeout: None,
-            sse_total_timeout: None,
         }
     }
 }
@@ -1188,9 +1237,9 @@ impl HttpClient for Client {
         self.handle_modification_response(response).await
     }
 
-    // The idle-timeout branch matches on `Option<Duration>` where both arms
-    // await distinct future types, which cannot be expressed as an `Option`
-    // combinator without boxing; `option_if_let_else`'s suggestion does not apply.
+    // The idle branch matches on `Option<Duration>` where both arms await
+    // distinct future types, which cannot be expressed as an `Option` combinator
+    // without boxing; `option_if_let_else`'s suggestion does not apply.
     #[allow(clippy::option_if_let_else)]
     async fn sse<T: Send + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
@@ -1198,14 +1247,12 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        // An SSE stream is long-lived; apply an overall deadline only when
-        // one is explicitly configured, otherwise leave it unbounded.
-        let mut request = auth_headers(self.client.get(url), credentials)
+        // An SSE stream is long-lived, so there is no overall request deadline;
+        // liveness is bounded by the idle timeout and memory by the byte cap.
+        let request = auth_headers(self.client.get(url), credentials)
             .headers(custom_headers.clone())
-            .header(header::ACCEPT, "text/event-stream");
-        if let Some(total_timeout) = self.sse_total_timeout {
-            request = request.timeout(total_timeout);
-        }
+            .header(header::ACCEPT, "text/event-stream")
+            .timeout(Duration::MAX);
 
         let response = self.send(request.build()?).await?;
 
@@ -1217,58 +1264,16 @@ impl HttpClient for Client {
             });
         }
 
-        // Hard memory bound: cap the bytes buffered for a single, not-yet-
-        // terminated event. `counter` tracks bytes pulled from the transport
-        // since the last completed event and is reset each time the decoder
-        // emits one (below), so a well-behaved long-lived stream is never
-        // penalized while an endless unterminated event is aborted.
-        //
-        // Arc is required because BoxTryStream is Send, so all captured state
-        // must be Send. The stream is polled sequentially (no concurrent access);
-        // Relaxed ordering is correct throughout.
-        let limit = self.sse_max_event_bytes;
-        let counter = Arc::new(AtomicUsize::new(0));
-
-        let capped_bytes = {
-            let counter = Arc::clone(&counter);
-            response.bytes_stream().map(move |chunk| match chunk {
-                Ok(bytes) => {
-                    let total = counter.fetch_add(bytes.len(), Ordering::Relaxed) + bytes.len();
-                    if total > limit {
-                        Err(SseByteError::EventTooLarge { limit })
-                    } else {
-                        Ok(bytes)
-                    }
-                }
-                Err(e) => Err(SseByteError::Upstream(e)),
-            })
-        };
-
-        let events = {
-            let counter = Arc::clone(&counter);
-            sse_stream::SseStream::from_bytes_stream(capped_bytes).filter_map(move |event| {
-                let counter = Arc::clone(&counter);
-                async move {
-                    match event {
-                        Err(err) => Some(Err(map_sse_error(err))),
-                        Ok(sse) => {
-                            // A completed event flushed the decoder's buffers;
-                            // reset the per-event byte budget.
-                            counter.store(0, Ordering::Relaxed);
-                            sse.data.map(|data| {
-                                serde_path_to_error::deserialize(
-                                    &mut serde_json::Deserializer::from_str(&data),
-                                )
-                                .map_err(BmcError::JsonError)
-                            })
-                        }
-                    }
-                }
-            })
-        };
+        let capped = cap_event_bytes(response.bytes_stream(), self.sse_max_event_bytes);
+        let events = sse_stream::SseStream::from_bytes_stream(capped)
+            .filter_map(|event| async move { event_to_item::<T>(event) });
 
         // Liveness bound: optionally abort if no event arrives within the idle
-        // window. Keyed on completed events, not raw byte activity.
+        // window. It is keyed on decoded events, so comment heartbeats (which
+        // `sse_stream` discards) do NOT reset it; a server relying solely on
+        // comment heartbeats should not enable the idle timeout. A JSON decode
+        // error is per-event and non-fatal; every other error is terminal and
+        // stops the stream promptly.
         let idle = self.sse_idle_timeout;
         let guarded = unfold(
             (Box::pin(events), false),
@@ -1284,8 +1289,11 @@ impl HttpClient for Client {
                     None => events.next().await,
                 };
                 match next {
-                    Some(item @ Err(_)) => Some((item, (events, true))),
-                    Some(item) => Some((item, (events, false))),
+                    Some(Err(e)) => {
+                        let terminal = e.is_stream_fatal();
+                        Some((Err(e), (events, terminal)))
+                    }
+                    Some(ok) => Some((ok, (events, false))),
                     None => None,
                 }
             },
