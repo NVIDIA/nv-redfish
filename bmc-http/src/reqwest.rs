@@ -428,13 +428,29 @@ pub struct ClientParams {
     pub use_rust_tls: bool,
     /// Retry policy for received responses, `None` disables retries
     pub retry: Option<RetryPolicy>,
+    /// SSE-specific limits applied by [`Client::sse`].
+    pub sse: SseOptions,
+}
+
+/// Limits applied to Server-Sent Event streams opened by [`Client::sse`].
+#[derive(Clone, Copy, Debug)]
+pub struct SseOptions {
     /// Maximum bytes buffered for a single, not-yet-terminated SSE event before
     /// [`Client::sse`] aborts with [`BmcError::SseEventTooLarge`]. Guards against
     /// a server that never sends the SSE event terminator.
-    pub sse_max_event_bytes: usize,
+    pub max_event_bytes: usize,
     /// Maximum idle time between SSE events before [`Client::sse`] aborts with
     /// [`BmcError::SseIdleTimeout`]. `None` disables the check.
-    pub sse_idle_timeout: Option<Duration>,
+    pub idle_timeout: Option<Duration>,
+}
+
+impl Default for SseOptions {
+    fn default() -> Self {
+        Self {
+            max_event_bytes: 1024 * 1024,
+            idle_timeout: None,
+        }
+    }
 }
 
 impl Default for ClientParams {
@@ -451,8 +467,7 @@ impl Default for ClientParams {
             default_headers: None,
             use_rust_tls: true,
             retry: None,
-            sse_max_event_bytes: 1024 * 1024,
-            sse_idle_timeout: None,
+            sse: SseOptions::default(),
         }
     }
 }
@@ -546,16 +561,16 @@ impl ClientParams {
     /// See [`ClientParams::sse_max_event_bytes`].
     #[must_use]
     pub const fn sse_max_event_bytes(mut self, bytes: usize) -> Self {
-        self.sse_max_event_bytes = bytes;
+        self.sse.max_event_bytes = bytes;
         self
     }
 
     /// Sets the maximum idle time between SSE events.
     ///
-    /// See [`ClientParams::sse_idle_timeout`].
+    /// See [`SseOptions::idle_timeout`].
     #[must_use]
     pub const fn sse_idle_timeout(mut self, timeout: Duration) -> Self {
-        self.sse_idle_timeout = Some(timeout);
+        self.sse.idle_timeout = Some(timeout);
         self
     }
 }
@@ -570,8 +585,7 @@ impl ClientParams {
 pub struct Client {
     client: ReqwestClient,
     retry: Option<RetryPolicy>,
-    sse_max_event_bytes: usize,
-    sse_idle_timeout: Option<Duration>,
+    sse: SseOptions,
 }
 
 impl Client {
@@ -643,8 +657,7 @@ impl Client {
         Ok(Self {
             client: builder.build()?,
             retry: params.retry,
-            sse_max_event_bytes: params.sse_max_event_bytes,
-            sse_idle_timeout: params.sse_idle_timeout,
+            sse: params.sse,
         })
     }
 
@@ -662,8 +675,10 @@ impl Client {
         Self {
             client,
             retry: None,
-            sse_max_event_bytes: 1024 * 1024,
-            sse_idle_timeout: None,
+            sse: SseOptions {
+                max_event_bytes: 1024 * 1024, // 1 MiB
+                idle_timeout: None,
+            },
         }
     }
 }
@@ -1247,8 +1262,6 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        // An SSE stream is long-lived, so there is no overall request deadline;
-        // liveness is bounded by the idle timeout and memory by the byte cap.
         let request = auth_headers(self.client.get(url), credentials)
             .headers(custom_headers.clone())
             .header(header::ACCEPT, "text/event-stream")
@@ -1264,17 +1277,15 @@ impl HttpClient for Client {
             });
         }
 
-        let capped = cap_event_bytes(response.bytes_stream(), self.sse_max_event_bytes);
+        let capped = cap_event_bytes(response.bytes_stream(), self.sse.max_event_bytes);
         let events = sse_stream::SseStream::from_bytes_stream(capped)
             .filter_map(|event| async move { event_to_item::<T>(event) });
 
         // Liveness bound: optionally abort if no event arrives within the idle
         // window. It is keyed on decoded events, so comment heartbeats (which
         // `sse_stream` discards) do NOT reset it; a server relying solely on
-        // comment heartbeats should not enable the idle timeout. A JSON decode
-        // error is per-event and non-fatal; every other error is terminal and
-        // stops the stream promptly.
-        let idle = self.sse_idle_timeout;
+        // comment heartbeats should not enable the idle timeout.
+        let idle = self.sse.idle_timeout;
         let guarded = unfold(
             (Box::pin(events), false),
             move |(mut events, done)| async move {
