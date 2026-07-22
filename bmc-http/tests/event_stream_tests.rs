@@ -192,7 +192,8 @@ mod tests {
         let result = stream.next().await.expect("expected an error item");
         assert!(
             matches!(result, Err(BmcError::SseEventTooLarge { limit: 16 })),
-            "expected SseEventTooLarge, got: {result:?}",
+            "expected SseEventTooLarge, got: {:?}",
+            result
         );
     }
 
@@ -255,7 +256,8 @@ mod tests {
         let result = stream.next().await.expect("expected an error item");
         assert!(
             matches!(result, Err(BmcError::SseIdleTimeout { .. })),
-            "expected SseIdleTimeout, got: {result:?}",
+            "expected SseIdleTimeout, got: {:?}",
+            result
         );
     }
 

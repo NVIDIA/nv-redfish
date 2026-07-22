@@ -558,7 +558,7 @@ impl ClientParams {
 
     /// Sets the maximum buffered size of a single, not-yet-terminated SSE event.
     ///
-    /// See [`ClientParams::sse_max_event_bytes`].
+    /// See [`SseOptions::max_event_bytes`].
     #[must_use]
     pub const fn sse_max_event_bytes(mut self, bytes: usize) -> Self {
         self.sse.max_event_bytes = bytes;
@@ -581,9 +581,8 @@ impl ClientParams {
 /// reqwest HTTP client library. It supports all standard HTTP features including
 /// TLS, authentication, and connection pooling.
 #[derive(Clone)]
-#[allow(clippy::struct_field_names)]
 pub struct Client {
-    client: ReqwestClient,
+    inner: ReqwestClient,
     retry: Option<RetryPolicy>,
     sse: SseOptions,
 }
@@ -655,7 +654,7 @@ impl Client {
         }
 
         Ok(Self {
-            client: builder.build()?,
+            inner: builder.build()?,
             retry: params.retry,
             sse: params.sse,
         })
@@ -671,14 +670,11 @@ impl Client {
     /// The supplied client must reject cross-origin redirects. Reqwest's default redirect policy
     /// can forward Redfish `X-Auth-Token` and arbitrary custom headers to another origin.
     #[must_use]
-    pub const fn with_client(client: ReqwestClient) -> Self {
+    pub fn with_client(client: ReqwestClient) -> Self {
         Self {
-            client,
+            inner: client,
             retry: None,
-            sse: SseOptions {
-                max_event_bytes: 1024 * 1024, // 1 MiB
-                idle_timeout: None,
-            },
+            sse: SseOptions::default(),
         }
     }
 }
@@ -690,7 +686,7 @@ impl Client {
     /// bodies cannot be cloned and are sent exactly once.
     async fn send(&self, request: reqwest::Request) -> Result<reqwest::Response, BmcError> {
         let Some(policy) = &self.retry else {
-            return Ok(self.client.execute(request).await?);
+            return Ok(self.inner.execute(request).await?);
         };
 
         let mut attempt: u32 = 0;
@@ -700,7 +696,7 @@ impl Client {
             // try_clone() returns None for streaming bodies, which therefore
             // get a single attempt.
             let next = if is_last { None } else { current.try_clone() };
-            let response = self.client.execute(current).await?;
+            let response = self.inner.execute(current).await?;
             match next {
                 // The clone is identical to the request just sent, so the
                 // classifier sees what went over the wire.
@@ -1078,7 +1074,7 @@ impl HttpClient for Client {
         T: DeserializeOwned,
     {
         let mut request =
-            auth_headers(self.client.get(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.get(url), credentials).headers(custom_headers.clone());
 
         if let Some(etag) = etag {
             request = request.header(header::IF_NONE_MATCH, etag.to_string());
@@ -1099,7 +1095,7 @@ impl HttpClient for Client {
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
     {
-        let request = auth_headers(self.client.post(url), credentials)
+        let request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .json(body);
 
@@ -1118,7 +1114,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let request = self
-            .client
+            .inner
             .post(url)
             .headers(custom_headers.clone())
             .json(body);
@@ -1140,7 +1136,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let mut request =
-            auth_headers(self.client.patch(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.patch(url), credentials).headers(custom_headers.clone());
 
         request = request.header(header::IF_MATCH, etag.to_string());
 
@@ -1158,7 +1154,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let request =
-            auth_headers(self.client.delete(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.delete(url), credentials).headers(custom_headers.clone());
 
         let response = self.send(request.build()?).await?;
         self.handle_modification_response(response).await
@@ -1205,7 +1201,7 @@ impl HttpClient for Client {
             form = form.part(name, part);
         }
 
-        let request = auth_headers(self.client.post(url), credentials)
+        let request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .multipart(form)
             .timeout(upload_timeout);
@@ -1238,7 +1234,7 @@ impl HttpClient for Client {
 
         let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));
 
-        let mut request = auth_headers(self.client.post(url), credentials)
+        let mut request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .header(header::CONTENT_TYPE, "application/octet-stream")
             .body(body)
@@ -1262,7 +1258,7 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let request = auth_headers(self.client.get(url), credentials)
+        let request = auth_headers(self.inner.get(url), credentials)
             .headers(custom_headers.clone())
             .header(header::ACCEPT, "text/event-stream")
             .timeout(Duration::MAX);
