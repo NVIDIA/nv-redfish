@@ -189,7 +189,7 @@ pub(crate) fn matches_boot_order_entry<B: Bmc>(
     } else {
         entry.inner()
     };
-    entry_reference == option.boot_reference().inner()
+    entry_reference == *option.boot_reference().inner()
 }
 
 /// Strips the Vera Rubin `"<reference>: <display name>"` boot-order suffix.
@@ -213,6 +213,9 @@ mod tests {
             vera_rubin_boot_order_entry_reference("Boot0010: UEFI HTTPv4 (MAC:AA)"),
             "Boot0010"
         );
-        assert_eq!(vera_rubin_boot_order_entry_reference("Boot0010"), "Boot0010");
+        assert_eq!(
+            vera_rubin_boot_order_entry_reference("Boot0010"),
+            "Boot0010"
+        );
     }
 }

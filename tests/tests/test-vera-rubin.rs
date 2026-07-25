@@ -29,8 +29,7 @@ use std::sync::Arc;
 use tokio::test;
 
 const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_15_0.ServiceRoot";
-const SYSTEM_COLLECTION_DATA_TYPE: &str =
-    "#ComputerSystemCollection.ComputerSystemCollection";
+const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSystemCollection";
 const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_22_0.ComputerSystem";
 
 #[test]
