@@ -33,6 +33,7 @@ enum Platform {
     Dell,
     AmiViking,
     AmiGb300,
+    VeraRubin,
     Nvidia,
     NvidiaDpu,
     Anonymous1_9_0,
@@ -60,6 +61,7 @@ impl BmcQuirks {
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
+            Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
             Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
@@ -189,6 +191,13 @@ impl BmcQuirks {
     #[allow(clippy::unused_self)]
     pub(crate) const fn event_service_sse_no_odata_id(&self) -> bool {
         true
+    }
+
+    /// Vera Rubin host BMCs report composite `BootOrder` entries such as
+    /// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
+    #[cfg(feature = "boot-options")]
+    pub(crate) fn vera_rubin_composite_boot_order_entries(&self) -> bool {
+        self.platform == Some(Platform::VeraRubin)
     }
 
     /// Vikings provide wrong elements in computer system
