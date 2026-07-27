@@ -114,7 +114,6 @@ impl<B: Bmc> SystemCollection<B> {
         if bmc.quirks.bug_empty_uuid_field() {
             patches.push(normalize_empty_uuid_field);
         }
-        #[cfg(feature = "boot-options")]
         if bmc.quirks.vera_rubin_composite_boot_order_entries() {
             patches.push(normalize_vera_rubin_composite_boot_order);
         }
@@ -205,7 +204,6 @@ fn normalize_empty_uuid_field(mut v: JsonValue) -> JsonValue {
 
 /// Vera Rubin firmware reports composite `BootOrder` entries such as
 /// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
-#[cfg(feature = "boot-options")]
 fn normalize_vera_rubin_composite_boot_order(mut v: JsonValue) -> JsonValue {
     if let JsonValue::Object(ref mut obj) = v {
         if let Some(JsonValue::Object(ref mut boot)) = obj.get_mut("Boot") {
@@ -221,14 +219,13 @@ fn normalize_vera_rubin_composite_boot_order(mut v: JsonValue) -> JsonValue {
     v
 }
 
-#[cfg(feature = "boot-options")]
 fn vera_rubin_boot_order_entry_reference(entry: &str) -> &str {
     entry
         .split_once(": ")
         .map_or(entry, |(reference, _)| reference)
 }
 
-#[cfg(all(test, feature = "boot-options"))]
+#[cfg(test)]
 mod vera_rubin_boot_order_tests {
     use super::*;
     use serde_json::json;
