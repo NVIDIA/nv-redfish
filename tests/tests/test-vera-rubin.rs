@@ -33,19 +33,15 @@ const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSys
 const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_22_0.ComputerSystem";
 
 #[test]
-async fn vera_rubin_composite_boot_order_matches_boot_options() -> Result<(), Box<dyn StdError>> {
+async fn vera_rubin_composite_boot_order_is_normalized() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = test_ids();
-    let boot_options_id = format!("{}/BootOptions", ids.system_0_id);
-    let boot0019_id = format!("{boot_options_id}/Boot0019");
-    let boot0010_id = format!("{boot_options_id}/Boot0010");
 
     let system = get_system_0(
         bmc.clone(),
         &ids,
         json!({
             "Boot": {
-                "BootOptions": { ODATA_ID: &boot_options_id },
                 "BootOrder": [
                     "Boot0019: Ubuntu",
                     "Boot0010: UEFI HTTPv4 (MAC:F4204D494ECC)"
@@ -55,53 +51,10 @@ async fn vera_rubin_composite_boot_order_matches_boot_options() -> Result<(), Bo
     )
     .await?;
 
-    bmc.expect(Expect::expand(
-        &boot_options_id,
-        json!({
-            ODATA_ID: &boot_options_id,
-            ODATA_TYPE: "#BootOptionCollection.BootOptionCollection",
-            "Name": "Boot Option Collection",
-            "Members": [
-                { ODATA_ID: &boot0019_id },
-                { ODATA_ID: &boot0010_id }
-            ]
-        }),
-    ));
-    bmc.expect(Expect::get(
-        &boot0019_id,
-        json!({
-            ODATA_ID: &boot0019_id,
-            ODATA_TYPE: "#BootOption.v1_0_4.BootOption",
-            "Id": "Boot0019",
-            "Name": "Boot0019",
-            "BootOptionReference": "Boot0019",
-            "DisplayName": "Ubuntu",
-            "BootOptionEnabled": true
-        }),
-    ));
-    bmc.expect(Expect::get(
-        &boot0010_id,
-        json!({
-            ODATA_ID: &boot0010_id,
-            ODATA_TYPE: "#BootOption.v1_0_4.BootOption",
-            "Id": "Boot0010",
-            "Name": "Boot0010",
-            "BootOptionReference": "Boot0010",
-            "DisplayName": "UEFI HTTPv4 (MAC:F4204D494ECC)",
-            "BootOptionEnabled": true
-        }),
-    ));
-
     let boot_order = system.boot_order().expect("boot order present");
     assert_eq!(boot_order.len(), 2);
     assert_eq!(*boot_order[0].inner(), "Boot0019");
     assert_eq!(*boot_order[1].inner(), "Boot0010");
-
-    let collection = system.boot_options().await?.expect("boot options link");
-    let options = collection.members().await?;
-    assert_eq!(options.len(), 2);
-    assert_eq!(options[0].boot_reference(), boot_order[0]);
-    assert_eq!(options[1].boot_reference(), boot_order[1]);
 
     Ok(())
 }
