@@ -94,14 +94,14 @@ async fn vera_rubin_composite_boot_order_matches_boot_options() -> Result<(), Bo
 
     let boot_order = system.boot_order().expect("boot order present");
     assert_eq!(boot_order.len(), 2);
-    assert_eq!(boot_order[0].inner(), "Boot0019: Ubuntu");
+    assert_eq!(*boot_order[0].inner(), "Boot0019");
+    assert_eq!(*boot_order[1].inner(), "Boot0010");
 
     let collection = system.boot_options().await?.expect("boot options link");
     let options = collection.members().await?;
     assert_eq!(options.len(), 2);
-    assert!(system.boot_option_matches_boot_order_entry(&options[0], boot_order[0]));
-    assert!(!system.boot_option_matches_boot_order_entry(&options[0], boot_order[1]));
-    assert!(system.boot_option_matches_boot_order_entry(&options[1], boot_order[1]));
+    assert_eq!(options[0].boot_reference(), boot_order[0]);
+    assert_eq!(options[1].boot_reference(), boot_order[1]);
 
     Ok(())
 }

@@ -463,20 +463,6 @@ impl<B: Bmc> ComputerSystem<B> {
         }
     }
 
-    /// Returns whether `option` is referenced by a `BootOrder` entry on this system.
-    ///
-    /// Vera Rubin composite boot-order suffix handling is applied only when this BMC
-    /// is classified as Vera Rubin (`Vendor=NVIDIA`, `Product=VR NVL72`).
-    #[cfg(feature = "boot-options")]
-    #[must_use]
-    pub fn boot_option_matches_boot_order_entry(
-        &self,
-        option: &super::boot_option::BootOption<B>,
-        entry: BootOptionReference<&str>,
-    ) -> bool {
-        option.matches_boot_order_entry(entry, &self.bmc.quirks)
-    }
-
     /// Lenovo OEM extension
     ///
     /// Returns `Ok(None)` when the system does not include Lenovo OEM extension data.

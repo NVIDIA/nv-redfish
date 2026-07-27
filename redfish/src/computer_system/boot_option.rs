@@ -15,7 +15,6 @@
 //! Boot options
 //!
 
-use crate::bmc_quirks::BmcQuirks;
 use crate::computer_system::BootOptionReference;
 use crate::schema::boot_option::BootOption as BootOptionSchema;
 use crate::schema::boot_option_collection::BootOptionCollection as BootOptionCollectionSchema;
@@ -126,21 +125,6 @@ impl<B: Bmc> BootOption<B> {
         )
     }
 
-    /// Returns whether this boot option is referenced by a `BootOrder` entry.
-    ///
-    /// Vera Rubin firmware may report composite boot-order strings such as
-    /// `"Boot0019: Ubuntu"`; when `quirks` identifies that platform, the
-    /// display-name suffix is stripped before comparing to
-    /// [`Self::boot_reference`]. All other platforms use exact reference match.
-    #[must_use]
-    pub(crate) fn matches_boot_order_entry(
-        &self,
-        entry: BootOptionReference<&str>,
-        quirks: &BmcQuirks,
-    ) -> bool {
-        matches_boot_order_entry(self, entry, quirks)
-    }
-
     /// An indication of whether the boot option is enabled.
     #[must_use]
     pub fn enabled(&self) -> Option<bool> {
@@ -174,48 +158,5 @@ impl<B: Bmc> BootOption<B> {
 impl<B: Bmc> Resource for BootOption<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
-    }
-}
-
-/// Returns whether `option` is referenced by a `BootOrder` entry on this BMC.
-#[must_use]
-pub(crate) fn matches_boot_order_entry<B: Bmc>(
-    option: &BootOption<B>,
-    entry: BootOptionReference<&str>,
-    quirks: &BmcQuirks,
-) -> bool {
-    let entry_reference = if quirks.vera_rubin_composite_boot_order_entries() {
-        vera_rubin_boot_order_entry_reference(entry.inner())
-    } else {
-        entry.inner()
-    };
-    entry_reference == *option.boot_reference().inner()
-}
-
-/// Strips the Vera Rubin `"<reference>: <display name>"` boot-order suffix.
-fn vera_rubin_boot_order_entry_reference(entry: &str) -> &str {
-    entry
-        .split_once(": ")
-        .map_or(entry, |(reference, _)| reference)
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn vera_rubin_boot_order_entry_reference_strips_display_name_suffix() {
-        assert_eq!(
-            vera_rubin_boot_order_entry_reference("Boot0019: Ubuntu"),
-            "Boot0019"
-        );
-        assert_eq!(
-            vera_rubin_boot_order_entry_reference("Boot0010: UEFI HTTPv4 (MAC:AA)"),
-            "Boot0010"
-        );
-        assert_eq!(
-            vera_rubin_boot_order_entry_reference("Boot0010"),
-            "Boot0010"
-        );
     }
 }

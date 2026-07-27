@@ -114,6 +114,10 @@ impl<B: Bmc> SystemCollection<B> {
         if bmc.quirks.bug_empty_uuid_field() {
             patches.push(normalize_empty_uuid_field);
         }
+        #[cfg(feature = "boot-options")]
+        if bmc.quirks.vera_rubin_composite_boot_order_entries() {
+            patches.push(normalize_vera_rubin_composite_boot_order);
+        }
         let read_patch_fn = (!patches.is_empty())
             .then(|| Arc::new(move |v| patches.iter().fold(v, |acc, f| f(acc))) as ReadPatchFn);
         let filters_fn = (!filters.is_empty())
@@ -197,4 +201,71 @@ fn normalize_empty_uuid_field(mut v: JsonValue) -> JsonValue {
         }
     }
     v
+}
+
+/// Vera Rubin firmware reports composite `BootOrder` entries such as
+/// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
+#[cfg(feature = "boot-options")]
+fn normalize_vera_rubin_composite_boot_order(mut v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(ref mut obj) = v {
+        if let Some(JsonValue::Object(ref mut boot)) = obj.get_mut("Boot") {
+            if let Some(JsonValue::Array(ref mut boot_order)) = boot.get_mut("BootOrder") {
+                for entry in boot_order.iter_mut() {
+                    if let JsonValue::String(entry) = entry {
+                        *entry = vera_rubin_boot_order_entry_reference(entry).to_string();
+                    }
+                }
+            }
+        }
+    }
+    v
+}
+
+#[cfg(feature = "boot-options")]
+fn vera_rubin_boot_order_entry_reference(entry: &str) -> &str {
+    entry
+        .split_once(": ")
+        .map_or(entry, |(reference, _)| reference)
+}
+
+#[cfg(all(test, feature = "boot-options"))]
+mod vera_rubin_boot_order_tests {
+    use super::*;
+    use serde_json::json;
+
+    #[test]
+    fn vera_rubin_boot_order_entry_reference_strips_display_name_suffix() {
+        assert_eq!(
+            vera_rubin_boot_order_entry_reference("Boot0019: Ubuntu"),
+            "Boot0019"
+        );
+        assert_eq!(
+            vera_rubin_boot_order_entry_reference("Boot0010: UEFI HTTPv4 (MAC:AA)"),
+            "Boot0010"
+        );
+        assert_eq!(
+            vera_rubin_boot_order_entry_reference("Boot0010"),
+            "Boot0010"
+        );
+    }
+
+    #[test]
+    fn normalize_vera_rubin_composite_boot_order_patches_boot_order_array() {
+        let patched = normalize_vera_rubin_composite_boot_order(json!({
+            "Boot": {
+                "BootOrder": [
+                    "Boot0019: Ubuntu",
+                    "Boot0010: UEFI HTTPv4 (MAC:AA)"
+                ]
+            }
+        }));
+        assert_eq!(
+            patched,
+            json!({
+                "Boot": {
+                    "BootOrder": ["Boot0019", "Boot0010"]
+                }
+            })
+        );
+    }
 }
