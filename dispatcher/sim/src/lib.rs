@@ -39,8 +39,9 @@ use std::time::Instant;
 
 use nv_redfish_dispatcher::{
     CircuitBreaker, CircuitBreakerConfig, ClockConfig, Completion, CostUnits, FixedCost,
-    FutureWork, ManualClock, PeriodicLeaf, Readiness, RoundRobin, Runtime, RuntimeConfig,
-    RuntimeOutput, ScheduledWork, Scheduler, TokenBucket, TokenBucketConfig, WithCost,
+    FutureWork, ManualClock, PeriodicLeaf, QueueEventSink, Readiness, RoundRobin, Runtime,
+    RuntimeConfig, RuntimeOutput, ScheduledWork, Scheduler, TokenBucket, TokenBucketConfig,
+    WithCost,
 };
 
 /// Successful work reports (source, task).
@@ -221,6 +222,10 @@ where
     fn on_complete(&mut self, completion: Completion<S::Meta>) {
         self.counts.on_complete.fetch_add(1, Ordering::Relaxed);
         self.inner.on_complete(completion);
+    }
+
+    fn register_queue_event_sink(&mut self, sink: QueueEventSink) {
+        self.inner.register_queue_event_sink(sink);
     }
 }
 

@@ -91,7 +91,6 @@ pub struct RoundRobin<T, M: WorkMeta> {
     /// the live children the queue is purged, so its length stays
     /// bounded by 2 × live regardless of churn.
     stale: usize,
-    #[cfg(feature = "queue")]
     queue_event_sink: Option<crate::QueueEventSink>,
     _t: PhantomData<fn() -> T>,
 }
@@ -112,7 +111,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
             free: Vec::new(),
             queue: VecDeque::new(),
             stale: 0,
-            #[cfg(feature = "queue")]
             queue_event_sink: None,
             _t: PhantomData,
         }
@@ -132,7 +130,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     where
         S: Scheduler<T, Meta = M>,
     {
-        #[cfg(feature = "queue")]
         let child = {
             let mut child = child;
             if let Some(sink) = self.queue_event_sink.clone() {
@@ -234,7 +231,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
         self.queue.len()
     }
 
-    #[cfg(feature = "queue")]
     pub(super) fn set_queue_event_sink(&mut self, sink: &crate::QueueEventSink)
     where
         T: 'static,
@@ -340,7 +336,6 @@ where
         }
     }
 
-    #[cfg(feature = "queue")]
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
         self.set_queue_event_sink(&sink);
     }

@@ -58,6 +58,7 @@ use core::time::Duration;
 use nv_redfish_dispatcher::ClockConfig;
 use nv_redfish_dispatcher::Completion;
 use nv_redfish_dispatcher::FutureWork;
+use nv_redfish_dispatcher::QueueEventSink;
 use nv_redfish_dispatcher::Readiness;
 use nv_redfish_dispatcher::Runtime;
 use nv_redfish_dispatcher::RuntimeConfig;
@@ -131,6 +132,10 @@ impl Scheduler<Work> for PollLeaf {
     fn on_complete(&mut self, _: Completion<()>) {
         // Leaves typically use this to update local stats / backoff.
     }
+
+    fn register_queue_event_sink(&mut self, _sink: QueueEventSink) {
+        // This leaf does not produce queue events.
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -143,6 +148,7 @@ impl Scheduler<Work> for PollLeaf {
 struct RoundRobin<T, M: WorkMeta> {
     children: Vec<Box<dyn Scheduler<T, Meta = M>>>,
     cursor: usize,
+    queue_event_sink: Option<QueueEventSink>,
     _payload: PhantomData<fn() -> T>,
 }
 
@@ -151,11 +157,15 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
         Self {
             children: Vec::new(),
             cursor: 0,
+            queue_event_sink: None,
             _payload: PhantomData,
         }
     }
 
-    fn add_child<S: Scheduler<T, Meta = M>>(&mut self, child: S) {
+    fn add_child<S: Scheduler<T, Meta = M>>(&mut self, mut child: S) {
+        if let Some(sink) = self.queue_event_sink.clone() {
+            child.register_queue_event_sink(sink);
+        }
         self.children.push(Box::new(child));
     }
 }
@@ -212,6 +222,13 @@ where
             if let Some(child) = self.children.get_mut(idx as usize) {
                 child.on_complete(completion);
             }
+        }
+    }
+
+    fn register_queue_event_sink(&mut self, sink: QueueEventSink) {
+        self.queue_event_sink = Some(sink.clone());
+        for child in &mut self.children {
+            child.register_queue_event_sink(sink.clone());
         }
     }
 }

@@ -115,7 +115,6 @@ where
         S: Scheduler<FutureWork<Ev, Err>, Meta = M>,
     {
         let signals = Arc::new(RuntimeSignals::default());
-        #[cfg(feature = "queue")]
         let root = {
             let mut root = root;
             root.register_queue_event_sink(signals.queue_event_sink());
@@ -516,7 +515,6 @@ where
             .lock()
             .expect("dispatcher runtime mutex is poisoned");
         let result = guard.root.as_any_mut().downcast_mut::<S>().map(f);
-        #[cfg(feature = "queue")]
         guard
             .root
             .register_queue_event_sink(self.signals.queue_event_sink());
@@ -585,9 +583,7 @@ struct StatsCells {
 
 struct RuntimeSignals {
     state: Mutex<RuntimeSignalState>,
-    #[cfg(feature = "queue")]
     next_queue_id: AtomicU64,
-    #[cfg(feature = "queue")]
     queue_identity: Arc<()>,
 }
 
@@ -602,9 +598,7 @@ impl Default for RuntimeSignals {
     fn default() -> Self {
         Self {
             state: Mutex::new(RuntimeSignalState::default()),
-            #[cfg(feature = "queue")]
             next_queue_id: AtomicU64::new(0),
-            #[cfg(feature = "queue")]
             queue_identity: Arc::new(()),
         }
     }
@@ -633,7 +627,6 @@ impl RuntimeSignals {
         }
     }
 
-    #[cfg(feature = "queue")]
     fn queue_event_sink(self: &Arc<Self>) -> crate::QueueEventSink {
         let event_signals = self.clone();
         let allocator_signals = self.clone();
@@ -644,7 +637,6 @@ impl RuntimeSignals {
         )
     }
 
-    #[cfg(feature = "queue")]
     fn allocate_queue_id(&self) -> crate::QueueId {
         let id = self
             .next_queue_id
@@ -655,7 +647,6 @@ impl RuntimeSignals {
         crate::QueueId::new(id)
     }
 
-    #[cfg(feature = "queue")]
     fn handle_queue_event(&self, event: crate::QueueEvent) {
         let mut state = self
             .state

@@ -268,7 +268,7 @@ pub type BoundedQueuePair<T, M, P, D> =
 /// Builder for an externally-fed bounded queue.
 ///
 /// Admission defaults to [`TailDrop`]. A discipline is intentionally not
-/// selected by default: use `.fifo()` with `queue-fifo`, or
+/// selected by default: use `.fifo()`, or
 /// [`Self::discipline`] with an SFQ or custom implementation.
 pub struct BoundedQueueBuilder<P = TailDrop, D = ()> {
     capacity: NonZeroUsize,
@@ -689,7 +689,6 @@ fn take_entry<T, M: WorkMeta, P, D>(
 }
 
 #[cfg(test)]
-#[cfg(feature = "queue-fifo")]
 mod tests {
     #[cfg(feature = "runtime-events")]
     use core::sync::atomic::{AtomicBool, Ordering};

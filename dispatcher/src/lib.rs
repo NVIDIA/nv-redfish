@@ -92,7 +92,6 @@ pub mod work;
 pub use event::RuntimeEvent;
 #[doc(inline)]
 pub use event::RuntimeEventType;
-#[cfg(feature = "queue")]
 #[doc(inline)]
 pub use event::{QueueEvent, QueueEventSink, QueueId};
 #[doc(inline)]
@@ -138,13 +137,10 @@ pub use work::WithPriority;
 #[doc(inline)]
 pub use work::WorkMeta;
 
-#[cfg(feature = "queue-fifo")]
 #[doc(inline)]
 pub use schedulers::Fifo;
-#[cfg(feature = "queue-sfq")]
 #[doc(inline)]
 pub use schedulers::StochasticFairQueue;
-#[cfg(feature = "queue")]
 #[doc(inline)]
 pub use schedulers::{
     AdmissionContext, AdmissionDecision, AdmissionPolicy, BoundedQueue, BoundedQueueBuilder,

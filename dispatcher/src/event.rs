@@ -21,18 +21,15 @@
 
 #[cfg(not(feature = "runtime-events"))]
 use core::convert::Infallible;
-#[cfg(feature = "queue")]
 use std::sync::Arc;
 
 /// Stable runtime-assigned identity for an externally-fed queue.
 ///
 /// IDs are unique within one runtime and become available when the queue
 /// scheduler is attached to that runtime.
-#[cfg(feature = "queue")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct QueueId(u64);
 
-#[cfg(feature = "queue")]
 impl QueueId {
     pub(crate) const fn new(value: u64) -> Self {
         Self(value)
@@ -50,7 +47,6 @@ impl QueueId {
 /// [`QueueEvent::WakeUp`] is control-plane only and never appears in
 /// [`crate::RuntimeOutput`]. `Drained` becomes a
 /// `RuntimeEvent::QueueDrained` output when `runtime-events` is enabled.
-#[cfg(feature = "queue")]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum QueueEvent {
     /// Queue readiness may have changed.
@@ -62,9 +58,7 @@ pub enum QueueEvent {
     },
 }
 
-#[cfg(feature = "queue")]
 type QueueEventHandler = dyn Fn(QueueEvent) + Send + Sync + 'static;
-#[cfg(feature = "queue")]
 type QueueIdAllocator = dyn Fn() -> QueueId + Send + Sync + 'static;
 
 /// Restricted capability used by queue schedulers to signal their runtime.
@@ -72,7 +66,6 @@ type QueueIdAllocator = dyn Fn() -> QueueId + Send + Sync + 'static;
 /// It accepts only [`QueueEvent`], preventing queue implementations from
 /// fabricating unrelated runtime events. The sink owns runtime wake-up;
 /// schedulers never receive a raw [`std::task::Waker`].
-#[cfg(feature = "queue")]
 #[derive(Clone)]
 pub struct QueueEventSink {
     handler: Arc<QueueEventHandler>,
@@ -80,7 +73,6 @@ pub struct QueueEventSink {
     runtime_identity: Arc<()>,
 }
 
-#[cfg(feature = "queue")]
 impl QueueEventSink {
     pub(crate) fn new(
         handler: impl Fn(QueueEvent) + Send + Sync + 'static,
@@ -147,7 +139,6 @@ mod with_events {
         /// Reserved snapshot variant; payload fields land later.
         SchedulerStatsSnapshot,
         /// A closed externally-fed queue has fully drained.
-        #[cfg(feature = "queue")]
         QueueDrained {
             /// Stable runtime-assigned queue identity.
             queue_id: super::QueueId,

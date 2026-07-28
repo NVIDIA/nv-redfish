@@ -143,6 +143,8 @@ where
     }
 
     fn on_complete(&mut self, _completion: Completion<()>) {}
+
+    fn register_queue_event_sink(&mut self, _sink: crate::QueueEventSink) {}
 }
 
 #[cfg(test)]

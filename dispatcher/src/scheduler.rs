@@ -93,8 +93,7 @@ pub trait Scheduler<T>: Send + 'static {
     /// Externally-fed queue leaves retain this sink and push queue signals
     /// without receiving the runtime's raw waker. Branches must forward it
     /// to their children and retain it for dynamically added children.
-    #[cfg(feature = "queue")]
-    fn register_queue_event_sink(&mut self, _sink: crate::QueueEventSink) {}
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
 }
 
 impl<T, S> Scheduler<T> for Box<S>
@@ -116,7 +115,6 @@ where
         (**self).on_complete(completion);
     }
 
-    #[cfg(feature = "queue")]
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
         (**self).register_queue_event_sink(sink);
     }
@@ -140,7 +138,6 @@ pub(crate) mod private {
         fn update_ready(&mut self, now: Instant) -> Readiness;
         fn take_next(&mut self) -> Option<ScheduledWork<T, M>>;
         fn on_complete(&mut self, completion: Completion<M>);
-        #[cfg(feature = "queue")]
         fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
         fn as_any(&self) -> &dyn Any;
         fn as_any_mut(&mut self) -> &mut dyn Any;
@@ -161,7 +158,6 @@ pub(crate) mod private {
         fn on_complete(&mut self, completion: Completion<M>) {
             <Self as super::Scheduler<T>>::on_complete(self, completion);
         }
-        #[cfg(feature = "queue")]
         fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
             <Self as super::Scheduler<T>>::register_queue_event_sink(self, sink);
         }
