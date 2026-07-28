@@ -28,7 +28,7 @@ use std::collections::BTreeMap;
 use std::time::Instant;
 
 use super::round_robin::RoundRobin;
-use crate::scheduler::{ScheduledWork, Scheduler};
+use crate::scheduler::{RuntimeChildContainer, ScheduledWork, Scheduler};
 use crate::work::{Completion, Readiness, WithPriority, WorkMeta};
 
 /// Strict priority over `u8` priority classes (higher wins).
@@ -133,6 +133,25 @@ where
         for rr in self.classes.values_mut() {
             rr.register_queue_event_sink(sink.clone());
         }
+    }
+}
+
+impl<T, C> RuntimeChildContainer<T> for StrictPriority<T, C>
+where
+    T: Send + 'static,
+    C: Scheduler<T>,
+    C::Meta: WorkMeta,
+{
+    type ChildMeta = C::Meta;
+    type ChildId = (u8, u32);
+    type ChildArgs = u8;
+
+    fn attach_child<S>(&mut self, child: S, priority: Self::ChildArgs) -> Self::ChildId
+    where
+        S: Scheduler<T, Meta = Self::ChildMeta>,
+    {
+        let class = self.classes.entry(priority).or_default();
+        (priority, class.add_child(child))
     }
 }
 

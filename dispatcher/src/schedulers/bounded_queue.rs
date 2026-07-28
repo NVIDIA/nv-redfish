@@ -712,8 +712,10 @@ mod tests {
         QueueDiscipline, QueueEntryId, QueueLifecycle,
     };
     use crate::scheduler::{ScheduledWork, Scheduler as _};
-    use crate::schedulers::{BoundedConcurrency, RoundRobin};
-    use crate::work::{Completion, CompletionOutcome, RoutingPath};
+    use crate::schedulers::{
+        BoundedConcurrency, BoundedQueue, Fifo, RoundRobin, StrictPriority, TailDrop,
+    };
+    use crate::work::{Completion, CompletionOutcome, RoutingPath, WithPriority};
     use crate::{Runtime, RuntimeConfig, RuntimeOutput};
 
     const fn capacity(value: usize) -> NonZeroUsize {
@@ -1066,7 +1068,7 @@ mod tests {
         let handle = runtime.handle();
         let (queue, producer) = BoundedQueueBuilder::new(capacity(1)).fifo().build();
         assert!(handle
-            .with_root_mut::<RoundRobin<Work, ()>, _>(|root| root.add_child(queue))
+            .with_root_mut::<RoundRobin<Work, ()>, _>(|mut root| { root.add_child(queue) })
             .is_some());
 
         let push = async move {
@@ -1082,6 +1084,42 @@ mod tests {
                 result: Ok(events),
                 ..
             }) if events == vec![11]
+        ));
+    }
+
+    #[tokio::test]
+    async fn dynamically_added_priority_queue_receives_the_runtime_sink() {
+        type Work = crate::FutureWork<u8, ()>;
+        type Queue = BoundedQueue<Work, (), TailDrop, Fifo>;
+        type Root = StrictPriority<Work, Queue>;
+
+        let mut runtime: Runtime<u8, (), WithPriority<()>> = Runtime::new(
+            RuntimeConfig {
+                global_max_in_flight: capacity(1),
+                clock: crate::ClockConfig::Wallclock,
+            },
+            Root::new(),
+        );
+        let handle = runtime.handle();
+        let (queue, producer) = BoundedQueueBuilder::new(capacity(1)).fifo().build();
+        let child_id = handle
+            .with_root_mut::<Root, _>(|mut root| root.add_child_with(queue, 7))
+            .expect("root downcasts");
+        assert_eq!(child_id.0, 7);
+
+        let push = async move {
+            yield_now().await;
+            let work: Work = Box::pin(async { Ok(vec![13]) });
+            let _ = producer.try_push(ScheduledWork::new((), work));
+        };
+        let next = timeout(Duration::from_secs(1), runtime.next());
+        let ((), output) = tokio::join!(push, next);
+        assert!(matches!(
+            output,
+            Ok(RuntimeOutput::Work {
+                result: Ok(events),
+                ..
+            }) if events == vec![13]
         ));
     }
 

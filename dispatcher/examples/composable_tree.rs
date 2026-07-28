@@ -61,6 +61,7 @@ use nv_redfish_dispatcher::FutureWork;
 use nv_redfish_dispatcher::QueueEventSink;
 use nv_redfish_dispatcher::Readiness;
 use nv_redfish_dispatcher::Runtime;
+use nv_redfish_dispatcher::RuntimeChildContainer;
 use nv_redfish_dispatcher::RuntimeConfig;
 use nv_redfish_dispatcher::RuntimeOutput;
 use nv_redfish_dispatcher::ScheduledWork;
@@ -227,6 +228,23 @@ where
     }
 }
 
+impl<T, M> RuntimeChildContainer<T> for RoundRobin<T, M>
+where
+    T: Send + 'static,
+    M: WorkMeta,
+{
+    type ChildMeta = M;
+    type ChildId = ();
+    type ChildArgs = ();
+
+    fn attach_child<S>(&mut self, child: S, (): Self::ChildArgs)
+    where
+        S: Scheduler<T, Meta = M>,
+    {
+        self.add_child(child);
+    }
+}
+
 // ──────────────────────────────────────────────────────────────────────
 // Driver
 // ──────────────────────────────────────────────────────────────────────
@@ -255,14 +273,14 @@ async fn main() {
 
     // 3a. Add another leaf to the root, dynamically.
     handle
-        .with_root_mut(|root: &mut RoundRobin<Work, ()>| {
+        .with_root_mut::<RoundRobin<Work, ()>, _>(|mut root| {
             root.add_child(PollLeaf::new("sensor-C", Duration::from_secs(3)));
         })
         .expect("downcast failed");
 
     // 3b. Add an entirely new sub-branch with its own children.
     handle
-        .with_root_mut(|root: &mut RoundRobin<Work, ()>| {
+        .with_root_mut::<RoundRobin<Work, ()>, _>(|mut root| {
             let mut subnet: RoundRobin<Work, ()> = RoundRobin::new();
             subnet.add_child(PollLeaf::new("subnet-1-a", Duration::from_secs(5)));
             subnet.add_child(PollLeaf::new("subnet-1-b", Duration::from_secs(5)));
