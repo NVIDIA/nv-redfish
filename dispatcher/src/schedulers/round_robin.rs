@@ -91,7 +91,6 @@ pub struct RoundRobin<T, M: WorkMeta> {
     /// the live children the queue is purged, so its length stays
     /// bounded by 2 × live regardless of churn.
     stale: usize,
-    queue_event_sink: Option<crate::QueueEventSink>,
     _t: PhantomData<fn() -> T>,
 }
 
@@ -111,7 +110,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
             free: Vec::new(),
             queue: VecDeque::new(),
             stale: 0,
-            queue_event_sink: None,
             _t: PhantomData,
         }
     }
@@ -130,13 +128,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     where
         S: Scheduler<T, Meta = M>,
     {
-        let child = {
-            let mut child = child;
-            if let Some(sink) = self.queue_event_sink.clone() {
-                child.register_queue_event_sink(sink);
-            }
-            child
-        };
         let live_pos = self.live_ids.len();
         let (id, generation) = if let Some(id) = self.free.pop() {
             let slot = self
@@ -230,21 +221,6 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
     fn queue_len(&self) -> usize {
         self.queue.len()
     }
-
-    pub(super) fn set_queue_event_sink(&mut self, sink: &crate::QueueEventSink)
-    where
-        T: 'static,
-    {
-        self.queue_event_sink = Some(sink.clone());
-        for slot in &mut self.slots {
-            match &mut slot.entry {
-                Entry::Live(sched) | Entry::Draining(sched) => {
-                    sched.register_queue_event_sink(sink.clone());
-                }
-                Entry::Free => {}
-            }
-        }
-    }
 }
 
 impl<T, M> Scheduler<T> for RoundRobin<T, M>
@@ -337,7 +313,14 @@ where
     }
 
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
-        self.set_queue_event_sink(&sink);
+        for slot in &mut self.slots {
+            match &mut slot.entry {
+                Entry::Live(scheduler) | Entry::Draining(scheduler) => {
+                    scheduler.register_queue_event_sink(sink.clone());
+                }
+                Entry::Free => {}
+            }
+        }
     }
 }
 

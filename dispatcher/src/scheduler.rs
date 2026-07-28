@@ -91,8 +91,9 @@ pub trait Scheduler<T>: Send + 'static {
     /// Register the runtime's restricted queue-event capability.
     ///
     /// Externally-fed queue leaves retain this sink and push queue signals
-    /// without receiving the runtime's raw waker. Branches must forward it
-    /// to their children and retain it for dynamically added children.
+    /// without receiving the runtime's raw waker. Branches forward it to
+    /// their current children. The runtime repeats this synchronization
+    /// after a dynamic root mutation.
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
 }
 

@@ -34,7 +34,6 @@ use crate::work::{Completion, Readiness, WithPriority, WorkMeta};
 /// Strict priority over `u8` priority classes (higher wins).
 pub struct StrictPriority<T, C: Scheduler<T>> {
     classes: BTreeMap<u8, RoundRobin<T, C::Meta>>,
-    queue_event_sink: Option<crate::QueueEventSink>,
     _phantom: PhantomData<fn() -> C>,
 }
 
@@ -50,7 +49,6 @@ impl<T, C: Scheduler<T>> StrictPriority<T, C> {
     pub const fn new() -> Self {
         Self {
             classes: BTreeMap::new(),
-            queue_event_sink: None,
             _phantom: PhantomData,
         }
     }
@@ -62,9 +60,6 @@ impl<T, C: Scheduler<T>> StrictPriority<T, C> {
         T: 'static,
     {
         let rr = self.classes.entry(priority).or_default();
-        if let Some(sink) = self.queue_event_sink.clone() {
-            rr.set_queue_event_sink(&sink);
-        }
         let id = rr.add_child(child);
         (priority, id)
     }
@@ -135,9 +130,8 @@ where
     }
 
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
-        self.queue_event_sink = Some(sink.clone());
         for rr in self.classes.values_mut() {
-            rr.set_queue_event_sink(&sink);
+            rr.register_queue_event_sink(sink.clone());
         }
     }
 }

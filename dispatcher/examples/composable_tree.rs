@@ -148,7 +148,6 @@ impl Scheduler<Work> for PollLeaf {
 struct RoundRobin<T, M: WorkMeta> {
     children: Vec<Box<dyn Scheduler<T, Meta = M>>>,
     cursor: usize,
-    queue_event_sink: Option<QueueEventSink>,
     _payload: PhantomData<fn() -> T>,
 }
 
@@ -157,15 +156,11 @@ impl<T, M: WorkMeta> RoundRobin<T, M> {
         Self {
             children: Vec::new(),
             cursor: 0,
-            queue_event_sink: None,
             _payload: PhantomData,
         }
     }
 
-    fn add_child<S: Scheduler<T, Meta = M>>(&mut self, mut child: S) {
-        if let Some(sink) = self.queue_event_sink.clone() {
-            child.register_queue_event_sink(sink);
-        }
+    fn add_child<S: Scheduler<T, Meta = M>>(&mut self, child: S) {
         self.children.push(Box::new(child));
     }
 }
@@ -226,7 +221,6 @@ where
     }
 
     fn register_queue_event_sink(&mut self, sink: QueueEventSink) {
-        self.queue_event_sink = Some(sink.clone());
         for child in &mut self.children {
             child.register_queue_event_sink(sink.clone());
         }
