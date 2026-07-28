@@ -93,6 +93,8 @@ pub use event::RuntimeEvent;
 #[doc(inline)]
 pub use event::RuntimeEventType;
 #[doc(inline)]
+pub use event::{QueueEvent, QueueEventSink, QueueId};
+#[doc(inline)]
 pub use runtime::ClockConfig;
 #[doc(inline)]
 pub use runtime::FutureWork;
@@ -135,6 +137,16 @@ pub use work::WithPriority;
 #[doc(inline)]
 pub use work::WorkMeta;
 
+#[doc(inline)]
+pub use schedulers::Fifo;
+#[doc(inline)]
+pub use schedulers::StochasticFairQueue;
+#[doc(inline)]
+pub use schedulers::{
+    AdmissionContext, AdmissionDecision, AdmissionPolicy, BoundedQueue, BoundedQueueBuilder,
+    BoundedQueuePair, BoundedQueueProducer, BoundedQueueStats, EnqueueOutcome, QueueDiscipline,
+    QueueEntryId, QueueEntryRef, QueueLifecycle, TailDrop,
+};
 #[doc(inline)]
 pub use schedulers::{
     BoundedConcurrency, BreakerState, CircuitBreaker, CircuitBreakerConfig, FixedCost,

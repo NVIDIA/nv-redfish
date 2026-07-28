@@ -88,6 +88,7 @@ pub struct Runtime<Ev, Err, M: WorkMeta> {
     completion: Vec<Completion<M>>,
     output: VecDeque<RuntimeOutput<Ev, Err>>,
     shared: Arc<Mutex<Shared<Ev, Err, M>>>,
+    signals: Arc<RuntimeSignals>,
     stats: Arc<StatsCells>,
     _phantom: RuntimePhantom<Ev, Err, M>,
 }
@@ -113,6 +114,12 @@ where
     where
         S: Scheduler<FutureWork<Ev, Err>, Meta = M>,
     {
+        let signals = Arc::new(RuntimeSignals::default());
+        let root = {
+            let mut root = root;
+            root.register_queue_event_sink(signals.queue_event_sink());
+            root
+        };
         Self {
             clock: match config.clock {
                 ClockConfig::Wallclock => RuntimeClock::Wallclock,
@@ -128,11 +135,11 @@ where
             config,
             shared: Mutex::new(Shared {
                 root: Box::new(root),
-                waker: None,
                 shutdown: false,
                 _phantom: PhantomData,
             })
             .into(),
+            signals,
             stats: Arc::new(StatsCells::default()),
             _phantom: PhantomData,
         }
@@ -143,6 +150,7 @@ where
     pub fn handle(&self) -> RuntimeHandle<Ev, Err, M> {
         RuntimeHandle {
             shared: self.shared.clone(),
+            signals: self.signals.clone(),
             stats: self.stats.clone(),
         }
     }
@@ -196,12 +204,13 @@ where
     ///
     /// Step order:
     ///
-    /// 1. Drain one queued output if any.
-    /// 2. If below [`RuntimeConfig::global_max_in_flight`], lock shared
+    /// 1. Register the current driver waker so any external control or
+    ///    queue signal racing with this poll can schedule another poll.
+    /// 2. Forward completions, collect runtime events, and drain one queued
+    ///    output if any.
+    /// 3. If below [`RuntimeConfig::global_max_in_flight`], lock shared
     ///    scheduler/control state briefly and dispatch available work until
     ///    the global cap is reached or the scheduler has no work.
-    /// 3. If shared state has no work while capacity remains, register the
-    ///    current waker so external control changes can wake this future.
     /// 4. Poll in-flight payloads without holding the shared lock; completed
     ///    payloads enqueue [`RuntimeOutput::Work`].
     /// 5. If no output was queued and no synchronous progress was made, park.
@@ -228,6 +237,7 @@ where
     type Output = RuntimeOutput<Ev, Err>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
+        self.runtime.signals.register_waker(cx.waker());
         let mut progress = true;
         while progress {
             if !self.runtime.completion.is_empty() {
@@ -240,6 +250,13 @@ where
                 for completion in completions {
                     shared.root.on_complete(completion);
                 }
+            }
+            #[cfg(feature = "runtime-events")]
+            {
+                let events = self.runtime.signals.take_events();
+                self.runtime
+                    .output
+                    .extend(events.into_iter().map(RuntimeOutput::Runtime));
             }
             if let Some(output) = self.runtime.output.pop_front() {
                 self.runtime
@@ -283,11 +300,6 @@ where
                             break;
                         }
                     }
-                }
-                // Setup waker if change in shared elements can cause
-                // progress for the future.
-                if in_flight.len() < global_max_in_flight.into() {
-                    shared.maybe_setup_waker(cx);
                 }
             }
             self.runtime
@@ -404,6 +416,7 @@ impl ManualClock {
 /// itself is not `Clone`.
 pub struct RuntimeHandle<Ev, Err, M: WorkMeta> {
     shared: Arc<Mutex<Shared<Ev, Err, M>>>,
+    signals: Arc<RuntimeSignals>,
     stats: Arc<StatsCells>,
 }
 
@@ -411,6 +424,7 @@ impl<Ev, Err, M: WorkMeta> Clone for RuntimeHandle<Ev, Err, M> {
     fn clone(&self) -> Self {
         Self {
             shared: self.shared.clone(),
+            signals: self.signals.clone(),
             stats: self.stats.clone(),
         }
     }
@@ -440,11 +454,8 @@ where
             .lock()
             .expect("dispatcher runtime mutex is poisoned");
         guard.shutdown = true;
-        let waker = guard.waker.take();
         drop(guard);
-        if let Some(waker) = waker {
-            waker.wake();
-        }
+        self.signals.wake();
     }
 
     /// Snapshot of runtime statistics. Lock-free; values are relaxed
@@ -504,11 +515,11 @@ where
             .lock()
             .expect("dispatcher runtime mutex is poisoned");
         let result = guard.root.as_any_mut().downcast_mut::<S>().map(f);
-        let waker = guard.waker.take();
+        guard
+            .root
+            .register_queue_event_sink(self.signals.queue_event_sink());
         drop(guard);
-        if let Some(waker) = waker {
-            waker.wake();
-        }
+        self.signals.wake();
         result
     }
 }
@@ -570,8 +581,103 @@ struct StatsCells {
     output_queued: AtomicUsize,
 }
 
-struct Shared<Ev, Err, M> {
+struct RuntimeSignals {
+    state: Mutex<RuntimeSignalState>,
+    next_queue_id: AtomicU64,
+    queue_identity: Arc<()>,
+}
+
+#[derive(Default)]
+struct RuntimeSignalState {
     waker: Option<Waker>,
+    #[cfg(feature = "runtime-events")]
+    events: VecDeque<crate::RuntimeEvent>,
+}
+
+impl Default for RuntimeSignals {
+    fn default() -> Self {
+        Self {
+            state: Mutex::new(RuntimeSignalState::default()),
+            next_queue_id: AtomicU64::new(0),
+            queue_identity: Arc::new(()),
+        }
+    }
+}
+
+impl RuntimeSignals {
+    fn register_waker(&self, waker: &Waker) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("dispatcher runtime signal mutex is poisoned");
+        if state.waker.as_ref().is_none_or(|old| !old.will_wake(waker)) {
+            state.waker = Some(waker.clone());
+        }
+    }
+
+    fn wake(&self) {
+        let waker = self
+            .state
+            .lock()
+            .expect("dispatcher runtime signal mutex is poisoned")
+            .waker
+            .take();
+        if let Some(waker) = waker {
+            waker.wake();
+        }
+    }
+
+    fn queue_event_sink(self: &Arc<Self>) -> crate::QueueEventSink {
+        let event_signals = self.clone();
+        let allocator_signals = self.clone();
+        crate::QueueEventSink::new(
+            move |event| event_signals.handle_queue_event(event),
+            move || allocator_signals.allocate_queue_id(),
+            self.queue_identity.clone(),
+        )
+    }
+
+    fn allocate_queue_id(&self) -> crate::QueueId {
+        let id = self
+            .next_queue_id
+            .fetch_update(Ordering::Relaxed, Ordering::Relaxed, |current| {
+                current.checked_add(1)
+            })
+            .expect("a runtime supports at most u64::MAX attached queues");
+        crate::QueueId::new(id)
+    }
+
+    fn handle_queue_event(&self, event: crate::QueueEvent) {
+        let mut state = self
+            .state
+            .lock()
+            .expect("dispatcher runtime signal mutex is poisoned");
+        #[cfg(feature = "runtime-events")]
+        if let crate::QueueEvent::Drained { queue_id } = event {
+            state
+                .events
+                .push_back(crate::RuntimeEvent::QueueDrained { queue_id });
+        }
+        #[cfg(not(feature = "runtime-events"))]
+        let _ = event;
+        let waker = state.waker.take();
+        drop(state);
+        if let Some(waker) = waker {
+            waker.wake();
+        }
+    }
+
+    #[cfg(feature = "runtime-events")]
+    fn take_events(&self) -> VecDeque<crate::RuntimeEvent> {
+        let mut state = self
+            .state
+            .lock()
+            .expect("dispatcher runtime signal mutex is poisoned");
+        mem::take(&mut state.events)
+    }
+}
+
+struct Shared<Ev, Err, M> {
     root: Box<dyn SchedulerObj<FutureWork<Ev, Err>, M>>,
     shutdown: bool,
     _phantom: PhantomData<(Ev, Err)>,
@@ -592,18 +698,6 @@ where
         }
         r.next_update_at
             .map_or(SharedNextResult::Nothing, SharedNextResult::SleepUntil)
-    }
-
-    fn maybe_setup_waker(&mut self, cx: &Context<'_>) {
-        let waker = cx.waker();
-
-        if self
-            .waker
-            .as_ref()
-            .is_none_or(|old_waker| !old_waker.will_wake(waker))
-        {
-            self.waker = Some(waker.clone());
-        }
     }
 }
 

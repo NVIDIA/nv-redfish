@@ -55,7 +55,10 @@ impl<T, C: Scheduler<T>> StrictPriority<T, C> {
 
     /// Add `child` at the given `priority` class. Returns `(priority,
     /// child_id_within_class)`.
-    pub fn add_child(&mut self, child: C, priority: u8) -> (u8, u32) {
+    pub fn add_child(&mut self, child: C, priority: u8) -> (u8, u32)
+    where
+        T: 'static,
+    {
         let rr = self.classes.entry(priority).or_default();
         let id = rr.add_child(child);
         (priority, id)
@@ -123,6 +126,12 @@ where
         };
         if let Some(rr) = self.classes.get_mut(&priority) {
             rr.on_complete(inner_completion);
+        }
+    }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        for rr in self.classes.values_mut() {
+            rr.register_queue_event_sink(sink.clone());
         }
     }
 }

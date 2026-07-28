@@ -90,6 +90,10 @@ where
             routing: completion.routing,
         });
     }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        self.inner.register_queue_event_sink(sink);
+    }
 }
 
 #[cfg(test)]

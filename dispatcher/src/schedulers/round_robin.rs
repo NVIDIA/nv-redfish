@@ -311,6 +311,17 @@ where
             self.free.push(id);
         }
     }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        for slot in &mut self.slots {
+            match &mut slot.entry {
+                Entry::Live(scheduler) | Entry::Draining(scheduler) => {
+                    scheduler.register_queue_event_sink(sink.clone());
+                }
+                Entry::Free => {}
+            }
+        }
+    }
 }
 
 #[cfg(test)]

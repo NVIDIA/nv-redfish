@@ -222,6 +222,10 @@ where
         }
         self.inner.on_complete(completion);
     }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        self.inner.register_queue_event_sink(sink);
+    }
 }
 
 #[cfg(test)]

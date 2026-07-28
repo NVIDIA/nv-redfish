@@ -130,6 +130,7 @@ where
         }
     }
 
+    #[inline]
     fn take_next(&mut self) -> Option<ScheduledWork<T, ()>> {
         if !self.due(self.last_now) {
             return None;
@@ -143,6 +144,8 @@ where
     }
 
     fn on_complete(&mut self, _completion: Completion<()>) {}
+
+    fn register_queue_event_sink(&mut self, _sink: crate::QueueEventSink) {}
 }
 
 #[cfg(test)]

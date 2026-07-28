@@ -20,17 +20,27 @@
 //! composed with each other or with user-written leaves and branches.
 
 mod bounded_concurrency;
+mod bounded_queue;
 mod circuit_breaker;
 mod fixed_cost;
 mod periodic_leaf;
+mod queue_fifo;
+mod queue_sfq;
 mod round_robin;
 mod strict_priority;
 mod token_bucket;
 
 pub use bounded_concurrency::BoundedConcurrency;
+pub use bounded_queue::{
+    AdmissionContext, AdmissionDecision, AdmissionPolicy, BoundedQueue, BoundedQueueBuilder,
+    BoundedQueuePair, BoundedQueueProducer, BoundedQueueStats, EnqueueOutcome, QueueDiscipline,
+    QueueEntryId, QueueEntryRef, QueueLifecycle, TailDrop,
+};
 pub use circuit_breaker::{BreakerState, CircuitBreaker, CircuitBreakerConfig};
 pub use fixed_cost::FixedCost;
 pub use periodic_leaf::PeriodicLeaf;
+pub use queue_fifo::Fifo;
+pub use queue_sfq::StochasticFairQueue;
 pub use round_robin::{RemovedChild, RoundRobin};
 pub use strict_priority::StrictPriority;
 pub use token_bucket::{TokenBucket, TokenBucketConfig};
@@ -160,6 +170,8 @@ mod tests {
                 .expect("MockLeaf completions log poisoned")
                 .push(completion);
         }
+
+        fn register_queue_event_sink(&mut self, _sink: crate::QueueEventSink) {}
     }
 
     /// Drive one full dispatch / completion round-trip against `sched`.

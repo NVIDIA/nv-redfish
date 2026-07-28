@@ -58,6 +58,7 @@ use core::time::Duration;
 use nv_redfish_dispatcher::ClockConfig;
 use nv_redfish_dispatcher::Completion;
 use nv_redfish_dispatcher::FutureWork;
+use nv_redfish_dispatcher::QueueEventSink;
 use nv_redfish_dispatcher::Readiness;
 use nv_redfish_dispatcher::Runtime;
 use nv_redfish_dispatcher::RuntimeConfig;
@@ -130,6 +131,10 @@ impl Scheduler<Work> for PollLeaf {
 
     fn on_complete(&mut self, _: Completion<()>) {
         // Leaves typically use this to update local stats / backoff.
+    }
+
+    fn register_queue_event_sink(&mut self, _sink: QueueEventSink) {
+        // This leaf does not produce queue events.
     }
 }
 
@@ -212,6 +217,12 @@ where
             if let Some(child) = self.children.get_mut(idx as usize) {
                 child.on_complete(completion);
             }
+        }
+    }
+
+    fn register_queue_event_sink(&mut self, sink: QueueEventSink) {
+        for child in &mut self.children {
+            child.register_queue_event_sink(sink.clone());
         }
     }
 }
