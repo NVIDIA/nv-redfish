@@ -32,6 +32,7 @@
 
 use crate::scheduler::private::SchedulerObj;
 use crate::scheduler::Scheduler;
+use crate::schedulers::{RemovedChild, RoundRobin, StrictPriority};
 use crate::stats::OutputQueueStats;
 use crate::stats::RuntimeStats;
 use crate::work::WorkMeta;
@@ -420,6 +421,110 @@ pub struct RuntimeHandle<Ev, Err, M: WorkMeta> {
     stats: Arc<StatsCells>,
 }
 
+struct RuntimeMutationContext<T> {
+    queue_event_sink: crate::QueueEventSink,
+    _payload: PhantomData<fn() -> T>,
+}
+
+impl<T> RuntimeMutationContext<T>
+where
+    T: 'static,
+{
+    fn register<S>(&self, mut scheduler: S) -> S
+    where
+        S: Scheduler<T>,
+    {
+        scheduler.register_queue_event_sink(self.queue_event_sink.clone());
+        scheduler
+    }
+}
+
+/// Exclusive, runtime-aware access to a scheduler root.
+///
+/// This wrapper deliberately does not expose `&mut R` or implement
+/// [`DerefMut`](core::ops::DerefMut). Its mutation methods preserve runtime
+/// invariants such as registering every newly attached scheduler subtree
+/// with the queue-event sink.
+pub struct RuntimeRootMut<'a, R, T> {
+    root: &'a mut R,
+    mutation: RuntimeMutationContext<T>,
+}
+
+impl<R, T> RuntimeRootMut<'_, R, T>
+where
+    T: Send + 'static,
+    R: crate::RuntimeChildContainer<T>,
+{
+    /// Register and attach one child scheduler with branch-specific arguments.
+    ///
+    /// Registration visits only `child`; its cost is independent of the
+    /// number of children already present in the root.
+    pub fn add_child_with<S>(&mut self, child: S, args: R::ChildArgs) -> R::ChildId
+    where
+        S: Scheduler<T, Meta = R::ChildMeta>,
+    {
+        self.root.attach_child(self.mutation.register(child), args)
+    }
+}
+
+impl<R, T> RuntimeRootMut<'_, R, T>
+where
+    T: Send + 'static,
+    R: crate::RuntimeChildContainer<T, ChildArgs = ()>,
+{
+    /// Register and attach one child scheduler without branch-specific arguments.
+    ///
+    /// Registration visits only `child`; its cost is independent of the
+    /// number of children already present in the root.
+    pub fn add_child<S>(&mut self, child: S) -> R::ChildId
+    where
+        S: Scheduler<T, Meta = R::ChildMeta>,
+    {
+        self.add_child_with(child, ())
+    }
+}
+
+impl<T, M> RuntimeRootMut<'_, RoundRobin<T, M>, T>
+where
+    T: Send + 'static,
+    M: WorkMeta,
+{
+    /// Remove a child by id.
+    pub fn remove_child(&mut self, id: u32) -> Option<RemovedChild<T, M>> {
+        self.root.remove_child(id)
+    }
+
+    /// Number of live children.
+    #[must_use]
+    pub const fn len(&self) -> usize {
+        self.root.len()
+    }
+
+    /// Whether the root currently has no live children.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.root.is_empty()
+    }
+}
+
+impl<T, C> RuntimeRootMut<'_, StrictPriority<T, C>, T>
+where
+    T: Send + 'static,
+    C: Scheduler<T>,
+    C::Meta: WorkMeta,
+{
+    /// Register and attach one child scheduler at `priority`.
+    pub fn add_priority_child(&mut self, child: C, priority: u8) -> (u8, u32) {
+        self.add_child_with(child, priority)
+    }
+
+    /// Number of populated priority classes.
+    #[must_use]
+    pub fn class_count(&self) -> usize {
+        self.root.class_count()
+    }
+}
+
 impl<Ev, Err, M: WorkMeta> Clone for RuntimeHandle<Ev, Err, M> {
     fn clone(&self) -> Self {
         Self {
@@ -501,23 +606,34 @@ where
     /// Holds the root lock for the duration of `f`; keep it short and do
     /// not re-enter the runtime from inside (it will deadlock).
     ///
+    /// The closure receives a [`RuntimeRootMut`] rather than `&mut S`, so
+    /// newly attached scheduler subtrees are registered automatically.
+    ///
     /// # Panics
     ///
     /// Can panic if runtime mutex is poisoned. Which only can happen
     /// if any f passed to this function paniced.
     #[allow(clippy::unwrap_in_result)]
-    pub fn with_root_mut<S, R>(&self, f: impl FnOnce(&mut S) -> R) -> Option<R>
+    pub fn with_root_mut<S, R>(
+        &self,
+        f: impl FnOnce(RuntimeRootMut<'_, S, FutureWork<Ev, Err>>) -> R,
+    ) -> Option<R>
     where
         S: 'static,
     {
+        let mutation = RuntimeMutationContext {
+            queue_event_sink: self.signals.queue_event_sink(),
+            _payload: PhantomData,
+        };
         let mut guard = self
             .shared
             .lock()
             .expect("dispatcher runtime mutex is poisoned");
-        let result = guard.root.as_any_mut().downcast_mut::<S>().map(f);
-        guard
+        let result = guard
             .root
-            .register_queue_event_sink(self.signals.queue_event_sink());
+            .as_any_mut()
+            .downcast_mut::<S>()
+            .map(|root| f(RuntimeRootMut { root, mutation }));
         drop(guard);
         self.signals.wake();
         result
@@ -852,7 +968,7 @@ mod tests {
         assert_eq!(handle.with_root::<u32, _>(|_| ()), None, "wrong type");
 
         let id = handle
-            .with_root_mut::<TestRoot, _>(|root| {
+            .with_root_mut::<TestRoot, _>(|mut root| {
                 root.add_child(PeriodicLeaf::new(
                     Instant::now(),
                     Duration::from_secs(9999),
@@ -863,7 +979,7 @@ mod tests {
         assert_eq!(handle.with_root::<TestRoot, _>(TestRoot::len), Some(2));
 
         handle
-            .with_root_mut::<TestRoot, _>(|root| {
+            .with_root_mut::<TestRoot, _>(|mut root| {
                 root.remove_child(id).expect("child exists");
             })
             .expect("root downcasts");

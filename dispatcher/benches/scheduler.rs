@@ -17,21 +17,25 @@
 
 #[cfg(unix)]
 mod unix {
+    use core::mem;
     use core::sync::atomic::AtomicBool;
     use core::time::Duration;
     use std::hint::black_box;
+    use std::num::NonZeroUsize;
     use std::sync::Arc;
     use std::time::Instant;
 
     use gungraun::library_benchmark;
     use nv_redfish_dispatcher::{
-        Completion, CompletionOutcome, RemovedChild, RoundRobin, ScheduledWork, Scheduler,
+        ClockConfig, Completion, CompletionOutcome, RemovedChild, RoundRobin, Runtime,
+        RuntimeConfig, ScheduledWork, Scheduler,
     };
 
-    use nv_redfish_dispatcher_sim::{ample_bucket, source, source_due_at, Meta, Work};
+    use nv_redfish_dispatcher_sim::{ample_bucket, source, source_due_at, Err, Ev, Meta, Work};
 
     pub type Tree = RoundRobin<Work, Meta>;
     type Removed = Option<RemovedChild<Work, Meta>>;
+    type BenchRuntime = Runtime<Ev, Err, Meta>;
 
     /// Fleet of `n` sources; when `sparse`, only the last one in
     /// rotation order has work due, so a dispatch scans the other n-1.
@@ -81,6 +85,23 @@ mod unix {
             black_box(root.remove_child(id));
         }
         (root, now)
+    }
+
+    /// Runtime with `n` existing sources and one pre-built child. Runtime
+    /// construction and the initial sink registration are fixture setup;
+    /// the benchmark measures only registering and attaching the new child.
+    fn runtime_with_spare(n: u32) -> (BenchRuntime, Box<dyn Scheduler<Work, Meta = Meta>>) {
+        let (root, now) = fleet(n, false);
+        let no_fail = Arc::new(AtomicBool::new(false));
+        let child = Box::new(source(now, n, ample_bucket(), no_fail));
+        let runtime = Runtime::new(
+            RuntimeConfig {
+                global_max_in_flight: NonZeroUsize::MIN,
+                clock: ClockConfig::Wallclock,
+            },
+            root,
+        );
+        (runtime, child)
     }
 
     fn dispatch((mut root, now): (Tree, Instant)) -> Tree {
@@ -140,15 +161,42 @@ mod unix {
     pub fn stale_purge_dispatch(input: (Tree, Instant)) -> Tree {
         dispatch(input)
     }
+
+    // Registering one new subtree must be independent of the number of
+    // schedulers already attached to the runtime.
+    #[library_benchmark]
+    #[bench::existing_1(runtime_with_spare(1))]
+    #[bench::existing_100(runtime_with_spare(100))]
+    #[bench::existing_1000(runtime_with_spare(1000))]
+    pub fn dynamic_add_child(
+        (runtime, child): (BenchRuntime, Box<dyn Scheduler<Work, Meta = Meta>>),
+    ) {
+        let handle = runtime.handle();
+        let added = handle.with_root_mut::<Tree, _>(|mut root| root.add_child(child));
+        black_box(added);
+
+        // Dropping the fixture would walk the whole tree inside the
+        // measurement and obscure the complexity of the mutation itself.
+        mem::forget(runtime);
+    }
 }
 
 #[cfg(unix)]
-use unix::{churn_detached, churn_draining, dense_dispatch, sparse_dispatch, stale_purge_dispatch};
+use unix::{
+    churn_detached, churn_draining, dense_dispatch, dynamic_add_child, sparse_dispatch,
+    stale_purge_dispatch,
+};
 
 #[cfg(unix)]
 gungraun::library_benchmark_group!(
     name = scheduler;
-    benchmarks = dense_dispatch, sparse_dispatch, churn_detached, churn_draining, stale_purge_dispatch
+    benchmarks =
+        dense_dispatch,
+        sparse_dispatch,
+        churn_detached,
+        churn_draining,
+        stale_purge_dispatch,
+        dynamic_add_child
 );
 
 #[cfg(unix)]

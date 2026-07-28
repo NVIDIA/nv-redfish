@@ -109,6 +109,10 @@ pub use runtime::RuntimeHandle;
 #[doc(inline)]
 pub use runtime::RuntimeOutput;
 #[doc(inline)]
+pub use runtime::RuntimeRootMut;
+#[doc(inline)]
+pub use scheduler::RuntimeChildContainer;
+#[doc(inline)]
 pub use scheduler::ScheduledWork;
 #[doc(inline)]
 pub use scheduler::Scheduler;

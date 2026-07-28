@@ -97,6 +97,25 @@ pub trait Scheduler<T>: Send + 'static {
     fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
 }
 
+/// Scheduler root that accepts dynamically attached child subtrees.
+///
+/// [`crate::RuntimeRootMut::add_child_with`] registers the child with its
+/// runtime before calling [`RuntimeChildContainer::attach_child`].
+/// Implementations therefore only perform their branch-specific insertion.
+pub trait RuntimeChildContainer<T>: Scheduler<T> {
+    /// Metadata expected from an attached child.
+    type ChildMeta: WorkMeta;
+    /// Stable identifier returned by the branch.
+    type ChildId;
+    /// Branch-specific arguments needed to attach a child.
+    type ChildArgs;
+
+    /// Physically attach an already runtime-registered child.
+    fn attach_child<S>(&mut self, child: S, args: Self::ChildArgs) -> Self::ChildId
+    where
+        S: Scheduler<T, Meta = Self::ChildMeta>;
+}
+
 impl<T, S> Scheduler<T> for Box<S>
 where
     T: 'static,
@@ -139,7 +158,6 @@ pub(crate) mod private {
         fn update_ready(&mut self, now: Instant) -> Readiness;
         fn take_next(&mut self) -> Option<ScheduledWork<T, M>>;
         fn on_complete(&mut self, completion: Completion<M>);
-        fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
         fn as_any(&self) -> &dyn Any;
         fn as_any_mut(&mut self) -> &mut dyn Any;
     }
@@ -158,9 +176,6 @@ pub(crate) mod private {
         }
         fn on_complete(&mut self, completion: Completion<M>) {
             <Self as super::Scheduler<T>>::on_complete(self, completion);
-        }
-        fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
-            <Self as super::Scheduler<T>>::register_queue_event_sink(self, sink);
         }
         fn as_any(&self) -> &dyn Any {
             self

@@ -44,7 +44,7 @@ use core::mem;
 use std::collections::VecDeque;
 use std::time::Instant;
 
-use crate::scheduler::{ScheduledWork, Scheduler};
+use crate::scheduler::{RuntimeChildContainer, ScheduledWork, Scheduler};
 use crate::work::{Completion, Readiness, WorkMeta};
 
 enum Entry<T, M: WorkMeta> {
@@ -321,6 +321,23 @@ where
                 Entry::Free => {}
             }
         }
+    }
+}
+
+impl<T, M> RuntimeChildContainer<T> for RoundRobin<T, M>
+where
+    T: Send + 'static,
+    M: WorkMeta,
+{
+    type ChildMeta = M;
+    type ChildId = u32;
+    type ChildArgs = ();
+
+    fn attach_child<S>(&mut self, child: S, (): Self::ChildArgs) -> Self::ChildId
+    where
+        S: Scheduler<T, Meta = M>,
+    {
+        self.add_child(child)
     }
 }
 
