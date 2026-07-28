@@ -130,6 +130,7 @@ where
         }
     }
 
+    #[inline]
     fn take_next(&mut self) -> Option<ScheduledWork<T, ()>> {
         if !self.due(self.last_now) {
             return None;
