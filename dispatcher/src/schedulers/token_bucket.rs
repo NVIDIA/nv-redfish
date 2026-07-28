@@ -276,6 +276,11 @@ where
     fn on_complete(&mut self, completion: Completion<C::Meta>) {
         self.inner.on_complete(completion);
     }
+
+    #[cfg(feature = "queue")]
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        self.inner.register_queue_event_sink(sink);
+    }
 }
 
 fn cost_to_i64(cost: CostUnits) -> i64 {

@@ -37,6 +37,9 @@ all-features = true
 [features]
 default = []
 
+queue = []
+queue-fifo = ["queue"]
+queue-sfq = ["queue"]
 runtime-events = []
 
 serde = ["dep:serde", "serde/rc"]

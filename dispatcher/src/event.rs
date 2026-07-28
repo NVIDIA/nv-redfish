@@ -21,6 +21,97 @@
 
 #[cfg(not(feature = "runtime-events"))]
 use core::convert::Infallible;
+#[cfg(feature = "queue")]
+use std::sync::Arc;
+
+/// Stable runtime-assigned identity for an externally-fed queue.
+///
+/// IDs are unique within one runtime and become available when the queue
+/// scheduler is attached to that runtime.
+#[cfg(feature = "queue")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct QueueId(u64);
+
+#[cfg(feature = "queue")]
+impl QueueId {
+    pub(crate) const fn new(value: u64) -> Self {
+        Self(value)
+    }
+
+    /// Raw runtime-local queue identifier.
+    #[must_use]
+    pub const fn get(self) -> u64 {
+        self.0
+    }
+}
+
+/// Signal sent by an externally-fed queue to its runtime.
+///
+/// [`QueueEvent::WakeUp`] is control-plane only and never appears in
+/// [`crate::RuntimeOutput`]. `Drained` becomes a
+/// `RuntimeEvent::QueueDrained` output when `runtime-events` is enabled.
+#[cfg(feature = "queue")]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum QueueEvent {
+    /// Queue readiness may have changed.
+    WakeUp,
+    /// A closed queue has no queued or in-flight work remaining.
+    Drained {
+        /// Stable identity assigned when the queue attached to runtime.
+        queue_id: QueueId,
+    },
+}
+
+#[cfg(feature = "queue")]
+type QueueEventHandler = dyn Fn(QueueEvent) + Send + Sync + 'static;
+#[cfg(feature = "queue")]
+type QueueIdAllocator = dyn Fn() -> QueueId + Send + Sync + 'static;
+
+/// Restricted capability used by queue schedulers to signal their runtime.
+///
+/// It accepts only [`QueueEvent`], preventing queue implementations from
+/// fabricating unrelated runtime events. The sink owns runtime wake-up;
+/// schedulers never receive a raw [`std::task::Waker`].
+#[cfg(feature = "queue")]
+#[derive(Clone)]
+pub struct QueueEventSink {
+    handler: Arc<QueueEventHandler>,
+    allocator: Arc<QueueIdAllocator>,
+    runtime_identity: Arc<()>,
+}
+
+#[cfg(feature = "queue")]
+impl QueueEventSink {
+    pub(crate) fn new(
+        handler: impl Fn(QueueEvent) + Send + Sync + 'static,
+        allocator: impl Fn() -> QueueId + Send + Sync + 'static,
+        runtime_identity: Arc<()>,
+    ) -> Self {
+        Self {
+            handler: Arc::new(handler),
+            allocator: Arc::new(allocator),
+            runtime_identity,
+        }
+    }
+
+    /// Allocate a stable identifier local to this runtime.
+    ///
+    /// Custom externally-fed queue schedulers use this when the sink is
+    /// first registered. Clones of a sink share one allocation domain.
+    #[must_use]
+    pub fn allocate_queue_id(&self) -> QueueId {
+        (self.allocator)()
+    }
+
+    /// Push a queue control or lifecycle event.
+    pub fn push(&self, event: QueueEvent) {
+        (self.handler)(event);
+    }
+
+    pub(crate) fn belongs_to_same_runtime(&self, other: &Self) -> bool {
+        Arc::ptr_eq(&self.runtime_identity, &other.runtime_identity)
+    }
+}
 
 /// Concrete payload carried by [`crate::RuntimeOutput::Runtime`].
 #[cfg(feature = "runtime-events")]
@@ -55,6 +146,12 @@ mod with_events {
         WorkFailed,
         /// Reserved snapshot variant; payload fields land later.
         SchedulerStatsSnapshot,
+        /// A closed externally-fed queue has fully drained.
+        #[cfg(feature = "queue")]
+        QueueDrained {
+            /// Stable runtime-assigned queue identity.
+            queue_id: super::QueueId,
+        },
     }
 }
 
