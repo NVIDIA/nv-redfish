@@ -195,6 +195,7 @@ impl BmcQuirks {
 
     /// Vera Rubin host BMCs report composite `BootOrder` entries such as
     /// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
+    #[cfg(feature = "computer-systems")]
     pub(crate) fn vera_rubin_composite_boot_order_entries(&self) -> bool {
         self.platform == Some(Platform::VeraRubin)
     }
