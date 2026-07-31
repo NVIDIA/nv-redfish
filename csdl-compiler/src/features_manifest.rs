@@ -116,18 +116,20 @@ impl FeaturesManifest {
         features: &[&String],
     ) -> (
         Vec<&'a String>, // root csdl
-        Vec<&'a String>, // resolve csdl
+        Vec<&'a String>, // resolve csdl (DMTF Redfish)
+        Vec<&'a String>, // resolve csdl (SNIA Swordfish)
         Vec<&'a EntityTypeFilterPattern>,
     ) {
         self.oem_features.iter().fold(
-            (Vec::new(), Vec::new(), Vec::new()),
-            |(mut root, mut resolve, mut patterns), f| {
+            (Vec::new(), Vec::new(), Vec::new(), Vec::new()),
+            |(mut root, mut resolve, mut swordfish_resolve, mut patterns), f| {
                 if f.vendor == *vendor && features.contains(&&f.name) {
                     root.extend(f.oem_csdl_files.iter());
                     resolve.extend(f.csdl_files.iter());
+                    swordfish_resolve.extend(f.swordfish_csdl_files.iter());
                     patterns.extend(f.patterns.iter());
                 }
-                (root, resolve, patterns)
+                (root, resolve, swordfish_resolve, patterns)
             },
         )
     }
@@ -160,6 +162,13 @@ pub struct OemFeature {
     /// CSDL files from standard that provide types for vendor CSDL
     /// files.
     pub csdl_files: Vec<String>,
+    /// Swordfish CSDL files that provide types for vendor CSDL files.
+    ///
+    /// Only list files that have no DMTF Redfish counterpart of the
+    /// same name -- both directories ship e.g. `Volume_v1.xml`, and
+    /// resolving the same namespace twice is an error.
+    #[serde(default)]
+    pub swordfish_csdl_files: Vec<String>,
     /// Pattern of entity types that need to be resolved during the
     /// compilation.
     #[serde(default)]

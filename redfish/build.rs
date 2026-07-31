@@ -18,18 +18,24 @@ use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::commands::DEFAULT_ROOT;
 use nv_redfish_csdl_compiler::features_manifest::FeaturesManifest;
 use nv_redfish_schema::cargo_feature_enabled;
+use nv_redfish_schema::glob_oem_xml;
 use nv_redfish_schema::oem_schema;
 use nv_redfish_schema::out_dir;
 use nv_redfish_schema::redfish_schema;
 use nv_redfish_schema::rerun_for;
 use nv_redfish_schema::run_with_big_stack;
 use nv_redfish_schema::swordfish_schema;
+use nv_redfish_schema::OEM_DIR;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::path::PathBuf;
 
 fn main() -> Result<(), String> {
     run_with_big_stack(run)
+}
+
+fn file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
 fn run() -> Result<(), Box<dyn StdError>> {
@@ -104,6 +110,37 @@ fn run() -> Result<(), Box<dyn StdError>> {
         .collect::<Vec<_>>();
 
     for v in vendors {
+        // Watch the directory itself, not just the files in it: adding
+        // or removing a schema changes no tracked file, so without this
+        // the checks below would not re-run on an incremental build.
+        rerun_for([format!("{OEM_DIR}/{v}")]);
+
+        // Every schema shipped for a vendor must be claimed by exactly
+        // one of its features, otherwise it would silently never be
+        // compiled no matter which features are enabled. Unlisted files
+        // are still offered for type resolution below, which makes the
+        // omission invisible without this check.
+        let all_features = manifest.all_vendor_features(v);
+        let (listed, ..) = manifest.collect_vendor_features(v, &all_features);
+        let listed = listed
+            .iter()
+            .map(|f| f.as_str())
+            .collect::<std::collections::HashSet<_>>();
+        let unlisted = glob_oem_xml(v)
+            .into_iter()
+            .filter(|f| !listed.contains(file_name(f)))
+            .collect::<Vec<_>>();
+        if !unlisted.is_empty() {
+            return Err(format!(
+                "schema/oem/{v}: {} file(s) are not listed by any \
+                 [[oem-features]] block in features.toml, so they can \
+                 never be compiled: {}",
+                unlisted.len(),
+                unlisted.join(", ")
+            )
+            .into());
+        }
+
         let vendor_features = manifest
             .all_vendor_features(v)
             .into_iter()
@@ -117,11 +154,32 @@ fn run() -> Result<(), Box<dyn StdError>> {
             continue;
         }
 
-        let (root_csdls, resolve_csdls, patterns) =
+        let (root_csdls, resolve_csdls, swordfish_resolve_csdls, patterns) =
             manifest.collect_vendor_features(v, &vendor_features);
 
-        let root_csdls = root_csdls
+        let root_names = root_csdls
             .iter()
+            .map(|f| f.as_str())
+            .collect::<std::collections::HashSet<_>>();
+
+        // Enabled features may contribute only resolve schemas, leaving
+        // nothing to generate.
+        if root_names.is_empty() {
+            File::create(output)?;
+            continue;
+        }
+
+        // A vendor's schemas reference each other, but only those
+        // selected by the enabled features are compiled. Offer the rest
+        // for type resolution so a feature never has to name the
+        // transitive closure of its own dependencies.
+        let unselected_oem = glob_oem_xml(v)
+            .into_iter()
+            .filter(|f| !root_names.contains(file_name(f)))
+            .collect::<Vec<_>>();
+
+        let root_csdls = root_names
+            .into_iter()
             .map(|f| oem_schema(v, f))
             .collect::<Vec<_>>();
 
@@ -130,6 +188,10 @@ fn run() -> Result<(), Box<dyn StdError>> {
             .copied()
             .map(redfish_schema)
             .chain(resolve_csdls.iter().map(|f| redfish_schema(f)))
+            .chain(swordfish_resolve_csdls.iter().map(|f| swordfish_schema(f)))
+            .chain(unselected_oem)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
             .collect::<Vec<_>>();
 
         rerun_for(root_csdls.iter().chain(resolve_csdls.iter()));
