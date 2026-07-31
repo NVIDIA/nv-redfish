@@ -1,0 +1,104 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaTrustedComponent  v1.0.0                                                  -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/TrustedComponent_v1.xml">
+    <edmx:Include Namespace="TrustedComponent.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOT_v1.xml">
+    <edmx:Include Namespace="NvidiaDOT"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugTokenCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaDebugTokenCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugTokenManagement_v1.xml">
+    <edmx:Include Namespace="NvidiaDebugTokenManagement"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaTrustedComponent">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaTrustedComponent" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a TrustedComponent resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a TrustedComponent resource."/>
+      </ComplexType>
+      <Action Name="GenerateToken" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to generate a debug token."/>
+        <Annotation Term="OData.LongDescription" String="This action shall generate a debug token."/>
+        <Parameter Name="TrustedComponent" Type="TrustedComponent.v1_0_0.Actions"/>
+        <ReturnType Type="NvidiaTrustedComponent.v1_0_0.GenerateTokenResponse" Nullable="false"/>
+      </Action>
+      <Action Name="EraseToken" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to erase debug tokens from the endpoint device."/>
+        <Annotation Term="OData.LongDescription" String="This action shall erase debug tokens from the endpoint device, as facilitated by this trusted component."/>
+        <Parameter Name="TrustedComponent" Type="TrustedComponent.v1_0_0.Actions"/>
+        <Parameter Name="EraseType" Type="NvidiaDebugTokenManagement.EraseType" Nullable="false">
+          <Annotation Term="OData.Description" String="Erase type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the erase type used to erase all installed tokens from the endpoint device."/>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaTrustedComponent.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaTrustedComponent" BaseType="NvidiaTrustedComponent.NvidiaTrustedComponent">
+        <Property Name="InstallTokenPushURI" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The URI used to perform a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a URI for performing a multipart HTTP or HTTPS `POST` request of a binary image, enabling the installation of debug tokens within the image, as facilitated by this trusted component. The `name` field shall have the value `TokenFile`, and the `filename` field shall reflect the name of the file as loaded by the client. No parameters are allowed for this operation."/>
+        </Property>
+        <Property Name="TokensProcessed" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether one of more tokens are processed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether one or more tokens are processed. All tokens are available in the subordinate `DebugToken` collection resources."/>
+        </Property>
+        <Property Name="TokensInstalled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether one of more tokens are installed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether one of more tokens are installed. All tokens are available in the subordinate `DebugToken` collection resources."/>
+        </Property>
+        <NavigationProperty Name="DebugTokens" Type="NvidiaDebugTokenCollection.NvidiaDebugTokenCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of NvidiaDebugToken associated with this component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaDebugTokenCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="DOT" Type="NvidiaDOT.NvidiaDOT" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Device Ownership Transfer (DOT) resource facilitated by this trusted component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaDOT, as facilitated by this trusted component."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="GenerateTokenResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from the GenerateToken action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from the GenerateToken action."/>
+        <Property Name="BinaryTokenURI" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The URI at which to access the data for the debug token."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the URI at which to access the data for the debug token."/>
+          <Annotation Term="OData.IsURL"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

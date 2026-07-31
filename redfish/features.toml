@@ -445,20 +445,625 @@ patterns = [
 ]
 
 [[oem-features]]
+# NVIDIA BlueField DPU computer system extension.
 vendor = "nvidia-bluefield"
 name = "computer-systems"
-oem_csdl_files = [ # files must be located in {workspace-root}/oem/{vendor}/...
+oem_csdl_files = [
     "NvidiaComputerSystem_v1.xml",
 ]
 csdl_files = []
 
+# NVIDIA OEM schemas, vendored verbatim from NVIDIA/bmcweb
+# (redfish-core/schema/oem/nvidia/csdl) at commit
+# 145ee5400553630637f01734915abde5915751a7 of the `develop` branch.
+# Re-vendoring means replacing schema/oem/nvidia-baseboard/*.xml from
+# that path wholesale and updating this commit id; the files are not
+# edited locally, so fix schema problems upstream instead.
+#
+# Every schema below is a compile root. The blocks are keyed on the
+# service feature that owns the resource being extended, so enabling
+# `oem-nvidia-baseboard` alongside `chassis` compiles the NVIDIA chassis
+# schemas and nothing else. Families with no standard counterpart get
+# their own `oem-nvidia-*` feature.
+#
+# The BlueField DPU is a separate vendor: it reuses the
+# `NvidiaComputerSystem` namespace for an incompatible shape, so the two
+# cannot share a compile unit.
+#
+# A block lists only the schemas it owns. NVIDIA schemas reference each
+# other freely; build.rs offers every unselected schema of the vendor
+# for type resolution, so a block never needs its dependencies listed.
+# Each schema must therefore appear in exactly one block.
+
 [[oem-features]]
+# Standard schemas the NVIDIA set references. Always active, since the
+# `oem-nvidia-baseboard` feature is what enables this vendor at all. Kept in one
+# place rather than repeated per block; extra entries only cost parse
+# time, so this is the transitive closure of every NVIDIA reference
+# that resolves inside the DMTF tree. No NVIDIA schema reaches a
+# Swordfish-only type, so none are listed.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-baseboard"
+oem_csdl_files = []
+csdl_files = [
+    "AccelerationFunctionCollection_v1.xml",
+    "AccelerationFunction_v1.xml",
+    "AccountService_v1.xml",
+    "ActionInfo_v1.xml",
+    "AddressPoolCollection_v1.xml",
+    "AddressPool_v1.xml",
+    "AllowDenyCollection_v1.xml",
+    "AllowDeny_v1.xml",
+    "ApplicationCollection_v1.xml",
+    "Application_v1.xml",
+    "Assembly_v1.xml",
+    "AutomationInstrumentation_v1.xml",
+    "AutomationNode_v1.xml",
+    "BatteryCollection_v1.xml",
+    "BatteryMetrics_v1.xml",
+    "Battery_v1.xml",
+    "Bios_v1.xml",
+    "BootOptionCollection_v1.xml",
+    "BootOption_v1.xml",
+    "CXLLogicalDeviceCollection_v1.xml",
+    "CXLLogicalDevice_v1.xml",
+    "Cable_v1.xml",
+    "CertificateCollection_v1.xml",
+    "Certificate_v1.xml",
+    "Chassis_v1.xml",
+    "CircuitCollection_v1.xml",
+    "Circuit_v1.xml",
+    "CollectionCapabilities_v1.xml",
+    "ComponentIntegrity_v1.xml",
+    "ComputerSystem_v1.xml",
+    "ConnectionCollection_v1.xml",
+    "Connection_v1.xml",
+    "ContainerCollection_v1.xml",
+    "ContainerImageCollection_v1.xml",
+    "ContainerImage_v1.xml",
+    "Container_v1.xml",
+    "ControlCollection_v1.xml",
+    "Control_v1.xml",
+    "CoolantConnectorCollection_v1.xml",
+    "CoolantConnector_v1.xml",
+    "CoolingLoop_v1.xml",
+    "CoolingUnit_v1.xml",
+    "DriveCollection_v1.xml",
+    "DriveMetrics_v1.xml",
+    "Drive_v1.xml",
+    "EndpointCollection_v1.xml",
+    "EndpointGroupCollection_v1.xml",
+    "EndpointGroup_v1.xml",
+    "Endpoint_v1.xml",
+    "EnvironmentMetrics_v1.xml",
+    "EthernetInterfaceCollection_v1.xml",
+    "EthernetInterface_v1.xml",
+    "Event_v1.xml",
+    "ExternalAccountProviderCollection_v1.xml",
+    "ExternalAccountProvider_v1.xml",
+    "FabricAdapterCollection_v1.xml",
+    "FabricAdapter_v1.xml",
+    "Fabric_v1.xml",
+    "Facility_v1.xml",
+    "FanCollection_v1.xml",
+    "Fan_v1.xml",
+    "FilterCollection_v1.xml",
+    "Filter_v1.xml",
+    "GraphicsControllerCollection_v1.xml",
+    "GraphicsController_v1.xml",
+    "HeaterCollection_v1.xml",
+    "HeaterMetrics_v1.xml",
+    "Heater_v1.xml",
+    "HostInterfaceCollection_v1.xml",
+    "HostInterface_v1.xml",
+    "IPAddresses_v1.xml",
+    "KeyCollection_v1.xml",
+    "Key_v1.xml",
+    "LeakDetection_v1.xml",
+    "LeakDetectorCollection_v1.xml",
+    "LeakDetector_v1.xml",
+    "LogEntryCollection_v1.xml",
+    "LogEntry_v1.xml",
+    "LogServiceCollection_v1.xml",
+    "LogService_v1.xml",
+    "ManagerAccountCollection_v1.xml",
+    "ManagerAccount_v1.xml",
+    "ManagerDiagnosticData_v1.xml",
+    "ManagerNetworkProtocol_v1.xml",
+    "Manager_v1.xml",
+    "MediaControllerCollection_v1.xml",
+    "MediaController_v1.xml",
+    "MemoryChunksCollection_v1.xml",
+    "MemoryChunks_v1.xml",
+    "MemoryCollection_v1.xml",
+    "MemoryDomainCollection_v1.xml",
+    "MemoryDomain_v1.xml",
+    "MemoryMetrics_v1.xml",
+    "MemoryRegionCollection_v1.xml",
+    "MemoryRegion_v1.xml",
+    "Memory_v1.xml",
+    "Message_v1.xml",
+    "NetworkAdapterCollection_v1.xml",
+    "NetworkAdapterMetrics_v1.xml",
+    "NetworkAdapter_v1.xml",
+    "NetworkDeviceFunctionCollection_v1.xml",
+    "NetworkDeviceFunctionMetrics_v1.xml",
+    "NetworkDeviceFunction_v1.xml",
+    "NetworkInterfaceCollection_v1.xml",
+    "NetworkInterface_v1.xml",
+    "NetworkPortCollection_v1.xml",
+    "NetworkPort_v1.xml",
+    "OperatingConfigCollection_v1.xml",
+    "OperatingConfig_v1.xml",
+    "OperatingSystem_v1.xml",
+    "OutboundConnectionCollection_v1.xml",
+    "OutboundConnection_v1.xml",
+    "OutletCollection_v1.xml",
+    "OutletGroupCollection_v1.xml",
+    "OutletGroup_v1.xml",
+    "Outlet_v1.xml",
+    "PCIeDeviceCollection_v1.xml",
+    "PCIeDevice_v1.xml",
+    "PCIeFunctionCollection_v1.xml",
+    "PCIeFunction_v1.xml",
+    "PCIeSlots_v1.xml",
+    "PhysicalContext_v1.xml",
+    "PortCollection_v1.xml",
+    "PortMetrics_v1.xml",
+    "Port_v1.xml",
+    "PowerDistributionMetrics_v1.xml",
+    "PowerDistribution_v1.xml",
+    "PowerDomainCollection_v1.xml",
+    "PowerDomain_v1.xml",
+    "PowerSubsystem_v1.xml",
+    "PowerSupplyCollection_v1.xml",
+    "PowerSupplyMetrics_v1.xml",
+    "PowerSupply_v1.xml",
+    "Power_v1.xml",
+    "PrivilegeRegistry_v1.xml",
+    "Privileges_v1.xml",
+    "ProcessorCollection_v1.xml",
+    "ProcessorMetrics_v1.xml",
+    "Processor_v1.xml",
+    "Protocol_v1.xml",
+    "PumpCollection_v1.xml",
+    "Pump_v1.xml",
+    "RedfishExtensions_v1.xml",
+    "Redundancy_v1.xml",
+    "ReservoirCollection_v1.xml",
+    "Reservoir_v1.xml",
+    "ResolutionStep_v1.xml",
+    "ResourceBlock_v1.xml",
+    "Resource_v1.xml",
+    "RoleCollection_v1.xml",
+    "Role_v1.xml",
+    "RouteEntryCollection_v1.xml",
+    "RouteEntry_v1.xml",
+    "RouteSetEntryCollection_v1.xml",
+    "RouteSetEntry_v1.xml",
+    "Schedule_v1.xml",
+    "SecureBootDatabaseCollection_v1.xml",
+    "SecureBootDatabase_v1.xml",
+    "SecureBoot_v1.xml",
+    "SecurityPolicy_v1.xml",
+    "SensorCollection_v1.xml",
+    "Sensor_v1.xml",
+    "SerialInterfaceCollection_v1.xml",
+    "SerialInterface_v1.xml",
+    "Session_v1.xml",
+    "Settings_v1.xml",
+    "SignatureCollection_v1.xml",
+    "Signature_v1.xml",
+    "SimpleStorageCollection_v1.xml",
+    "SimpleStorage_v1.xml",
+    "SoftwareInventoryCollection_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "StorageCollection_v1.xml",
+    "StorageControllerCollection_v1.xml",
+    "StorageControllerMetrics_v1.xml",
+    "StorageController_v1.xml",
+    "StorageMetrics_v1.xml",
+    "Storage_v1.xml",
+    "SwitchCollection_v1.xml",
+    "SwitchMetrics_v1.xml",
+    "Switch_v1.xml",
+    "TaskCollection_v1.xml",
+    "Task_v1.xml",
+    "ThermalMetrics_v1.xml",
+    "ThermalSubsystem_v1.xml",
+    "Thermal_v1.xml",
+    "TrustedComponentCollection_v1.xml",
+    "TrustedComponent_v1.xml",
+    "USBControllerCollection_v1.xml",
+    "USBController_v1.xml",
+    "UpdateServiceCapabilities_v1.xml",
+    "UpdateService_v1.xml",
+    "VCATEntryCollection_v1.xml",
+    "VCATEntry_v1.xml",
+    "VLanNetworkInterfaceCollection_v1.xml",
+    "VLanNetworkInterface_v1.xml",
+    "VirtualCXLSwitchCollection_v1.xml",
+    "VirtualCXLSwitch_v1.xml",
+    "VirtualMediaCollection_v1.xml",
+    "VirtualMedia_v1.xml",
+    "VirtualPCI2PCIBridgeCollection_v1.xml",
+    "VirtualPCI2PCIBridge_v1.xml",
+    "VolumeCollection_v1.xml",
+    "Volume_v1.xml",
+    "ZoneCollection_v1.xml",
+    "Zone_v1.xml",
+]
+
+[[oem-features]]
+# NVIDIA chassis, root-of-trust chassis, cables and PCIe slots.
 vendor = "nvidia-baseboard"
 name = "chassis"
-oem_csdl_files = [ # files must be located in {workspace-root}/oem/{vendor}/...
+oem_csdl_files = [
     "NvidiaChassis_v1.xml",
+    "NvidiaRoTChassis_v1.xml",
+    "NvidiaCable_v1.xml",
+    "NvidiaPCIeSlots_v1.xml",
 ]
 csdl_files = []
+patterns = [
+    "NvidiaChassis.*.*",
+    "NvidiaRoTChassis.*.*",
+    "NvidiaCable.*.*",
+    "NvidiaPCIeSlots.*.*",
+]
+
+[[oem-features]]
+# NVIDIA manager, power-compliance manager and managed-entity inventory.
+vendor = "nvidia-baseboard"
+name = "managers"
+oem_csdl_files = [
+    "NvidiaManager_v1.xml",
+    "NvidiaPowerComplianceManager_v1.xml",
+    "NvidiaManagedEntity_v1.xml",
+    "NvidiaManagedEntityCollection_v1.xml",
+    "NvidiaManagedEntityGroup_v1.xml",
+    "NvidiaManagedEntityGroupCollection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaManager.*.*",
+    "NvidiaPowerComplianceManager.*.*",
+    "NvidiaManagedEntity.*.*",
+    "NvidiaManagedEntityCollection.*.*",
+    "NvidiaManagedEntityGroup.*.*",
+    "NvidiaManagedEntityGroupCollection.*.*",
+]
+
+[[oem-features]]
+# NVIDIA manager network protocol settings.
+vendor = "nvidia-baseboard"
+name = "manager-network-protocol"
+oem_csdl_files = [
+    "NvidiaNetworkProtocol_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaNetworkProtocol.*.*",
+]
+
+[[oem-features]]
+# NVIDIA computer system and host privilege configuration.
+vendor = "nvidia-baseboard"
+name = "computer-systems"
+oem_csdl_files = [
+    "NvidiaComputerSystem_v1.xml",
+    "NvidiaHostPrivilegeConfig_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaComputerSystem.*.*",
+    "NvidiaHostPrivilegeConfig.*.*",
+]
+
+[[oem-features]]
+# NVIDIA processor and processor metrics.
+vendor = "nvidia-baseboard"
+name = "processors"
+oem_csdl_files = [
+    "NvidiaProcessor_v1.xml",
+    "NvidiaProcessorMetrics_v1.xml",
+    "NvidiaProcessorResetMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaProcessor.*.*",
+    "NvidiaProcessorMetrics.*.*",
+    "NvidiaProcessorResetMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA memory and memory metrics.
+vendor = "nvidia-baseboard"
+name = "memory"
+oem_csdl_files = [
+    "NvidiaMemory_v1.xml",
+    "NvidiaMemoryMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaMemory.*.*",
+    "NvidiaMemoryMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA network adapter, including DPU operation mode.
+vendor = "nvidia-baseboard"
+name = "network-adapters"
+oem_csdl_files = [
+    "NvidiaNetworkAdapter_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaNetworkAdapter.*.*",
+]
+
+[[oem-features]]
+# NVIDIA PCIe device and link equalization.
+vendor = "nvidia-baseboard"
+name = "pcie-devices"
+oem_csdl_files = [
+    "NvidiaPCIeDevice_v1.xml",
+    "NvidiaPCIeEqualization_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPCIeDevice.*.*",
+    "NvidiaPCIeEqualization.*.*",
+]
+
+[[oem-features]]
+# NVIDIA power supply, PSU state and redundancy.
+vendor = "nvidia-baseboard"
+name = "power-supplies"
+oem_csdl_files = [
+    "NvidiaPowerSupply_v1.xml",
+    "NvidiaPsuState_v1.xml",
+    "NvidiaPsuStateCollection_v1.xml",
+    "NvidiaPSURedundancy_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerSupply.*.*",
+    "NvidiaPsuState.*.*",
+    "NvidiaPsuStateCollection.*.*",
+    "NvidiaPSURedundancy.*.*",
+]
+
+[[oem-features]]
+# NVIDIA update service, firmware packages and persistent storage.
+vendor = "nvidia-baseboard"
+name = "update-service"
+oem_csdl_files = [
+    "NvidiaUpdateService_v1.xml",
+    "NvidiaSoftwareInventory_v1.xml",
+    "NvidiaFirmwarePackage_v1.xml",
+    "NvidiaFirmwarePackageCollection_v1.xml",
+    "NvidiaPersistentStorage_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaUpdateService.*.*",
+    "NvidiaSoftwareInventory.*.*",
+    "NvidiaFirmwarePackage.*.*",
+    "NvidiaFirmwarePackageCollection.*.*",
+    "NvidiaPersistentStorage.*.*",
+]
+
+[[oem-features]]
+# NVIDIA log service, log entries and conditions.
+# NvidiaCPER is deliberately excluded: see `oem-nvidia-cper`.
+vendor = "nvidia-baseboard"
+name = "log-services"
+oem_csdl_files = [
+    "NvidiaLogService_v1.xml",
+    "NvidiaLogEntry_v1.xml",
+    "NvidiaCondition_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaLogService.*.*",
+    "NvidiaLogEntry.*.*",
+    "NvidiaCondition.*.*",
+]
+
+[[oem-features]]
+# NVIDIA event payloads.
+vendor = "nvidia-baseboard"
+name = "event-service"
+oem_csdl_files = [
+    "NvidiaEvent_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaEvent.*.*",
+]
+
+[[oem-features]]
+# NVIDIA metric reports and histograms.
+vendor = "nvidia-baseboard"
+name = "telemetry-service"
+oem_csdl_files = [
+    "NvidiaMetricReport_v1.xml",
+    "NvidiaHistogram_v1.xml",
+    "NvidiaHistogramCollection_v1.xml",
+    "NvidiaHistogramBucket_v1.xml",
+    "NvidiaHistogramBucketCollection_v1.xml",
+    "NvidiaHistogramBuckets_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaMetricReport.*.*",
+    "NvidiaHistogram.*.*",
+    "NvidiaHistogramCollection.*.*",
+    "NvidiaHistogramBucket.*.*",
+    "NvidiaHistogramBucketCollection.*.*",
+    "NvidiaHistogramBuckets.*.*",
+]
+
+[[oem-features]]
+# NVIDIA environment metrics.
+vendor = "nvidia-baseboard"
+name = "environment-metrics"
+oem_csdl_files = [
+    "NvidiaEnvironmentMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaEnvironmentMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA power domains.
+vendor = "nvidia-baseboard"
+name = "sensors"
+oem_csdl_files = [
+    "NvidiaPowerDomain_v1.xml",
+    "NvidiaPowerDomainCollection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerDomain.*.*",
+    "NvidiaPowerDomainCollection.*.*",
+]
+
+[[oem-features]]
+# Common Platform Error Record decoding.
+# Split out because this single schema generates roughly 18k lines --
+# about half of the whole NVIDIA OEM set -- and nothing references it.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-cper"
+oem_csdl_files = [
+    "NvidiaCPER_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaCPER.*.*",
+]
+
+[[oem-features]]
+# NVLink fabric, switches and ports.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-fabrics"
+oem_csdl_files = [
+    "NvidiaFabric_v1.xml",
+    "NvidiaSwitch_v1.xml",
+    "NvidiaSwitchPowerCapMode_v1.xml",
+    "NvidiaSwitchPowerMode_v1.xml",
+    "NvidiaPort_v1.xml",
+    "NvidiaPortMetrics_v1.xml",
+    "NvidiaNVLinkMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaFabric.*.*",
+    "NvidiaSwitch.*.*",
+    "NvidiaSwitchPowerCapMode.*.*",
+    "NvidiaSwitchPowerMode.*.*",
+    "NvidiaPort.*.*",
+    "NvidiaPortMetrics.*.*",
+    "NvidiaNVLinkMetrics.*.*",
+]
+
+[[oem-features]]
+# Root of trust, debug tokens, DOT, write protection and error injection.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-security"
+oem_csdl_files = [
+    "NvidiaTrustedComponent_v1.xml",
+    "NvidiaDebugToken_v1.xml",
+    "NvidiaDebugTokenCollection_v1.xml",
+    "NvidiaDebugTokenManagement_v1.xml",
+    "NvidiaDOT_v1.xml",
+    "NvidiaDOTManagement_v1.xml",
+    "NvidiaDOTBackupData_v1.xml",
+    "NvidiaDOTBackupDataCollection_v1.xml",
+    "NvidiaRoTImageSlot_v1.xml",
+    "NvidiaRoTImageSlotCollection_v1.xml",
+    "NvidiaRoTProtectedComponent_v1.xml",
+    "NvidiaRoTProtectedComponentCollection_v1.xml",
+    "NvidiaWriteProtectDomain_v1.xml",
+    "NvidiaWriteProtectDomainCollection_v1.xml",
+    "NvidiaPscState_v1.xml",
+    "NvidiaPscStateCollection_v1.xml",
+    "NvidiaErrorInjection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaTrustedComponent.*.*",
+    "NvidiaDebugToken.*.*",
+    "NvidiaDebugTokenCollection.*.*",
+    "NvidiaDebugTokenManagement.*.*",
+    "NvidiaDOT.*.*",
+    "NvidiaDOTManagement.*.*",
+    "NvidiaDOTBackupData.*.*",
+    "NvidiaDOTBackupDataCollection.*.*",
+    "NvidiaRoTImageSlot.*.*",
+    "NvidiaRoTImageSlotCollection.*.*",
+    "NvidiaRoTProtectedComponent.*.*",
+    "NvidiaRoTProtectedComponentCollection.*.*",
+    "NvidiaWriteProtectDomain.*.*",
+    "NvidiaWriteProtectDomainCollection.*.*",
+    "NvidiaPscState.*.*",
+    "NvidiaPscStateCollection.*.*",
+    "NvidiaErrorInjection.*.*",
+]
+
+[[oem-features]]
+# Power smoothing, power/workload policies and power state groups.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-power-management"
+oem_csdl_files = [
+    "NvidiaPowerSmoothing_v1.xml",
+    "NvidiaPowerSmoothingPresetProfile_v1.xml",
+    "NvidiaPowerSmoothingPresetProfileCollection_v1.xml",
+    "NvidiaPowerPolicy_v1.xml",
+    "NvidiaPowerPolicyCollection_v1.xml",
+    "NvidiaPowerStateGroup_v1.xml",
+    "NvidiaWorkloadPower_v1.xml",
+    "NvidiaWorkloadPowerProfile_v1.xml",
+    "NvidiaWorkloadPowerProfileCollection_v1.xml",
+    "NvidiaPolicy_v1.xml",
+    "NvidiaPolicyCollection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerSmoothing.*.*",
+    "NvidiaPowerSmoothingPresetProfile.*.*",
+    "NvidiaPowerSmoothingPresetProfileCollection.*.*",
+    "NvidiaPowerPolicy.*.*",
+    "NvidiaPowerPolicyCollection.*.*",
+    "NvidiaPowerStateGroup.*.*",
+    "NvidiaWorkloadPower.*.*",
+    "NvidiaWorkloadPowerProfile.*.*",
+    "NvidiaWorkloadPowerProfileCollection.*.*",
+    "NvidiaPolicy.*.*",
+    "NvidiaPolicyCollection.*.*",
+]
+
+[[oem-features]]
+# System and system-configuration profiles.
+vendor = "nvidia-baseboard"
+name = "oem-nvidia-profiles"
+oem_csdl_files = [
+    "NvidiaSystemProfile_v1.xml",
+    "NvidiaSystemProfileCollection_v1.xml",
+    "NvidiaSystemProfileFile_v1.xml",
+    "NvidiaSystemConfigProfile_v1.xml",
+    "NvidiaSystemConfigProfileStatus_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaSystemProfile.*.*",
+    "NvidiaSystemProfileCollection.*.*",
+    "NvidiaSystemProfileFile.*.*",
+    "NvidiaSystemConfigProfile.*.*",
+    "NvidiaSystemConfigProfileStatus.*.*",
+]
 
 [[oem-features]]
 vendor = "dell"

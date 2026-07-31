@@ -19,6 +19,11 @@
 #[allow(clippy::missing_const_for_fn)]
 #[allow(clippy::struct_field_names)]
 #[allow(clippy::too_long_first_doc_paragraph)]
+#[allow(clippy::too_many_lines)]
+// Schema properties such as `128BitCASCompleterSupported` start with a
+// digit, so the generated identifiers carry a leading underscore.
+#[allow(clippy::pub_underscore_fields)]
+#[allow(clippy::used_underscore_binding)]
 #[allow(missing_docs)]
 pub mod redfish {
     include!(concat!(env!("OUT_DIR"), "/oem-nvidia-baseboard.rs"));

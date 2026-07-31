@@ -1,0 +1,189 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaNetworkProtocol  v1.0.0                                                   -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a NetworkProtocol resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a NetworkProtocol resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="ClientStatus">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="Rsyslog client status is enabled."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Rsyslog client status is disabled."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="TLSStatus">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="TLS encryption is enabled in the transport layer."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="TLS encryption is disabled in the transport layer."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="Protocol">
+        <Member Name="TCP">
+          <Annotation Term="OData.Description" String="Transmission Control Protocol (TCP)."/>
+        </Member>
+        <Member Name="UDP">
+          <Annotation Term="OData.Description" String="User Datagram Protocol (UDP)."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="FilterFacility">
+        <Member Name="Daemon">
+          <Annotation Term="OData.Description" String="System daemons."/>
+        </Member>
+        <Member Name="Kern">
+          <Annotation Term="OData.Description" String="Kernel messages."/>
+        </Member>
+        <Member Name="All">
+          <Annotation Term="OData.Description" String="All messages."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="FilterSeverity">
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="An error."/>
+        </Member>
+        <Member Name="Warning">
+          <Annotation Term="OData.Description" String="A warning."/>
+        </Member>
+        <Member Name="Info">
+          <Annotation Term="OData.Description" String="Information only."/>
+        </Member>
+        <Member Name="All">
+          <Annotation Term="OData.Description" String="A message of any severity."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Rsyslog">
+        <Property Name="State" Type="NvidiaNetworkProtocol.v1_0_0.ClientStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether the rsyslog client is enabled or disabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the state of rsyslog client status in the BMC. When enabled BMC can push syslogs to the rsyslog server."/>
+        </Property>
+        <Property Name="Address" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The IPv4 or IPv6 address of the rsyslog server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the IPv4 or IPv6 address of the rsyslog server."/>
+        </Property>
+        <Property Name="Port" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a specified UDP or TCP port number used for communication with the rsyslog server."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Validation.Maximum" Int="65535"/>
+        </Property>
+        <Property Name="TransportProtocol" Type="NvidiaNetworkProtocol.v1_0_0.Protocol">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The transport protocol used to connect to the rsyslog server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the transport protocol (TCP/UDP) used to connect to the rsyslog server"/>
+        </Property>
+        <Property Name="TLS" Type="NvidiaNetworkProtocol.v1_0_0.TLSStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The TLS configuration of the transport layer."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate if the transport layer is been configured to support TLS encryption. TLS encryption is supported only when transport layer is TCP."/>
+        </Property>
+        <Property Name="Filter" Type="NvidiaNetworkProtocol.v1_0_0.RsyslogFilter">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Filter settings used by the client to filter the messages before sending to the server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the filter settings used by the client to filter the messages before sending to the server."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="RsyslogFilter">
+        <Property Name="LowestSeverity" Type="NvidiaNetworkProtocol.v1_0_0.FilterSeverity">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The lowest severity of the logs which must be sent to the rsyslog server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the lowest severity of the logs which must be sent to the rsyslog server. Any log having severity below than the specified severity will be filtered out."/>
+        </Property>
+        <Property Name="Facilities" Type="Collection(NvidiaNetworkProtocol.v1_0_0.FilterFacility)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An array of facilities from which logs must be sent to the rsyslog server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate an array of facilities from which logs must be sent to the rsyslog server."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.NvidiaNetworkProtocol">
+        <Property Name="Rsyslog" Type="NvidiaNetworkProtocol.v1_0_0.Rsyslog">
+          <Annotation Term="OData.Description" String="Rsyslog client configuration of the BMC."/>
+          <Annotation Term="OData.LongDescription" String="The object shall indicate the rsyslog client configuration setting of the BMC."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_0_0.NvidiaNetworkProtocol"/>
+      <EnumType Name="RFCFormat">
+        <Member Name="RFC3164">
+          <Annotation Term="OData.Description" String="Syslog protocol as defined in RFC3164."/>
+        </Member>
+        <Member Name="RFC5424">
+          <Annotation Term="OData.Description" String="Structured syslog protocol as defined in RFC5424."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Rsyslog" BaseType="NvidiaNetworkProtocol.v1_0_0.Rsyslog">
+        <Property Name="RFCFormat" Type="NvidiaNetworkProtocol.v1_1_0.RFCFormat">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The RFC format used for syslog messages sent to the server."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the RFC format used for syslog messages (RFC3164 or RFC5424). The default is RFC3164."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNetworkProtocol.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkProtocol" BaseType="NvidiaNetworkProtocol.v1_1_0.NvidiaNetworkProtocol">
+        <Property Name="SSH" Type="NvidiaNetworkProtocol.v1_2_0.SSHProtocol" Nullable="false">
+          <Annotation Term="OData.Description" String="The settings for this manager's Secure Shell (SSH) protocol support."/>
+          <Annotation Term="OData.LongDescription" String="This object shall contain the Secure Shell (SSH) protocol settings for the manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="SSHProtocol">
+        <Property Name="PreferredAuthentications" Type="Collection(NvidiaNetworkProtocol.v1_2_0.SSHPreferredAuthentication)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The SSH authentication methods that are permitted and the order in which they are preferred to be attempted."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SSH authentication methods that are permitted and the order in which they are preferred to be attempted.  The first entry is the most preferred method.  Methods not listed shall be considered disallowed."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="SSHPreferredAuthentication">
+        <Member Name="Password">
+          <Annotation Term="OData.Description" String="Password-based SSH authentication as defined in RFC4252."/>
+        </Member>
+        <Member Name="PublicKey">
+          <Annotation Term="OData.Description" String="Public key-based SSH authentication as defined in RFC4252."/>
+        </Member>
+        <Member Name="KeyboardInteractive">
+          <Annotation Term="OData.Description" String="Keyboard-interactive authentication as defined in RFC4256."/>
+        </Member>
+        <Member Name="GSSAPIWithMIC">
+          <Annotation Term="OData.Description" String="Generic Security Service Application Program Interface (GSS-API)-based authentication with a Message Integrity Code (MIC) as defined in RFC4462."/>
+        </Member>
+        <Member Name="HostBased">
+          <Annotation Term="OData.Description" String="Host-based authentication as defined in RFC4252."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

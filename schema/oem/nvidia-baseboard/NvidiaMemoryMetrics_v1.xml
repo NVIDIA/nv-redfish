@@ -1,0 +1,168 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaMemoryMetrics  v1.2.0                                                     -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaMemoryMetrics" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a MemoryMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a MemoryMetrics resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaMemoryMetrics" BaseType="NvidiaMemoryMetrics.NvidiaMemoryMetrics">
+        <Property Name="RowRemapping" Type="NvidiaMemoryMetrics.v1_0_0.RowRemapping" Nullable="false">
+          <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="RowRemapping">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
+        <Property Name="CorrectableRowRemappingCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of row-remapping due to correctable errors for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of row-remapping due to correctable errors for this device."/>
+        </Property>
+        <Property Name="UncorrectableRowRemappingCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of row-remapping due to uncorrectable errors for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of row-remapping due to uncorrectable errors for this device."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPUMemoryMetrics" BaseType="NvidiaMemoryMetrics.v1_0_0.NvidiaMemoryMetrics"/>
+      <ComplexType Name="RowRemapping" BaseType="NvidiaMemoryMetrics.v1_0_0.RowRemapping">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The row remapping statistics associated with this processor."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the row-remapping statistics associated with this processor."/>
+        <Property Name="MaxAvailablityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with the maximum remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with the maximum remapping availability."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the MaxAvailabilityBankCount property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="HighAvailablityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with high remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with high remapping availability."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the HighAvailabilityBankCount property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="PartialAvailablityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with partial remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with partial remapping availability."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the PartialAvailabilityBankCount property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="LowAvailablityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with low remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with low remapping availability."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the LowAvailabilityBankCount property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="NoAvailablityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with no remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with no remapping availability."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the NoAvailabilityBankCount property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaMemoryMetrics.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate MaxAvailablityBankCount, HighAvailablityBankCount, PartialAvailablityBankCount, LowAvailablityBankCount and NoAvailablityBankCount in favor of MaxAvailabilityBankCount, HighAvailabilityBankCount, PartialAvailabilityBankCount, LowAvailabilityBankCount and NoAvailabilityBankCount."/>
+      <ComplexType Name="NvidiaGPUMemoryMetrics" BaseType="NvidiaMemoryMetrics.v1_1_0.NvidiaGPUMemoryMetrics"/>
+      <ComplexType Name="RowRemapping" BaseType="NvidiaMemoryMetrics.v1_1_0.RowRemapping">
+        <Property Name="MaxAvailabilityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with the maximum remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with the maximum remapping availability."/>
+        </Property>
+        <Property Name="HighAvailabilityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with high remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with high remapping availability."/>
+        </Property>
+        <Property Name="PartialAvailabilityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with partial remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with partial remapping availability."/>
+        </Property>
+        <Property Name="LowAvailabilityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with low remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with low remapping availability."/>
+        </Property>
+        <Property Name="NoAvailabilityBankCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of banks with no remapping availability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of banks with no remapping availability."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

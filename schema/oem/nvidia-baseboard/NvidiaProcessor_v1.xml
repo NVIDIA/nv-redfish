@@ -1,0 +1,573 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaProcessor  v1.7.0                                                         -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Processor_v1.xml">
+    <edmx:Include Namespace="Processor.v1_1_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerSmoothing"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
+    <edmx:Include Namespace="NvidiaErrorInjection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWorkloadPower_v1.xml">
+    <edmx:Include Namespace="NvidiaWorkloadPower"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaProcessorResetMetrics_v1.xml">
+    <edmx:Include Namespace="NvidiaProcessorResetMetrics"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaProcessor" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Processor resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Processor resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.NvidiaProcessor">
+        <Property Name="MIGModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether multiple-Instance GPU (MIG) mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if multiple-Instance GPU (MIG) mode is enabled for this processor."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_0_0.NvidiaProcessor">
+        <Property Name="DefaultBoostClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Default boost clock speed of the processor in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the default boost clock speed of the processor in MHz."/>
+        </Property>
+        <Property Name="MaxBoostClockSpeedMHz" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Maximum boost clock speed of the processor in MHz."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum boost clock speed of the processor in MHz."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_1_0.NvidiaGPU">
+        <Property Name="CCModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the confidential computing (CC) mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the confidential computing (CC) mode is enabled for this processor."/>
+        </Property>
+        <Property Name="CCDevModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the confidential computing development mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the confidential computing development mode is enabled for this processor."/>
+        </Property>
+        <Property Name="PPCIeModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the protected PCIe mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the protected PCIe mode is enabled for this processor."/>
+        </Property>
+        <Property Name="InbandReconfigPermissions" Type="NvidiaProcessor.v1_2_0.InbandReconfigPermissions">
+          <Annotation Term="OData.Description" String="The reconfiguration permissions that restrict the users from configuring certain features from in-band (host software) interfaces."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the reconfiguration permissions that restrict the users from configuring certain features from in-band (host software) interfaces."/>
+        </Property>
+        <Property Name="TotalNumberNVLinks" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of NVLinks."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLinks."/>
+        </Property>
+        <NavigationProperty Name="PowerSmoothing" Type="NvidiaPowerSmoothing.NvidiaPowerSmoothing" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power smoothing resource for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerSmoothing."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions">
+        <Property Name="InSystemTest" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for In System Test."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for In System Test."/>
+        </Property>
+        <Property Name="FusingMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for fusing mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for fusing mode."/>
+        </Property>
+        <Property Name="CCMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for confidential compute mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for confidential compute mode."/>
+        </Property>
+        <Property Name="BAR0Firewall" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for BAR0 firewall."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for BAR0 firewall."/>
+        </Property>
+        <Property Name="CCDevMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for confidential compute development mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for confidential compute development mode."/>
+        </Property>
+        <Property Name="TGPCurrentLimit" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Total GPU Power (TGP) current limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Total GPU Power (TGP) current limit."/>
+        </Property>
+        <Property Name="TGPRatedLimit" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Total GPU Power (TGP) rated limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Total GPU Power (TGP) rated limit."/>
+        </Property>
+        <Property Name="TGPMaxLimit" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Total GPU Power (TGP) max limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Total GPU Power (TGP) max limit."/>
+        </Property>
+        <Property Name="TGPMinLimit" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Total GPU Power (TGP) min limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Total GPU Power (TGP) min limit."/>
+        </Property>
+        <Property Name="ClockLimit" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for clock limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for clock limit."/>
+        </Property>
+        <Property Name="NVLinkDisable" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for disabling NVLink."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for disabling NVLink."/>
+        </Property>
+        <Property Name="ECCEnable" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for enabling ECC mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for enabling ECC mode."/>
+        </Property>
+        <Property Name="PCIeVFConfiguration" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for PCIe VF configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for PCIe VF configuration."/>
+        </Property>
+        <Property Name="RowRemappingAllowed" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for allowing row-remapping."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for allowing row-remapping."/>
+        </Property>
+        <Property Name="RowRemappingFeature" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for row-remapping feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for row-remapping feature."/>
+        </Property>
+        <Property Name="HBMFrequencyChange" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for HBM frequency change."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for HBM frequency change."/>
+        </Property>
+        <Property Name="HULKLicenseUpdate" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for HULK license update."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for HULK license update."/>
+        </Property>
+        <Property Name="ForceTestCoupling" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for force test coupling."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for force test coupling."/>
+        </Property>
+        <Property Name="BAR0TypeConfig" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for BAR0 type configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for BAR0 type configuration."/>
+        </Property>
+        <Property Name="EDPpScalingFactor" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for EDPp scaling factor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for EDPp scaling factor."/>
+        </Property>
+        <Property Name="PowerSmoothing" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel0" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for privilege level 0 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for privilege level 0 of the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel1" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for privilege level 1 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for privilege level 1 of the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel2" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for privilege level 2 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for privilege level 2 of the power smoothing feature."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigSettings">
+        <Property Name="AllowOneShotConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if one-shot configuration of setting by host software is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if one-shot configuration of setting by host software is allowed.  If `true`, any change to the feature via in-band APIs will not persist across hot-resets or function level resets (FLR) resets."/>
+        </Property>
+        <Property Name="AllowPersistentConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if persistent configuration of setting by host software is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if persistent configuration of setting by host software is allowed. If `true`, any change to the feature via in-band APIs will persist across device resets."/>
+        </Property>
+        <Property Name="AllowFLRPersistentConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if FLR persistent configuration of setting by host software is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if FLR persistent configuration of setting by host software is allowed.  If `true`, any change to the feature via in-band APIs will persist across function level resets (FLR)."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_2_0.InbandReconfigPermissions">
+        <Property Name="EGMMode" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for EGM mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Extended GPU Memory(EGM) mode."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_2_0.NvidiaGPU">
+        <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the error injection resource for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaErrorInjection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="WorkloadPowerProfile" Type="NvidiaWorkloadPower.NvidiaWorkloadPower" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the workload power profile resource for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaWorkloadPower."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <Property Name="EGMModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the extended GPU memory (EGM) mode is enabled for this processor."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the extended GPU memory (EGM) mode is enabled for this processor."/>
+        </Property>
+        <Property Name="MNNVLinkTopology" Type="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink topology information."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink topology information."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="MNNVLinkTopology">
+        <Property Name="TraySerialNumber" Type="Edm.String" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Compute Tray Serial Number."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Compute Tray Serial Number."/>
+        </Property>
+        <Property Name="TraySlotNumber" Type="Edm.Int64" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Compute Tray Slot Number."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Compute Tray Slot Number."/>
+        </Property>
+        <Property Name="TraySlotIndex" Type="Edm.Int64" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Compute Tray Slot Index."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Compute Tray Slot Index."/>
+        </Property>
+        <Property Name="ChassisSerialNumber" Type="Edm.String" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Chassis Serial Number."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Chassis Serial Number."/>
+        </Property>
+        <Property Name="HostID" Type="Edm.Int64" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Host ID."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Host ID."/>
+        </Property>
+        <Property Name="PeerType" Type="NvidiaProcessor.v1_3_0.MLNVLPeerType" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Peer Type."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Peer Type."/>
+        </Property>
+        <Property Name="ModuleID" Type="Edm.Int64" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Module ID."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Module ID."/>
+        </Property>
+        <Property Name="SystemGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink system global unique identifier."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink system global unique identifier."/>
+        </Property>
+        <Property Name="IBGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink IB globally unique identifier."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="MLNVLPeerType">
+        <Member Name="Bridge">
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Bridge Type."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Bridge Type."/>
+        </Member>
+        <Member Name="Direct">
+          <Annotation Term="OData.Description" String="Multi-Node NVLink Peer Type."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink Peer Type."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_3_0.NvidiaGPU">
+        <NavigationProperty Name="ProcessorResetMetrics" Type="NvidiaProcessorResetMetrics.NvidiaProcessorResetMetrics" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the reset metrics resource for this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaProcessorResetMetrics."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_4_0.NvidiaGPU">
+        <Property Name="DOEReconfigPermissions" Type="NvidiaProcessor.v1_5_0.DOEReconfigPermissions">
+          <Annotation Term="OData.Description" String="The reconfiguration permissions for PCIe Data Object Exchange (DOE)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the reconfiguration permissions for PCIe Data Object Exchange (DOE)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DOEReconfigPermissions">
+        <Property Name="InSystemTest" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for In System Test."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for In System Test."/>
+        </Property>
+        <Property Name="FusingMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for fusing mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for fusing mode."/>
+        </Property>
+        <Property Name="CCMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for confidential compute mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for confidential compute mode."/>
+        </Property>
+        <Property Name="BAR0Firewall" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for BAR0 firewall."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for BAR0 firewall."/>
+        </Property>
+        <Property Name="CCDevMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for confidential compute development mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for confidential compute development mode."/>
+        </Property>
+        <Property Name="TGPCurrentLimit" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Total GPU Power (TGP) current limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Total GPU Power (TGP) current limit."/>
+        </Property>
+        <Property Name="TGPRatedLimit" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Total GPU Power (TGP) rated limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Total GPU Power (TGP) rated limit."/>
+        </Property>
+        <Property Name="TGPMaxLimit" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Total GPU Power (TGP) max limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Total GPU Power (TGP) max limit."/>
+        </Property>
+        <Property Name="TGPMinLimit" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Total GPU Power (TGP) min limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Total GPU Power (TGP) min limit."/>
+        </Property>
+        <Property Name="ClockLimit" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for clock limit."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for clock limit."/>
+        </Property>
+        <Property Name="NVLinkDisable" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for disabling NVLink."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for disabling NVLink."/>
+        </Property>
+        <Property Name="ECCEnable" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for enabling ECC mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for enabling ECC mode."/>
+        </Property>
+        <Property Name="PCIeVFConfiguration" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for PCIe VF configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for PCIe VF configuration."/>
+        </Property>
+        <Property Name="RowRemappingAllowed" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for allowing row-remapping."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for allowing row-remapping."/>
+        </Property>
+        <Property Name="RowRemappingFeature" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for row-remapping feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for row-remapping feature."/>
+        </Property>
+        <Property Name="HBMFrequencyChange" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for HBM frequency change."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for HBM frequency change."/>
+        </Property>
+        <Property Name="HULKLicenseUpdate" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for HULK license update."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for HULK license update."/>
+        </Property>
+        <Property Name="ForceTestCoupling" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for force test coupling."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for force test coupling."/>
+        </Property>
+        <Property Name="BAR0TypeConfig" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for BAR0 type configuration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for BAR0 type configuration."/>
+        </Property>
+        <Property Name="EDPpScalingFactor" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for EDPp scaling factor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for EDPp scaling factor."/>
+        </Property>
+        <Property Name="PowerSmoothing" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel0" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for privilege level 0 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for privilege level 0 of the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel1" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for privilege level 1 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for privilege level 1 of the power smoothing feature."/>
+        </Property>
+        <Property Name="PowerSmoothingPrivilegeLevel2" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for privilege level 2 of the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for privilege level 2 of the power smoothing feature."/>
+        </Property>
+        <Property Name="EGMMode" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for EGM mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Extended GPU Memory(EGM) mode."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DOEReconfigSettings">
+        <Property Name="AllowOneShotConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if one-shot configuration of setting by DOE is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if one-shot configuration of setting by DOE is allowed.  If `true`, any change to the feature via DOE will not persist across hot-resets or function level resets (FLR) resets."/>
+        </Property>
+        <Property Name="AllowPersistentConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if persistent configuration of setting by DOE is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if persistent configuration of setting by DOE allowed. If `true`, any change to the feature via DOE will persist across device resets."/>
+        </Property>
+        <Property Name="AllowFLRPersistentConfig" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication if FLR persistent configuration of setting by DOE is allowed."/>
+          <Annotation Term="OData.LongDescription" String="An indication if FLR persistent configuration of setting by DOE is allowed.  If `true`, any change to the feature via DOE will persist across function level resets (FLR)."/>
+        </Property>
+        <NavigationProperty Name="Histograms" Type="NvidiaHistogramCollection.NvidiaHistogramCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of histograms associated with this processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_5_0.NvidiaGPU"/>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_5_0.DOEReconfigPermissions">
+        <Property Name="InfoROMFileSystemRecreate" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for InfoROM Filesystem Recreate."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for InfoROM Filesystem Recreate."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_3_0.InbandReconfigPermissions">
+        <Property Name="InfoROMFileSystemRecreate" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for InfoROM Filesystem Recreate."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for InfoROM Filesystem Recreate."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessor.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaGPU" BaseType="NvidiaProcessor.v1_6_0.NvidiaGPU"/>
+      <ComplexType Name="MNNVLinkTopology" BaseType="NvidiaProcessor.v1_3_0.MNNVLinkTopology">
+        <Property Name="LsbIBGUID" Type="Edm.String" Nullable="true">
+          <Annotation Term="Validation.Pattern" String="^[0-9a-fA-F]{16}$"/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
+          <Annotation Term="OData.LongDescription" String="Multi-Node NVLink IB globally unique identifier in LSB order."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaProcessor" BaseType="NvidiaProcessor.v1_0_0.NvidiaProcessor">
+        <Property Name="BootStatusCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The boot status code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a boot status code."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaLPU" BaseType="NvidiaProcessor.v1_7_0.NvidiaProcessor">
+        <Property Name="VoltageBinNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The voltage bin number."/>
+          <Annotation Term="OData.LongDescription" String="This property represents the ASIC binning classification used to determine the nominal voltage characteristics of the device."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DOEReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.DOEReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_5_0.DOEReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOE settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOE settings for Runtime In System Test (RIST)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="InbandReconfigPermissions" BaseType="NvidiaProcessor.v1_6_0.InbandReconfigPermissions">
+        <Property Name="RISTDiagnostic" Type="NvidiaProcessor.v1_2_0.InbandReconfigSettings">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The in-band settings for Runtime In System Test (RIST)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the in-band settings for Runtime In System Test (RIST)."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

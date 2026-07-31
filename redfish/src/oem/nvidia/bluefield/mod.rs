@@ -24,5 +24,6 @@ pub use compiled_schema::redfish as schema;
 #[cfg(feature = "computer-systems")]
 pub mod nvidia_computer_system;
 
+#[cfg(feature = "computer-systems")]
 #[doc(inline)]
 pub use nvidia_computer_system::NvidiaComputerSystem;

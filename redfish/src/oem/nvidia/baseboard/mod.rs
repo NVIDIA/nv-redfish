@@ -20,7 +20,7 @@ mod compiled_schema;
 /// NVIDIA Baseboard OEM Schema.
 pub use compiled_schema::redfish as schema;
 
-/// NVIDIA Bluefield OEM chassis support.
+/// NVIDIA Baseboard OEM chassis support.
 #[cfg(feature = "chassis")]
 pub mod nvidia_cbc_chassis;
 

@@ -14,6 +14,21 @@
 // limitations under the License.
 
 //! Support of NVIDIA OEM Extensions to Redfish.
+//!
+//! NVIDIA ships two independent OEM schema sets. They both define the
+//! `NvidiaComputerSystem` namespace with incompatible shapes, so they
+//! cannot share a compile unit and are exposed as separate vendors,
+//! each behind its own feature with its own `schema`.
+//!
+//! `baseboard` is vendored verbatim from [NVIDIA/bmcweb] and compiles
+//! only the schemas belonging to the service features already enabled --
+//! the NVIDIA chassis schemas come with `chassis`, the manager schemas
+//! with `managers`, and so on. Families extending no standard service
+//! have their own `oem-nvidia-*` feature. See `redfish/features.toml`.
+//!
+//! `bluefield` covers the DPU and is maintained by hand.
+//!
+//! [NVIDIA/bmcweb]: https://github.com/NVIDIA/bmcweb/tree/develop/redfish-core/schema/oem/nvidia/csdl
 
 #[cfg(feature = "oem-nvidia-bluefield")]
 pub mod bluefield;

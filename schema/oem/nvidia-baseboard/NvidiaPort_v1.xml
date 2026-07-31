@@ -1,0 +1,207 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPort  v1.6.0                                                              -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPCIeEqualization_v1.xml">
+    <edmx:Include Namespace="NvidiaPCIeEqualization"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPort" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Port resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Port resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPort" BaseType="NvidiaPort.NvidiaPort">
+        <Property Name="TXWidth" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The totoal number of lanes for the transmitting packets."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of lanes for the transmitting packets."/>
+        </Property>
+        <Property Name="RXWidth" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The totoal number of lanes for the receving packets."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of lanes for the receiving packets."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPort" BaseType="NvidiaPort.v1_0_0.NvidiaPort">
+        <Property Name="LinkDisableSticky" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the link is disabled upon next reset."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the link is disabled upon next reset."/>
+        </Property>
+        <Property Name="RXErrorsThreshold" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The threshold of the RXErrors property in the subordinate PortMetrics resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the threshold of the RXErrors property in the subordinate PortMetrics resource."/>
+        </Property>
+        <Property Name="TXDiscardsThreshold" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The threshold of the TXDiscards property in the subordinate PortMetrics resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the threshold of the TXDiscards property in the subordinate PortMetrics resource."/>
+        </Property>
+        <Property Name="SymbolErrorsThreshold" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The threshold of the SymbolErrors property in the subordinate PortMetrics resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the threshold of the SymbolErrors property in the subordinate PortMetrics resource."/>
+        </Property>
+        <Property Name="RXRemotePhysicalErrorsThreshold" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The threshold of the RXRemotePhysicalErrors property in the subordinate PortMetrics resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the threshold of the RXRemotePhysicalErrors property in the subordinate PortMetrics resource."/>
+        </Property>
+        <Property Name="RXSwitchRelayErrorsThreshold" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The threshold of the RXSwitchRelayErrors property in the subordinate PortMetrics resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the threshold of the RXSwitchRelayErrors property in the subordinate PortMetrics resource."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPort" BaseType="NvidiaPort.v1_1_0.NvidiaNVLinkPort">
+        <NavigationProperty Name="Histograms" Type="NvidiaHistogramCollection.NvidiaHistogramCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of histograms associated with this NVLink port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.NvidiaPort">
+        <NavigationProperty Name="PCIeEqualization" Type="NvidiaPCIeEqualization.NvidiaPCIeEqualization" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the PCIe equalization resource associated with this PCIe port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPCIeEqualization."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.v1_3_0.NvidiaPCIePort">
+        <Property Name="TargetSpeedGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The requested link speed configured via the PCIe link control register."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the requested link speed configured via the PCIe link control register."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIePort" BaseType="NvidiaPort.v1_4_0.NvidiaPCIePort">
+        <Property Name="MaxReadRequestSizeBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The maximum read request size in bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum read request size in bytes."/>
+        </Property>
+        <Property Name="MaxPayloadSizeBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The maximum payload size in bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum payload size in bytes."/>
+        </Property>
+        <Property Name="ClockMode" Type="NvidiaPort.v1_5_0.ClockMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe reference clock mode for this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe reference clock mode for this port."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ClockMode">
+        <Member Name="CommonClock">
+          <Annotation Term="OData.Description" String="Both downstream and upstream sides of the link use the same PCIe reference clock."/>
+        </Member>
+        <Member Name="SeparateClock">
+          <Annotation Term="OData.Description" String="Each side of the link uses its own independent reference clock."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NVLinkGUIDs">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The NVLink GUID identifiers."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the NVLink GUID identifiers for port, node, and system."/>
+        <Property Name="PortGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink port GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink port GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+        <Property Name="NodeGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink node GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink node GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+        <Property Name="SystemGUID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The NVLink system GUID."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink system GUID identifier as a hexadecimal string."/>
+          <Annotation Term="Validation.Pattern" String="^[0-9a-f]+$"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaNVLinkPort" BaseType="NvidiaPort.v1_2_0.NvidiaNVLinkPort">
+        <Property Name="NVLinkGUIDs" Type="NvidiaPort.v1_5_0.NVLinkGUIDs">
+          <Annotation Term="OData.Description" String="The NVLink GUID identifiers."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVLink GUID identifiers for this port."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPort.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPort" BaseType="NvidiaPort.v1_0_0.NvidiaPort">
+        <Property Name="LLDP" Type="NvidiaPort.v1_6_0.LLDP" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="LLDP raw frame byte streams for this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently observed LLDP frame byte streams for this port in hex-encoded form. Frames are encoded per IEEE 802.1AB."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="LLDP">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="LLDP raw frame byte streams (RX and TX) for the port."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the latest cached LLDP frame byte streams in both receive and transmit directions, encoded as hexadecimal strings. The byte format follows IEEE 802.1AB."/>
+        <Property Name="RXDataStream" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Hex-encoded last received LLDP frame bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently received LLDP frame as a hex-encoded byte string. Bytes are formatted per IEEE 802.1AB."/>
+          <Annotation Term="Validation.Pattern" String="^([0-9A-Fa-f]{2}){0,1024}$"/>
+        </Property>
+        <Property Name="TXDataStream" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Hex-encoded last transmitted LLDP frame bytes."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the most recently transmitted LLDP frame as a hex-encoded byte string. Bytes are formatted per IEEE 802.1AB."/>
+          <Annotation Term="Validation.Pattern" String="^([0-9A-Fa-f]{2}){0,1024}$"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

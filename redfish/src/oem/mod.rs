@@ -20,7 +20,7 @@ mod identifier;
 #[cfg(feature = "oem-ami")]
 pub mod ami;
 
-#[cfg(feature = "oem-nvidia")]
+#[cfg(any(feature = "oem-nvidia-baseboard", feature = "oem-nvidia-bluefield"))]
 pub mod nvidia;
 
 #[cfg(feature = "oem-dell")]

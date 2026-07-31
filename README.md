@@ -77,9 +77,30 @@ Common feature groups:
   `session-service`, `storages`, `task-service`, `telemetry-service`, `thermal`,
   `update-service`.
 - OEM features: `oem-ami`, `oem-dell`, `oem-hpe`, `oem-lenovo`,
-  `oem-supermicro`, `oem-nvidia`, `oem-liteon`.
-- OEM product features: `oem-nvidia-bluefield`, `oem-nvidia-baseboard`,
-  `oem-dell-attributes`.
+  `oem-supermicro`, `oem-nvidia-baseboard`, `oem-nvidia-bluefield`,
+  `oem-liteon`.
+- OEM product features: `oem-dell-attributes`, `oem-nvidia-cper`,
+  `oem-nvidia-fabrics`, `oem-nvidia-power-management`,
+  `oem-nvidia-profiles`, `oem-nvidia-security`.
+
+NVIDIA ships two independent OEM schema sets. Both define the
+`NvidiaComputerSystem` namespace with incompatible shapes, so they are
+separate features, each with its own `schema`, and can be enabled
+independently.
+
+`oem-nvidia-baseboard` carries the set vendored from
+[NVIDIA/bmcweb](https://github.com/NVIDIA/bmcweb/tree/develop/redfish-core/schema/oem/nvidia/csdl).
+It compiles only the schemas belonging to the service features you
+already enabled: with `chassis` you get the NVIDIA chassis schemas, with
+`managers` the NVIDIA manager schemas, and so on. Families that extend
+no standard service have their own `oem-nvidia-*` feature.
+`oem-nvidia-baseboard` on its own generates nothing.
+
+`oem-nvidia-cper` is separate because that one schema accounts for
+roughly half of the generated baseboard code; enable it only if you
+decode Common Platform Error Records.
+
+`oem-nvidia-bluefield` covers the DPU and is maintained by hand.
 
 For smaller binaries and faster builds, enable only the service and OEM
 features your client needs.

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaSwitch  v1.5.0                                                            -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
+    <edmx:Include Namespace="NvidiaErrorInjection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchPowerMode_v1.xml">
+    <edmx:Include Namespace="NvidiaSwitchPowerMode"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSwitchPowerCapMode_v1.xml">
+    <edmx:Include Namespace="NvidiaSwitchPowerCapMode"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaManager_v1.xml">
+    <edmx:Include Namespace="NvidiaManager.v1_4_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Switch resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Switch resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.NvidiaSwitch">
+        <Property Name="DeviceId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Device ID of this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Device ID of the device."/>
+          <Annotation Term="Validation.Pattern" String="^0[xX](([a-fA-F]|[0-9]){2}){2}$"/>
+        </Property>
+        <Property Name="VendorId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Vendor ID of this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Vendor ID of the device."/>
+          <Annotation Term="Validation.Pattern" String="^0[xX](([a-fA-F]|[0-9]){2}){2}$"/>
+        </Property>
+        <Property Name="PCIeReferenceClockEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication whether the PCIe reference clock is enabled for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the PCIe reference clock is enabled for this device."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_0_0.NvidiaSwitch">
+        <Property Name="PPCIeModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the protected PCIe mode is enabled for this switch."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate if the protected PCIe mode is enabled for this switch."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_1_0.NvidiaSwitch">
+        <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the error injection resource for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaErrorInjection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="PowerMode" Type="NvidiaSwitchPowerMode.NvidiaSwitchPowerMode" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power mode resource for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerMode."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <Property Name="SwitchIsolationMode" Type="NvidiaSwitch.v1_2_0.SwitchIsolationMode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The isolation mode for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the isolation mode for this switch."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="SwitchIsolationMode">
+        <Member Name="SwitchCommunicationEnabled">
+          <Annotation Term="OData.Description" String="Switch to Switch communication is enabled."/>
+        </Member>
+        <Member Name="SwitchCommunicationDisabled">
+          <Annotation Term="OData.Description" String="Switch to Switch communication is disabled."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_2_0.NvidiaSwitch">
+        <NavigationProperty Name="Histograms" Type="NvidiaHistogramCollection.NvidiaHistogramCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of histograms associated with this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `HistogramCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_3_0.NvidiaSwitch">
+        <Property Name="FabricManager" Type="NvidiaSwitch.v1_4_0.FabricManager">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric manager state associated with the switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state associated with the switch."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="FabricManager">
+        <Property Name="State" Type="NvidiaManager.v1_4_0.FabricManagerState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric Manager state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state."/>
+        </Property>
+        <Property Name="ReportStatus" Type="NvidiaManager.v1_4_0.ReportStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The report status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the fabric manager."/>
+        </Property>
+        <Property Name="DurationSinceLastRestartSeconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The time passed since last restart, in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the time passed since last restart, in seconds."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="s"/>
+        </Property>
+        <Property Name="LastResetTime" Type="Edm.DateTimeOffset">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The date and time when the fabric manager associated with the switch was last reset or rebooted."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the date and time when the fabric manager associated with the switch last came out of a reset or was rebooted."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSwitch.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSwitch" BaseType="NvidiaSwitch.v1_4_0.NvidiaSwitch">
+        <NavigationProperty Name="PowerCappingMode" Type="NvidiaSwitchPowerCapMode.NvidiaSwitchPowerCapMode" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power capping mode resource for this switch."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaSwitchPowerCapMode."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

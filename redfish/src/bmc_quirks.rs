@@ -150,6 +150,14 @@ impl BmcQuirks {
         self.platform == Some(Platform::NvidiaDpu)
     }
 
+    /// NVIDIA DPU serves `BaseMAC` and `Mode` on its computer system
+    /// OEM resource without declaring either in the CSDL it publishes.
+    /// Restrict reading them to the platform known to send them.
+    #[cfg(all(feature = "computer-systems", feature = "oem-nvidia-bluefield"))]
+    pub(crate) fn bug_undeclared_dpu_oem_properties(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
     /// Missing Name property in Chassis resource. This property is
     /// required in any resource.
     #[cfg(feature = "update-service")]

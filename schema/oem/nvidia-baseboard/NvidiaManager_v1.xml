@@ -1,0 +1,663 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaManager  v1.9.0                                                           -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Manager_v1.xml">
+    <edmx:Include Namespace="Manager.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerComplianceManager_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerComplianceManager.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugTokenManagement_v1.xml">
+    <edmx:Include Namespace="NvidiaDebugTokenManagement.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTBackupDataCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaDOTBackupDataCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOTManagement_v1.xml">
+    <edmx:Include Namespace="NvidiaDOTManagement"/>
+    <edmx:Include Namespace="NvidiaDOTManagement.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Manager resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Manager resource."/>
+      </ComplexType>
+      <Action Name="ResetToDefaults" IsBound="true">
+        <Annotation Term="OData.Description" String="The reset action resets the manager settings to factory defaults as specified by NVIDIA."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset the manager settings to factory defaults as specified by NVIDIA.  This action will delete all log entries and diagnostic data."/>
+        <Parameter Name="NvidiaManager" Type="Manager.v1_0_0.OemActions"/>
+      </Action>
+      <Action Name="SyncOOBRawCommand" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to invoke a synchronous command defined in SMBPBI specification."/>
+        <Annotation Term="OData.LongDescription" String="This action shall invoke a synchronous command defined in SMBPBI specification."/>
+        <Parameter Name="NvidiaManager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="TargetType" Type="NvidiaManager.v1_0_0.OOBRawCommandTargetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of the target."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of the target."/>
+        </Parameter>
+        <Parameter Name="TargetInstanceId" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The instance ID of the target."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the instance ID of the target."/>
+        </Parameter>
+        <Parameter Name="Opcode" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="Opcode defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Opcode defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="Arg1" Type="Edm.String">
+          <Annotation Term="OData.Description" String="Arg1 defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Arg1 defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="Arg2" Type="Edm.String">
+          <Annotation Term="OData.Description" String="Arg2 defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Arg2 defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="DataIn" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Description" String="Data-In defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Data-In defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="ExtDataIn" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Description" String="Extended Data arguments defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Extended Data arguments defined in SMBPBI specification."/>
+        </Parameter>
+        <ReturnType Type="NvidiaManager.v1_0_0.SyncOOBRawCommandResponse" Nullable="false"/>
+      </Action>
+      <Action Name="AsyncOOBRawCommand" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to invoke an asynchronous command defined in SMBPBI specification."/>
+        <Annotation Term="OData.LongDescription" String="This action shall invoke an asynchronous command defined in SMBPBI specification."/>
+        <Parameter Name="NvidiaManager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="TargetType" Type="NvidiaManager.v1_0_0.OOBRawCommandTargetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of the target."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of the target."/>
+        </Parameter>
+        <Parameter Name="TargetInstanceId" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="The instance ID of the target."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the instance ID of the target."/>
+        </Parameter>
+        <Parameter Name="AsyncArg1" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="Arg1 of an asynchronous command defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Arg1 of an asynchronous command defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="AsyncDataIn" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Description" String="The input data of an asynchronous command defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the input data of an asynchronous command defined in SMBPBI specification."/>
+        </Parameter>
+        <Parameter Name="RequestedDataOutBytes" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="The requested bytes of output data for an asynchronous command defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the requested bytes of output data for an asynchronous command defined in SMBPBI specification."/>
+        </Parameter>
+        <ReturnType Type="NvidiaManager.v1_0_0.AsyncOOBRawCommandResponse" Nullable="false"/>
+      </Action>
+      <Action Name="NSMRawCommand" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to invoke a raw command defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        <Annotation Term="OData.LongDescription" String="This action shall invoke a raw command defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="DeviceIdentificationId" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="The device identification ID defined in the NVIDIA System Management (NSM) API Type 0 Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the device identification ID defined in the NVIDIA System Management (NSM) API Type 0 Specification."/>
+        </Parameter>
+        <Parameter Name="DeviceInstanceId" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The instance ID of the device defined in the NVIDIA System Management (NSM) API Type 0 Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the instance ID of the device defined in the NVIDIA System Management (NSM) API Type 0 Specification."/>
+        </Parameter>
+        <Parameter Name="IsLongRunning" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the operation for the command is completed asynchronously."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the operation for the command is completed asynchronously."/>
+        </Parameter>
+        <Parameter Name="MessageType" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="NVIDIA Message Type defined in the NVIDIA System Management (NSM) API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the NVIDIA Message Type defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        </Parameter>
+        <Parameter Name="CommandCode" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="Command code defined in the NVIDIA System Management (NSM) API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the command code defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        </Parameter>
+        <Parameter Name="DataSizeBytes" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="Data size of the request payload in bytes defined in the NVIDIA System Management (NSM) API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the data size of the request payload in bytes defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Data" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Description" String="Data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the data field of the request payload defined in the NVIDIA System Management (NSM) API Base Specification."/>
+        </Parameter>
+        <Parameter Name="MsgFormatVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="Message format version number."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the message format version number as defined in the NVIDIA System Management (NSM) API Base Specification. If this parameter is not provided, the default message version number is `1`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_8_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
+        </Parameter>
+        <ReturnType Type="NvidiaManager.v1_3_0.NSMRawCommandResponse" Nullable="false"/>
+      </Action>
+      <Action Name="SWErrorInjection" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to perform software error injections on a debug firmware image."/>
+        <Annotation Term="OData.LongDescription" String="This action shall perform software error injections on a debug firmware image, without hardware interactions."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="RequestType" Type="NvidiaManager.v1_4_0.SWEIJRequestType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of the requested operations."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of the requested operations. The entire flow includes `Setup`, `Injection` and `Cleanup` operations."/>
+        </Parameter>
+         <Parameter Name="ClearData" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the values of all Eventing telemetries, as specified in the NVIDIA Server RAS Catalog, should be set to the non-failure state prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the values of all Eventing telemetries, as specified in the NVIDIA Server RAS Catalog, should be set to the non-failure state prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="ClearHealth" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the property values of the Health should be set to `OK` to all devices prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the property values of the Health should be set to `OK` to all devices prior to performing the error injections. This parameter is allowed for the `Setup` or `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_5_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
+        </Parameter>
+        <Parameter Name="RestartEventing" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the Eventing producer service should be restarted prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the Eventing producer service should be restarted prior to performing the error injections. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+          <Annotation Term="Redfish.Revisions">
+             <Collection>
+               <Record>
+                  <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  <PropertyValue Property="Version" String="v1_5_0"/>
+               </Record>
+             </Collection>
+          </Annotation>
+        </Parameter>
+        <Parameter Name="KeepLogs" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the existing log entries should be preserved prior to performing the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the existing log entries should be preserved prior to performing the error injections. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="ErrorId" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The Error ID."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Error ID, as specified in the NVIDIA Server RAS Catalog. This parameter is allowed for the `Injection` operation."/>
+        </Parameter>
+        <Parameter Name="DeviceIndex" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The index of the devices."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the index of the devices, as specified in the NVIDIA Server RAS Catalog. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `0`."/>
+        </Parameter>
+        <Parameter Name="Recovery" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether recovery process should be performed after the error injections."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether recovery process should be performed after the error injections. A successful recovery shall expect the Resolved values updated to `true` in the log entries. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="CompleteCycle" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="Indicates whether the entire flow from `Setup`, `Injection` to `Cleanup` operations should be performed."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the entire flow from `Setup`, `Injection` to `Cleanup` operations should be performed. This parameter is allowed for the `Injection` operation. If this parameter is not provided by the client, the default is `false`."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_4_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="RASRawCommand" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to invoke a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Annotation Term="OData.LongDescription" String="This action shall invoke a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="CommandType" Type="NvidiaManager.v1_8_0.RASRawCommandType" Nullable="false">
+            <Annotation Term="OData.Description" String="Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="CommandOpCode" Type="NvidiaManager.v1_8_0.RASRawCommandOpCode" Nullable="false">
+          <Annotation Term="OData.Description" String="Command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Bus" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Bus number of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the bus number of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Address" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Slave Address of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the slave address of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Offset" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Access offset of the device."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the access offset of the device defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="DataSizeBytes" Type="Edm.Int64" Nullable="false">
+            <Annotation Term="OData.Description" String="Data size of the request payload in bytes defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the data size of the request payload in bytes defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Parameter Name="Data" Type="Collection(Edm.Int64)">
+            <Annotation Term="OData.Description" String="Data field of the request payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+            <Annotation Term="OData.LongDescription" String="This parameter shall contain the data field of the request payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+            <Collection>
+                <Record>
+                    <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                    <PropertyValue Property="Version" String="v1_8_0"/>
+                </Record>
+            </Collection>
+        </Annotation>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.NvidiaManager">
+        <Property Name="FirmwareBuildType" Type="NvidiaManager.v1_0_0.FirmwareBuildType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The build type of the firmware associated with the manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the build type of the firmware associated with the manager."/>
+        </Property>
+        <Property Name="OTPProvisioned" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether OTP of the manager has been provisioned."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether OTP of the manager has been provisioned."/>
+        </Property>
+        <Property Name="SMBPBIFencingPrivilege" Type="NvidiaManager.v1_0_0.SMBPBIFencingPrivilege">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The SMBPBI fencing privilege."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SMBPBI fencing privilege."/>
+        </Property>
+        <Property Name="AuthenticationTLSRequired" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether authentication and TLS are required for the service provided by this manager."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall indicate whether authentication and TLS are required for the service provided by this manager, where a value `false` shall indicate that the service does not require authentication and TLS for all resources.  The default value is `false`.  Once it is set to `true`, the service shall not allow this value to be overwritten."/>
+        </Property>
+        <Property Name="RedundancyChannelUsed" Type="NvidiaManager.v1_0_0.RedundancySupportedResource">
+          <Annotation Term="OData.Description" String="The settings of resources that allow client to use a redundancy channel to communicate."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the settings of resources that allow client to use a redundancy channel to communicate."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="RedundancySupportedResource">
+        <Property Name="UpdateService" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the UpdateService resource is configured to use a redundancy channel."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the UpdateService resource is configured to use a redundancy channel.  The default shall be false."/>
+        </Property>
+        <Property Name="ComponentIntegrity" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the ComponentIntegrity resource is configured to use a redundancy channel."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the ComponentIntegrity resource is configured to use a redundancy channel.  The default shall be false."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="SyncOOBRawCommandResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from a synchronous raw command defined in SMBPBI specification."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from a synchronous raw command defined in SMBPBI specification."/>
+        <Property Name="StatusRegister" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Status Register defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Status Register defined in SMBPBI specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="DataOut" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Data-Out defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Data-Out defined in SMBPBI specification."/>
+        </Property>
+        <Property Name="ExtDataOut" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Extended Data-Out defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Extended Data-Out defined in SMBPBI specification."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="AsyncOOBRawCommandResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from an asynchronous raw command defined in SMBPBI specification."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from an asynchronous raw command defined in SMBPBI specification."/>
+        <Property Name="StatusRegister" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Status Register defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Status Register defined in SMBPBI specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="DataOut" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Data-Out defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Data-Out defined in SMBPBI specification."/>
+        </Property>
+        <Property Name="AsyncDataOut" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The output data of an asynchronous command defined in SMBPBI specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the output data of an asynchronous command defined in SMBPBI specification."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="FirmwareBuildType">
+        <Member Name="ProvisioningDebug">
+          <Annotation Term="OData.Description" String="The firmware includes software to provision the debug OTP keys and is signed with debug keys."/>
+        </Member>
+        <Member Name="ProvisioningProduction">
+          <Annotation Term="OData.Description" String="The firmware includes software to provision the production OTP keys and is signed with production keys."/>
+        </Member>
+        <Member Name="PlatformDebug">
+          <Annotation Term="OData.Description" String="The firmware doesn't include OTP provisioning software and is signed with debug keys."/>
+        </Member>
+        <Member Name="PlatformProduction">
+          <Annotation Term="OData.Description" String="The firmware doesn't include OTP provisioning software and is signed with production keys."/>
+        </Member>
+        <Member Name="ProvisioningDevelopment">
+          <Annotation Term="OData.Description" String="The firmware includes software to provision the debug OTP keys and is signed with debug keys. The firmware also enables debug tools for the development."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="PlatformDevelopment">
+          <Annotation Term="OData.Description" String="The firmware doesn't include OTP provisioning software and is signed with debug keys. The firmware also enables debug tools for the development."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
+      <EnumType Name="SMBPBIFencingPrivilege">
+        <Member Name="HMC">
+          <Annotation Term="OData.Description" String="HMC has SMBPBI privilege."/>
+        </Member>
+        <Member Name="HostBMC">
+          <Annotation Term="OData.Description" String="Host BMC has SMBPBI privilege."/>
+        </Member>
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="No host has SMBPBI privilege."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="OOBRawCommandTargetType">
+        <Member Name="GPU">
+          <Annotation Term="OData.Description" String="The target is GPU."/>
+        </Member>
+        <Member Name="NVSwitch">
+          <Annotation Term="OData.Description" String="The target is NVSwitch."/>
+        </Member>
+        <Member Name="Baseboard">
+          <Annotation Term="OData.Description" String="The target is Baseboard."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add `ProvisioningDevelopment` and `PlatformDevelopment` to FirmwareBuildType."/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_0_0.NvidiaManager"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_1_0.NvidiaManager">
+        <Property Name="PersistentStorageSettings" Type="NvidiaManager.v1_2_0.PersistentStorageSettings">
+          <Annotation Term="OData.Description" String="The settings of persistent storage attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the settings of persistent storage attached to this manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="PersistentStorageSettings">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Enabled" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the persistent storage is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the persistent storage is enabled.  The default value is `false`.  Once it is set to `true`, the service shall not allow this value to be overwritten."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_2_0.NvidiaManager"/>
+      <ComplexType Name="NSMRawCommandResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from a raw command defined in the NVIDIA System Management (NSM) API Base specification."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from a raw command defined in the NVIDIA System Management (NSM) API Base specification."/>
+        <Property Name="MessageType" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="NVIDIA Message Type defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVIDIA Message Type defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CommandCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Command code defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the command code defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CompletionCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Completion code defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the completion code defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="Data" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Data field of the response payload defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the data field of the response payload defined in the NVIDIA System Management (NSM) API Base specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_3_0.NvidiaManager">
+        <Property Name="OpenOCD" Type="NvidiaManager.v1_4_0.OpenOCD">
+          <Annotation Term="OData.Description" String="The settings of OpenOCD service attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the settings of OpenOCD service attached to this manager."/>
+        </Property>
+        <Property Name="UptimeSeconds" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The wall-clock time this process has been running in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the wall-clock time this process has been running in seconds."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="OpenOCD">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Enable" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether OpenOCD service is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether OpenOCD service is enabled.  The default value is `false`."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaFabricManager" BaseType="NvidiaManager.NvidiaManager">
+        <Property Name="FabricManagerState" Type="NvidiaManager.v1_4_0.FabricManagerState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fabric Manager state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fabric manager state."/>
+        </Property>
+        <Property Name="ReportStatus" Type="NvidiaManager.v1_4_0.ReportStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The report status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status for a report received from the fabric manager."/>
+        </Property>
+        <Property Name="DurationSinceLastRestartSeconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The time passed since last restart, in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the time passed since last restart, in seconds."/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="Measures.Unit" String="s"/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="FabricManagerState">
+        <Member Name="Offline">
+          <Annotation Term="OData.Description" String="Fabric Manager is at init stage, before the Fabric Manager can start sending telemetry."/>
+        </Member>
+        <Member Name="Standby">
+          <Annotation Term="OData.Description" String="Fabric Manager init is done, waiting for Subnet Manager to finish init."/>
+        </Member>
+        <Member Name="Configured">
+          <Annotation Term="OData.Description" String="Fabric Manager and Subnet Manager init are complete."/>
+        </Member>
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="Error occurs in Fabric Manager or Subnet Manager."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="An unknown state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="ReportStatus">
+        <Member Name="Pending">
+          <Annotation Term="OData.Description" String="The report has not been received."/>
+        </Member>
+        <Member Name="Received">
+          <Annotation Term="OData.Description" String="The report has been received."/>
+        </Member>
+        <Member Name="Timeout">
+          <Annotation Term="OData.Description" String="The report has timed out."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="An unknown state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="SWEIJRequestType">
+        <Member Name="Setup">
+          <Annotation Term="OData.Description" String="Set up environment for performing software error injections."/>
+        </Member>
+        <Member Name="Cleanup">
+          <Annotation Term="OData.Description" String="Clean up environment for performing software error injections."/>
+        </Member>
+        <Member Name="Injection">
+          <Annotation Term="OData.Description" String="Perform software error injections."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_4_0.NvidiaManager"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_5_0.NvidiaManager">
+        <NavigationProperty Name="PowerCompliance" Type="NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager" Nullable="false">
+          <Annotation Term="OData.Description" String="The Power Compliance Manager service attached to this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the Power Compliance Manager service attached to this manager."/>
+        </NavigationProperty>
+        <NavigationProperty Name="DebugTokenManagement" Type="NvidiaDebugTokenManagement.v1_0_0.NvidiaDebugTokenManagement" Nullable="false">
+          <Annotation Term="OData.Description" String="The debug token settings managed by this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the debug token settings managed by this manager."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_6_0.NvidiaManager">
+        <Property Name="IPMI" Type="NvidiaManager.v1_7_0.IPMI">
+          <Annotation Term="OData.Description" String="The IPMI settings for this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the IPMI settings for this manager."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="IPMI">
+        <Property Name="RestrictionMode" Type="NvidiaManager.v1_7_0.RestrictionMode">
+          <Annotation Term="OData.Description" String="The restriction mode that controls IPMI access for this manager."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain the restriction mode that controls IPMI access for this manager."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="RestrictionMode">
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="All commands are accepted on all interfaces."/>
+        </Member>
+        <Member Name="Allowlist">
+          <Annotation Term="OData.Description" String="Only IPMI commands defined in the allowlist are accepted on the SSIF interface, both before and after POST (Power-On Self-Test). Channel mask filtering is disabled."/>
+        </Member>
+        <Member Name="ProvisionedHostAllowlist">
+          <Annotation Term="OData.Description" String="Before the host is fully provisioned or booted (pre-POST), all commands are accepted on the SSIF interface. After POST, only allowlist commands passing channel mask validation are accepted."/>
+        </Member>
+        <Member Name="ProvisionedHostDisabled">
+          <Annotation Term="OData.Description" String="Before the host is fully provisioned or booted (pre-POST), only allowlist commands passing channel mask validation are accepted. After POST, all IPMI commands on SSIF are not accepted."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_7_0.NvidiaManager">
+        <NavigationProperty Name="DOTBackupData" Type="NvidiaDOTBackupDataCollection.NvidiaDOTBackupDataCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of backup data for Device Ownership Transfer (DOT)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `DOTBackupDataCollection` that contains the backup data for Device Ownership Transfer (DOT)."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <EnumType Name="RASRawCommandType">
+        <Member Name="I2C">
+          <Annotation Term="OData.Description" String="I2C raw command."/>
+          <Annotation Term="OData.LongDescription" String="Command Type 0: I2C raw command."/>
+        </Member>
+        <Member Name="I3C">
+          <Annotation Term="OData.Description" String="I3C raw command."/>
+          <Annotation Term="OData.LongDescription" String="Command Type 1: I3C raw command."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="RASRawCommandOpCode">
+        <Member Name="Write">
+          <Annotation Term="OData.Description" String="Write operation."/>
+          <Annotation Term="OData.LongDescription" String="Command Operation Code 0: write operation."/>
+        </Member>
+        <Member Name="Read">
+          <Annotation Term="OData.Description" String="Read operation."/>
+          <Annotation Term="OData.LongDescription" String="Command Operation Code 1: read operation."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="RASRawCommandResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        <Annotation Term="OData.Description" String="The response from a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from a raw command defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+        <Property Name="CommandType" Type="NvidiaManager.v1_8_0.RASRawCommandType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="NVIDIA Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the NVIDIA Command Type defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CommandOpCode" Type="NvidiaManager.v1_8_0.RASRawCommandOpCode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Command operation code (0:write, 1:read) defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the command operation code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="CompletionCode" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Completion code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the completion code defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+        <Property Name="Data" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Data field of the response payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the data field of the response payload defined in the NVIDIA RAS VDM Raw Command API Base Specification."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaManager.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaManager" BaseType="NvidiaManager.v1_8_0.NvidiaManager">
+        <NavigationProperty Name="DOT" Type="NvidiaDOTManagement.NvidiaDOTManagement" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Device Ownership Transfer (DOT) settings managed by this manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Device Ownership Transfer (DOT) settings managed by this manager."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

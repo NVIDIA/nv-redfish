@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish Schema:  NvidiaSystemConfigProfile.v1_0_0                                                    -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemProfileCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaSystemProfileCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemConfigProfileStatus_v1.xml">
+    <edmx:Include Namespace="NvidiaSystemConfigProfileStatus"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/CertificateCollection_v1.xml">
+    <edmx:Include Namespace="CertificateCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemConfigProfile">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaSystemConfigProfile" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="Parameters for NvidiaSystemConfigProfile."/>
+        <Annotation Term="OData.LongDescription" String="Parameters for NvidiaSystemConfigProfile."/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Oem/Nvidia/SystemConfigProfile</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="Update" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used add, activate or delete profile."/>
+        <Annotation Term="OData.LongDescription" String="This action shall be used to update a profile into the BMC according to the metadata in the profile. The metadata will contain delete and activation flags. And according to the UUID the BMC will know if this is a new profile to be added."/>
+        <Parameter Name="NvidiaSystemConfigProfile" Type="NvidiaSystemConfigProfile.v1_0_0.Actions"/>
+        <Parameter Name="ProfileFile" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="This is the JSON string of the profile file."/>
+          <Annotation Term="OData.LongDescription" String="This is the JSON string of the profile file, the file will contain a metadata with the requested actions."/>
+        </Parameter>
+      </Action>
+      <Action Name="FactoryReset" IsBound="true">
+        <Annotation Term="OData.Description" String="Perform a factory reset of the system."/>
+        <Annotation Term="OData.LongDescription" String="Perform a factory reset of the system, including the DPU and NIC. If a default profile is installed, it will be activated. This action also triggers a DPU reset to initiate the factory reset process."/>
+        <Parameter Name="NvidiaSystemConfigProfile" Type="NvidiaSystemConfigProfile.v1_0_0.Actions"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemConfigProfile.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <ComplexType Name="Truststore">
+        <Annotation Term="OData.Description" String="The truststore supported for profile certificate."/>
+        <Annotation Term="OData.LongDescription" String="The truststore supported for profile certificate."/>
+        <NavigationProperty Name="NvidiaCertificates" Type="CertificateCollection.CertificateCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The links to the profile CA certificate truststore that are issued by the NVIDIA authority."/>
+          <Annotation Term="OData.LongDescription" String="The links to the NVIDIA profile CA certificate truststore. Only one CA certificate can be installed, and you cannot delete it. The certificate will be saved in the config flash and be persistent to the factory reset."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="OemCertificates" Type="CertificateCollection.CertificateCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The links to the profile CA certificate truststore that are issued by the OEM authority."/>
+          <Annotation Term="OData.LongDescription" String="The links to the OEM profile CA certificate truststore. Only one CA certificate can be installed, and you cannot delete it. The certificate will be saved in the config flash and be persistent to factory reset."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <EntityType Name="NvidiaSystemConfigProfile" BaseType="NvidiaSystemConfigProfile.NvidiaSystemConfigProfile">
+        <NavigationProperty Name="Profiles" Type="NvidiaSystemProfileCollection.NvidiaSystemProfileCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the list of profiles."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a store profiles on the BMC."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="Status" Type="NvidiaSystemConfigProfileStatus.NvidiaSystemConfigProfileStatus" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the Status of profiles."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to status and general information about the profile service."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <Property Name="Actions" Type="NvidiaSystemConfigProfile.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="Truststore" Type="NvidiaSystemConfigProfile.v1_0_0.Truststore" Nullable="false">
+          <Annotation Term="OData.Description" String="The truststore for the profile certificate."/>
+          <Annotation Term="OData.LongDescription" String="The profile file is signed and includes the certificate with the public key. This certificate will be verified with the CA certificate installed in this truststore."/>
+        </Property>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

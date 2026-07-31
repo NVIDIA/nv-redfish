@@ -34,6 +34,10 @@ const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSys
 const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_19_0.ComputerSystem";
 const NVIDIA_SYSTEM_DATA_TYPE: &str = "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem";
 
+/// Service-root identity of an NVIDIA DPU.
+const DPU_VENDOR: &str = "Nvidia";
+const DPU_PRODUCT: &str = "Nvidia-BMCMezz";
+
 #[test]
 async fn oem_nvidia_bluefield_missing_odata_id_in_oem_target_payload(
 ) -> Result<(), Box<dyn StdError>> {
@@ -176,12 +180,50 @@ async fn oem_nvidia_bluefield_inline_oem_object_shape_supported() -> Result<(), 
     Ok(())
 }
 
+#[test]
+async fn oem_nvidia_bluefield_ignored_on_non_dpu_platform() -> Result<(), Box<dyn StdError>> {
+    // `BaseMAC` / `Mode` are undeclared in CSDL, so they are read only
+    // on the platform known to send them. A non-DPU BMC serving the
+    // same payload must be ignored, and must not be fetched at all.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system_on_platform(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(json!({
+                "Nvidia": { ODATA_ID: &ids.nvidia_oem_id }
+            })),
+        ),
+        "NVIDIA",
+        "Some Other Product",
+    )
+    .await?;
+
+    // No `Expect` is registered for `nvidia_oem_id`: reaching out to it
+    // would fail the mock, proving the OEM resource is never fetched.
+    assert!(system.oem_nvidia_bluefield().await?.is_none());
+
+    Ok(())
+}
+
 async fn get_system(
     bmc: Arc<Bmc>,
     ids: &Ids,
     member: Value,
 ) -> Result<ComputerSystem<Bmc>, Box<dyn StdError>> {
-    let root = expect_service_root(bmc.clone(), ids).await?;
+    get_system_on_platform(bmc, ids, member, DPU_VENDOR, DPU_PRODUCT).await
+}
+
+async fn get_system_on_platform(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    member: Value,
+    vendor: &str,
+    product: &str,
+) -> Result<ComputerSystem<Bmc>, Box<dyn StdError>> {
+    let root = expect_service_root(bmc.clone(), ids, vendor, product).await?;
     bmc.expect(Expect::expand(
         &ids.systems_id,
         json!({
@@ -205,6 +247,8 @@ async fn get_system(
 async fn expect_service_root(
     bmc: Arc<Bmc>,
     ids: &Ids,
+    vendor: &str,
+    product: &str,
 ) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
     bmc.expect(Expect::get(
         &ids.root_id,
@@ -213,6 +257,10 @@ async fn expect_service_root(
             ODATA_TYPE: SERVICE_ROOT_DATA_TYPE,
             "Id": "RootService",
             "Name": "RootService",
+            // Platform identity: only the NVIDIA DPU unlocks reading
+            // the undeclared `BaseMAC` / `Mode` properties.
+            "Vendor": vendor,
+            "Product": product,
             "ProtocolFeaturesSupported": {
                 "ExpandQuery": {
                     "NoLinks": true

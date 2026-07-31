@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPCIeEqualization   v1.0.0                                                 -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeEqualization">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPCIeEqualization" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the PCIe equalization settings."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the PCIe equalization settings."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/{PortId}/Oem/Nvidia/PCIeEqualization</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeEqualization.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPCIeEqualization" BaseType="NvidiaPCIeEqualization.NvidiaPCIeEqualization">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="TxAmplitude" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The transmit amplitude setting, as defined by the PCIe Specification."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the transmit amplitude setting, as defined by the PCIe Specification. A value of `0` indicates the device default, and a value of `1` represents the lowest gain."/>
+        </Property>
+        <Property Name="TxPresets" Type="NvidiaPCIeEqualization.v1_0_0.TxPreset" Nullable="false">
+          <Annotation Term="OData.Description" String="A mapping of PCIe generations to the preset values applied to the transmitter for each generation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a mapping of PCIe generations to the preset values applied to the transmitter for each generation."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaPCIeEqualization.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <ComplexType Name="TxPreset">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The preset values applied to the transmitter for each generation."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain the preset values applied to the transmitter for each generation."/>
+        <Property Name="Gen3" Type="Collection(NvidiaPCIeEqualization.v1_0_0.PresetConfiguration)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The array of transmit presets configured for PCIe Gen3."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of transmit presets configured for PCIe Gen3."/>
+        </Property>
+        <Property Name="Gen4" Type="Collection(NvidiaPCIeEqualization.v1_0_0.PresetConfiguration)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The array of transmit presets configured for PCIe Gen4"/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of transmit presets configured for PCIe Gen4."/>
+        </Property>
+        <Property Name="Gen5" Type="Collection(NvidiaPCIeEqualization.v1_0_0.PresetConfiguration)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The array of transmit presets configured for PCIe Gen5."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of transmit presets configured for PCIe Gen5."/>
+        </Property>
+        <Property Name="Gen6" Type="Collection(NvidiaPCIeEqualization.v1_0_0.PresetConfiguration)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The array of transmit presets configured for PCIe Gen6."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of transmit presets configured for PCIe Gen6."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="PresetConfiguration">
+        <Member Name="DeviceDefault">
+          <Annotation Term="OData.Description" String="Use the default preset, as determined by the device.  When this value is set, other preset values cannot be configured for the PCIe generation."/>
+        </Member>
+        <Member Name="Preset0">
+          <Annotation Term="OData.Description" String="Preset 0, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset1">
+          <Annotation Term="OData.Description" String="Preset 1, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset2">
+          <Annotation Term="OData.Description" String="Preset 2, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset3">
+          <Annotation Term="OData.Description" String="Preset 3, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset4">
+          <Annotation Term="OData.Description" String="Preset 4, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset5">
+          <Annotation Term="OData.Description" String="Preset 5, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset6">
+          <Annotation Term="OData.Description" String="Preset 6, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset7">
+          <Annotation Term="OData.Description" String="Preset 7, as defined in the PCIe Base Specification."/>
+        </Member>
+        <Member Name="Preset8">
+          <Annotation Term="OData.Description" String="Preset 8, as defined in the PCIe Base Specification."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

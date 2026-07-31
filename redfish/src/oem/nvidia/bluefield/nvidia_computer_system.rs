@@ -14,6 +14,10 @@
 // limitations under the License.
 
 //! Support NVIDIA Bluefield ComputerSystem OEM extension.
+//!
+//! `BaseMAC` and `Mode` are described by this vendor's own schema, but
+//! the CSDL a BlueField device publishes declares neither, so they are
+//! read only on the platform known to send them.
 
 use crate::oem::nvidia::bluefield::schema::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
 use crate::patch_support::JsonValue;
@@ -56,10 +60,15 @@ pub struct NvidiaComputerSystem<B: Bmc> {
 
 impl<B: Bmc> NvidiaComputerSystem<B> {
     /// Create a new computer system handle.
+    /// Returns `Ok(None)` on any platform other than the NVIDIA DPU,
+    /// which is the only one known to send these properties.
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         oem: &ResourceOemSchema,
     ) -> Result<Option<Self>, Error<B>> {
+        if !bmc.quirks.bug_undeclared_dpu_oem_properties() {
+            return Ok(None);
+        }
         let oem: Oem =
             serde_json::from_value(oem.additional_properties.clone()).map_err(Error::Json)?;
         if let Some(nav) = oem.nvidia {
