@@ -146,6 +146,9 @@ fn merge_odata<'a>(odata: &mut OData<'a>, parent_odata: OData<'a>) {
     if !odata.must_have_type.inner() {
         odata.must_have_type = parent_odata.must_have_type;
     }
+    if odata.additional_properties.is_none() {
+        odata.additional_properties = parent_odata.additional_properties;
+    }
     if odata.description.is_none() {
         odata.description = parent_odata.description;
     }
