@@ -51,6 +51,39 @@ async fn service_root_ami_rtp_version_parsed() -> Result<(), Box<dyn StdError>> 
 }
 
 #[test]
+async fn service_root_ami_undeclared_oem_properties_retained() -> Result<(), Box<dyn StdError>> {
+    // `AMIServiceRoot` declares no `OData.AdditionalProperties` of its
+    // own and derives from `Resource.OemObject`, which permits them, so
+    // properties the schema does not name must still be readable. The
+    // optimizer folds that sole-child base away, and dropping its
+    // permission while doing so would silently discard them here.
+    let bmc = Arc::new(Bmc::default());
+    let root = get_root(
+        bmc.clone(),
+        root_payload(Some(json!({
+            ODATA_TYPE: AMI_SERVICE_ROOT_DATA_TYPE,
+            "RtpVersion": "13.09.1",
+            "UndeclaredBySchema": "kept",
+        }))),
+    )
+    .await?;
+
+    let ami = root
+        .oem_ami_service_root()?
+        .expect("AMI ServiceRoot OEM extension should be present");
+    assert_eq!(ami.rtp_version(), Some("13.09.1"));
+    assert_eq!(
+        ami.raw()
+            .additional_properties
+            .get("UndeclaredBySchema")
+            .and_then(serde_json::Value::as_str),
+        Some("kept"),
+    );
+
+    Ok(())
+}
+
+#[test]
 async fn service_root_without_ami_oem_returns_none() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root = get_root(bmc.clone(), root_payload(None)).await?;

@@ -84,9 +84,20 @@ pub fn prune_complex_type_inheritance<'a>(input: Compiled<'a>, _config: &Config)
         // Pass all properties from single child parents to child.
         .map(|(name, v)| {
             let mut base = v.base;
+            let mut odata = v.odata;
             let mut properties = vec![v.properties];
             while let Some(next_base) = base {
                 if let Some(parent) = remove.remove(&next_base) {
+                    // `OData.AdditionalProperties` also governs the
+                    // types deriving from the one declaring it, so
+                    // folding a parent away must carry the permission
+                    // over. Losing it would silently drop every
+                    // undeclared property the payload carries. A type
+                    // stating its own permission keeps it; the nearest
+                    // ancestor that states one wins otherwise.
+                    if odata.additional_properties.is_none() {
+                        odata.additional_properties = parent.odata.additional_properties;
+                    }
                     properties.push(parent.properties);
                     base = parent.base;
                 } else {
@@ -99,7 +110,7 @@ pub fn prune_complex_type_inheritance<'a>(input: Compiled<'a>, _config: &Config)
                     name: v.name,
                     base,
                     properties: Properties::rev_join(properties),
-                    odata: v.odata,
+                    odata,
                     redfish: v.redfish,
                     is_abstract: v.is_abstract,
                 },
