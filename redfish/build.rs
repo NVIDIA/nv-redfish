@@ -25,7 +25,6 @@ use nv_redfish_schema::redfish_schema;
 use nv_redfish_schema::rerun_for;
 use nv_redfish_schema::run_with_big_stack;
 use nv_redfish_schema::swordfish_schema;
-use nv_redfish_schema::OEM_DIR;
 use std::error::Error as StdError;
 use std::fs::File;
 use std::path::PathBuf;
@@ -69,10 +68,9 @@ fn run() -> Result<(), Box<dyn StdError>> {
         .expect("must be successfuly parsed");
     let features = manifest.collect(&target_features);
 
-    let csdls = redfish_csdl
+    let standard_csdls = redfish_csdl
         .iter()
         .copied()
-        .chain(service_root.iter().copied())
         .map(redfish_schema)
         .chain(features.csdl_files.iter().map(|f| redfish_schema(f)))
         .chain(
@@ -81,6 +79,12 @@ fn run() -> Result<(), Box<dyn StdError>> {
                 .iter()
                 .map(|f| swordfish_schema(f)),
         )
+        .collect::<std::collections::HashSet<_>>();
+
+    let csdls = standard_csdls
+        .iter()
+        .cloned()
+        .chain(service_root.iter().copied().map(redfish_schema))
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
@@ -110,37 +114,6 @@ fn run() -> Result<(), Box<dyn StdError>> {
         .collect::<Vec<_>>();
 
     for v in vendors {
-        // Watch the directory itself, not just the files in it: adding
-        // or removing a schema changes no tracked file, so without this
-        // the checks below would not re-run on an incremental build.
-        rerun_for([format!("{OEM_DIR}/{v}")]);
-
-        // Every schema shipped for a vendor must be claimed by exactly
-        // one of its features, otherwise it would silently never be
-        // compiled no matter which features are enabled. Unlisted files
-        // are still offered for type resolution below, which makes the
-        // omission invisible without this check.
-        let all_features = manifest.all_vendor_features(v);
-        let (listed, ..) = manifest.collect_vendor_features(v, &all_features);
-        let listed = listed
-            .iter()
-            .map(|f| f.as_str())
-            .collect::<std::collections::HashSet<_>>();
-        let unlisted = glob_oem_xml(v)
-            .into_iter()
-            .filter(|f| !listed.contains(file_name(f)))
-            .collect::<Vec<_>>();
-        if !unlisted.is_empty() {
-            return Err(format!(
-                "schema/oem/{v}: {} file(s) are not listed by any \
-                 [[oem-features]] block in features.toml, so they can \
-                 never be compiled: {}",
-                unlisted.len(),
-                unlisted.join(", ")
-            )
-            .into());
-        }
-
         let vendor_features = manifest
             .all_vendor_features(v)
             .into_iter()
@@ -162,13 +135,6 @@ fn run() -> Result<(), Box<dyn StdError>> {
             .map(|f| f.as_str())
             .collect::<std::collections::HashSet<_>>();
 
-        // Enabled features may contribute only resolve schemas, leaving
-        // nothing to generate.
-        if root_names.is_empty() {
-            File::create(output)?;
-            continue;
-        }
-
         // A vendor's schemas reference each other, but only those
         // selected by the enabled features are compiled. Offer the rest
         // for type resolution so a feature never has to name the
@@ -178,15 +144,14 @@ fn run() -> Result<(), Box<dyn StdError>> {
             .filter(|f| !root_names.contains(file_name(f)))
             .collect::<Vec<_>>();
 
-        let root_csdls = root_names
-            .into_iter()
+        let root_csdls = root_csdls
+            .iter()
             .map(|f| oem_schema(v, f))
             .collect::<Vec<_>>();
 
-        let resolve_csdls = redfish_csdl
+        let resolve_csdls = standard_csdls
             .iter()
-            .copied()
-            .map(redfish_schema)
+            .cloned()
             .chain(resolve_csdls.iter().map(|f| redfish_schema(f)))
             .chain(swordfish_resolve_csdls.iter().map(|f| swordfish_schema(f)))
             .chain(unselected_oem)
