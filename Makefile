@@ -28,7 +28,6 @@ all-std-features = accounts \
                    manager-network-protocol \
                    memory \
                    network-adapters \
-                   ports \
                    power \
                    power-equipment \
                    power-supplies \
@@ -50,7 +49,6 @@ std-not-standalone-features = assembly \
              log-services \
              manager-network-protocol \
              network-adapters \
-             ports \
              processors \
              power \
              power-supplies \
