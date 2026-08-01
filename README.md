@@ -72,7 +72,7 @@ Common feature groups:
 - Service features: `accounts`, `assembly`, `bios`, `boot-options`,
   `chassis`, `computer-systems`, `ethernet-interfaces`, `event-service`,
   `host-interfaces`, `log-services`, `managers`, `manager-network-protocol`, `memory`,
-  `network-adapters`, `network-device-functions`, `pcie-devices`, `ports`, `power`,
+  `network-adapters`, `network-device-functions`, `pcie-devices`, `power`,
   `power-supplies`, `processors`, `secure-boot`, `sensors`,
   `session-service`, `storages`, `task-service`, `telemetry-service`, `thermal`,
   `update-service`.
