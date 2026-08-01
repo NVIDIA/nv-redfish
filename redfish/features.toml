@@ -129,7 +129,8 @@ patterns = [
 name = "network-adapters"
 csdl_files = [
     "NetworkAdapterCollection_v1.xml",
-    "NetworkAdapter_v1.xml"
+    "NetworkAdapter_v1.xml",
+    "PCIeDevice_v1.xml",
 ]
 patterns = [
     "NetworkAdapterCollection.*",
@@ -142,6 +143,7 @@ csdl_files = [
     "NetworkDeviceFunctionCollection_v1.xml",
     "NetworkDeviceFunction_v1.xml",
     "Protocol_v1.xml",
+    "VLanNetworkInterface_v1.xml",
 ]
 patterns = [
     "NetworkDeviceFunctionCollection.*",

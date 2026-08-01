@@ -71,6 +71,8 @@ define build-and-test
 	cargo build -p nv-redfish --features managers,oem-supermicro
 	cargo build -p nv-redfish --features chassis,power-supplies,oem-liteon
 	cargo build -p nv-redfish --features chassis,controls
+	cargo build -p nv-redfish --features chassis,network-adapters
+	cargo build -p nv-redfish --features chassis,network-adapters,network-device-functions
 	cargo build
 	cargo build -p nv-redfish
 	cargo build -p nv-redfish-tests --tests
