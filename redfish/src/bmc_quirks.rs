@@ -150,11 +150,13 @@ impl BmcQuirks {
         self.platform == Some(Platform::NvidiaDpu)
     }
 
-    /// NVIDIA DPU serves `BaseMAC` and `Mode` on its computer system
-    /// OEM resource without declaring either in the CSDL it publishes.
-    /// Restrict reading them to the platform known to send them.
-    #[cfg(all(feature = "computer-systems", feature = "oem-nvidia-bluefield"))]
-    pub(crate) fn bug_undeclared_dpu_oem_properties(&self) -> bool {
+    /// NVIDIA DPU serves the computer system `Oem.Nvidia` object as a
+    /// separate resource, inlining only a partially expanded stub, and
+    /// puts `BaseMAC` and `Mode` in it -- neither of which the NVIDIA
+    /// OEM CSDL declares. Both the extra fetch and reading the two
+    /// properties out of the raw body are restricted to this platform.
+    #[cfg(all(feature = "computer-systems", feature = "oem-nvidia"))]
+    pub(crate) fn bug_dpu_oem_computer_system(&self) -> bool {
         self.platform == Some(Platform::NvidiaDpu)
     }
 

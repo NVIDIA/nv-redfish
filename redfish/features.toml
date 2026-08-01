@@ -444,31 +444,23 @@ patterns = [
     "ThermalSubsystem.*.*",
 ]
 
-[[oem-features]]
-# NVIDIA BlueField DPU computer system extension.
-vendor = "nvidia-bluefield"
-name = "computer-systems"
-oem_csdl_files = [
-    "NvidiaComputerSystem_v1.xml",
-]
-csdl_files = []
-
 # NVIDIA OEM schemas, vendored verbatim from NVIDIA/bmcweb
 # (redfish-core/schema/oem/nvidia/csdl) at commit
 # 145ee5400553630637f01734915abde5915751a7 of the `develop` branch.
-# Re-vendoring means replacing schema/oem/nvidia-baseboard/*.xml from
-# that path wholesale and updating this commit id; the files are not
-# edited locally, so fix schema problems upstream instead.
+# Re-vendoring means replacing schema/oem/nvidia/*.xml from that path
+# wholesale and updating this commit id; the files are not edited
+# locally, so fix schema problems upstream instead.
+#
+# This is the whole of NVIDIA's OEM CSDL. The per-platform directories
+# upstream (BlueField and friends) duplicate these files and no
+# implementation uses them, so there is one `nvidia` vendor here and
+# platform differences are handled as quirks in Rust.
 #
 # Every schema below is a compile root. The blocks are keyed on the
 # service feature that owns the resource being extended, so enabling
-# `oem-nvidia-baseboard` alongside `chassis` compiles the NVIDIA chassis
-# schemas and nothing else. Families with no standard counterpart get
-# their own `oem-nvidia-*` feature.
-#
-# The BlueField DPU is a separate vendor: it reuses the
-# `NvidiaComputerSystem` namespace for an incompatible shape, so the two
-# cannot share a compile unit.
+# `oem-nvidia` alongside `chassis` compiles the NVIDIA chassis schemas
+# and nothing else. Families with no standard counterpart get their own
+# `oem-nvidia-*` feature.
 #
 # A block lists only the schemas it owns. NVIDIA schemas reference each
 # other freely; build.rs offers every unselected schema of the vendor
@@ -477,7 +469,7 @@ csdl_files = []
 
 [[oem-features]]
 # NVIDIA chassis, root-of-trust chassis, cables and PCIe slots.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "chassis"
 oem_csdl_files = [
     "NvidiaChassis_v1.xml",
@@ -495,7 +487,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA manager, power-compliance manager and managed-entity inventory..
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "managers"
 oem_csdl_files = [
     "NvidiaManager_v1.xml",
@@ -520,7 +512,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA manager network protocol settings.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "manager-network-protocol"
 oem_csdl_files = [
     "NvidiaNetworkProtocol_v1.xml",
@@ -532,7 +524,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA computer system and host privilege configuration.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "computer-systems"
 oem_csdl_files = [
     "NvidiaComputerSystem_v1.xml",
@@ -546,7 +538,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA processor and processor metrics.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "processors"
 oem_csdl_files = [
     "NvidiaProcessor_v1.xml",
@@ -562,7 +554,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA memory and memory metrics.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "memory"
 oem_csdl_files = [
     "NvidiaMemory_v1.xml",
@@ -576,7 +568,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA network adapter, including DPU operation mode.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "network-adapters"
 oem_csdl_files = [
     "NvidiaNetworkAdapter_v1.xml",
@@ -588,7 +580,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA PCIe device and link equalization.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "pcie-devices"
 oem_csdl_files = [
     "NvidiaPCIeDevice_v1.xml",
@@ -602,7 +594,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA power supply, PSU state and redundancy.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "power-supplies"
 oem_csdl_files = [
     "NvidiaPowerSupply_v1.xml",
@@ -620,7 +612,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA update service, firmware packages and persistent storage.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "update-service"
 oem_csdl_files = [
     "NvidiaUpdateService_v1.xml",
@@ -641,7 +633,7 @@ patterns = [
 [[oem-features]]
 # NVIDIA log service, log entries and conditions.
 # NvidiaCPER is deliberately excluded: see `oem-nvidia-cper`.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "log-services"
 oem_csdl_files = [
     "NvidiaLogService_v1.xml",
@@ -657,7 +649,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA event payloads.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "event-service"
 oem_csdl_files = [
     "NvidiaEvent_v1.xml",
@@ -669,7 +661,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA metric reports and histograms.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "telemetry-service"
 oem_csdl_files = [
     "NvidiaMetricReport_v1.xml",
@@ -691,7 +683,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA environment metrics.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "environment-metrics"
 oem_csdl_files = [
     "NvidiaEnvironmentMetrics_v1.xml",
@@ -703,7 +695,7 @@ patterns = [
 
 [[oem-features]]
 # NVIDIA power domains.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "sensors"
 oem_csdl_files = [
     "NvidiaPowerDomain_v1.xml",
@@ -719,7 +711,7 @@ patterns = [
 # Common Platform Error Record decoding.
 # Split out because this single schema generates roughly 18k lines --
 # about half of the whole NVIDIA OEM set -- and nothing references it.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "oem-nvidia-cper"
 oem_csdl_files = [
     "NvidiaCPER_v1.xml",
@@ -731,7 +723,7 @@ patterns = [
 
 [[oem-features]]
 # NVLink fabric, switches and ports.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "oem-nvidia-fabrics"
 oem_csdl_files = [
     "NvidiaFabric_v1.xml",
@@ -755,7 +747,7 @@ patterns = [
 
 [[oem-features]]
 # Root of trust, debug tokens, DOT, write protection and error injection.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "oem-nvidia-security"
 oem_csdl_files = [
     "NvidiaTrustedComponent_v1.xml",
@@ -799,7 +791,7 @@ patterns = [
 
 [[oem-features]]
 # Power smoothing, power/workload policies and power state groups.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "oem-nvidia-power-management"
 oem_csdl_files = [
     "NvidiaPowerSmoothing_v1.xml",
@@ -831,7 +823,7 @@ patterns = [
 
 [[oem-features]]
 # System and system-configuration profiles.
-vendor = "nvidia-baseboard"
+vendor = "nvidia"
 name = "oem-nvidia-profiles"
 oem_csdl_files = [
     "NvidiaSystemProfile_v1.xml",

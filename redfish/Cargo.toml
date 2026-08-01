@@ -100,20 +100,19 @@ oem-hpe = ["oem"]
 oem-supermicro = ["oem"]
 oem-dell = ["oem"]
 oem-ami = ["oem"]
-oem-nvidia-baseboard = ["oem"]
-oem-nvidia-bluefield = ["oem"]
+oem-nvidia = ["oem"]
 oem-liteon = ["oem"]
 oem-delta = ["oem"]
 
-# NVIDIA baseboard schema families that extend no standard Redfish
-# service. The rest of the baseboard set follows the service feature
-# owning the resource it extends, so `oem-nvidia-baseboard` + `chassis`
-# compiles the NVIDIA chassis schemas without a further flag.
-oem-nvidia-cper = ["oem-nvidia-baseboard"]
-oem-nvidia-fabrics = ["oem-nvidia-baseboard"]
-oem-nvidia-power-management = ["oem-nvidia-baseboard"]
-oem-nvidia-profiles = ["oem-nvidia-baseboard"]
-oem-nvidia-security = ["oem-nvidia-baseboard"]
+# NVIDIA OEM schema families that extend no standard Redfish service.
+# The rest of the NVIDIA set follows the service feature owning the
+# resource it extends, so `oem-nvidia` + `chassis` compiles the NVIDIA
+# chassis schemas without a further flag.
+oem-nvidia-cper = ["oem-nvidia"]
+oem-nvidia-fabrics = ["oem-nvidia"]
+oem-nvidia-power-management = ["oem-nvidia"]
+oem-nvidia-profiles = ["oem-nvidia"]
+oem-nvidia-security = ["oem-nvidia"]
 
 # OEM product features support
 oem-dell-attributes = ["oem-dell"]

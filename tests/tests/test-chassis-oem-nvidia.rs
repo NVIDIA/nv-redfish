@@ -12,7 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Integration tests for NVIDIA Baseboard CBC chassis OEM extension.
+//! Integration tests for NVIDIA CBC chassis OEM extension.
 
 use nv_redfish::chassis::Chassis;
 use nv_redfish::ServiceRoot;
@@ -33,7 +33,7 @@ const CHASSIS_COLLECTION_DATA_TYPE: &str = "#ChassisCollection.ChassisCollection
 const CHASSIS_DATA_TYPE: &str = "#Chassis.v1_22_0.Chassis";
 
 #[test]
-async fn oem_nvidia_baseboard_cbc_real_payload() -> Result<(), Box<dyn StdError>> {
+async fn oem_nvidia_cbc_real_payload() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = chassis_ids();
     let chassis = chassis_member(
@@ -52,7 +52,7 @@ async fn oem_nvidia_baseboard_cbc_real_payload() -> Result<(), Box<dyn StdError>
     );
     let chassis = get_chassis(bmc.clone(), &ids, chassis).await?;
 
-    let oem = chassis.oem_nvidia_baseboard_cbc()?.unwrap();
+    let oem = chassis.oem_nvidia_cbc()?.unwrap();
     assert_eq!(
         oem.chassis_physical_slot_number().map(|v| *v.inner()),
         Some(24)
@@ -65,20 +65,18 @@ async fn oem_nvidia_baseboard_cbc_real_payload() -> Result<(), Box<dyn StdError>
 }
 
 #[test]
-async fn oem_nvidia_baseboard_cbc_missing_oem_returns_not_available(
-) -> Result<(), Box<dyn StdError>> {
+async fn oem_nvidia_cbc_missing_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = chassis_ids();
     let chassis = get_chassis(bmc.clone(), &ids, chassis_member(&ids, json!({}))).await?;
 
-    assert!(chassis.oem_nvidia_baseboard_cbc()?.is_none());
+    assert!(chassis.oem_nvidia_cbc()?.is_none());
 
     Ok(())
 }
 
 #[test]
-async fn oem_nvidia_baseboard_cbc_wrong_odata_type_returns_not_available(
-) -> Result<(), Box<dyn StdError>> {
+async fn oem_nvidia_cbc_wrong_odata_type_returns_not_available() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = chassis_ids();
     let chassis = chassis_member(
@@ -97,7 +95,7 @@ async fn oem_nvidia_baseboard_cbc_wrong_odata_type_returns_not_available(
     );
     let chassis = get_chassis(bmc.clone(), &ids, chassis).await?;
 
-    assert!(chassis.oem_nvidia_baseboard_cbc()?.is_none());
+    assert!(chassis.oem_nvidia_cbc()?.is_none());
 
     Ok(())
 }

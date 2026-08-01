@@ -12,10 +12,10 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Integration tests for NVIDIA Bluefield ComputerSystem OEM support.
+//! Integration tests for NVIDIA ComputerSystem OEM support.
 
 use nv_redfish::computer_system::ComputerSystem;
-use nv_redfish::oem::nvidia::bluefield::nvidia_computer_system::Mode;
+use nv_redfish::oem::nvidia::computer_system::Mode;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -39,9 +39,8 @@ const DPU_VENDOR: &str = "Nvidia";
 const DPU_PRODUCT: &str = "Nvidia-BMCMezz";
 
 #[test]
-async fn oem_nvidia_bluefield_missing_odata_id_in_oem_target_payload(
-) -> Result<(), Box<dyn StdError>> {
-    // Platform under test: NVIDIA Bluefield OEM extension.
+async fn oem_nvidia_dpu_missing_odata_id_in_oem_target_payload() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA BlueField DPU.
     // Quirk under test: missing @odata.id in OEM target payload.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
@@ -67,7 +66,7 @@ async fn oem_nvidia_bluefield_missing_odata_id_in_oem_target_payload(
     ));
 
     let oem = system
-        .oem_nvidia_bluefield()
+        .oem_nvidia()
         .await?
         .expect("NVIDIA OEM extension must be available");
     assert_eq!(
@@ -80,8 +79,8 @@ async fn oem_nvidia_bluefield_missing_odata_id_in_oem_target_payload(
 }
 
 #[test]
-async fn oem_nvidia_bluefield_with_odata_id_still_supported() -> Result<(), Box<dyn StdError>> {
-    // Platform under test: NVIDIA Bluefield OEM extension.
+async fn oem_nvidia_dpu_with_odata_id_still_supported() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA BlueField DPU.
     // Regression check: regular payload with @odata.id remains supported.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
@@ -108,7 +107,7 @@ async fn oem_nvidia_bluefield_with_odata_id_still_supported() -> Result<(), Box<
     ));
 
     let oem = system
-        .oem_nvidia_bluefield()
+        .oem_nvidia()
         .await?
         .expect("NVIDIA OEM extension must be available");
     assert_eq!(
@@ -127,14 +126,14 @@ async fn system_without_nvidia_oem_returns_none() -> Result<(), Box<dyn StdError
     let ids = ids();
     let system = get_system(bmc.clone(), &ids, system_payload(&ids, None)).await?;
 
-    assert!(system.oem_nvidia_bluefield().await?.is_none());
+    assert!(system.oem_nvidia().await?.is_none());
 
     Ok(())
 }
 
 #[test]
-async fn oem_nvidia_bluefield_inline_oem_object_shape_supported() -> Result<(), Box<dyn StdError>> {
-    // Platform under test: NVIDIA Bluefield OEM extension.
+async fn oem_nvidia_dpu_inline_oem_object_shape_supported() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA BlueField DPU.
     // Regression check: inline Oem.Nvidia object shape in ComputerSystem response.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
@@ -168,7 +167,7 @@ async fn oem_nvidia_bluefield_inline_oem_object_shape_supported() -> Result<(), 
         }),
     ));
     let oem = system
-        .oem_nvidia_bluefield()
+        .oem_nvidia()
         .await?
         .expect("NVIDIA OEM extension must be available");
     assert_eq!(
@@ -181,10 +180,13 @@ async fn oem_nvidia_bluefield_inline_oem_object_shape_supported() -> Result<(), 
 }
 
 #[test]
-async fn oem_nvidia_bluefield_ignored_on_non_dpu_platform() -> Result<(), Box<dyn StdError>> {
-    // `BaseMAC` / `Mode` are undeclared in CSDL, so they are read only
-    // on the platform known to send them. A non-DPU BMC serving the
-    // same payload must be ignored, and must not be fetched at all.
+async fn oem_nvidia_quirks_ignored_on_non_dpu_platform() -> Result<(), Box<dyn StdError>> {
+    // Both DPU quirks -- fetching the OEM object out of line and
+    // reading the undeclared `BaseMAC` / `Mode` from it -- apply only
+    // on the platform known to need them. A non-DPU BMC serving the
+    // same properties is parsed as plain schema: the extension is still
+    // available, the undeclared properties are not, and nothing is
+    // fetched.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let system = get_system_on_platform(
@@ -193,7 +195,13 @@ async fn oem_nvidia_bluefield_ignored_on_non_dpu_platform() -> Result<(), Box<dy
         system_payload(
             &ids,
             Some(json!({
-                "Nvidia": { ODATA_ID: &ids.nvidia_oem_id }
+                "Nvidia": {
+                    ODATA_ID: &ids.nvidia_oem_id,
+                    ODATA_TYPE: NVIDIA_SYSTEM_DATA_TYPE,
+                    "ISTModeEnabled": true,
+                    "BaseMAC": "1070fd010203",
+                    "Mode": "DpuMode",
+                }
             })),
         ),
         "NVIDIA",
@@ -203,7 +211,62 @@ async fn oem_nvidia_bluefield_ignored_on_non_dpu_platform() -> Result<(), Box<dy
 
     // No `Expect` is registered for `nvidia_oem_id`: reaching out to it
     // would fail the mock, proving the OEM resource is never fetched.
-    assert!(system.oem_nvidia_bluefield().await?.is_none());
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("NVIDIA OEM extension must be available");
+
+    assert_eq!(oem.raw().ist_mode_enabled.flatten(), Some(true));
+    assert!(oem.base_mac().is_none());
+    assert!(oem.mode().is_none());
+
+    Ok(())
+}
+
+#[test]
+async fn oem_nvidia_dpu_exposes_schema_and_quirk_together() -> Result<(), Box<dyn StdError>> {
+    // The resource deserializes as the NVIDIA `NvidiaComputerSystem`
+    // schema type, while `BaseMAC` / `Mode` -- which that schema marks
+    // `AdditionalProperties=false` and cannot carry -- stay reachable
+    // as a platform quirk on the same handle.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(json!({
+                "Nvidia": { ODATA_ID: &ids.nvidia_oem_id }
+            })),
+        ),
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &ids.nvidia_oem_id,
+        json!({
+            ODATA_ID: &ids.nvidia_oem_id,
+            ODATA_TYPE: "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem",
+            "ISTModeEnabled": true,
+            "BaseMAC": "1070fd010203",
+            "Mode": "DpuMode",
+        }),
+    ));
+
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("NVIDIA OEM extension must be available");
+
+    // Declared by the schema.
+    assert_eq!(oem.raw().ist_mode_enabled.flatten(), Some(true));
+    // Undeclared, surfaced by the quirk.
+    assert_eq!(
+        oem.base_mac().map(|v| v.to_string()),
+        Some("1070fd010203".into())
+    );
+    assert_eq!(oem.mode(), Some(Mode::DpuMode));
 
     Ok(())
 }

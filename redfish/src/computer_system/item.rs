@@ -56,8 +56,8 @@ use crate::ethernet_interface::EthernetInterfaceCollection;
 use crate::log_service::LogService;
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::computer_system::LenovoComputerSystem;
-#[cfg(feature = "oem-nvidia-bluefield")]
-use crate::oem::nvidia::bluefield::nvidia_computer_system::NvidiaComputerSystem;
+#[cfg(feature = "oem-nvidia")]
+use crate::oem::nvidia::NvidiaComputerSystem;
 
 #[doc(hidden)]
 pub enum ComputerSystemTag {}
@@ -447,15 +447,15 @@ impl<B: Bmc> ComputerSystem<B> {
         }
     }
 
-    /// NVIDIA Bluefield OEM extension
+    /// NVIDIA OEM extension
     ///
     /// Returns `Ok(None)` when the system does not include NVIDIA OEM extension data.
     ///
     /// # Errors
     ///
     /// Returns an error if NVIDIA OEM data parsing/fetching fails.
-    #[cfg(feature = "oem-nvidia-bluefield")]
-    pub async fn oem_nvidia_bluefield(&self) -> Result<Option<NvidiaComputerSystem<B>>, Error<B>> {
+    #[cfg(feature = "oem-nvidia")]
+    pub async fn oem_nvidia(&self) -> Result<Option<NvidiaComputerSystem<B>>, Error<B>> {
         if let Some(oem) = self.data.base.base.oem.as_ref() {
             NvidiaComputerSystem::new(&self.bmc, oem).await
         } else {

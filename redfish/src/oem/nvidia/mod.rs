@@ -15,23 +15,37 @@
 
 //! Support of NVIDIA OEM Extensions to Redfish.
 //!
-//! NVIDIA ships two independent OEM schema sets. They both define the
-//! `NvidiaComputerSystem` namespace with incompatible shapes, so they
-//! cannot share a compile unit and are exposed as separate vendors,
-//! each behind its own feature with its own `schema`.
+//! The schemas are vendored verbatim from [NVIDIA/bmcweb] and exposed
+//! here as `schema`, together with every wrapper built on them. That
+//! one set covers every NVIDIA platform: the per-platform schema
+//! directories upstream duplicate it and no implementation uses them,
+//! so platform differences live in Rust as quirks instead.
 //!
-//! `baseboard` is vendored verbatim from [NVIDIA/bmcweb] and compiles
-//! only the schemas belonging to the service features already enabled --
-//! the NVIDIA chassis schemas come with `chassis`, the manager schemas
-//! with `managers`, and so on. Families extending no standard service
-//! have their own `oem-nvidia-*` feature. See `redfish/features.toml`.
-//!
-//! `bluefield` covers the DPU and is maintained by hand.
+//! `oem-nvidia` compiles only the schemas belonging to the service
+//! features that are already enabled -- the NVIDIA chassis schemas come
+//! with `chassis`, the manager schemas with `managers`, and so on.
+//! Families extending no standard service have their own `oem-nvidia-*`
+//! feature. See `redfish/features.toml` for the mapping.
 //!
 //! [NVIDIA/bmcweb]: https://github.com/NVIDIA/bmcweb/tree/develop/redfish-core/schema/oem/nvidia/csdl
 
-#[cfg(feature = "oem-nvidia-bluefield")]
-pub mod bluefield;
+mod compiled_schema;
 
-#[cfg(feature = "oem-nvidia-baseboard")]
-pub mod baseboard;
+/// NVIDIA OEM Schema.
+pub use compiled_schema::redfish as schema;
+
+/// NVIDIA OEM chassis support.
+#[cfg(feature = "chassis")]
+pub mod cbc_chassis;
+
+/// NVIDIA OEM computer system support.
+#[cfg(feature = "computer-systems")]
+pub mod computer_system;
+
+#[cfg(feature = "chassis")]
+#[doc(inline)]
+pub use cbc_chassis::NvidiaCbcChassis;
+
+#[cfg(feature = "computer-systems")]
+#[doc(inline)]
+pub use computer_system::NvidiaComputerSystem;
