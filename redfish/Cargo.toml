@@ -41,6 +41,7 @@ std-redfish = [
     "memory",
     "network-adapters",
     "network-device-functions",
+    "ports",
     "power",
     "power-equipment",
     "power-supplies",
@@ -78,6 +79,7 @@ pcie-devices = ["resource-status"]
 power = [] # Support of legacy PowerSubsystem
 power-equipment = ["impl-nv-bmc-expand"]
 power-supplies = []
+ports = []
 processors = ["pcie-devices"]
 resource-status = []
 secure-boot = []
