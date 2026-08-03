@@ -78,8 +78,22 @@ Common feature groups:
   `update-service`.
 - OEM features: `oem-ami`, `oem-dell`, `oem-hpe`, `oem-lenovo`,
   `oem-supermicro`, `oem-nvidia`, `oem-liteon`.
-- OEM product features: `oem-nvidia-bluefield`, `oem-nvidia-baseboard`,
-  `oem-dell-attributes`.
+- OEM product features: `oem-dell-attributes`, `oem-nvidia-cper`,
+  `oem-nvidia-fabrics`, `oem-nvidia-power-management`,
+  `oem-nvidia-profiles`, `oem-nvidia-security`.
+
+`oem-nvidia` carries the whole NVIDIA OEM schema set, vendored from
+[NVIDIA/bmcweb](https://github.com/NVIDIA/bmcweb/tree/develop/redfish-core/schema/oem/nvidia/csdl),
+and covers every NVIDIA platform including the BlueField DPU. It
+compiles only the schemas belonging to the service features you already
+enabled: with `chassis` you get the NVIDIA chassis schemas, with
+`managers` the NVIDIA manager schemas, and so on. Families that extend
+no standard service have their own `oem-nvidia-*` feature. `oem-nvidia`
+on its own generates nothing.
+
+`oem-nvidia-cper` is separate because that one schema accounts for
+roughly half of the generated NVIDIA code; enable it only if you decode
+Common Platform Error Records.
 
 For smaller binaries and faster builds, enable only the service and OEM
 features your client needs.

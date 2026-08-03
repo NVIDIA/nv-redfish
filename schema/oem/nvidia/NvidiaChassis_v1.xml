@@ -1,0 +1,1033 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaChassis  v1.14.0                                                          -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Chassis_v1.xml">
+    <edmx:Include Namespace="Chassis"/>
+    <edmx:Include Namespace="Chassis.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
+    <edmx:Include Namespace="PCIeDevice"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaRoTProtectedComponentCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaRoTProtectedComponentCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugToken_v1.xml">
+    <edmx:Include Namespace="NvidiaDebugToken"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPolicyCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaPolicyCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaErrorInjection_v1.xml">
+    <edmx:Include Namespace="NvidiaErrorInjection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWriteProtectDomainCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaWriteProtectDomainCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothing_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerSmoothing"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a Chassis resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a Chassis resource."/>
+      </ComplexType>
+      <Action Name="AuxPowerReset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
+        <Annotation Term="OData.LongDescription" String="This action is used to manage and reset auxiliary power modules or power paths without shutting down the main system power, as specified by NVIDIA."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Parameter Name="ResetType" Type="NvidiaChassis.v1_6_0.AuxPowerResetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of auxiliary power reset."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of auxiliary power reset."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_6_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="Reset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action performs a chassis or Data Processing Unit (DPU) reset as specified by the ResetType parameter."/>
+        <Annotation Term="OData.LongDescription" String="This action shall perform the reset type specified by the ResetType parameter for this chassis."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Parameter Name="ResetType" Type="NvidiaChassis.v1_14_0.NvidiaChassisResetType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of chassis or DPU reset."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of chassis or DPU reset to perform."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_14_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="BootProtectedDevice" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to send an ap boot signal when manual boot is enabled."/>
+        <Annotation Term="OData.LongDescription" String="This action shall send an ap boot signal when manual boot is enabled."/>
+        <Parameter Name="NvidiaChassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_8_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiErase" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an erase operation on the processor module variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates an erase operation on the processor module variable SPI device."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiRead" IsBound="true">
+        <Annotation Term="OData.Description" String="This action returns the raw data contents of the processor module variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action returns the raw data contents of the processor module variable SPI device."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="SetRecoveryMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the device into recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set the device into recovery mode."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_12_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="SetCPURecoveryMode" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets all CPUs within the chassis into recovery mode."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set all CPUs within the chassis into recovery mode."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_12_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ResetFPGAs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all FPGAs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all FPGAs in this chassis."/>
+        <Parameter Name="Chassis" Type="Chassis.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_13_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.NvidiaChassis">
+        <Property Name="HardwareWriteProtected" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the hardware write protection jumper is present."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the hardware write protection jumper status, where a value `true` shall indicate that the hardware write protection jumper is present, and all requests for software write protection will be ignored."/>
+        </Property>
+        <Property Name="HardwareWriteProtectedControl" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the hardware write-protect control signal is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the state of the hardware write-protect control signal, where a value `true` shall indicate that the write-protected state is enabled, and all requests for software write protection will be ignored."/>
+        </Property>
+        <Property Name="PCIeReferenceClockCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of PCIe reference clock and reset pairs on this baseboard."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of PCIe reference clock and reset pairs on this baseboard."/>
+        </Property>
+        <Property Name="SerialNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The chassis serial number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the chassis serial number that allows partners to populate."/>
+        </Property>
+        <Property Name="PartNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The chassis part number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the chassis part number that allows partners to populate."/>
+        </Property>
+        <Property Name="AutomaticBackgroundCopyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether automatic copy policy is enabled for this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether automatic copy policy is enabled for this ERoT."/>
+        </Property>
+        <Property Name="BackgroundCopyStatus" Type="NvidiaChassis.v1_0_0.BackgroundCopyStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The status of background copy operation as indicated by this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status of background copy operation as indicated by this ERoT."/>
+        </Property>
+        <Property Name="InbandUpdatePolicyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether inband update policy is enabled by this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether inband update policy is enabled by this ERoT.  If `false`, inband update policy is disabled, meaning both AP_FW and EC_FW are not allowed to update from the host."/>
+        </Property>
+        <NavigationProperty Name="ComponentsProtected" Type="Collection(Resource.Item)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to resources that this component provides integrity protection."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources that this component provides integrity protection."/>
+        </NavigationProperty>
+      </ComplexType>
+      <EnumType Name="BackgroundCopyStatus">
+        <Member Name="Pending">
+          <Annotation Term="OData.Description" String="No background copy is in progress.  This value shall represent that the background copy operation is pending and has not yet begun to execute."/>
+        </Member>
+        <Member Name="InProgress">
+          <Annotation Term="OData.Description" String="Background copy is in progress.  This value shall represent that the background copy operation is in progress."/>
+        </Member>
+        <Member Name="Completed">
+          <Annotation Term="OData.Description" String="Background copy is completed.  This value shall represent that the background copy operation is completed successfully."/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Background copy has failed.  This value shall represent that the background copy operation has failed."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_7_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_0_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_0_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="StaticPowerHintOutputState">
+        <Member Name="Completed">
+          <Annotation Term="OData.Description" String="The power estimate request is completed"/>
+        </Member>
+        <Member Name="InProgress">
+          <Annotation Term="OData.Description" String="The power estimate request is in progress"/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="The power estimate request is failed"/>
+        </Member>
+        <Member Name="InvalidArgument">
+          <Annotation Term="OData.Description" String="The input arguments are invalid"/>
+        </Member>
+        <Member Name="Invalid">
+          <Annotation Term="OData.Description" String="The output reading is invalid"/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_0_0.NvidiaChassis">
+        <Property Name="StaticPowerHint" Type="NvidiaChassis.v1_1_0.StaticPowerHint">
+          <Annotation Term="OData.Description" String="Static Power Hint calculator."/>
+          <Annotation Term="OData.LongDescription" String="Static Power Hint calculator for querying TDP of CPU to setting it ahead of running the application."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="StaticPowerHint">
+        <Property Name="PowerEstimationWatts" Type="NvidiaChassis.v1_1_0.StaticPowerHintOutput">
+          <Annotation Term="OData.Description" String="Estimated power in Watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the result of estimated power in Watts."/>
+        </Property>
+        <Property Name="CpuClockFrequencyHz" Type="NvidiaChassis.v1_1_0.StaticPowerHintInput">
+          <Annotation Term="OData.Description" String="The CPU clock frequency parameter for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the CPU clock frequency parameter for this estimation."/>
+        </Property>
+        <Property Name="TemperatureCelsius" Type="NvidiaChassis.v1_1_0.StaticPowerHintInput">
+          <Annotation Term="OData.Description" String="The temperature parameter for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the temperature parameter for this estimation."/>
+        </Property>
+        <Property Name="WorkloadFactor" Type="NvidiaChassis.v1_1_0.StaticPowerHintInput">
+          <Annotation Term="OData.Description" String="The workload factor parameter for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the workload factor parameter for this estimation."/>
+        </Property>
+        <Property Name="NumberOfCores" Type="NvidiaChassis.v1_1_0.StaticPowerHintInput">
+          <Annotation Term="OData.Description" String="The number of active CPU cores parameter for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the number of active CPU cores parameter for this estimation."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="StaticPowerHintInput">
+        <Property Name="AllowableMax" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Maximum allowable input value."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the maximum allowable input value."/>
+        </Property>
+        <Property Name="AllowableMin" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Minimum allowable input value."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the minimum allowable input value."/>
+        </Property>
+        <Property Name="SetPoint" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The input value for this estimation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the input value for this estimation."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="StaticPowerHintOutput">
+        <Property Name="Reading" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Estimated power consumption in Watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the estimated power consumption in Watts."/>
+        </Property>
+        <Property Name="State" Type="NvidiaChassis.v1_1_0.StaticPowerHintOutputState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicating the power value is valid."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the value of power estimation is valid or not."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_1_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_1_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.NvidiaChassis">
+        <Property Name="AutomaticBackgroundCopyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether automatic copy policy is enabled for this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether automatic copy policy is enabled for this ERoT."/>
+        </Property>
+        <Property Name="BackgroundCopyStatus" Type="NvidiaChassis.v1_0_0.BackgroundCopyStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The status of background copy operation as indicated by this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status of background copy operation as indicated by this ERoT."/>
+        </Property>
+        <Property Name="InbandUpdatePolicyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether inband update policy is enabled by this ERoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether inband update policy is enabled by this ERoT.  If `false`, inband update policy is disabled, meaning both AP_FW and EC_FW are not allowed to update from the host."/>
+        </Property>
+        <NavigationProperty Name="ComponentsProtected" Type="Collection(Resource.Item)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to resources that this component provides integrity protection."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources that this component provides integrity protection."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_2_0.NvidiaRoTChassis">
+        <Property Name="IrreversibleConfigEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates the irreversible configuration state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the irreversible configuration state. If `true`, it is enabled. If `false`, it is disabled and configurations cannot be updated in the hardware or EFUSE."/>
+        </Property>
+        <NavigationProperty Name="RoTProtectedComponents" Type="NvidiaRoTProtectedComponentCollection.NvidiaRoTProtectedComponentCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of protected comonents associated with this RoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaRoTProtectedComponentCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_1_0.NvidiaChassis">
+        <NavigationProperty Name="DebugToken" Type="NvidiaDebugToken.NvidiaDebugToken" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the debug token resource for this component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `NvidiaDebugToken`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_3_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_3_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaCBCChassis">
+        <Property Name="RevisionId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates the revision of the cable cartridge backplane FRU data information."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the revision of the cable cartridge backplane FRU data information."/>
+        </Property>
+        <Property Name="ChassisPhysicalSlotNumber" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates the chassis physical slot Number of the compute tray."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the chassis physical slot Number of the compute tray."/>
+        </Property>
+        <Property Name="ComputeTrayIndex" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates the compute tray index within the chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the compute tray index within the chassis."/>
+        </Property>
+        <Property Name="TopologyId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates the topology of the chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the topology of the chassis."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_3_0.NvidiaChassis">
+        <Property Name="HardwareWriteProtectEnable" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether the hardware write protection control is active."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the hardware write protection control status, where a value `true` shall indicate that the hardware write protection control is active."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_4_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_4_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_3_0.NvidiaRoTChassis">
+        <Property Name="ManualBootModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication that the AP will be held in reset until the BootProtectedDevice action is executed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate that the BootProtectedDevice action is required to boot the device behind the ERoT. Default state is false."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_4_0.NvidiaChassis">
+        <NavigationProperty Name="Policies" Type="NvidiaPolicyCollection.NvidiaPolicyCollection">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of policies for this chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type NvidiaPolicyCollection."/>
+        </NavigationProperty>
+      </ComplexType>
+      <EnumType Name="AuxPowerResetType">
+        <Member Name="AuxPowerCycle">
+          <Annotation Term="OData.Description" String="Perform auxiliary power reset."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_6_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_6_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_5_0.NvidiaRoTChassis"/>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.NvidiaChassis">
+        <NavigationProperty Name="ProtocolBridgeForDevices" Type="Collection(Resource.Item)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to resources that are associated with this protocol bridge chassis."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources that are associated with this protocol bridge chassis."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_6_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_8_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_8_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_8_0.NvidiaChassis">
+        <Property Name="NVLink" Type="NvidiaChassis.v1_9_0.NVLink">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This property provides NVLink information."/>
+          <Annotation Term="OData.LongDescription" String="This property provides NVLink information."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NVLink">
+        <Property Name="LED" Type="NvidiaChassis.v1_9_0.LedStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="This property provides NVLink LED information."/>
+          <Annotation Term="OData.LongDescription" String="This property provides NVLink LED information."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="LedStatus">
+        <Property Name="Blinking" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether the LED is blinking or not."/>
+          <Annotation Term="OData.LongDescription" String="An indication of whether the LED is blinking or not."/>
+        </Property>
+        <Property Name="Color" Type="NvidiaChassis.v1_9_0.ColorType" Nullable="true">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of the color of the LED that is currently on."/>
+          <Annotation Term="OData.LongDescription" String="An indication of the color of the LED that is currently on."/>
+        </Property>
+        <Property Name="Description" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of the LED status in detail."/>
+          <Annotation Term="OData.LongDescription" String="An indication of the LED status in detail."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ColorType">
+        <Member Name="Green">
+          <Annotation Term="OData.Description" String="Green LED is on."/>
+          <Annotation Term="OData.LongDescription" String="Green LED is on."/>
+        </Member>
+        <Member Name="Amber">
+          <Annotation Term="OData.Description" String="Amber LED is on."/>
+          <Annotation Term="OData.LongDescription" String="Amber LED is on."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_9_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to update the description of the `HardwareWriteProtectedControl` property."/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_0.NvidiaChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_10_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_7_0.NvidiaSMAChassis">
+        <Property Name="LastResetReasons" Type="Collection(NvidiaChassis.v1_10_0.LastResetReason)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The last reset reasons of the device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the last reset reasons of the device."/>
+        </Property>
+        <NavigationProperty Name="ErrorInjection" Type="NvidiaErrorInjection.NvidiaErrorInjection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the error injection resource for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaErrorInjection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <EnumType Name="LastResetReason">
+        <Member Name="WakeUp">
+          <Annotation Term="OData.Description" String="Wake-up"/>
+        </Member>
+        <Member Name="PowerOn">
+          <Annotation Term="OData.Description" String="Power-on"/>
+        </Member>
+        <Member Name="VoltageDetect">
+          <Annotation Term="OData.Description" String="Voltage Detect"/>
+        </Member>
+        <Member Name="WarmReset">
+          <Annotation Term="OData.Description" String="Warm Reset"/>
+        </Member>
+        <Member Name="FatalError">
+          <Annotation Term="OData.Description" String="Fatal Error"/>
+        </Member>
+        <Member Name="Pin">
+          <Annotation Term="OData.Description" String="Pin"/>
+        </Member>
+        <Member Name="DebugAccessPort">
+          <Annotation Term="OData.Description" String="Debug Access Port"/>
+        </Member>
+        <Member Name="ResetTimeout">
+          <Annotation Term="OData.Description" String="Reset Timeout"/>
+        </Member>
+        <Member Name="LowPowerAcknowledgeTimeout">
+          <Annotation Term="OData.Description" String="Low Power Acknowledge Timeout"/>
+        </Member>
+        <Member Name="SystemClockGenerator">
+          <Annotation Term="OData.Description" String="System Clock Generator"/>
+        </Member>
+        <Member Name="WindowedWatchdog0">
+          <Annotation Term="OData.Description" String="Windowed Watchdog 0"/>
+        </Member>
+        <Member Name="Software">
+          <Annotation Term="OData.Description" String="Software"/>
+        </Member>
+        <Member Name="LockupReset">
+          <Annotation Term="OData.Description" String="Lockup Reset"/>
+        </Member>
+        <Member Name="CPU1">
+          <Annotation Term="OData.Description" String="CPU1"/>
+        </Member>
+        <Member Name="VBAT">
+          <Annotation Term="OData.Description" String="VBAT"/>
+        </Member>
+        <Member Name="WindowedWatchdog1">
+          <Annotation Term="OData.Description" String="Windowed Watchdog 1"/>
+        </Member>
+        <Member Name="CodeWatchdog0">
+          <Annotation Term="OData.Description" String="Code Watchdog 0"/>
+        </Member>
+        <Member Name="CodeWatchdog1">
+          <Annotation Term="OData.Description" String="Code Watchdog 1"/>
+        </Member>
+        <Member Name="JTAG">
+          <Annotation Term="OData.Description" String="JTAG"/>
+        </Member>
+        <Member Name="SecurityViolation">
+          <Annotation Term="OData.Description" String="Security Violation"/>
+        </Member>
+        <Member Name="Tamper">
+          <Annotation Term="OData.Description" String="Tamper"/>
+        </Member>
+        <Member Name="WDT_IACCVIOL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IACCVIOL (Instruction Access Violation) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DACCVIOL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DACCVIOL (Data Access Violation) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MUNSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MUNSTKERR (MemManage Fault on Unstacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MSTKERR (MemManage Fault on Stacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MMARVALID">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to MMARVALID exception, indicating that the MemManage Fault Address Register holds a valid address after a MemManage fault."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_BFARVALID">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to BFARVALID exception, indicating that the BusFault Address Register holds a valid address after a BusFault."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_STKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to STKERR (BusFault on Stacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNSTKERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNSTKERR (BusFault on Unstacking) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_IMPRECISEERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IMPRECISEERR (Imprecise Data Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_PRECISERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to PRECISERR (Precise Data Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_IBUSERR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to IBUSERR (Instruction Bus Error) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNDEFINSTR">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNDEFINSTR (Undefined Instruction UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_INVSTATE">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to INVSTATE (Invalid State UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_INVPC">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to INVPC (Invalid PC Load UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_NOCP">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to NOCP (No Coprocessor UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_UNALIGNED">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to UNALIGNED (Unaligned Access UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DIVBYZERO">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DIVBYZERO (Divide by Zero UsageFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_VECTTBL">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to VECTTBL (BusFault on Vector Table Read)."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_FORCED">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to FORCED (Forced HardFault) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_DEBUGEVT">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to DEBUGEVT (Debug Event) exception."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_MCTP">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during MCTP communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_I2C">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during I2C communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_I3C">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during I3C communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_PLDM">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during PLDM communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_USB">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during USB communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_Flash">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during flash access."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_Logger">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during a logging operation."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+        <Member Name="WDT_SPDM">
+          <Annotation Term="OData.Description" String="Watchdog timeout due to a task hang detected during SPDM communication."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_11_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_11_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_10_0.NvidiaSMAChassis"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_12_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_9_1.NvidiaChassis">
+        <Property Name="SKU" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The SKU of the chassis that partners can configure."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the SKU of the chassis that partners are allowed to configure."/>
+        </Property>
+        <Property Name="HostManagementNetworkAccess" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication whether host management network access is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether host management network access is enabled, where a value `true` shall indicate that host management network access is active."/>
+        </Property>
+        <NavigationProperty Name="WriteProtectDomains" Type="NvidiaWriteProtectDomainCollection.NvidiaWriteProtectDomainCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of write-protect domains."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaWriteProtectDomainCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="NvidiaSMAChassis" BaseType="NvidiaChassis.v1_11_0.NvidiaSMAChassis">
+        <NavigationProperty Name="PowerSmoothing" Type="NvidiaPowerSmoothing.NvidiaPowerSmoothing" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the power smoothing resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerSmoothing."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+      <ComplexType Name="NvidiaRoTChassis" BaseType="NvidiaChassis.v1_7_0.NvidiaRoTChassis">
+        <Property Name="FailoverPolicy" Type="NvidiaChassis.v1_12_0.FailoverPolicy">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The current failover policy."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current failover policy."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="FailoverPolicy">
+        <Member Name="NoFailover">
+          <Annotation Term="OData.Description" String="No failover."/>
+        </Member>
+        <Member Name="AutomaticFailover">
+          <Annotation Term="OData.Description" String="Automatic failover."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_13_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_12_0.NvidiaChassis">
+        <Property Name="MemoryModuleIndexWithMaxTemperature" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The index of the memory module with the maximum temperature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the index of the memory module whose temperature is the highest among all memory modules on this processor module."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaChassis.v1_14_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaChassis" BaseType="NvidiaChassis.v1_13_0.NvidiaChassis">
+        <Property Name="EmbeddedProcessorOSState" Type="NvidiaChassis.v1_14_0.EmbeddedProcessorOSState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The operating system state of the embedded processor on DPU."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the boot state of the embedded processor on the DPU module."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="EmbeddedProcessorOSState">
+        <Member Name="ResetBootROM">
+          <Annotation Term="OData.Description" String="The device has just been powered on or reset, and it's initializing basic hardware and loading the first firmware mutable firmware components."/>
+        </Member>
+        <Member Name="FWBootStage1">
+          <Annotation Term="OData.Description" String="The First Mutable Code is currently running."/>
+        </Member>
+        <Member Name="FWBootStage2">
+          <Annotation Term="OData.Description" String="The device has progressed further in the boot process and is executing additional instructions to load pre-OS software."/>
+        </Member>
+        <Member Name="PreOS">
+          <Annotation Term="OData.Description" String="The device is transitioning into a Pre-OS stage, such as a Unified Extensible Firmware Interface (UEFI) environment."/>
+        </Member>
+        <Member Name="OSBooting">
+          <Annotation Term="OData.Description" String="The operating system is being loaded and initialized on the device."/>
+        </Member>
+        <Member Name="OSRunning">
+          <Annotation Term="OData.Description" String="The operating system has successfully started and is now running normal operations."/>
+        </Member>
+        <Member Name="OSQuiesced">
+          <Annotation Term="OData.Description" String="The processor operating system has entered a low-power standby mode or is placed into quiesce state to conserve energy while remaining operational."/>
+        </Member>
+        <Member Name="FWUpdateInProgress">
+          <Annotation Term="OData.Description" String="The device's firmware is currently being updated with a new image."/>
+        </Member>
+        <Member Name="OSCrashDumpInProgress">
+          <Annotation Term="OData.Description" String="The operating system is in the process of capturing diagnostic information about an operating system crash or error that has occurred."/>
+        </Member>
+        <Member Name="OSCrashDumpCompleted">
+          <Annotation Term="OData.Description" String="The operating system has finished recording a crash dump. Device can be safely powered off in this state."/>
+        </Member>
+        <Member Name="FWFaultInProgress">
+          <Annotation Term="OData.Description" String="The firmware is collecting diagnostic data related to an internal fault or operational error."/>
+        </Member>
+        <Member Name="FWFaultCompleted">
+          <Annotation Term="OData.Description" String="The firmware has finished collecting diagnostic data related to internal fault or operation error. Device can be safely powered off in this state."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="NvidiaChassisResetType">
+        <Member Name="FullReset">
+          <Annotation Term="OData.Description" String="Card Level Orchestrated Reset.  This takes effect after the next PCIe reset."/>
+        </Member>
+        <Member Name="ForceDpuReset">
+          <Annotation Term="OData.Description" String="DPU Level Immediate Reset"/>
+        </Member>
+        <Member Name="DpuReset">
+          <Annotation Term="OData.Description" String="DPU Level Orchestrated Reset"/>
+        </Member>
+        <Member Name="ArmReset">
+          <Annotation Term="OData.Description" String="ARM Only Reset"/>
+        </Member>
+        <Member Name="ArmShutdown">
+          <Annotation Term="OData.Description" String="ARM Shutdown"/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

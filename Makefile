@@ -93,7 +93,8 @@ define build-and-test
 	$(maybe-lenovo-build)
 	cargo build -p nv-redfish --features oem-hpe
 	cargo build -p nv-redfish --features oem-nvidia
-	cargo build -p nv-redfish --features computer-systems,oem-nvidia-bluefield
+	cargo build -p nv-redfish --features computer-systems,oem-nvidia
+	cargo build -p nv-redfish --features chassis,oem-nvidia
 	cargo build -p nv-redfish --features oem-dell
 	cargo build -p nv-redfish --features oem-ami
 	cargo build -p nv-redfish --features managers,oem-dell-attributes

@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaHistogram  v1.0.0                                                         -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramBucketCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramBucketCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaHistogramBuckets_v1.xml">
+    <edmx:Include Namespace="NvidiaHistogramBuckets"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogram">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHistogram" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for a histogram."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent a histogram for a Redfish implementation."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}</String>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}</String>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Ports/{PortId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}</String>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Ports/{PortId}/Oem/Nvidia/Histograms/{NvidiaHistogramId}</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogram.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHistogram" BaseType="NvidiaHistogram.NvidiaHistogram">
+        <Property Name="BucketUnits" Type="NvidiaHistogram.v1_0_0.BucketUnits">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Bucket units of measure."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain bucket units of measure."/>
+        </Property>
+        <Property Name="UpdatePeriodMilliseconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The recommended shortest time of sampling this histogram in milliseconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the recommended shortest time of sampling this histogram in milliseconds."/>
+        </Property>
+        <Property Name="AccumulationCycle" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Accumulation cycle indicator."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the accumulation cycle indicator.  The value of this property increments on histogram counters reset."/>
+        </Property>
+        <Property Name="IncrementDurationMicroseconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Time duration of an increment in the buckets in microseconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain time duration of an increment in the buckets in microseconds."/>
+        </Property>
+        <NavigationProperty Name="Buckets" Type="NvidiaHistogramBucketCollection.NvidiaHistogramBucketCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of buckets associated with this histogram."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaHistogramBucketCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+                <PropertyValue Property="Description" String="This link has been deprecated in favor of the `HistogramBuckets` link property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </NavigationProperty>
+        <Property Name="Actions" Type="NvidiaHistogram.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <EnumType Name="BucketUnits">
+        <Member Name="Watts">
+          <Annotation Term="OData.Description" String="Watts."/>
+        </Member>
+        <Member Name="Counts">
+          <Annotation Term="OData.Description" String="Generic counts."/>
+        </Member>
+        <Member Name="HundredthsPercent">
+          <Annotation Term="OData.Description" String="1/100 of a percent."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHistogram.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHistogram" BaseType="NvidiaHistogram.v1_0_0.NvidiaHistogram">
+        <Property Name="BucketFormat" Type="NvidiaHistogram.v1_1_0.BucketFormat">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Bucket data format."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the bucket data format."/>
+        </Property>
+        <NavigationProperty Name="HistogramBuckets" Type="NvidiaHistogramBuckets.NvidiaHistogramBuckets" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the buckets resource associated with this histogram."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type `NvidiaHistogramBuckets`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+      <EnumType Name="BucketFormat">
+        <Member Name="NvU8">
+          <Annotation Term="OData.Description" String="Unsigned 8-bit integer."/>
+        </Member>
+        <Member Name="NvS8">
+          <Annotation Term="OData.Description" String="Signed 8-bit integer."/>
+        </Member>
+        <Member Name="NvU16">
+          <Annotation Term="OData.Description" String="Unsigned 16-bit integer."/>
+        </Member>
+        <Member Name="NvS16">
+          <Annotation Term="OData.Description" String="Signed 16-bit integer."/>
+        </Member>
+        <Member Name="NvU32">
+          <Annotation Term="OData.Description" String="Unsigned 32-bit integer."/>
+        </Member>
+        <Member Name="NvS32">
+          <Annotation Term="OData.Description" String="Signed 32-bit integer."/>
+        </Member>
+        <Member Name="NvU64">
+          <Annotation Term="OData.Description" String="Unsigned 64-bit integer."/>
+        </Member>
+        <Member Name="NvS64">
+          <Annotation Term="OData.Description" String="Signed 64-bit integer."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

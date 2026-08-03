@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaUpdateService  v1.3.0                                                     -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/UpdateService_v1.xml">
+    <edmx:Include Namespace="UpdateService.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/SoftwareInventory_v1.xml">
+    <edmx:Include Namespace="SoftwareInventory"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPersistentStorage_v1.xml">
+    <edmx:Include Namespace="NvidiaPersistentStorage"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a UpdateService resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a UpdateService resource."/>
+      </ComplexType>
+      <ComplexType Name="UpdateParameters" Abstract="true"/>
+      <Action Name="CommitImage" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to commit all applicable image components into storage."/>
+        <Annotation Term="OData.LongDescription" String="This action shall commit all applicable image components into storage.  This action cannot be executed when firmware update or background copy policy is enabled and in progress by ERoTs."/>
+        <Parameter Name="NvidiaUpdateService" Type="UpdateService.v1_0_0.OemActions"/>
+        <Parameter Name="Targets" Type="Collection(SoftwareInventory.SoftwareInventory)">
+          <Annotation Term="OData.Description" String="An array of URIs that indicate which image components commit into storage."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain zero or more URIs that indicate which image components commit into storage. These targets shall correspond to SoftwareInventory resources.  If this parameter is not present or contains no targets, the service shall apply to all applicable targets as determined by the service."/>
+          <Annotation Term="OData.IsURL"/>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_0_1">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to improve the descriptions of CommitImage action."/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add a link to PersistentStorage resource."/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.NvidiaUpdateService">
+        <NavigationProperty Name="PersistentStorage" Type="NvidiaPersistentStorage.NvidiaPersistentStorage" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the persistent storage resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type PersistentStorage."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_1_0.NvidiaUpdateService">
+        <Property Name="MultipartHttpPushUriOptions" Type="NvidiaUpdateService.v1_2_0.MultipartHttpPushUriOptions">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The options for MultipartHttpPushUri-provided firmware updates."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain options and capabilities of the service for MultipartHttpPushUri-provided firmware updates."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="MultipartHttpPushUriOptions">
+        <Property Name="UpdateOptionSupport" Type="Collection(NvidiaUpdateService.v1_2_0.UpdateOptionSupport)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The client can request an UpdateOption parameter when using the URI specified by the `MultipartHttpPushUri` property to push firmware images."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate that a client can request an UpdateOption parameter when using the URI specified by the `MultipartHttpPushUri` property to push firmware images and service shall allow one of the values in this array for the UpdateOption parameter. If this property is present and the UpdateOption parameter is absent when pushing the firmware images, the default is `StageAndActivate`."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="UpdateParameters" BaseType="NvidiaUpdateService.UpdateParameters">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The update parameters used with `MultipartHttpPushUri` firmware update."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the update parameters when using the URI specified by the `MultipartHttpPushUri` property to push firmware images."/>
+        <Property Name="UpdateOption" Type="NvidiaUpdateService.v1_2_0.UpdateOptionSupport">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The requested update option when using the URI specified by the `MultipartHttpPushUri` property to push firmware images."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a requested update option when using the URI specified by the `MultipartHttpPushUri` property to push firmware images. If this property is absent, the default is `StageAndActivate`."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="UpdateOptionSupport">
+        <Member Name="StageOnly">
+          <Annotation Term="OData.Description" String="Transfer the provided firmware images to the non-volatile storage of the target devices without activation."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate the provided firmware images should be transferred to the non-volatile storage of the target devices without activation. When this value is requested, the newly transferred firmware images shall not be consumed by the devices."/>
+        </Member>
+        <Member Name="StageAndActivate">
+          <Annotation Term="OData.Description" String="Transfer the provided firmware images to the non-volatile storage of the target devices followed by the ActivateFirmware command defined in the PLDM for Firmware Update Specification."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate the provided firmware images should be transferred to the non-volatile storage of the target devices followed by the ActivateFirmware command defined in the PLDM for Firmware Update Specification. If the provided firmware images had been staged on the target devices previously, the firmware images shall not be transferred to the devices additionally."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_2_0.NvidiaUpdateService">
+        <Property Name="AutomaticDebugTokenErased" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether debug tokens will be erased automatically from devices if token files are not provided in the firmware bundle for firmware updates.  If this property is not present, the default is true."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_4_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `AutomaticTokenErased` property in the NvidiaDebugTokenManagement resource."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaUpdateService.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate `AutomaticDebugTokenErased` property in favor of `AutomaticTokenErased` property in the NvidiaDebugTokenManagement resource."/>
+      <ComplexType Name="NvidiaUpdateService" BaseType="NvidiaUpdateService.v1_3_0.NvidiaUpdateService"/>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -1,0 +1,247 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaRoTProtectedComponent  v1.0.0                                             -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaRoTImageSlotCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaRoTImageSlotCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for a component protected by a Root of Trust (RoT)."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent a component protected by a Root of Trust (RoT)."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/NvidiaRoT/RoTProtectedComponents/{NvidiaRoTProtectedComponentId}</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="UpdateMinimumSecurityVersion" IsBound="true">
+        <Annotation Term="OData.Description" String="This action updates the minimum security version number."/>
+        <Annotation Term="OData.LongDescription" String="This action shall update the minimum security version number."/>
+        <Parameter Name="NvidiaRoTProtectedComponent" Type="NvidiaRoTProtectedComponent.v1_0_0.Actions"/>
+        <Parameter Name="Nonce" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The Nonce value obtained from the SetIrreversibleConfig action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Nonce value obtained from the SetIrreversibleConfig action."/>
+        </Parameter>
+        <Parameter Name="MinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The minimum security version number requested to be stored in EFUSE."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the minimum security version number requested to be stored in EFUSE. If this parameter is absent, the most restrictive permitted value is requested to be stored in EFUSE."/>
+        </Parameter>
+        <ReturnType Type="NvidiaRoTProtectedComponent.v1_0_0.UpdateMinimumSecurityVersionResponse" Nullable="false"/>
+      </Action>
+      <Action Name="RevokeKeys" IsBound="true">
+        <Annotation Term="OData.Description" String="This action revokes the requested allowed keys."/>
+        <Annotation Term="OData.LongDescription" String="This action shall revoke the requested allowed keys."/>
+        <Parameter Name="NvidiaRoTProtectedComponent" Type="NvidiaRoTProtectedComponent.v1_0_0.Actions"/>
+        <Parameter Name="Nonce" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The Nonce value obtained from the SetIrreversibleConfig action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Nonce value obtained from the SetIrreversibleConfig action."/>
+        </Parameter>
+        <Parameter Name="KeyIndices" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Description" String="The key indices requested to be revoked and stored in EFUSE."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the key indices requested to be revoked and stored in EFUSE. If this parameter is absent, the most restrictive permitted values are requested to be stored in EFUSE."/>
+        </Parameter>
+        <ReturnType Type="NvidiaRoTProtectedComponent.v1_0_0.RevokeKeysResponse" Nullable="false"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="NvidiaRoTProtectedComponent.NvidiaRoTProtectedComponent">
+        <Property Name="RoTProtectedComponentType" Type="NvidiaRoTProtectedComponent.v1_0_0.RoTProtectedComponentType" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The type of the component protected by the RoT."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the type of the component protected by the RoT."/>
+        </Property>
+        <Property Name="BootStatusCode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The boot status code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a hex-encoded string indicating the boot status of the component.  The human-readable data can be collected through `CollectDiagnosticData` action in the /redfish/v1/Systems/{ComputerSystemId}/LogServices/Dump resource."/>
+        </Property>
+        <Property Name="InbandUpdatePolicyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether inband update policy is enabled for this component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether inband update policy is enabled for this component.  If `false`, inband update policy is disabled, firmware update is not allowed from the host."/>
+        </Property>
+        <Property Name="AutomaticBackgroundCopyEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether automatic copy policy is enabled for this component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether automatic copy policy is enabled for this component."/>
+        </Property>
+        <Property Name="BackgroundCopyStatus" Type="NvidiaRoTProtectedComponent.v1_0_0.BackgroundCopyStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The status of background copy operation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status of background copy operation."/>
+        </Property>
+        <Property Name="ActiveSlotId" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The active slot Id."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the active slot Id."/>
+        </Property>
+        <Property Name="MinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The minimum security version number stored in the EFUSE."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the minimum security version number stored in the EFUSE."/>
+        </Property>
+        <Property Name="ActiveKeySetIdentifier" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="RoT-defined identifier for the key set provisioned in the hardware or fuse."/>
+          <Annotation Term="OData.LongDescription" String="The property shall contain a RoT-defined identifier for the key set provisioned in the hardware or EFUSE."/>
+        </Property>
+        <Property Name="AllowedKeyIndices" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates which key indices are allowed as stored in the EFUSE."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate which key indices are allowed as stored in the EFUSE."/>
+        </Property>
+        <Property Name="RevokedKeyIndices" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates which key indices are revoked as stored in the EFUSE."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate which key indices are revoked as stored in the EFUSE."/>
+        </Property>
+        <NavigationProperty Name="ImageSlots" Type="NvidiaRoTImageSlotCollection.NvidiaRoTImageSlotCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of ImageSlots associated with this component."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type `NvidiaRoTImageSlotCollection`."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <Property Name="Actions" Type="NvidiaRoTProtectedComponent.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <EnumType Name="RoTProtectedComponentType">
+        <Member Name="Self">
+          <Annotation Term="OData.Description" String="The component for the root of trust (RoT) itself."/>
+        </Member>
+        <Member Name="AP">
+          <Annotation Term="OData.Description" String="A processor or component with firmware protected by the root of trust (RoT)."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="UpdateMinimumSecurityVersionResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response for the UpdateMinimumSecurityVersion action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response for the UpdateMinimumSecurityVersion action."/>
+        <Property Name="UpdateMethods" Type="Collection(NvidiaRoTProtectedComponent.v1_0_0.UpdateMethods)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The method required to complete the EFUSE update."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the method required to complete the EFUSE update."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="RevokeKeysResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response for the RevokeKeys action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response for the RevokeKeys action."/>
+        <Property Name="UpdateMethods" Type="Collection(NvidiaRoTProtectedComponent.v1_0_0.UpdateMethods)" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The method required to complete the EFUSE update."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the method required to complete the EFUSE update."/>
+          <Annotation Term="Redfish.Required"/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="UpdateMethods">
+        <Member Name="FLR">
+          <Annotation Term="OData.Description" String="Function Level Reset (FLR)."/>
+        </Member>
+        <Member Name="HotReset">
+          <Annotation Term="OData.Description" String="Hot Reset (SBR, link disable)."/>
+        </Member>
+        <Member Name="WarmReset">
+          <Annotation Term="OData.Description" String="Warm Reset (PERST#)."/>
+        </Member>
+        <Member Name="ACPowerCycle">
+          <Annotation Term="OData.Description" String="AC power cycle."/>
+        </Member>
+        <Member Name="DCPowerCycle">
+          <Annotation Term="OData.Description" String="DC power cycle."/>
+        </Member>
+        <Member Name="MediumSpecificReset">
+          <Annotation Term="OData.Description" String="Medium-specific reset."/>
+        </Member>
+        <Member Name="Automatic">
+          <Annotation Term="OData.Description" String="EFUSE updated at completion of request."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="BackgroundCopyStatus">
+        <Member Name="Pending">
+          <Annotation Term="OData.Description" String="No background copy is in progress.  This value shall represent that the background copy operation is pending and has not yet begun to execute."/>
+        </Member>
+        <Member Name="InProgress">
+          <Annotation Term="OData.Description" String="Background copy is in progress.  This value shall represent that the background copy operation is in progress."/>
+        </Member>
+        <Member Name="Completed">
+          <Annotation Term="OData.Description" String="Background copy is completed.  This value shall represent that the background copy operation is completed successfully."/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Background copy has failed.  This value shall represent that the background copy operation has failed."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Member>
+      </EnumType>
+    </Schema>
+     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent.v1_0_1">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to update the descriptions of the RoTProtectedComponentType enumerations."/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent"/>
+    </Schema>
+
+   <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="NvidiaRoTProtectedComponent.v1_0_0.NvidiaRoTProtectedComponent"/>
+    </Schema>
+     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaRoTProtectedComponent.v1_1_1">
+      <Annotation Term="Redfish.OwningEntity" String="DMTF"/>
+      <Annotation Term="OData.Description" String="This version was created to update the descriptions of the RoTProtectedComponentType enumerations."/>
+      <EntityType Name="NvidiaRoTProtectedComponent" BaseType="NvidiaRoTProtectedComponent.v1_1_0.NvidiaRoTProtectedComponent"/>
+    </Schema>
+
+ </edmx:DataServices>
+</edmx:Edmx>

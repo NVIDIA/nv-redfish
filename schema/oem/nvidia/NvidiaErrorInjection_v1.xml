@@ -1,0 +1,199 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaErrorInjection   v1.2.0                                                   -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the error injection feature."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the error injection properties."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/ErrorInjection</String>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/Nvidia/ErrorInjection</String>
+            <String>/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Oem/Nvidia/ErrorInjection</String>
+            <String>/redfish/v1/Fabrics/{FabricId}/Switches/{SwitchId}/Oem/Nvidia/ErrorInjection</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="Activate" IsBound="true">
+        <Annotation Term="OData.Description" String="This action executes the error injection according to the payload of the FaultBitmap property."/>
+        <Annotation Term="OData.LongDescription" String="This action shall execute the error injection according to the payload of the FaultBitmap property."/>
+        <Parameter Name="NvidiaErrorInjection" Type="NvidiaErrorInjection.v1_0_0.Actions"/>
+        <Parameter Name="ErrorType" Type="NvidiaErrorInjection.v1_2_0.ErrorType">
+          <Annotation Term="OData.Description" String="The error type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall specify the type of error injection to execute."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_2_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_1_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.NvidiaErrorInjection">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Actions" Type="NvidiaErrorInjection.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="ErrorInjectionModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the error injection mode is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the error injection mode is enabled."/>
+        </Property>
+        <Property Name="PersistentDataModified" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether the persistent data has been modified by the error injection."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the persistent data has been modified by the error injection."/>
+        </Property>
+        <Property Name="ErrorInjectionCapabilities" Type="NvidiaErrorInjection.v1_0_0.EIJCapabilities">
+          <Annotation Term="OData.Description" String="The error injection capabilities."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection capabilities."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="EIJCapabilities">
+        <Property Name="MemoryErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the memory errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the memory errors."/>
+        </Property>
+        <Property Name="PCIeErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the PCIe errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the PCIe errors."/>
+        </Property>
+        <Property Name="NVLinkErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the NVLink errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the NVLink errors."/>
+        </Property>
+        <Property Name="ThermalErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the thermal errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the thermal errors."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="EIJSupport">
+        <Property Name="Supported" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether the error injection type is supported."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the error injection type is supported."/>
+        </Property>
+        <Property Name="Enabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the error injection type is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the error injection type is enabled."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.v1_0_0.NvidiaErrorInjection"/>
+      <ComplexType Name="EIJCapabilities" BaseType="NvidiaErrorInjection.v1_0_0.EIJCapabilities">
+        <Property Name="FatalErrors" Type="NvidiaErrorInjection.v1_0_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the fatal errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the fatal errors."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="EIJSupport" BaseType="NvidiaErrorInjection.v1_0_0.EIJSupport">
+        <Property Name="FaultBitmap" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The fault reason bitmap."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a hex-encoded string representing a fault reason bitmap."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaErrorInjection.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaErrorInjection" BaseType="NvidiaErrorInjection.v1_1_0.NvidiaErrorInjection"/>
+      <ComplexType Name="EIJCapabilities" BaseType="NvidiaErrorInjection.v1_1_0.EIJCapabilities">
+        <Property Name="PortRecoveryErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the port recovery errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the port recovery errors."/>
+        </Property>
+        <Property Name="USBBridgeEmulationErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the USB bridge emulation errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the USB bridge emulation errors."/>
+        </Property>
+        <Property Name="LeakDetectionErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the leak detection errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the leak detection errors."/>
+        </Property>
+        <Property Name="GPIOSpoofingErrors" Type="NvidiaErrorInjection.v1_1_0.EIJSupport">
+          <Annotation Term="OData.Description" String="The error injection support of the GPIO spoofing errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the error injection support of the GPIO spoofing errors."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="ErrorType">
+        <Member Name="FatalErrors">
+          <Annotation Term="OData.Description" String="Fatal errors."/>
+        </Member>
+        <Member Name="PortRecoveryErrors">
+          <Annotation Term="OData.Description" String="Port recovery errors."/>
+        </Member>
+        <Member Name="USBBridgeEmulationErrors">
+          <Annotation Term="OData.Description" String="USB bridge emulation errors."/>
+        </Member>
+        <Member Name="LeakDetectionErrors">
+          <Annotation Term="OData.Description" String="Leak detection errors."/>
+        </Member>
+        <Member Name="GPIOSpoofingErrors">
+          <Annotation Term="OData.Description" String="GPIO spoofing errors."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

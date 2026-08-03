@@ -1,0 +1,359 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaComputerSystem v1.9.0                                                     -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDebugToken_v1.xml">
+    <edmx:Include Namespace="NvidiaDebugToken"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/ComputerSystem_v1.xml">
+    <edmx:Include Namespace="ComputerSystem.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemConfigProfile_v1.xml">
+    <edmx:Include Namespace="NvidiaSystemConfigProfile"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a ComputerSystem resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a ComputerSystem resource."/>
+      </ComplexType>
+      <Action Name="VariableSpiErase" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an erase operation on the active CPU variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates an erase operation on the active CPU variable SPI device."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_2_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="VariableSpiRead" IsBound="true">
+        <Annotation Term="OData.Description" String="This action returns the raw data contents of the active CPU variable SPI device."/>
+        <Annotation Term="OData.LongDescription" String="This action returns the raw data contents of the active CPU variable SPI device."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_2_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="PushSmbiosTable" IsBound="true">
+        <Annotation Term="OData.Description" String="This action pushes an SMBIOS table to the BMC filesystem."/>
+        <Annotation Term="OData.LongDescription" String="This action pushes an SMBIOS table blob file to the BMC filesystem, which will be used to update the system information."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_4_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ResetBios" IsBound="true">
+        <Annotation Term="OData.Description" String="This action shall erase BIOS settings."/>
+        <Annotation Term="OData.LongDescription" String="This action initiates the request to reset BIOS through PLDM effectors."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ResetBiosType" Type="NvidiaComputerSystem.v1_5_0.ResetBiosType" Nullable="false">
+          <Annotation Term="OData.Description" String="The type of BIOS reset."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of secure or non-secure BIOS reset."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_5_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="StartIST" IsBound="true">
+        <Annotation Term="OData.Description" String="This action starts a CPU In-System Test (IST)."/>
+        <Annotation Term="OData.LongDescription" String="This action shall start a CPU In-System Test (IST), which is used to check for defects in the CPU."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="TestList" Type="Edm.String">
+          <Annotation Term="OData.Description" String="A comma-separated list of specific test numbers to run."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a comma-separated list of specific test numbers to run."/>
+        </Parameter>
+        <Parameter Name="PackageList" Type="Edm.String">
+          <Annotation Term="OData.Description" String="A comma-separated list of sockets to test."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a comma-separated list of sockets to test."/>
+        </Parameter>
+        <Parameter Name="ISTTimeoutSec" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The software timeout for IST in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the software timeout for IST in seconds."/>
+        </Parameter>
+        <Parameter Name="ContinueOnFail" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to continue testing even if a test fails."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to continue testing even if a test fails."/>
+        </Parameter>
+        <Parameter Name="AutoRebootOnComplete" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication of whether to automatically reboot the system after IST completes."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to automatically reboot the system after IST completes."/>
+        </Parameter>
+        <Parameter Name="SaveResultsOnPass" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to save results when the test passes."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to save results when the test passes."/>
+        </Parameter>
+        <Parameter Name="SaveResultsOnFail" Type="NvidiaComputerSystem.v1_7_0.EnableDisableOption">
+          <Annotation Term="OData.Description" String="An indication of whether to save results when the test fails."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether to save results when the test fails."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_7_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ResetLPUs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all LPUs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all LPUs."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_8_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="ResetFPGAs" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets all FPGAs."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset all FPGAs."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="L1Reset" IsBound="true">
+        <Annotation Term="OData.Description" String="This action initiates an L1 reset of this node."/>
+        <Annotation Term="OData.LongDescription" String="This action shall initiate an L1 (software main) reset of all sockets in this node."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_8_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+      <Action Name="SetProcessorPowerLimits" IsBound="true">
+        <Annotation Term="OData.Description" String="This action sets the power limits for one or more processors in the system."/>
+        <Annotation Term="OData.LongDescription" String="This action shall set the power limits for one or more processors in the system. Limits are applied as volatile (oneshot) and do not persist across resets."/>
+        <Parameter Name="ComputerSystem" Type="ComputerSystem.v1_0_0.OemActions"/>
+        <Parameter Name="ProcessorLimits" Type="Collection(NvidiaComputerSystem.v1_9_0.ProcessorPowerLimitEntry)" Nullable="false">
+          <Annotation Term="OData.Description" String="An array of per-processor power limit entries."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain an array of power limit entries, one per target processor."/>
+        </Parameter>
+        <Annotation Term="Redfish.Revisions">
+          <Collection>
+            <Record>
+              <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+              <PropertyValue Property="Version" String="v1_9_0"/>
+            </Record>
+          </Collection>
+        </Annotation>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.NvidiaComputerSystem">
+        <Property Name="ISTModeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether In-Silicon Test (IST) mode is enabled for the GPUs associated with this system."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether In-Silicon Test (IST) mode is enabled for the GPUs associated with this system."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="CapabilityStatus">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="Debug Capability Status is enabled"/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="Debug Capability Status is disabled"/>
+        </Member>
+        <Member Name="Offline">
+          <Annotation Term="OData.Description" String="Debug Capability Status is offline"/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="Debug Capability Status is unknown due communication issue"/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem">
+        <Property Name="ProcessorDebugCapabilities" Type="NvidiaComputerSystem.v1_1_0.DebugCapabilities">
+          <Annotation Term="OData.Description" String="Debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the debug capability of the system resource."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="DebugCapabilities">
+        <Property Name="DeviceDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Device debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the device debug capability of the system resource."/>
+        </Property>
+        <Property Name="InvasiveDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Invasive debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the invasive debug capability of the system resource."/>
+        </Property>
+        <Property Name="JtagDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Jtag debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the jtag debug capability of the system resource."/>
+        </Property>
+        <Property Name="NonInvasiveDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Non invasive debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the Non invasive debug capability of the system resource."/>
+        </Property>
+        <Property Name="SecurePrivilegeInvasiveDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Secure privilege invasive debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the secure privilege invasive debug capability of the system resource."/>
+        </Property>
+        <Property Name="SecurePrivilegeNonInvasiveDebug" Type="NvidiaComputerSystem.v1_1_0.CapabilityStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Secure privilege non invasive debug capability of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the secure privilege non invasive debug capability of the system resource."/>
+        </Property>
+        <Property Name="Timeout" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Timeout for the debug interface of the system resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall specify the timeout for the debug interface of the system resource. The unit is in minutes."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_1_0.NvidiaComputerSystem">
+        <NavigationProperty Name="CPUDebugToken" Type="NvidiaDebugToken.NvidiaDebugToken">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A link to the resource which implements the debug token."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a link to the resource which implement the debug token applicable for the computer system resource. The token can be used to put CPUs belonging to the computer system in debug mode."/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_2_0.NvidiaComputerSystem">
+        <NavigationProperty Name="SystemConfigProfile" Type="NvidiaSystemConfigProfile.NvidiaSystemConfigProfile">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A link to the resource which implements the system profile."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a link to the resource which implement the system profile that can set configuration across  the bluefield system"/>
+        </NavigationProperty>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="ResetBiosType">
+        <Member Name="SecureReset">
+          <Annotation Term="OData.Description" String="Erase secure BIOS variables."/>
+        </Member>
+        <Member Name="NonSecureReset">
+          <Annotation Term="OData.Description" String="Erase non-secure BIOS variables."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="DOTCAKInitializationState">
+        <Member Name="Waiting">
+          <Annotation Term="OData.Description" String="CAK initialization is waiting."/>
+        </Member>
+        <Member Name="Complete">
+          <Annotation Term="OData.Description" String="CAK initialization is complete."/>
+        </Member>
+        <Member Name="EarlyBoot">
+          <Annotation Term="OData.Description" String="CAK initialization is in early boot phase."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaComputerSystem" BaseType="NvidiaComputerSystem.v1_3_0.NvidiaComputerSystem">
+        <Property Name="DOTCAKInitialization" Type="NvidiaComputerSystem.v1_6_0.DOTCAKInitializationState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current state of CAK initialization process."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the current state of the device ownership transfer (DOT) CAK initialization process."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="EnableDisableOption">
+        <Member Name="Enable">
+          <Annotation Term="OData.Description" String="Enable the option."/>
+        </Member>
+        <Member Name="Disable">
+          <Annotation Term="OData.Description" String="Disable the option."/>
+        </Member>
+        <Member Name="Default">
+          <Annotation Term="OData.Description" String="Defer to the platform default behavior."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaComputerSystem.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="ProcessorPowerLimitEntry">
+        <Annotation Term="OData.Description" String="A power limit entry for a single processor."/>
+        <Annotation Term="OData.LongDescription" String="This type shall specify power limits for a single processor. At least one of PowerLimitWatts or GPUBasePowerWatts shall be present. GPUBasePowerWatts is only applicable to GPU processors."/>
+        <Property Name="ProcessorId" Type="Edm.String" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="OData.Description" String="The value of the Id property of the subordinate Processor resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Id property of the subordinate Processor resource."/>
+        </Property>
+        <Property Name="PowerLimitWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Description" String="The desired power limit, in watts, for the subordinate processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the desired power limit, in watts, for the subordinate processor. The value shall be within the range specified by AllowableMin and AllowableMax in the PowerLimitWatts object in the processor's EnvironmentMetrics resource."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="GPUBasePowerWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Description" String="The desired GPU base power limit, in watts, for the subordinate GPU processor."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the desired GPU base power limit, in watts, for the subordinate GPU processor. The value shall be within the range specified by AllowableMin and AllowableMax in the GPUBasePowerWatts object in the processor's EnvironmentMetrics resource. This value shall not exceed PowerLimitWatts. This property is not applicable to CPU processors."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

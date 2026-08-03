@@ -1,0 +1,117 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaWorkloadPower   v1.0.0                                                    -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaWorkloadPowerProfileCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaWorkloadPowerProfileCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaWorkloadPower">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaWorkloadPower" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the workload power profile."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the workload power profile properties."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/WorkloadPowerProfile</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="EnableProfiles" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to enable any supported profiles."/>
+        <Annotation Term="OData.LongDescription" String="This action shall enable any supported profiles."/>
+        <Parameter Name="NvidiaWorkloadPower" Type="NvidiaWorkloadPower.v1_0_0.Actions"/>
+        <Parameter Name="ProfileMask" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="Mask of profiles to enable. Each set bit indicates that the profile at that index requests to be enabled."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the mask of profiles to enable. Each set bit indicates that the profile at that index requests to be enabled."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
+        </Parameter>
+      </Action>
+      <Action Name="DisableProfiles" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to disable any supported profiles."/>
+        <Annotation Term="OData.LongDescription" String="This action shall disable any supported profiles."/>
+        <Parameter Name="NvidiaWorkloadPower" Type="NvidiaWorkloadPower.v1_0_0.Actions"/>
+        <Parameter Name="ProfileMask" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="Mask of profiles to disable. Each set bit indicates that the profile at that index requests to be disabled."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the mask of profiles to disable. Each set bit indicates that the profile at that index requests to be disabled."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaWorkloadPower.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaWorkloadPower" BaseType="NvidiaWorkloadPower.NvidiaWorkloadPower">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Actions" Type="NvidiaWorkloadPower.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="SupportedProfileMask" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Mask of supported profiles. Each set bit indicates if the profile at that index is supported."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the mask of supported profiles. Each set bit indicates if the profile at that index is supported."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
+        </Property>
+        <Property Name="RequestedProfileMask" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Mask of requested profiles. Each set bit indicates if the profile at that index is requested by the client."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the mask of requested profiles. Each set bit indicates if the profile at that index is requested by the client."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
+        </Property>
+        <Property Name="EnforcedProfileMask" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Mask of enforced profiles. Each set bit indicates if the profile at that index is actively enforced."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the mask of enforced profiles. Each set bit indicates if the profile at that index is actively enforced."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]{1,64}$"/>
+        </Property>
+        <NavigationProperty Name="Profiles" Type="NvidiaWorkloadPowerProfileCollection.NvidiaWorkloadPowerProfileCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of profiles for the workload power profile feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type NvidiaWorkloadPowerProfileCollection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

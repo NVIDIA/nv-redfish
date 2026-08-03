@@ -57,8 +57,8 @@ use crate::control::ControlCollection;
 use crate::log_service::LogService;
 #[cfg(all(feature = "oem-liteon", feature = "power-supplies"))]
 use crate::oem::liteon;
-#[cfg(feature = "oem-nvidia-baseboard")]
-use crate::oem::nvidia::baseboard::NvidiaCbcChassis;
+#[cfg(feature = "oem-nvidia")]
+use crate::oem::nvidia::NvidiaCbcChassis;
 #[cfg(feature = "pcie-devices")]
 use crate::pcie_device::PcieDeviceCollection;
 #[cfg(feature = "sensors")]
@@ -67,7 +67,7 @@ use crate::schema::sensor::Sensor as SchemaSensor;
 use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]
 use crate::sensor::SensorLink;
-#[cfg(feature = "oem-nvidia-baseboard")]
+#[cfg(feature = "oem-nvidia")]
 use std::convert::identity;
 
 #[doc(hidden)]
@@ -446,15 +446,15 @@ impl<B: Bmc> Chassis<B> {
         }
     }
 
-    /// NVIDIA Bluefield OEM extension
+    /// NVIDIA CBC chassis OEM extension
     ///
     /// Returns `Ok(None)` when the chassis does not include NVIDIA OEM extension data.
     ///
     /// # Errors
     ///
     /// Returns an error if NVIDIA OEM data parsing fails.
-    #[cfg(feature = "oem-nvidia-baseboard")]
-    pub fn oem_nvidia_baseboard_cbc(&self) -> Result<Option<NvidiaCbcChassis<B>>, Error<B>> {
+    #[cfg(feature = "oem-nvidia")]
+    pub fn oem_nvidia_cbc(&self) -> Result<Option<NvidiaCbcChassis<B>>, Error<B>> {
         self.data
             .base
             .base

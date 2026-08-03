@@ -1,0 +1,93 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaFirmwarePackage   v1.0.0                                                  -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaFirmwarePackage">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaFirmwarePackage" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the firmware package."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the firmware package properties."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage/FirmwarePackages/{FirmwarePackageId}</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaFirmwarePackage.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaFirmwarePackage" BaseType="NvidiaFirmwarePackage.NvidiaFirmwarePackage">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="VerificationStatus" Type="NvidiaFirmwarePackage.v1_0_0.VerificationStatus">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The status of the verification of the identity of the firmware package staged in the persistent storage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the status of the verification of the identity of the firmware package staged in the persistent storage."/>
+        </Property>
+        <Property Name="FirmwarePackageVersion" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The version of the firmware package staged in the persistent storage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the version of the firmware package staged in the persistent storage."/>
+        </Property>
+        <Property Name="FirmwarePackageDigest" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The digest of the firmware package using the hash algorithm indicated by the FirmwarePackageDigestHashAlgorithm property."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the digest of the firmware package using the hash algorithm indicated by the FirmwarePackageDigestHashAlgorithm property."/>
+        </Property>
+        <Property Name="FirmwarePackageDigestHashAlgorithm" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The hash algorithm used to compute the value of FirmwarePackageDigest property."/>
+          <Annotation Term="OData.LongDescription" String="The value of this property shall be a string containing the hash algorithm used to compute the value of FirmwarePackageDigest property."/>
+        </Property>
+        <Property Name="StagedTimestamp" Type="Edm.DateTimeOffset" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The time the firmware package is staged."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the time the firmware package is staged."/>
+        </Property>
+      </EntityType>
+      <EnumType Name="VerificationStatus">
+        <Member Name="Success">
+          <Annotation Term="OData.Description" String="Successful verification."/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Unsuccessful verification."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

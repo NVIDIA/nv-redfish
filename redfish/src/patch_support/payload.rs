@@ -102,6 +102,21 @@ impl Payload {
         }
     }
 
+    /// Fetch `id` and return the response body as it arrived.
+    ///
+    /// For resources that carry properties no schema declares, where
+    /// there is nothing to deserialize into. Unlike [`Self::get`] this
+    /// imposes no requirements on the payload, so it tolerates bodies
+    /// that omit `@odata.id`.
+    #[cfg(all(feature = "oem-nvidia", feature = "computer-systems"))]
+    pub(crate) async fn get_raw<B: Bmc>(bmc: &B, id: &ODataId) -> Result<JsonValue, Error<B>> {
+        NavProperty::<Getter>::new_reference(id.clone())
+            .get(bmc)
+            .await
+            .map_err(Error::Bmc)
+            .map(|v| v.payload.0.clone())
+    }
+
     /// Apply function `f` to the payload and then try to deserialize to the
     /// target type.
     pub(crate) fn to_target<T, B, F>(&self, f: F) -> Result<T, Error<B>>

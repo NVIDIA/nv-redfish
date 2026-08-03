@@ -1,0 +1,157 @@
+<?xml version="1.0"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish Schema:  NvidiaSystemProfile.v1_0_0                                                          -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaSystemProfileFile_v1.xml">
+    <edmx:Include Namespace="NvidiaSystemProfileFile"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemProfile">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaSystemProfile" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="Parameters for NvidiaSystemProfile."/>
+        <Annotation Term="OData.LongDescription" String="Parameters for NvidiaSystemProfile."/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+            <Annotation Term="OData.Description" String="The status, can be updated, the root user only allow to set to Failed."/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Oem/Nvidia/SystemConfigProfile/Profiles/{ProfileId}</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="Activate" IsBound="true">
+        <Parameter Name="NvidiaSystemProfile" Type="NvidiaSystemProfile.v1_0_0.Actions"/>
+        <Annotation Term="OData.Description" String="This action activates the profile."/>
+        <Annotation Term="OData.LongDescription" String="This action is used to activate the current profile and apply its configuration."/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaSystemProfile.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <EnumType Name="ActionStatus">
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="Not active"/>
+        </Member>
+        <Member Name="Start">
+          <Annotation Term="OData.Description" String="BMC started the requested action."/>
+        </Member>
+        <Member Name="StartBios">
+          <Annotation Term="OData.Description" String="BMC pending Bios to start handing pending actions."/>
+        </Member>
+        <Member Name="StartVerification">
+          <Annotation Term="OData.Description" String="Start authenticate and verification of the profile."/>
+        </Member>
+        <Member Name="ProfileSaved">
+          <Annotation Term="OData.Description" String="The profile has been saved to the BMC."/>
+        </Member>
+        <Member Name="ProfileSavedBios">
+          <Annotation Term="OData.Description" String="The profile has been saved to the BMC, request done by Bios."/>
+        </Member>
+        <Member Name="BiosStarted">
+          <Annotation Term="OData.Description" String="Bios started the requested action. BMC is pending the Bios to finish."/>
+        </Member>
+        <Member Name="BiosFinished">
+          <Annotation Term="OData.Description" String="Bios has finish the requested action."/>
+        </Member>
+        <Member Name="BmcStarted">
+          <Annotation Term="OData.Description" String="After Bios has finished, BMC start the requested action."/>
+        </Member>
+        <Member Name="Active">
+          <Annotation Term="OData.Description" String="Profile is active."/>
+        </Member>
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="Failed to do the requested action."/>
+        </Member>
+        <Member Name="PendingBios">
+          <Annotation Term="OData.Description" String="Start authenticate and verification of the profile."/>
+        </Member>
+        <Member Name="Invalid">
+          <Annotation Term="OData.Description" String="Start authenticate and verification of the profile."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Status">
+        <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        <Annotation Term="OData.Description" String="The profile flow statuses."/>
+        <Annotation Term="OData.LongDescription" String="Statuses of each of the flow that a profile can be in."/>
+        <Property Name="ActivateProfile" Type="NvidiaSystemProfile.v1_0_0.ActionStatus"/>
+        <Property Name="AddProfile" Type="NvidiaSystemProfile.v1_0_0.ActionStatus"/>
+        <Property Name="DeleteProfile" Type="NvidiaSystemProfile.v1_0_0.ActionStatus"/>
+      </ComplexType>
+      <EntityType Name="NvidiaSystemProfile" BaseType="NvidiaSystemProfile.NvidiaSystemProfile">
+        <Property Name="Default" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Show the information about the profile."/>
+          <Annotation Term="OData.LongDescription" String="Information about the profile status, properties and data."/>
+        </Property>
+        <Property Name="Owner" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Owner of the profile."/>
+          <Annotation Term="OData.LongDescription" String="Owner of the profile can be Nvidia, OEM or User."/>
+        </Property>
+        <NavigationProperty Name="ProfileFile" Type="NvidiaSystemProfileFile.NvidiaSystemProfileFile" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The json profile file."/>
+          <Annotation Term="OData.LongDescription" String="The json profile file, which include base64 string due to signature on the profile."/>
+        </NavigationProperty>
+        <Property Name="UUID" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="UUID of a profile."/>
+          <Annotation Term="OData.LongDescription" String="UUID of a profile."/>
+        </Property>
+        <Property Name="Version" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Version of a profile."/>
+          <Annotation Term="OData.LongDescription" String="Version of a profile."/>
+        </Property>
+        <Property Name="Status" Type="NvidiaSystemProfile.v1_0_0.Status" Nullable="false">
+          <Annotation Term="OData.Description" String="The profile action status."/>
+          <Annotation Term="OData.LongDescription" String="Status of action request - add, activation and delete."/>
+        </Property>
+        <Property Name="ProfileName" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The profile name, is as specified in the profile file."/>
+          <Annotation Term="OData.LongDescription" String="The profile name, is as specified in the profile file."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaSystemProfile.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
