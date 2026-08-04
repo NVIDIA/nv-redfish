@@ -151,6 +151,18 @@ patterns = [
 ]
 
 [[features]]
+name = "ports"
+csdl_files = [
+    "PortCollection_v1.xml",
+    "Port_v1.xml",
+    "Protocol_v1.xml",
+]
+patterns = [
+    "PortCollection.*",
+    "Port.*",
+]
+
+[[features]]
 name = "computer-systems"
 csdl_files = [
     "ComputerSystem_v1.xml",
@@ -865,6 +877,14 @@ name = "managers"
 oem_csdl_files = [
     "LenovoManager_v1.xml",
     "LenovoSecurityService_v1.xml",
+]
+csdl_files = []
+
+[[oem-features]]
+vendor = "lenovo"
+name = "ports"
+oem_csdl_files = [
+    "LenovoPort_v1.xml",
 ]
 csdl_files = []
 
