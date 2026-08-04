@@ -94,6 +94,18 @@ async fn service_root_without_ami_oem_returns_none() -> Result<(), Box<dyn StdEr
 }
 
 #[test]
+async fn service_root_with_null_ami_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let root = get_root(bmc.clone(), root_payload(Some(json!(null)))).await?;
+
+    assert!(root.oem_ami_service_root()?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn service_root_ami_malformed_oem_returns_parse_error() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root = get_root(

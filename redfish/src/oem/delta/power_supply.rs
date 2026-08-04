@@ -16,10 +16,10 @@
 //! Support Delta Energy Systems `PowerSupply` OEM extension.
 
 use crate::oem::delta::schema::delta_energy_systems_power_supply::PowerSupply as DeltaPowerSupplySchema;
+use crate::oem::oem_object;
 use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use nv_redfish_core::Bmc;
-use serde::Deserialize;
 use std::convert::identity;
 use std::marker::PhantomData;
 use std::sync::Arc;
@@ -48,13 +48,8 @@ impl<B: Bmc> DeltaPowerSupply<B> {
     ///
     /// Returns an error if parsing the Delta OEM data fails.
     pub(crate) fn new(oem: &ResourceOemSchema) -> Result<Option<Self>, Error<B>> {
-        if oem.additional_properties.get(OEM_KEY).is_none() {
-            return Ok(None);
-        }
-        let oem: DeltaOem =
-            serde_json::from_value(oem.additional_properties.clone()).map_err(Error::Json)?;
-        Ok(Some(Self {
-            data: oem.deltaenergysystems.into(),
+        Ok(oem_object(oem, OEM_KEY)?.map(|data| Self {
+            data,
             _marker: PhantomData,
         }))
     }
@@ -84,9 +79,4 @@ impl<B: Bmc> DeltaPowerSupply<B> {
     pub fn raw(&self) -> Arc<DeltaPowerSupplySchema> {
         self.data.clone()
     }
-}
-
-#[derive(Deserialize)]
-struct DeltaOem {
-    deltaenergysystems: DeltaPowerSupplySchema,
 }

@@ -16,6 +16,7 @@
 //! Support HPE Manager OEM extension.
 
 use crate::oem::hpe::schema::hpei_lo::HpeiLo as HpeManagerSchema;
+use crate::oem::oem_object;
 use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -37,21 +38,16 @@ impl<B: Bmc> HpeManager<B> {
     ///
     /// Returns an error if parsing HPE manager OEM data fails.
     pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Result<Option<Self>, Error<B>> {
-        if let Some(oem) = manager
+        Ok(manager
             .base
             .base
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Hpe"))
-        {
-            let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Some(Self {
+            .map_or_else(|| Ok(None), |oem| oem_object(oem, "Hpe"))?
+            .map(|data| Self {
                 data,
                 _bmc: bmc.clone(),
             }))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get the raw schema data for this HPE Manager.

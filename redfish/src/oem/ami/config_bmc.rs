@@ -19,6 +19,7 @@ use crate::core::Bmc;
 use crate::core::NavProperty;
 use crate::core::ODataId;
 use crate::oem::ami::schema::ami_manager::ConfigBmc as ConfigBmcSchema;
+use crate::oem::oem_value;
 use crate::schema::manager::Manager as ManagerSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -53,14 +54,11 @@ impl<B: Bmc> ConfigBmc<B> {
         manager: &ManagerSchema,
     ) -> Result<Option<Self>, Error<B>> {
         let oem = manager.base.base.oem.as_ref();
-        if oem
-            .and_then(|v| v.additional_properties.get("Ami"))
-            .is_some()
-        {
+        if oem.and_then(|v| oem_value(v, "Ami")).is_some() {
             // AMI provides reference to ConfigBMC right in the Oem object.
             // {"Oem":{"ConfigBMC":""/redfish/v1/Managers/Self/Oem/ConfigBMC"}}
             if let Some(config_bmc_path) = oem
-                .and_then(|oem| oem.additional_properties.get("ConfigBMC"))
+                .and_then(|oem| oem_value(oem, "ConfigBMC"))
                 .and_then(|path| path.as_str())
             {
                 let odata_id = ODataId::from(config_bmc_path.to_string());

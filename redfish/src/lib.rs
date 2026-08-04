@@ -106,6 +106,17 @@ pub mod update_service;
 
 #[cfg(feature = "assembly")]
 pub mod assembly;
+#[cfg(all(
+    feature = "environment-metrics",
+    any(
+        feature = "chassis",
+        all(
+            feature = "computer-systems",
+            any(feature = "processors", feature = "memory", feature = "storages",)
+        ),
+    )
+))]
+pub mod environment_metrics;
 /// Ethernet interfaces.
 #[cfg(feature = "ethernet-interfaces")]
 pub mod ethernet_interface;

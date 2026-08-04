@@ -73,6 +73,30 @@ async fn manager_without_dell_oem_returns_not_available() -> Result<(), Box<dyn 
     Ok(())
 }
 
+#[test]
+async fn manager_with_null_dell_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    //
+    // No GET for the crafted DellAttributes URL is expected: the null
+    // must gate the fetch, not just the return value.
+    let bmc = Arc::new(Bmc::default());
+    let ids = manager_ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        json_merge([
+            &manager_payload(&ids, false),
+            &json!({ "Oem": { "Dell": null } }),
+        ]),
+    )
+    .await?;
+
+    assert!(manager.oem_dell_attributes().await?.is_none());
+
+    Ok(())
+}
+
 async fn get_manager(
     bmc: Arc<Bmc>,
     ids: &ManagerIds,

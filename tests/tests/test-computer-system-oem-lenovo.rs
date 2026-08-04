@@ -178,6 +178,19 @@ async fn system_without_lenovo_oem_returns_not_available() -> Result<(), Box<dyn
     Ok(())
 }
 
+#[test]
+async fn system_with_null_lenovo_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(bmc.clone(), &ids, system_payload(&ids, Some(json!(null)))).await?;
+
+    assert!(system.oem_lenovo()?.is_none());
+
+    Ok(())
+}
+
 async fn get_system(
     bmc: Arc<Bmc>,
     ids: &Ids,

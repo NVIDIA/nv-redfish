@@ -16,6 +16,7 @@
 //! Different vendor OEM externsions to Resdish.
 
 mod identifier;
+mod object;
 
 #[cfg(feature = "oem-ami")]
 pub mod ami;
@@ -43,3 +44,9 @@ pub mod delta;
 
 #[doc(inline)]
 pub use identifier::Identifier as OemIdentifier;
+#[doc(inline)]
+pub use object::declares;
+#[doc(inline)]
+pub use object::oem_object;
+#[doc(inline)]
+pub use object::oem_value;

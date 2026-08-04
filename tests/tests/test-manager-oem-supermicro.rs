@@ -106,6 +106,27 @@ async fn manager_without_supermicro_oem_returns_none() -> Result<(), Box<dyn Std
     Ok(())
 }
 
+#[test]
+async fn manager_with_null_supermicro_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        json_merge([
+            &manager_payload_without_supermicro(&ids),
+            &json!({ "Oem": { "Supermicro": null } }),
+        ]),
+    )
+    .await?;
+
+    assert!(manager.oem_supermicro()?.is_none());
+
+    Ok(())
+}
+
 async fn get_manager(
     bmc: Arc<Bmc>,
     ids: &Ids,

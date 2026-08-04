@@ -16,6 +16,7 @@
 use crate::core::Bmc;
 use crate::core::EdmPrimitiveType;
 use crate::oem::dell::schema::dell_attributes::DellAttributes as DellAttributesSchema;
+use crate::oem::oem_value;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -56,7 +57,7 @@ impl<B: Bmc> DellAttributes<B> {
             .base
             .oem
             .as_ref()
-            .is_some_and(|oem| oem.additional_properties.get("Dell").is_some())
+            .is_some_and(|oem| oem_value(oem, "Dell").is_some())
         {
             // Dell doesn't provide navigation property to the
             // Attributes from the Manager. So we just craft @odata.id
