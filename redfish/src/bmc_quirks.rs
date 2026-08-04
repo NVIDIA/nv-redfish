@@ -64,7 +64,10 @@ impl BmcQuirks {
             Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
-            Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
+            // BF3 service roots use this product name with an `Nvidia` vendor.
+            Some("Nvidia") if matches!(product_str, Some("Nvidia-BMCMezz" | "BlueField-3 DPU")) => {
+                Some(Platform::NvidiaDpu)
+            }
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };

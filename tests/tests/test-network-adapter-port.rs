@@ -186,6 +186,72 @@ async fn malformed_lenovo_port_does_not_hide_standard_mac_address() -> Result<()
 }
 
 #[test]
+async fn member_links_allow_independent_port_fetches() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = Ids::new();
+    let adapter = get_adapter(bmc.clone(), &ids, true).await?;
+    let port_ids = &ids.port_ids[..3];
+    bmc.expect(Expect::get(
+        &ids.ports_id,
+        collection_payload(&ids.ports_id, PORT_COLLECTION_DATA_TYPE, port_ids),
+    ));
+    let collection = adapter
+        .ports()
+        .await?
+        .expect("adapter must include a port collection");
+
+    bmc.expect(Expect::get(
+        &port_ids[0],
+        port_payload(
+            &port_ids[0],
+            json!({
+                "Ethernet": {
+                    "AssociatedMACAddresses": ["10:00:00:00:00:01"]
+                }
+            }),
+        ),
+    ));
+    bmc.expect(Expect::get(&port_ids[1], json!({})));
+    bmc.expect(Expect::get(
+        &port_ids[2],
+        port_payload(
+            &port_ids[2],
+            json!({
+                "Ethernet": {
+                    "AssociatedMACAddresses": ["30:00:00:00:00:01"]
+                }
+            }),
+        ),
+    ));
+
+    let links = collection.member_links();
+    assert_eq!(links.len(), 3);
+    assert_eq!(
+        links[0]
+            .upgrade::<nv_redfish::port::Port<Bmc>>()
+            .await?
+            .associated_mac_addresses()[0]
+            .as_str(),
+        "10:00:00:00:00:01"
+    );
+    assert_eq!(links[1].odata_id().to_string(), port_ids[1]);
+    assert!(links[1]
+        .upgrade::<nv_redfish::port::Port<Bmc>>()
+        .await
+        .is_err());
+    assert_eq!(
+        links[2]
+            .upgrade::<nv_redfish::port::Port<Bmc>>()
+            .await?
+            .associated_mac_addresses()[0]
+            .as_str(),
+        "30:00:00:00:00:01"
+    );
+
+    Ok(())
+}
+
+#[test]
 async fn adapter_without_ports_link_returns_none() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = Ids::new();

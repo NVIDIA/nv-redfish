@@ -22,3 +22,5 @@ mod item;
 pub use collection::PortCollection;
 #[doc(inline)]
 pub use item::Port;
+#[doc(inline)]
+pub use item::PortLink;

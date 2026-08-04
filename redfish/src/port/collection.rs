@@ -14,6 +14,7 @@
 // limitations under the License.
 
 use super::Port;
+use super::PortLink;
 use crate::schema::port_collection::PortCollection as PortCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -52,5 +53,18 @@ impl<B: Bmc> PortCollection<B> {
             members.push(Port::new(&self.bmc, member).await?);
         }
         Ok(members)
+    }
+
+    /// Return lazy links for the ports in this collection.
+    ///
+    /// Each link can be fetched independently, allowing callers to choose their own error-handling
+    /// policy without changing the eager, all-or-nothing behavior of [`Self::members`].
+    #[must_use]
+    pub fn member_links(&self) -> Vec<PortLink<B>> {
+        self.collection
+            .members
+            .iter()
+            .map(|member| PortLink::new(&self.bmc, NavProperty::new_reference(member.id().clone())))
+            .collect()
     }
 }
