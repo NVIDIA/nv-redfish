@@ -13,6 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::entity_link::EntityLink;
+use crate::entity_link::FromLink;
 use crate::mac_address::MacAddress;
 use crate::schema::port::Port as PortSchema;
 use crate::Error;
@@ -21,11 +23,15 @@ use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
+use std::future::Future;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::port::LenovoPort;
+
+/// Link for lazily accessing a network port.
+pub type PortLink<B> = EntityLink<B, PortSchema>;
 
 /// Network port.
 pub struct Port<B: Bmc> {
@@ -90,5 +96,16 @@ impl<B: Bmc> Port<B> {
 impl<B: Bmc> Resource for Port<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
+    }
+}
+
+impl<B: Bmc> FromLink<B> for Port<B> {
+    type Schema = PortSchema;
+
+    fn from_link(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<Self::Schema>,
+    ) -> impl Future<Output = Result<Self, Error<B>>> + Send {
+        Self::new(bmc, nav)
     }
 }

@@ -37,6 +37,7 @@ const NVIDIA_SYSTEM_DATA_TYPE: &str = "#NvidiaComputerSystem.v1_0_0.NvidiaComput
 /// Service-root identity of an NVIDIA DPU.
 const DPU_VENDOR: &str = "Nvidia";
 const DPU_PRODUCT: &str = "Nvidia-BMCMezz";
+const BF3_DPU_PRODUCT: &str = "BlueField-3 DPU";
 
 #[test]
 async fn oem_nvidia_dpu_missing_odata_id_in_oem_target_payload() -> Result<(), Box<dyn StdError>> {
@@ -115,6 +116,49 @@ async fn oem_nvidia_dpu_with_odata_id_still_supported() -> Result<(), Box<dyn St
         Some("aabbccddeeff".into())
     );
     assert_eq!(oem.mode(), Some(Mode::DpuMode));
+
+    Ok(())
+}
+
+#[test]
+async fn oem_nvidia_bluefield3_product_fetches_oem_target() -> Result<(), Box<dyn StdError>> {
+    // Platform under test: NVIDIA BlueField-3 DPU using its product name.
+    // Quirk under test: the BF3 product identity selects NVIDIA DPU handling.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system_on_platform(
+        bmc.clone(),
+        &ids,
+        system_payload(
+            &ids,
+            Some(json!({
+                "Nvidia": { ODATA_ID: &ids.nvidia_oem_id }
+            })),
+        ),
+        DPU_VENDOR,
+        BF3_DPU_PRODUCT,
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &ids.nvidia_oem_id,
+        json!({
+            ODATA_ID: &ids.nvidia_oem_id,
+            ODATA_TYPE: NVIDIA_SYSTEM_DATA_TYPE,
+            "BaseMAC": "aabbccddeeff",
+            "Mode": "NicMode",
+        }),
+    ));
+
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("NVIDIA OEM extension must be available");
+    assert_eq!(
+        oem.base_mac().map(|v| v.to_string()),
+        Some("aabbccddeeff".into())
+    );
+    assert_eq!(oem.mode(), Some(Mode::NicMode));
 
     Ok(())
 }
