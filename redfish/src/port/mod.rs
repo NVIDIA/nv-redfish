@@ -13,25 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Support of Lenovo OEM extensions to Redfish.
+//! Network ports.
 
-mod compiled_schema;
+mod collection;
+mod item;
 
-/// Support of Lenovo Manager OEM attributes.
-#[cfg(feature = "managers")]
-pub mod manager;
-
-/// Support of Lenovo Security service.
-#[cfg(feature = "managers")]
-pub mod security_service;
-
-/// Support of Lenovo Computer System service.
-#[cfg(feature = "computer-systems")]
-pub mod computer_system;
-
-/// Support of Lenovo Port OEM attributes.
-#[cfg(feature = "ports")]
-pub mod port;
-
-/// Lenovo OEM Schema.
-pub use compiled_schema::redfish as schema;
+#[doc(inline)]
+pub use collection::PortCollection;
+#[doc(inline)]
+pub use item::Port;

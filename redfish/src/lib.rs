@@ -134,6 +134,9 @@ pub mod network_device_function;
 /// `PCIe` devices.
 #[cfg(feature = "pcie-devices")]
 pub mod pcie_device;
+/// Network ports.
+#[cfg(feature = "ports")]
+pub mod port;
 /// Power equipment.
 #[cfg(feature = "power-equipment")]
 pub mod power_equipment;
