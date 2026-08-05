@@ -16,6 +16,7 @@
 //! Support HPE Manager OEM extension.
 
 use crate::oem::hpe::schema::hpei_lo_service_ext::HpeiLoServiceExt as HpeiLoServiceExtSchema;
+use crate::oem::oem_object;
 use crate::schema::service_root::ServiceRoot as ServiceRootSchema;
 use crate::Error;
 use nv_redfish_core::Bmc;
@@ -37,21 +38,16 @@ impl<B: Bmc> HpeiLoServiceExt<B> {
     ///
     /// Returns an error if parsing HPE extension OEM data fails.
     pub(crate) fn new(manager: &ServiceRootSchema) -> Result<Option<Self>, Error<B>> {
-        if let Some(oem) = manager
+        Ok(manager
             .base
             .base
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Hpe"))
-        {
-            let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Some(Self {
+            .map_or_else(|| Ok(None), |oem| oem_object(oem, "Hpe"))?
+            .map(|data| Self {
                 data,
                 _bmc: PhantomData,
             }))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get the raw schema data for this HPE Manager.

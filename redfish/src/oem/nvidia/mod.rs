@@ -34,13 +34,21 @@ mod compiled_schema;
 /// NVIDIA OEM Schema.
 pub use compiled_schema::redfish as schema;
 
-/// NVIDIA OEM chassis support.
+/// Key NVIDIA extensions are published under in a resource's `Oem`
+/// object.
+pub const OEM_KEY: &str = "Nvidia";
+
+// These modules carry their own `//!` docs. Do not add outer `///`
+// docs here: rustdoc merges them and then resolves intra-doc links in
+// this parent scope instead of the module's own.
 #[cfg(feature = "chassis")]
 pub mod cbc_chassis;
 
-/// NVIDIA OEM computer system support.
 #[cfg(feature = "computer-systems")]
 pub mod computer_system;
+
+#[cfg(feature = "processors")]
+pub mod processor_metrics;
 
 #[cfg(feature = "chassis")]
 #[doc(inline)]
@@ -49,3 +57,7 @@ pub use cbc_chassis::NvidiaCbcChassis;
 #[cfg(feature = "computer-systems")]
 #[doc(inline)]
 pub use computer_system::NvidiaComputerSystem;
+
+#[cfg(feature = "processors")]
+#[doc(inline)]
+pub use processor_metrics::NvidiaProcessorMetrics;

@@ -18,6 +18,7 @@
 //! This module provides typed access to Redfish `TelemetryService`.
 
 mod metric_definition;
+mod metric_report;
 mod metric_report_definition;
 
 use crate::entity_link::EntityLink;
@@ -43,6 +44,8 @@ pub use metric_definition::MetricDefinition;
 pub use metric_definition::MetricDefinitionCreate;
 #[doc(inline)]
 pub use metric_definition::MetricDefinitionUpdate;
+#[doc(inline)]
+pub use metric_report::MetricReport;
 #[doc(inline)]
 pub use metric_report_definition::MetricReportDefinition;
 #[doc(inline)]

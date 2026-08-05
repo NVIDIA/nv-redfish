@@ -114,6 +114,36 @@ async fn delta_power_supply_without_oem_returns_none() -> Result<(), Box<dyn Std
 }
 
 #[test]
+async fn delta_power_supply_with_null_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let chassis = get_delta_chassis(bmc.clone(), &ids).await?;
+
+    expect_power_subsystem(bmc.clone(), &ids);
+    let psu_id = format!("{}/4", ids.psu_collection_id);
+    expect_psu_collection(bmc.clone(), &ids, vec![psu_id.clone()]);
+    bmc.expect(Expect::get(
+        &psu_id,
+        json!({
+            ODATA_ID: &psu_id,
+            ODATA_TYPE: PSU_DATA_TYPE,
+            "Id": "PowerSupplyUnit 4",
+            "Name": "PowerSupplyUnit 4",
+            "Manufacturer": "Delta",
+            "Status": { "Health": "OK", "State": "Enabled" },
+            "Oem": { "deltaenergysystems": null }
+        }),
+    ));
+
+    let supplies = chassis.power_supplies().await?;
+    assert!(supplies[0].oem_delta()?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn delta_power_supply_oem_multiple_psus() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();

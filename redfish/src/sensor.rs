@@ -27,10 +27,7 @@
 //! `Chassis/Power` and `Chassis/Thermal`, use those explicit endpoints instead.
 
 use crate::entity_link::EntityLink;
-use crate::schema::environment_metrics::EnvironmentMetrics;
 use crate::schema::sensor::Sensor as SchemaSensor;
-use crate::Error;
-use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 
@@ -82,33 +79,6 @@ pub(crate) fn collect_sensors(
     uris.into_iter()
         .map(|uri| NavProperty::<SchemaSensor>::new_reference(ODataId::from(uri)))
         .collect()
-}
-
-/// Helper function to extract enviroment metrics
-pub(crate) async fn extract_environment_sensors<B: Bmc>(
-    metrics_ref: &NavProperty<EnvironmentMetrics>,
-    bmc: &B,
-) -> Result<Vec<NavProperty<SchemaSensor>>, Error<B>> {
-    metrics_ref
-        .get(bmc)
-        .await
-        .map(|m| {
-            extract_sensor_uris!(m,
-                single: temperature_celsius,
-                single: humidity_percent,
-                single: power_watts,
-                single: energyk_wh,
-                single: power_load_percent,
-                single: dew_point_celsius,
-                single: absolute_humidity,
-                single: energy_joules,
-                single: ambient_temperature_celsius,
-                single: voltage,
-                single: current_amps,
-                vec: fan_speeds_percent
-            )
-        })
-        .map_err(Error::Bmc)
 }
 
 #[cfg(test)]

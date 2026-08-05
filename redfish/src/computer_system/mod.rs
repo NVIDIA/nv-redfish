@@ -28,8 +28,12 @@ pub mod boot_option;
 pub mod drive;
 #[cfg(feature = "memory")]
 pub mod memory;
+#[cfg(feature = "memory")]
+pub mod memory_metrics;
 #[cfg(feature = "processors")]
 pub mod processor;
+#[cfg(feature = "processors")]
+pub mod processor_metrics;
 #[cfg(feature = "secure-boot")]
 pub mod secure_boot;
 #[cfg(feature = "storages")]
@@ -72,8 +76,14 @@ pub use drive::Drive;
 #[cfg(feature = "memory")]
 pub use memory::Memory;
 #[doc(inline)]
+#[cfg(feature = "memory")]
+pub use memory_metrics::MemoryMetrics;
+#[doc(inline)]
 #[cfg(feature = "processors")]
 pub use processor::Processor;
+#[doc(inline)]
+#[cfg(feature = "processors")]
+pub use processor_metrics::ProcessorMetrics;
 #[doc(inline)]
 #[cfg(feature = "secure-boot")]
 pub use secure_boot::SecureBoot;

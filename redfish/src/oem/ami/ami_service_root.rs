@@ -17,6 +17,7 @@
 
 use crate::core::Bmc;
 use crate::oem::ami::schema::ami_service_root::AmiServiceRoot as AmiServiceRootSchema;
+use crate::oem::oem_object;
 use crate::schema::service_root::ServiceRoot as ServiceRootSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -41,21 +42,16 @@ impl<B: Bmc> AmiServiceRoot<B> {
         _bmc: &NvBmc<B>,
         service_root: &ServiceRootSchema,
     ) -> Result<Option<Self>, Error<B>> {
-        if let Some(oem) = service_root
+        Ok(service_root
             .base
             .base
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Ami"))
-        {
-            let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Some(Self {
+            .map_or_else(|| Ok(None), |oem| oem_object(oem, "Ami"))?
+            .map(|data| Self {
                 data,
                 _marker: PhantomData,
             }))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get the raw schema data for this BMC config.

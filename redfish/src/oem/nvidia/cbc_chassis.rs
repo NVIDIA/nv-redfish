@@ -15,16 +15,23 @@
 
 //! Support NVIDIA CBC Chassis OEM extension.
 
+use crate::oem::declares;
 use crate::oem::nvidia::schema::nvidia_chassis::NvidiaCbcChassis as NvidiaCbcChassisSchema;
+use crate::oem::nvidia::OEM_KEY;
+use crate::oem::oem_value;
 use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
-use nv_redfish_core::odata::ODataType;
 use nv_redfish_core::Bmc;
-use serde::Deserialize;
+use serde::Deserialize as _;
 use std::convert::identity;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tagged_types::TaggedType;
+
+/// Namespace the CBC chassis shape is declared under.
+const NAMESPACE: &str = "NvidiaChassis";
+/// `@odata.type` name of the CBC chassis shape.
+const TYPE_NAME: &str = "NvidiaCBCChassis";
 
 /// The revision of the cable cartridge backplane FRU data information.
 pub type RevisionId = TaggedType<i64, RevisionIdTag>;
@@ -71,7 +78,7 @@ pub struct NvidiaCbcChassis<B: Bmc> {
 }
 
 impl<B: Bmc> NvidiaCbcChassis<B> {
-    /// Create a new computer system handle.
+    /// Create a new CBC chassis handle.
     ///
     /// Returns `Ok(None)` when the OEM payload does not contain NVIDIA CBC chassis data.
     ///
@@ -79,29 +86,16 @@ impl<B: Bmc> NvidiaCbcChassis<B> {
     ///
     /// Returns an error if parsing NVIDIA CBC chassis OEM data fails.
     pub(crate) fn new(oem: &ResourceOemSchema) -> Result<Option<Self>, Error<B>> {
-        let is_cbc_chassis = oem
-            .additional_properties
-            .get("Nvidia")
-            .and_then(ODataType::parse_from)
-            .and_then(|odata_type| {
-                let type_name = odata_type.type_name;
-                odata_type
-                    .namespace
-                    .into_iter()
-                    .next()
-                    .map(|ns| (ns, type_name))
-            })
-            .map(|(top_ns, t)| top_ns == "NvidiaChassis" && t == "NvidiaCBCChassis");
-        if is_cbc_chassis.is_some_and(identity) {
-            let oem: CbcOem =
-                serde_json::from_value(oem.additional_properties.clone()).map_err(Error::Json)?;
-            Ok(Some(Self {
-                data: oem.nvidia.into(),
-                _marker: PhantomData,
-            }))
-        } else {
-            Ok(None)
+        let Some(nvidia) = oem_value(oem, OEM_KEY) else {
+            return Ok(None);
+        };
+        if !declares(nvidia, NAMESPACE, TYPE_NAME) {
+            return Ok(None);
         }
+        Ok(Some(Self {
+            data: Arc::new(NvidiaCbcChassisSchema::deserialize(nvidia).map_err(Error::Json)?),
+            _marker: PhantomData,
+        }))
     }
 
     /// Indicates the revision of the cable cartridge backplane FRU data information.
@@ -136,7 +130,7 @@ impl<B: Bmc> NvidiaCbcChassis<B> {
             .map(TopologyId::new)
     }
 
-    /// Get the raw schema data for this NVIDIA computer system.
+    /// Get the raw schema data for this NVIDIA CBC chassis.
     ///
     /// Returns an `Arc` to the underlying schema, allowing cheap cloning
     /// and sharing of the data.
@@ -144,10 +138,4 @@ impl<B: Bmc> NvidiaCbcChassis<B> {
     pub fn raw(&self) -> Arc<NvidiaCbcChassisSchema> {
         self.data.clone()
     }
-}
-
-#[derive(Deserialize)]
-struct CbcOem {
-    #[serde(rename = "Nvidia")]
-    nvidia: NvidiaCbcChassisSchema,
 }

@@ -57,6 +57,27 @@ async fn manager_without_hpe_oem_returns_none() -> Result<(), Box<dyn StdError>>
 }
 
 #[test]
+async fn manager_with_null_hpe_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        json_merge([
+            &manager_payload_without_hpe(&ids),
+            &json!({ "Oem": { "Hpe": null } }),
+        ]),
+    )
+    .await?;
+
+    assert!(manager.oem_hpe()?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn malformed_hpe_oem_returns_parse_error() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();

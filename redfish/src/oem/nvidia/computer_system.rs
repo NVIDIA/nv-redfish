@@ -35,6 +35,8 @@
 //! once firmware either stops sending them or declares them properly.
 
 use crate::oem::nvidia::schema::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
+use crate::oem::nvidia::OEM_KEY;
+use crate::oem::oem_value;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
 use crate::schema::resource::Oem as ResourceOemSchema;
@@ -100,7 +102,7 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
         bmc: &NvBmc<B>,
         oem: &ResourceOemSchema,
     ) -> Result<Option<Self>, Error<B>> {
-        let Some(nvidia) = oem.additional_properties.get("Nvidia") else {
+        let Some(nvidia) = oem_value(oem, OEM_KEY) else {
             return Ok(None);
         };
         if bmc.quirks.bug_dpu_oem_computer_system() {

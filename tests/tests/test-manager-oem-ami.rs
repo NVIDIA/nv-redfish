@@ -92,6 +92,27 @@ async fn manager_without_ami_oem_returns_none() -> Result<(), Box<dyn StdError>>
 }
 
 #[test]
+async fn manager_with_null_ami_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    //
+    // The ConfigBMC link is present, and no GET for it is expected:
+    // the null must gate the lookup, not just the return value.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload(&ids, true, true, json!(null)),
+    )
+    .await?;
+
+    assert!(manager.oem_ami_config_bmc().await?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn manager_ami_without_config_bmc_link_returns_none() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();

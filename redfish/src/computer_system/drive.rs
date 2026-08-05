@@ -26,11 +26,9 @@ use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "controls")]
-use crate::control::extract_environment_power_limit_control;
-#[cfg(feature = "controls")]
 use crate::control::Control;
-#[cfg(feature = "sensors")]
-use crate::sensor::extract_environment_sensors;
+#[cfg(feature = "environment-metrics")]
+use crate::environment_metrics::EnvironmentMetrics;
 #[cfg(feature = "sensors")]
 use crate::sensor::SensorLink;
 
@@ -96,16 +94,27 @@ impl<B: Bmc> Drive<B> {
     /// Returns an error if get of environment metrics failed.
     #[cfg(feature = "sensors")]
     pub async fn environment_sensor_links(&self) -> Result<Vec<SensorLink<B>>, Error<B>> {
-        let sensor_refs = if let Some(env_ref) = &self.data.environment_metrics {
-            extract_environment_sensors(env_ref, self.bmc.as_ref()).await?
-        } else {
-            Vec::new()
-        };
+        Ok(self
+            .environment_metrics()
+            .await?
+            .map(|metrics| metrics.sensor_links())
+            .unwrap_or_default())
+    }
 
-        Ok(sensor_refs
-            .into_iter()
-            .map(|r| SensorLink::new(&self.bmc, r))
-            .collect())
+    /// Get the environment metrics of this drive.
+    ///
+    /// Returns `Ok(None)` when the `EnvironmentMetrics` link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching environment metrics data fails.
+    #[cfg(feature = "environment-metrics")]
+    pub async fn environment_metrics(&self) -> Result<Option<EnvironmentMetrics<B>>, Error<B>> {
+        if let Some(env_ref) = &self.data.environment_metrics {
+            EnvironmentMetrics::new(&self.bmc, env_ref).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the environment power limit control for this drive.
@@ -117,11 +126,11 @@ impl<B: Bmc> Drive<B> {
     /// Returns an error if fetching environment metrics or the control fails.
     #[cfg(feature = "controls")]
     pub async fn environment_power_limit_control(&self) -> Result<Option<Control<B>>, Error<B>> {
-        let Some(env_ref) = &self.data.environment_metrics else {
+        let Some(metrics) = self.environment_metrics().await? else {
             return Ok(None);
         };
 
-        extract_environment_power_limit_control(&self.bmc, env_ref).await
+        metrics.power_limit_control().await
     }
 }
 

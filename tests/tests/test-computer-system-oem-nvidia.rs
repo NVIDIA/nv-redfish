@@ -176,6 +176,25 @@ async fn system_without_nvidia_oem_returns_none() -> Result<(), Box<dyn StdError
 }
 
 #[test]
+async fn system_with_null_nvidia_oem_returns_none() -> Result<(), Box<dyn StdError>> {
+    // Some firmware spells "no extension" as an explicit null rather
+    // than by omitting the key. It must read as absence, not as a
+    // parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        system_payload(&ids, Some(json!({ "Nvidia": Value::Null }))),
+    )
+    .await?;
+
+    assert!(system.oem_nvidia().await?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn oem_nvidia_dpu_inline_oem_object_shape_supported() -> Result<(), Box<dyn StdError>> {
     // Platform under test: NVIDIA BlueField DPU.
     // Regression check: inline Oem.Nvidia object shape in ComputerSystem response.

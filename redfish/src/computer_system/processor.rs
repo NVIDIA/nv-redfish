@@ -15,8 +15,8 @@
 
 //! Processor and its configuration.
 
+use crate::computer_system::processor_metrics::ProcessorMetrics;
 use crate::schema::processor::Processor as ProcessorSchema;
-use crate::schema::processor_metrics::ProcessorMetrics;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -26,13 +26,11 @@ use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
 #[cfg(feature = "controls")]
-use crate::control::extract_environment_power_limit_control;
-#[cfg(feature = "controls")]
 use crate::control::Control;
+#[cfg(feature = "environment-metrics")]
+use crate::environment_metrics::EnvironmentMetrics;
 #[cfg(feature = "sensors")]
 use crate::extract_sensor_uris;
-#[cfg(feature = "sensors")]
-use crate::sensor::extract_environment_sensors;
 #[cfg(feature = "sensors")]
 use crate::sensor::SensorLink;
 
@@ -70,20 +68,32 @@ impl<B: Bmc> Processor<B> {
 
     /// Get processor metrics.
     ///
-    /// Returns the processor's performance and state metrics if available.
+    /// Returns `Ok(None)` when the `Metrics` link is absent.
     ///
     /// # Errors
     ///
-    /// Returns an error if:
-    /// - The processor does not have metrics
-    /// - Fetching metrics data fails
-    pub async fn metrics(&self) -> Result<Option<Arc<ProcessorMetrics>>, Error<B>> {
+    /// Returns an error if fetching metrics data fails.
+    pub async fn metrics(&self) -> Result<Option<ProcessorMetrics<B>>, Error<B>> {
         if let Some(metrics_ref) = &self.data.metrics {
-            metrics_ref
-                .get(self.bmc.as_ref())
+            ProcessorMetrics::new(&self.bmc, metrics_ref)
                 .await
-                .map_err(Error::Bmc)
                 .map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get the environment metrics of this processor.
+    ///
+    /// Returns `Ok(None)` when the `EnvironmentMetrics` link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching environment metrics data fails.
+    #[cfg(feature = "environment-metrics")]
+    pub async fn environment_metrics(&self) -> Result<Option<EnvironmentMetrics<B>>, Error<B>> {
+        if let Some(env_ref) = &self.data.environment_metrics {
+            EnvironmentMetrics::new(&self.bmc, env_ref).await.map(Some)
         } else {
             Ok(None)
         }
@@ -98,16 +108,11 @@ impl<B: Bmc> Processor<B> {
     /// Returns an error if get of environment metrics failed.
     #[cfg(feature = "sensors")]
     pub async fn environment_sensor_links(&self) -> Result<Vec<SensorLink<B>>, Error<B>> {
-        let sensor_refs = if let Some(env_ref) = &self.data.environment_metrics {
-            extract_environment_sensors(env_ref, self.bmc.as_ref()).await?
-        } else {
-            Vec::new()
-        };
-
-        Ok(sensor_refs
-            .into_iter()
-            .map(|r| SensorLink::new(&self.bmc, r))
-            .collect())
+        Ok(self
+            .environment_metrics()
+            .await?
+            .map(|metrics| metrics.sensor_links())
+            .unwrap_or_default())
     }
 
     /// Get the environment power limit control for this processor.
@@ -119,11 +124,11 @@ impl<B: Bmc> Processor<B> {
     /// Returns an error if fetching environment metrics or the control fails.
     #[cfg(feature = "controls")]
     pub async fn environment_power_limit_control(&self) -> Result<Option<Control<B>>, Error<B>> {
-        let Some(env_ref) = &self.data.environment_metrics else {
+        let Some(metrics) = self.environment_metrics().await? else {
             return Ok(None);
         };
 
-        extract_environment_power_limit_control(&self.bmc, env_ref).await
+        metrics.power_limit_control().await
     }
 
     /// Get the metrics sensors for this processor.

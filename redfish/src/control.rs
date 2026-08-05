@@ -53,22 +53,6 @@ use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-use crate::schema::environment_metrics::EnvironmentMetrics;
-
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-use crate::core::ODataId;
-
 pub use crate::schema::control::ControlMode;
 pub use crate::schema::control::ControlType;
 pub use crate::schema::control::ControlUpdate;
@@ -206,29 +190,4 @@ impl<B: Bmc> Resource for Control<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
     }
-}
-
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-pub(crate) async fn extract_environment_power_limit_control<B: Bmc>(
-    bmc: &NvBmc<B>,
-    metrics_ref: &NavProperty<EnvironmentMetrics>,
-) -> Result<Option<Control<B>>, Error<B>> {
-    let metrics = metrics_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
-
-    let Some(Some(uri)) = metrics
-        .power_limit_watts
-        .as_ref()
-        .and_then(|control| control.data_source_uri.as_ref())
-    else {
-        return Ok(None);
-    };
-
-    let control_ref = NavProperty::<ControlSchema>::new_reference(ODataId::from(uri.clone()));
-
-    Control::new(bmc, &control_ref).await.map(Some)
 }

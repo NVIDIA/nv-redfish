@@ -142,6 +142,11 @@ See `examples/session-token` for Redfish SessionService authentication using
 See `examples/task-service` for polling a Redfish Task through TaskService.
 Pass a Redfish task location returned by an async operation, such as
 `/redfish/v1/TaskService/Tasks/42`, with `--location`.
+See `examples/metrics-oem-nvidia` for walking the metric resources of a live
+BMC and reporting its NVIDIA OEM extensions. It separates "no such link" from
+"no extension" from "firmware sent something the schema cannot read", and exits
+non-zero on the last of those. Add `--dump` to print the raw `Oem.Nvidia`
+objects.
 
 ## How It Fits Together
 

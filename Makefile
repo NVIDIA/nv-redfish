@@ -97,6 +97,9 @@ define build-and-test
 	cargo build -p nv-redfish --features oem-nvidia
 	cargo build -p nv-redfish --features computer-systems,oem-nvidia
 	cargo build -p nv-redfish --features chassis,oem-nvidia
+	cargo build -p nv-redfish --features computer-systems,processors,memory,sensors,telemetry-service,oem-nvidia
+	cargo build -p nv-redfish --features telemetry-service
+	cargo build -p nv-redfish --features environment-metrics,memory,oem-nvidia
 	cargo build -p nv-redfish --features oem-dell
 	cargo build -p nv-redfish --features oem-ami
 	cargo build -p nv-redfish --features managers,oem-dell-attributes
