@@ -72,6 +72,8 @@ pub mod odata;
 pub mod one_or_collection;
 /// Optimizer for compiled data structures.
 pub mod optimizer;
+/// Schema queries for projection compilers.
+pub mod query;
 /// Redfish-specific utilities.
 pub mod redfish;
 
