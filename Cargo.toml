@@ -15,6 +15,7 @@ members = [
    "examples/readme-minimal",
    "examples/session-token",
    "examples/task-service",
+   "examples/metrics-oem-nvidia",
    "examples/update-multipart",
    "dispatcher",
    "dispatcher/sim",
