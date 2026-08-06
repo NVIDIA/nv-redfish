@@ -16,7 +16,6 @@
 //! Schema queries for projection compilers.
 
 use std::collections::HashMap;
-use std::iter;
 
 use crate::compiler::Compiled;
 use crate::compiler::Config;
@@ -65,9 +64,9 @@ impl<'a> SchemaQuery<'a> {
         let mut entities = HashMap::new();
         for qname in compiled.entity_types.keys() {
             let name = qname.name.inner().as_str();
-            let replace = entities.get(name).is_none_or(|current| {
-                chain_length(&compiled, *qname) > chain_length(&compiled, *current)
-            });
+            let replace = entities
+                .get(name)
+                .is_none_or(|current| Rank::new(*qname) > Rank::new(*current));
             if replace {
                 entities.insert(name, *qname);
             }
@@ -160,11 +159,43 @@ enum TypeRef<'a> {
     Complex(QualifiedName<'a>),
 }
 
-fn chain_length<'a>(compiled: &Compiled<'a>, start: QualifiedName<'a>) -> usize {
-    iter::successors(Some(start), |&qname| {
-        compiled.entity_types.get(&qname)?.base
-    })
-    .count()
+#[derive(PartialEq, Eq, PartialOrd, Ord)]
+struct Rank<'a> {
+    own_family: bool,
+    version: Option<Version>,
+    qname: QualifiedName<'a>,
+}
+
+impl<'a> Rank<'a> {
+    fn new(qname: QualifiedName<'a>) -> Self {
+        Self {
+            own_family: qname.namespace.get_id(0) == Some(qname.name),
+            version: qname
+                .namespace
+                .get_id(1)
+                .and_then(|id| Version::parse(id.inner().as_str())),
+            qname,
+        }
+    }
+}
+
+#[derive(PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+struct Version {
+    major: u64,
+    minor: u64,
+    patch: u64,
+}
+
+impl Version {
+    fn parse(id: &str) -> Option<Self> {
+        let mut parts = id.strip_prefix('v')?.split('_');
+        let version = Self {
+            major: parts.next()?.parse().ok()?,
+            minor: parts.next()?.parse().ok()?,
+            patch: parts.next()?.parse().ok()?,
+        };
+        parts.next().is_none().then_some(version)
+    }
 }
 
 #[cfg(test)]
@@ -209,6 +240,19 @@ mod test {
                 <Property Name="Labels" Type="Collection(Edm.String)" Nullable="false"/>
               </EntityType>
             </Schema>
+            <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Widget.v1_10_0">
+              <EntityType Name="Widget" BaseType="Widget.v1_1_0.Widget">
+                <Property Name="Deca" Type="Edm.Boolean" Nullable="false"/>
+              </EntityType>
+            </Schema>
+            <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Cabinet">
+              <EntityType Name="Widget" Abstract="true" BaseType="Resource.Resource"/>
+            </Schema>
+            <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Cabinet.v9_9_9">
+              <EntityType Name="Widget" BaseType="Cabinet.Widget">
+                <Property Name="Legacy" Type="Edm.String" Nullable="false"/>
+              </EntityType>
+            </Schema>
           </edmx:DataServices>
         </edmx:Edmx>"#;
         SchemaBundle {
@@ -238,9 +282,17 @@ mod test {
         let id = query.resolve("Widget", "Id").expect("Id resolves");
         assert!(!id.nullable);
 
-        // Added in v1_1_0: the index picked the most derived version.
+        // Added in v1_1_0, visible through v1_10_0's base chain.
         let labels = query.resolve("Widget", "Labels").expect("Labels resolve");
         assert!(labels.collection);
+
+        // The index ranks versions numerically: v1_10_0 outranks v1_1_0,
+        // which plain string order would invert.
+        assert!(query.resolve("Widget", "Deca").is_some());
+
+        // `Cabinet.v9_9_9.Widget` shares the short name at a higher
+        // version, but `Widget` means the family rooted at `Widget`.
+        assert!(query.resolve("Widget", "Legacy").is_none());
 
         // Through a complex type to an enum, members included.
         let health = query
