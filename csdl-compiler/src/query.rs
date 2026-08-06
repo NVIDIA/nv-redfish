@@ -28,6 +28,8 @@ use crate::compiler::QualifiedName;
 use crate::compiler::SchemaBundle;
 use crate::compiler::TypeClass;
 use crate::edmx::EnumMemberName;
+use crate::optimizer::optimize;
+use crate::optimizer::Config as OptimizerConfig;
 use crate::OneOrCollection;
 
 /// One resolved structural property.
@@ -58,6 +60,7 @@ impl<'a> SchemaQuery<'a> {
             ..Config::default()
         };
         let compiled = bundle.compile_all(config)?;
+        let compiled = optimize(compiled, &OptimizerConfig::default());
 
         let mut entities = HashMap::new();
         for qname in compiled.entity_types.keys() {
@@ -86,12 +89,11 @@ impl<'a> SchemaQuery<'a> {
         let mut segments = path.split('.').peekable();
         while let Some(segment) = segments.next() {
             let property = self.property_of(current, segment)?;
-            let (info, type_name) = match &property.ptype {
+            let ((info, qname), collection) = match &property.ptype {
                 OneOrCollection::One(inner) => (inner, false),
                 OneOrCollection::Collection(inner) => (inner, true),
             };
-            let (class, collection) = (info.0.class, type_name);
-            let qname = info.1;
+            let (class, qname) = (info.class, *qname);
             if segments.peek().is_none() {
                 let enum_members = match class {
                     TypeClass::EnumType => self.compiled.enum_types.get(&qname).map(|declared| {
