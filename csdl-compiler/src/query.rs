@@ -16,6 +16,7 @@
 //! Schema queries for projection compilers.
 
 use std::collections::HashMap;
+use std::iter;
 
 use crate::compiler::Compiled;
 use crate::compiler::Config;
@@ -158,7 +159,7 @@ enum TypeRef<'a> {
 }
 
 fn chain_length<'a>(compiled: &Compiled<'a>, start: QualifiedName<'a>) -> usize {
-    std::iter::successors(Some(start), |&qname| {
+    iter::successors(Some(start), |&qname| {
         compiled.entity_types.get(&qname)?.base
     })
     .count()
