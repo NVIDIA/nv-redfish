@@ -58,7 +58,7 @@ impl<'a> SchemaQuery<'a> {
         };
         let compiled = bundle.compile_all(config)?;
 
-        let mut entities: HashMap<&str, QualifiedName<'_>> = HashMap::new();
+        let mut entities = HashMap::new();
         for qname in compiled.entity_types.keys() {
             let name = qname.name.inner().as_str();
             let replace = entities.get(name).is_none_or(|current| {
@@ -83,8 +83,7 @@ impl<'a> SchemaQuery<'a> {
     pub fn resolve(&self, entity: &str, path: &str) -> Option<ResolvedProperty<'a>> {
         let mut current = TypeRef::Entity(*self.entities.get(entity)?);
         let mut segments = path.split('.').peekable();
-        loop {
-            let segment = segments.next()?;
+        while let Some(segment) = segments.next() {
             let property = self.property_of(current, segment)?;
             let (info, type_name) = match &property.ptype {
                 OneOrCollection::One(inner) => (inner, false),
@@ -112,6 +111,7 @@ impl<'a> SchemaQuery<'a> {
             }
             current = TypeRef::Complex(qname);
         }
+        None
     }
 
     /// The named structural property, searched up the base chain.
@@ -157,16 +157,11 @@ enum TypeRef<'a> {
     Complex(QualifiedName<'a>),
 }
 
-fn chain_length<'a>(compiled: &Compiled<'a>, mut qname: QualifiedName<'a>) -> usize {
-    let mut length = 0;
-    while let Some(entity) = compiled.entity_types.get(&qname) {
-        length += 1;
-        match entity.base {
-            Some(base) => qname = base,
-            None => break,
-        }
-    }
-    length
+fn chain_length<'a>(compiled: &Compiled<'a>, start: QualifiedName<'a>) -> usize {
+    std::iter::successors(Some(start), |&qname| {
+        compiled.entity_types.get(&qname)?.base
+    })
+    .count()
 }
 
 #[cfg(test)]
