@@ -117,8 +117,7 @@ impl<'a> SchemaQuery<'a> {
 
     /// The named structural property, searched up the base chain.
     fn property_of(&self, mut tref: TypeRef<'a>, name: &str) -> Option<&Property<'a>> {
-        loop {
-            let (properties, base) = self.declaration(tref)?;
+        while let Some((properties, base)) = self.declaration(tref) {
             if let Some(property) = properties
                 .properties
                 .iter()
@@ -131,6 +130,7 @@ impl<'a> SchemaQuery<'a> {
                 TypeRef::Complex(_) => TypeRef::Complex(base?),
             };
         }
+        None
     }
 
     fn declaration(
