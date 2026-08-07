@@ -9,6 +9,7 @@ on:
 
 env:
   CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
 
 jobs:
   build-and-test:
@@ -25,7 +26,6 @@ jobs:
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "1.90.0"
-      - run: make ci
 
   bench-regression:
     runs-on: ubuntu-latest

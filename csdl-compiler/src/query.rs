@@ -188,13 +188,20 @@ struct Version {
 
 impl Version {
     fn parse(id: &str) -> Option<Self> {
-        let mut parts = id.strip_prefix('v')?.split('_');
+        let mut parts = id.strip_prefix('v')?.split('_').map(Self::number);
         let version = Self {
-            major: parts.next()?.parse().ok()?,
-            minor: parts.next()?.parse().ok()?,
-            patch: parts.next()?.parse().ok()?,
+            major: parts.next()??,
+            minor: parts.next()??,
+            patch: parts.next()??,
         };
         parts.next().is_none().then_some(version)
+    }
+
+    fn number(part: &str) -> Option<u64> {
+        part.bytes()
+            .all(|byte| byte.is_ascii_digit())
+            .then(|| part.parse().ok())
+            .flatten()
     }
 }
 
@@ -258,6 +265,15 @@ mod test {
         SchemaBundle {
             edmx_docs: vec![Edmx::parse(schema).expect("query test schema must be valid")],
             root_set_threshold: None,
+        }
+    }
+
+    #[test]
+    fn versions_rank_numerically_and_reject_loose_grammar() {
+        assert!(Version::parse("v1_10_0") > Version::parse("v1_9_9"));
+        assert!(Version::parse("v1_0_0") > None);
+        for loose in ["v+1_2_3", "v1_2", "v1_2_3_4", "v1_2_x", "1_2_3", "v1__3"] {
+            assert!(Version::parse(loose).is_none(), "{} must not parse", loose);
         }
     }
 
