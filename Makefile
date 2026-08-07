@@ -4,7 +4,7 @@
 
 pwd := $(shell pwd)
 
-maybe-lenovo-build = $(if $(wildcard $(pwd)/oem/lenovo/*.xml),cargo build --features oem-lenovo)
+maybe-lenovo-check = $(if $(wildcard $(pwd)/oem/lenovo/*.xml),cargo check --features oem-lenovo)
 
 space := $(empty) $(empty)
 comma :=,
@@ -63,50 +63,57 @@ std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-
 
 ci-features-list := $(subst $(space),$(comma),$(all-std-features))
 
-compile-one-feature = $(indent)cargo build -p nv-redfish --features $1$(new-line)
+# Feature sets whose only job is to prove the configuration type checks.
+# Nothing downstream consumes the artifacts, so they run under `cargo check`:
+# it stops after type checking and skips codegen, LLVM and linking, which is
+# where nearly all the time goes for a crate built from tens of thousands of
+# generated lines. Codegen and linking still get covered for the whole
+# workspace by the `cargo build`/`cargo test` steps below.
+compile-only-feature-sets = computer-systems,processors,controls \
+             managers,oem-hpe \
+             managers,oem-supermicro \
+             chassis,power-supplies,oem-liteon \
+             chassis,controls \
+             chassis,network-adapters \
+             chassis,network-adapters,network-device-functions \
+             update-service-deprecated \
+             bmc-http,update-service-deprecated \
+             computer-systems,bios,boot-options,storages,memory,processors \
+             oem-hpe,accounts \
+             oem-hpe \
+             oem-nvidia \
+             computer-systems,oem-nvidia \
+             chassis,oem-nvidia \
+             computer-systems,processors,memory,sensors,telemetry-service,oem-nvidia \
+             telemetry-service \
+             environment-metrics,memory,oem-nvidia \
+             oem-dell \
+             oem-ami \
+             managers,oem-dell-attributes \
+             $(std-standalone-features) \
+             ""
+
+check-one-feature = $(indent)cargo check -p nv-redfish --features $1$(new-line)
 
 define build-and-test
 	cargo fmt --all -- --check
 	cargo clippy $1
-	cargo build -p nv-redfish --features computer-systems,processors,controls
-	cargo build -p nv-redfish --features managers,oem-hpe
-	cargo build -p nv-redfish --features managers,oem-supermicro
-	cargo build -p nv-redfish --features chassis,power-supplies,oem-liteon
-	cargo build -p nv-redfish --features chassis,controls
-	cargo build -p nv-redfish --features chassis,network-adapters
-	cargo build -p nv-redfish --features chassis,network-adapters,network-device-functions
-	cargo build
-	cargo build -p nv-redfish
-	cargo build -p nv-redfish-tests --tests
-	cargo build -p nv-redfish-bmc-mock
-	cargo test $1 -- --no-capture
-	cargo build -p nv-redfish --features update-service-deprecated
-	cargo build -p nv-redfish --features bmc-http,update-service-deprecated
-	cargo test -p nv-redfish-bmc-http --test reqwest_client_tests --features reqwest,update-service-deprecated
-	cargo test -p nv-redfish-tests --test test-update-service --features update-service-deprecated
-	cargo build -p update-multipart --features update-service-deprecated
 	cargo clippy -p nv-redfish-dispatcher --all-targets
 	cargo clippy -p nv-redfish-dispatcher --all-targets --all-features
-	cargo test -p nv-redfish-dispatcher --all-features -- --no-capture
 	cargo clippy -p nv-redfish-bmc-http --bench cache
-	cargo build  $1
-	cargo build -p nv-redfish --features computer-systems,bios,boot-options,storages,memory,processors
-	cargo build -p nv-redfish --features oem-hpe,accounts
-	$(maybe-lenovo-build)
-	cargo build -p nv-redfish --features oem-hpe
-	cargo build -p nv-redfish --features oem-nvidia
-	cargo build -p nv-redfish --features computer-systems,oem-nvidia
-	cargo build -p nv-redfish --features chassis,oem-nvidia
-	cargo build -p nv-redfish --features computer-systems,processors,memory,sensors,telemetry-service,oem-nvidia
-	cargo build -p nv-redfish --features telemetry-service
-	cargo build -p nv-redfish --features environment-metrics,memory,oem-nvidia
-	cargo build -p nv-redfish --features oem-dell
-	cargo build -p nv-redfish --features oem-ami
-	cargo build -p nv-redfish --features managers,oem-dell-attributes
-	$(foreach f,$(std-standalone-features),$(call compile-one-feature,$f))
-	cargo build -p nv-redfish --features ""
-	cargo doc --no-deps $1
+	$(foreach f,$(compile-only-feature-sets),$(call check-one-feature,$f))
+	$(maybe-lenovo-check)
+	cargo check -p nv-redfish
+	cargo check -p nv-redfish-tests --tests
+	cargo check -p nv-redfish-bmc-mock
+	cargo build -p update-multipart --features update-service-deprecated
 	cargo build
+	cargo build $1
+	cargo test $1 -- --no-capture
+	cargo test -p nv-redfish-bmc-http --test reqwest_client_tests --features reqwest,update-service-deprecated
+	cargo test -p nv-redfish-tests --test test-update-service --features update-service-deprecated
+	cargo test -p nv-redfish-dispatcher --all-features -- --no-capture
+	cargo doc --no-deps $1
 
 endef
 

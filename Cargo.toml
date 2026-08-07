@@ -74,3 +74,27 @@ tokio-test = "0.4"
 # had to use 0.6.4 since it works with 2018 edition (2024 needs extra work) 
 wiremock = "0.6.4"
 trybuild = "1.0"
+
+# Build scripts here are not glue: each one runs the CSDL compiler over a few
+# hundred XML schemas and emits tens of thousands of lines of Rust, and it runs
+# again for every feature set. `build-override` covers build scripts, proc
+# macros and their dependencies -- nv-redfish-csdl-compiler, quick-xml, syn and
+# prettyplease -- so the generator runs optimized while the crates under test
+# still compile at opt-level 0.
+[profile.dev.build-override]
+opt-level = 2
+debug = false
+
+[profile.release.build-override]
+opt-level = 2
+debug = false
+
+# nv-redfish is built from tens of thousands of generated lines, and `make ci`
+# builds it under ~35 feature sets. Full debuginfo for that is the bulk of the
+# artifact size and of link time. Line tables keep test backtraces useful for
+# workspace crates; dependencies are not stepped through, so they get none.
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+debug = false
