@@ -195,8 +195,8 @@ impl BmcQuirks {
 
     /// In some implementations, Event records in SSE payload omit `EventType`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_missing_event_type(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_missing_event_type(&self) -> bool {
+        matches!(self.platform, Some(Platform::Nvidia | Platform::VeraRubin))
     }
 
     /// SSE payload does not include `@odata.id`.
