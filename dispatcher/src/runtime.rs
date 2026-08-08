@@ -65,6 +65,23 @@ use std::time::Instant;
 /// to keep struct types simple under `clippy::type_complexity`.
 type RuntimePhantom<Ev, Err, M> = PhantomData<fn() -> (Ev, Err, M)>;
 
+#[derive(Clone, Copy)]
+enum SleepHint {
+    /// Deadline observed from the scheduler but not yet returned to the driver.
+    Observed(Instant),
+
+    /// Deadline already returned to the driver.
+    Emitted(Instant),
+}
+
+impl SleepHint {
+    const fn deadline(self) -> Instant {
+        match self {
+            Self::Observed(deadline) | Self::Emitted(deadline) => deadline,
+        }
+    }
+}
+
 /// Work payload consumed by this runtime: a boxed future with terminal
 /// value `Result<Vec<Ev>, Err>`. Schedulers parameterized as
 /// `Scheduler<FutureWork<Ev, Err>>` are compatible with [`Runtime::new`].
@@ -85,6 +102,7 @@ pub type FutureWork<Ev, Err> = Pin<Box<dyn Future<Output = Result<Vec<Ev>, Err>>
 pub struct Runtime<Ev, Err, M: WorkMeta> {
     config: RuntimeConfig,
     clock: RuntimeClock,
+    sleep_hint: Option<SleepHint>,
     in_flight: FuturesUnordered<InFlight<Ev, Err, M>>,
     completion: Vec<Completion<M>>,
     output: VecDeque<RuntimeOutput<Ev, Err>>,
@@ -131,6 +149,7 @@ where
                 ClockConfig::Manual(ref clock) => RuntimeClock::Manual(clock.clone()),
             },
             in_flight: FuturesUnordered::new(),
+            sleep_hint: None,
             completion: Vec::new(),
             output: VecDeque::new(),
             config,
@@ -271,6 +290,11 @@ where
             let now = self.runtime.clock.now();
             let mut in_flight = mem::take(&mut self.runtime.in_flight);
             let global_max_in_flight = self.runtime.config.global_max_in_flight;
+
+            // Retain a future scheduler deadline across polls, including while
+            // payloads remain in flight. Once reached, drop it so the scheduler
+            // can report work that has become eligible.
+            let mut sleep_hint = self.runtime.sleep_hint.filter(|hint| now < hint.deadline());
             let mut shutdown = false;
             if in_flight.len() < global_max_in_flight.into() {
                 let mut shared = self
@@ -292,17 +316,30 @@ where
                             });
                         }
                         SharedNextResult::SleepUntil(v) => {
-                            if in_flight.is_empty() {
-                                return Poll::Ready(RuntimeOutput::SleepUntil(v));
+                            // A later scheduler result cannot postpone an earlier
+                            // retained deadline. A newly observed earlier deadline
+                            // must be returned so the driver can adjust its timer.
+                            if sleep_hint.is_none_or(|hint| hint.deadline() > v) {
+                                sleep_hint = Some(SleepHint::Observed(v));
                             }
                             break;
                         }
                         SharedNextResult::Nothing => {
+                            // The scheduler currently has no timed transition, so
+                            // any retained deadline is no longer actionable.
+                            sleep_hint = None;
                             break;
                         }
                     }
                 }
             }
+
+            if shutdown {
+                // Deadlines only admit future scheduler work, which shutdown
+                // forbids.
+                sleep_hint = None;
+            }
+
             self.runtime
                 .stats
                 .in_flight
@@ -317,17 +354,37 @@ where
                 .stats
                 .output_queued
                 .store(self.runtime.output.len(), Ordering::Relaxed);
-            self.runtime.in_flight = in_flight;
 
-            // Shutdown is emitted only once everything has drained.
+            self.runtime.in_flight = in_flight;
+            // Payload completion and scheduler timing are independent wake-up
+            // sources, so preserve the deadline even when work remains active.
+            self.runtime.sleep_hint = sleep_hint;
+
+            // During shutdown, scheduler deadlines are ignored and no new
+            // work is admitted. Emit the terminal output only after running
+            // work, completions, and queued outputs have drained.
             if shutdown
                 && self.runtime.in_flight.is_empty()
                 && self.runtime.output.is_empty()
                 && self.runtime.completion.is_empty()
             {
+                self.runtime.sleep_hint = None;
                 return Poll::Ready(RuntimeOutput::Shutdown);
             }
+
+            // Return queued work before a newly observed deadline. Mark the
+            // deadline as emitted so the next call can poll in-flight work
+            // without returning the same deadline again.
+            if self.runtime.output.is_empty() {
+                if let Some(SleepHint::Observed(deadline)) = sleep_hint {
+                    self.runtime.sleep_hint = Some(SleepHint::Emitted(deadline));
+                    return Poll::Ready(RuntimeOutput::SleepUntil(deadline));
+                }
+            }
         }
+
+        // Any retained deadline has already been returned to the driver. This
+        // future now parks until another wake source can make progress.
         Poll::Pending
     }
 }
@@ -655,14 +712,11 @@ pub enum RuntimeOutput<Ev, Err, R = RuntimeEventType> {
     },
     /// Out-of-band runtime event (only when `runtime-events` is enabled).
     Runtime(R),
-    /// Runtime requested to sleep until the given instant before the
-    /// next `next()` call (e.g. `tokio::time::sleep`); calling earlier
-    /// is always safe.
-    ///
-    /// Control-plane changes ([`RuntimeHandle::graceful_shutdown`],
-    /// [`RuntimeHandle::with_root_mut`]) are only observed at the next
-    /// `next()` call. Drivers needing a prompt reaction should race the
-    /// sleep against their own wake signal (e.g. `tokio::select!`).
+
+    /// Scheduler readiness deadline. It may be emitted while payloads
+    /// remain in flight. Drivers should retain the deadline and race
+    /// sleeping until it against another call to [`Runtime::next`];
+    /// calling `next()` earlier is always safe.
     SleepUntil(Instant),
     /// Sticky terminal output after graceful shutdown drains. Subsequent
     /// `next()` calls return this immediately.
@@ -873,9 +927,9 @@ mod tests {
     use core::time::Duration;
     use std::{num::NonZeroUsize, time::Instant};
 
-    use futures_util::future::poll_immediate;
+    use futures_util::future::{pending, poll_immediate};
 
-    use super::{ClockConfig, FutureWork, Runtime, RuntimeConfig, RuntimeOutput};
+    use super::{ClockConfig, FutureWork, ManualClock, Runtime, RuntimeConfig, RuntimeOutput};
     use crate::schedulers::{PeriodicLeaf, RoundRobin};
 
     type TestWork = FutureWork<u64, String>;
@@ -957,6 +1011,93 @@ mod tests {
             }
         }
         assert!(handle.stats().dispatched >= 5);
+    }
+
+    #[tokio::test]
+    async fn deadline_dispatches_due_work_while_other_work_is_in_flight() {
+        let clock = ManualClock::new();
+        let now = clock.now();
+        let deadline = now + Duration::from_secs(1);
+        let interval = Duration::from_secs(60);
+
+        let mut root = TestRoot::new();
+
+        root.add_child(PeriodicLeaf::new(now, interval, || {
+            Box::pin(pending()) as TestWork
+        }));
+
+        root.add_child(PeriodicLeaf::starting_at(now, deadline, interval, || {
+            Box::pin(async { Ok(vec![9_u64]) }) as TestWork
+        }));
+
+        let mut rt = Runtime::new(
+            RuntimeConfig {
+                global_max_in_flight: NonZeroUsize::new(2).expect("non-zero"),
+                clock: ClockConfig::Manual(clock.clone()),
+            },
+            root,
+        );
+
+        let handle = rt.handle();
+
+        let output = poll_immediate(rt.next()).await;
+
+        assert!(matches!(
+            output,
+            Some(RuntimeOutput::SleepUntil(observed)) if observed == deadline
+        ));
+
+        assert_eq!(handle.stats().in_flight, 1);
+
+        let output = poll_immediate(rt.next()).await;
+
+        assert!(output.is_none());
+
+        clock.advance_to(deadline);
+
+        let output = rt.next().await;
+
+        assert!(matches!(
+            output,
+            RuntimeOutput::Work { result: Ok(events), .. } if events == vec![9]
+        ));
+    }
+
+    #[tokio::test]
+    async fn shutdown_does_not_emit_a_sleep_hint_while_work_is_in_flight() {
+        let clock = ManualClock::new();
+        let now = clock.now();
+        let deadline = now + Duration::from_secs(1);
+        let interval = Duration::from_secs(60);
+        let mut root = TestRoot::new();
+
+        root.add_child(PeriodicLeaf::new(now, interval, || {
+            Box::pin(async { Ok(vec![9_u64]) }) as TestWork
+        }));
+
+        root.add_child(PeriodicLeaf::new(now, interval, || {
+            Box::pin(pending()) as TestWork
+        }));
+
+        root.add_child(PeriodicLeaf::starting_at(now, deadline, interval, || {
+            Box::pin(async { Ok(vec![10_u64]) }) as TestWork
+        }));
+
+        let mut rt = Runtime::new(
+            RuntimeConfig {
+                global_max_in_flight: NonZeroUsize::new(3).expect("non-zero"),
+                clock: ClockConfig::Manual(clock),
+            },
+            root,
+        );
+
+        let handle = rt.handle();
+
+        assert!(matches!(rt.next().await, RuntimeOutput::Work { .. }));
+
+        handle.graceful_shutdown();
+
+        assert!(poll_immediate(rt.next()).await.is_none());
     }
 
     #[tokio::test]

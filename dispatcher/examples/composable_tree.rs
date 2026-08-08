@@ -49,9 +49,9 @@
 //! `nv_redfish_dispatcher::schedulers` instead.
 //!
 //! A background task calls `graceful_shutdown` after a few seconds; the
-//! driver drains, prints runtime stats, and exits. The driver honors
-//! `SleepUntil` with a plain sleep, so a shutdown issued mid-sleep is
-//! observed at the next `next()` call (see `RuntimeOutput::SleepUntil`).
+//! driver drains, prints runtime stats, and exits. The driver races each
+//! `SleepUntil` deadline against `next()`, so it observes in-flight work
+//! and shutdown without waiting for the deadline.
 
 use core::marker::PhantomData;
 use core::time::Duration;
@@ -298,10 +298,24 @@ async fn main() {
 
     // 5. Drive the runtime. `next()` is the single ordered output stream.
     let start = Instant::now();
+    let mut sleep_until = None;
+
     loop {
-        match runtime.next().await {
+        let output = if let Some(deadline) = sleep_until {
+            tokio::select! {
+                output = runtime.next() => output,
+                _ = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => {
+                    sleep_until = None;
+                    continue;
+                }
+            }
+        } else {
+            runtime.next().await
+        };
+
+        match output {
             RuntimeOutput::SleepUntil(v) => {
-                tokio::time::sleep(v.duration_since(Instant::now())).await;
+                sleep_until = Some(v);
             }
             RuntimeOutput::Work { result, latency } => match result {
                 Ok(events) => println!(
