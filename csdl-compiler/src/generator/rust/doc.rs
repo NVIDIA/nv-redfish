@@ -16,6 +16,7 @@
 //! Generation of Rust doc by comment lines.
 
 use crate::compiler::OData;
+use crate::redfish::Deprecation;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -27,12 +28,22 @@ use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
 use std::fmt::Display;
 
-/// Generate rust doc from description and long description.
+/// Generate rust doc from description and long description, followed
+/// by a deprecation note when the documented object is deprecated.
 #[must_use]
-pub fn format_and_generate(name: impl Display, odata: &OData<'_>) -> TokenStream {
-    format(name, odata)
-        .map(|lines| generate(&lines))
-        .unwrap_or_default()
+pub fn format_and_generate(
+    name: impl Display,
+    odata: &OData<'_>,
+    deprecation: Option<&Deprecation>,
+) -> TokenStream {
+    let mut lines = format(name, odata).unwrap_or_default();
+    if let Some(deprecation) = deprecation {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines.extend(split_by_lines(&deprecation_text(deprecation)));
+    }
+    generate(&lines)
 }
 
 /// Format long and short descriptions to multiple lines.
@@ -55,6 +66,18 @@ pub fn format(name: impl Display, odata: &OData<'_>) -> Option<Vec<String>> {
             Some(result)
         }
     }
+}
+
+fn deprecation_text(deprecation: &Deprecation) -> String {
+    let header = deprecation.version.as_ref().map_or_else(
+        || "Deprecated".to_owned(),
+        |version| format!("Deprecated since {version}"),
+    );
+    let suffix = deprecation
+        .description
+        .as_ref()
+        .map_or_else(|| ".".to_owned(), |description| format!(": {description}"));
+    header + &suffix
 }
 
 /// Generate muliple lines in doc strings in `TokenStream`.

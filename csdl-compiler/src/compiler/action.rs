@@ -32,6 +32,7 @@ use crate::edmx::Action as EdmxAction;
 use crate::edmx::ActionName;
 use crate::edmx::ParameterName;
 use crate::redfish::annotations::RedfishAnnotations as _;
+use crate::redfish::Deprecation;
 use crate::IsNullable;
 use crate::OneOrCollection;
 
@@ -51,6 +52,9 @@ pub struct Action<'a> {
     /// Type of the parameter. Note we reuse `PropertyType`, it
     /// maybe not exact and may be change in future.
     pub parameters: Vec<Parameter<'a>>,
+    /// Deprecation revision, if the schema marks the action
+    /// deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
     /// `OData` annotations of the action.
     pub odata: OData<'a>,
 }
@@ -72,6 +76,7 @@ impl<'a> MapType<'a> for Action<'a> {
                 .map(|p| p.map_type(&f))
                 .collect(),
             odata: self.odata,
+            deprecation: self.deprecation,
         }
     }
 }
@@ -152,6 +157,7 @@ pub(crate) fn compile_action<'a>(
             nullable: p.nullable.unwrap_or(IsNullable::new(false)),
             required: p.is_required(),
             odata: OData::new(MustHaveId::new(false), p),
+            deprecation: p.deprecation().map(Box::new),
         });
         Ok((cstack.merge(compiled), params))
     })?;
@@ -164,6 +170,7 @@ pub(crate) fn compile_action<'a>(
             return_type,
             parameters,
             odata: OData::new(MustHaveId::new(false), action),
+            deprecation: action.deprecation().map(Box::new),
         }))
         .done())
 }

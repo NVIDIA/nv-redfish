@@ -205,6 +205,17 @@ impl<T: EntityTypeRef> NavProperty<T> {
             Self::Expanded(v) => v.0.odata_id(),
         }
     }
+
+    /// The property value, if the property was expanded in the
+    /// response. Unlike [`NavProperty::get`] this never touches the
+    /// BMC: a reference variant yields `None`.
+    #[must_use]
+    pub fn expanded(&self) -> Option<&T> {
+        match self {
+            Self::Expanded(v) => Some(v.0.as_ref()),
+            Self::Reference(_) => None,
+        }
+    }
 }
 
 impl<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static> NavProperty<T> {

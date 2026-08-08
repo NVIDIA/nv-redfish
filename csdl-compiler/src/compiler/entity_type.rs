@@ -27,6 +27,8 @@ use crate::compiler::QualifiedName;
 use crate::compiler::Stack;
 use crate::edmx::entity_type::Key;
 use crate::edmx::EntityType as EdmxEntityType;
+use crate::redfish::annotations::RedfishAnnotations as _;
+use crate::redfish::Deprecation;
 use crate::IsAbstract;
 
 /// Compiled entity type.
@@ -44,6 +46,8 @@ pub struct EntityType<'a> {
     pub odata: OData<'a>,
     /// Whether the type is abstract.
     pub is_abstract: IsAbstract,
+    /// Deprecation revision, if the schema marks the type deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 
 impl<'a> EntityType<'a> {
@@ -87,6 +91,7 @@ impl<'a> EntityType<'a> {
             properties,
             odata: OData::new(MustHaveId::new(true), schema_entity_type),
             is_abstract: schema_entity_type.is_abstract,
+            deprecation: schema_entity_type.deprecation().map(Box::new),
         };
         Ok(stack
             .merge(compiled)

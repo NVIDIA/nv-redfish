@@ -19,11 +19,12 @@ use crate::compiler::OData;
 use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::edmx::ParameterName;
+use crate::redfish::Deprecation;
 use crate::IsNullable;
 use crate::IsRequired;
 
 /// Compiled action parameter.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct Parameter<'a> {
     /// Name of the parameter.
     pub name: &'a ParameterName,
@@ -35,6 +36,9 @@ pub struct Parameter<'a> {
     pub required: IsRequired,
     /// `OData` annotations for the parameter.
     pub odata: OData<'a>,
+    /// Deprecation revision, if the schema marks the parameter
+    /// deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 
 /// Parameter type. Reuses `CompiledPropertyType`; this may not be an
@@ -70,6 +74,7 @@ impl<'a> MapType<'a> for Parameter<'a> {
             nullable: self.nullable,
             required: self.required,
             odata: self.odata,
+            deprecation: self.deprecation,
         }
     }
 }

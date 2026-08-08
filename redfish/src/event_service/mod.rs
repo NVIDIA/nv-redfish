@@ -101,9 +101,6 @@ impl<B: Bmc> EventService<B> {
             if bmc.quirks.event_service_sse_no_member_id() {
                 sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
             }
-            if bmc.quirks.event_service_sse_missing_event_type() {
-                sse_event_record_patches.push(patch::patch_missing_event_type_to_unsupported);
-            }
             if bmc.quirks.event_service_sse_no_odata_id() {
                 let patch_event_id: ReadPatchFn =
                     Arc::new(patch::patch_missing_event_odata_id as fn(JsonValue) -> JsonValue);
@@ -192,16 +189,15 @@ impl<B: Bmc> Resource for EventService<B> {
 mod tests {
     use super::EventStreamPayload;
 
-    #[test]
-    fn event_stream_payload_deserializes_event_record() {
-        let value = serde_json::json!({
+    fn event_payload() -> serde_json::Value {
+        serde_json::json!({
             "@odata.id": "/redfish/v1/EventService/SSE#/Event1",
             "@odata.type": "#Event.v1_6_0.Event",
             "Id": "1",
             "Name": "Event Array",
             "Context": "ABCDEFGH",
             "Events": [
-                    {
+                {
                     "@odata.id": "/redfish/v1/EventService/SSE#/Events/88",
                     "MemberId": "88",
                     "EventId": "88",
@@ -216,13 +212,37 @@ mod tests {
                     "OriginOfCondition": {
                         "@odata.id": "/redfish/v1/AccountService/Accounts/1"
                     }
-            }
+                }
             ]
-        });
+        })
+    }
+
+    #[test]
+    fn event_stream_payload_deserializes_event_record() {
+        let payload: EventStreamPayload =
+            serde_json::from_value(event_payload()).expect("event payload must deserialize");
+        assert!(matches!(payload, EventStreamPayload::Event(_)));
+    }
+
+    // `EventType` is deprecated since Event v1.3 and newer firmware
+    // legitimately omits it from SSE event records.
+    #[test]
+    fn event_stream_payload_deserializes_event_record_without_event_type() {
+        let mut value = event_payload();
+        value["Events"][0]
+            .as_object_mut()
+            .expect("event record object")
+            .remove("EventType");
 
         let payload: EventStreamPayload =
             serde_json::from_value(value).expect("event payload must deserialize");
-        assert!(matches!(payload, EventStreamPayload::Event(_)));
+        let event = match payload {
+            EventStreamPayload::Event(event) => Some(event),
+            EventStreamPayload::MetricReport(_) => None,
+        }
+        .expect("event payload");
+        let record = event.events[0].expanded().expect("expanded event record");
+        assert!(record.event_type.is_none());
     }
 
     #[test]

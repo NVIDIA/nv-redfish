@@ -65,6 +65,8 @@ pub use action::Action;
 #[doc(inline)]
 pub use annotation::Annotation;
 #[doc(inline)]
+pub use annotation::AnnotationEnumMember;
+#[doc(inline)]
 pub use annotation::AnnotationRecord;
 #[doc(inline)]
 pub use attribute_values::Namespace;

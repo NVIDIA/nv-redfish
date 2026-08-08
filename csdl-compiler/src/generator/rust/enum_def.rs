@@ -51,7 +51,7 @@ impl EnumDef<'_> {
             let snake_case_literal = Literal::string(&snake_case_str);
 
             members_content.extend([
-                doc_format_and_generate(m.name, &m.odata),
+                doc_format_and_generate(m.name, &m.odata, m.deprecation.as_deref()),
                 quote! {
                     #[serde(rename=#rename)]
                     #member_name,
@@ -71,7 +71,11 @@ impl EnumDef<'_> {
             Self::UnsupportedValue => "unsupported_value",
         });
         tokens.extend([
-            doc_format_and_generate(self.name, &self.compiled.odata),
+            doc_format_and_generate(
+                self.name,
+                &self.compiled.odata,
+                self.compiled.deprecation.as_deref(),
+            ),
             quote! {
                 #[derive(Serialize, Deserialize, Debug, PartialEq, Eq, Clone, Copy)]
                 #[allow(clippy::enum_variant_names)]

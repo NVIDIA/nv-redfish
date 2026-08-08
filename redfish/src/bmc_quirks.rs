@@ -23,6 +23,12 @@ use crate::account::SlotDefinedConfig as SlotDefinedUserAccountsConfig;
 /// for each individual platform class.
 pub struct BmcQuirks {
     platform: Option<Platform>,
+    /// Vendor is NVIDIA regardless of which platform class the
+    /// product was classified into. Quirks that apply to the whole
+    /// vendor family gate on this instead of enumerating platforms,
+    /// so a new product-specific match arm cannot silently drop them.
+    #[cfg(feature = "event-service")]
+    nvidia_vendor: bool,
 }
 
 // Platform shouldn't be considered as vendor. Actually it is class of
@@ -34,10 +40,8 @@ enum Platform {
     AmiViking,
     AmiGb300,
     VeraRubin,
-    Nvidia,
     NvidiaDpu,
     Anonymous1_9_0,
-    NvSwitch,
 }
 
 impl BmcQuirks {
@@ -62,8 +66,8 @@ impl BmcQuirks {
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
             Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
-            Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
-            Some("NVIDIA") => Some(Platform::Nvidia),
+            // Other NVIDIA host BMC products have no platform-specific
+            // quirks; NVIDIA-family quirks gate on `nvidia_vendor`.
             // BF3 service roots use this product name with an `Nvidia` vendor.
             Some("Nvidia") if matches!(product_str, Some("Nvidia-BMCMezz" | "BlueField-3 DPU")) => {
                 Some(Platform::NvidiaDpu)
@@ -71,7 +75,13 @@ impl BmcQuirks {
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
-        Self { platform }
+        Self {
+            platform,
+            // Both vendor string casings are in the wild: "NVIDIA" on
+            // host BMCs and "Nvidia" on BlueField DPUs.
+            #[cfg(feature = "event-service")]
+            nvidia_vendor: matches!(vendor_str, Some("NVIDIA" | "Nvidia")),
+        }
     }
 
     // Account type is required according to schema specification
@@ -181,9 +191,15 @@ impl BmcQuirks {
 
     /// In some implementations, Event records in SSE payload do not include
     /// `MemberId`.
+    ///
+    /// Gated on the NVIDIA vendor family rather than platform classes:
+    /// product-specific match arms split off the generic NVIDIA
+    /// platform twice (VeraRubin, NvSwitch) and silently dropped this
+    /// patch. The patch is a no-op on firmware that provides
+    /// `MemberId`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_no_member_id(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_no_member_id(&self) -> bool {
+        self.nvidia_vendor
     }
 
     /// In some implementations, Event records in SSE payload use compact
@@ -191,12 +207,6 @@ impl BmcQuirks {
     #[cfg(feature = "event-service")]
     pub(crate) fn event_service_sse_wrong_timestamp_offset(&self) -> bool {
         self.platform == Some(Platform::Dell)
-    }
-
-    /// In some implementations, Event records in SSE payload omit `EventType`.
-    #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_missing_event_type(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
     }
 
     /// SSE payload does not include `@odata.id`.
@@ -248,5 +258,44 @@ impl BmcQuirks {
             self.platform,
             Some(Platform::AmiViking | Platform::AmiGb300)
         )
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "event-service")]
+mod tests {
+    use super::BmcQuirks;
+    use crate::schema::service_root::ServiceRoot;
+
+    fn quirks(vendor: &str, product: &str) -> BmcQuirks {
+        let root: ServiceRoot = serde_json::from_value(serde_json::json!({
+            "@odata.id": "/redfish/v1",
+            "@odata.type": "#ServiceRoot.v1_9_0.ServiceRoot",
+            "Id": "RootService",
+            "Name": "Root Service",
+            "RedfishVersion": "1.9.0",
+            "Vendor": vendor,
+            "Product": product,
+            "Links": {
+                "Sessions": { "@odata.id": "/redfish/v1/SessionService/Sessions" }
+            },
+        }))
+        .expect("service root");
+        BmcQuirks::new(&root)
+    }
+
+    // The SSE MemberId patch must stay applied to the whole NVIDIA
+    // vendor family: platform match arms that split a product off the
+    // generic NVIDIA arm have silently dropped it twice (VeraRubin,
+    // NvSwitch). Gating on the vendor makes future product splits
+    // unable to recreate that bug.
+    #[test]
+    fn sse_member_id_patch_covers_nvidia_vendor_family() {
+        assert!(quirks("NVIDIA", "Generic").event_service_sse_no_member_id());
+        assert!(quirks("NVIDIA", "VR NVL72").event_service_sse_no_member_id());
+        assert!(quirks("NVIDIA", "P3809").event_service_sse_no_member_id());
+        assert!(quirks("Nvidia", "BlueField-3 DPU").event_service_sse_no_member_id());
+        assert!(quirks("Nvidia", "FutureProduct").event_service_sse_no_member_id());
+        assert!(!quirks("Dell", "PowerEdge").event_service_sse_no_member_id());
     }
 }

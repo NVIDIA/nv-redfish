@@ -171,6 +171,58 @@ async fn required_non_nullable_property_test() -> Result<(), Error> {
     Ok(())
 }
 
+// Check that deprecation cancels Redfish.Required on read: a
+// deprecated required property deserializes as None when absent
+// (newer firmware legitimately omits it), while a required property
+// whose only revision is Added stays required and its absence is an
+// error.
+#[test]
+async fn deprecated_required_property_test() -> Result<(), Error> {
+    let bmc = Bmc::default();
+    let root_id = ODataId::service_root();
+    let service_name = "TestDeprecatedService";
+    let service_id = format!("{root_id}/{service_name}");
+    let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
+
+    bmc.expect(expect_root_srv(service_name, &service_id));
+    let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
+    let nav = service_root
+        .test_deprecated_service
+        .as_ref()
+        .ok_or(Error::ExpectedProperty("test_deprecated_service"))?;
+
+    let service_tpl = json!({
+        ODATA_ID: &service_id,
+        ODATA_TYPE: &service_data_type,
+        "RequiredWithAddedRevision": "AddedValue",
+    });
+
+    bmc.expect(Expect::get(&service_id, &service_tpl));
+    let service = nav.get(&bmc).await.map_err(Error::Bmc)?;
+    assert_eq!(service.deprecated_required, None);
+    assert_eq!(service.required_with_added_revision, "AddedValue");
+
+    let value = "SomeValue".to_string();
+    bmc.expect(Expect::get(
+        service_id.clone(),
+        json_merge([&service_tpl, &json!({ "DeprecatedRequired": &value })]),
+    ));
+    let service = service.refresh(&bmc).await.map_err(Error::Bmc)?;
+    assert_eq!(service.deprecated_required, Some(value));
+
+    // The Added-only revision does not cancel required: its absence
+    // is still a deserialization error.
+    bmc.expect(Expect::get(
+        service_id.clone(),
+        &json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: &service_data_type,
+        }),
+    ));
+    assert!(service.refresh(&bmc).await.map_err(Error::Bmc).is_err());
+    Ok(())
+}
+
 // Check that nullable optional property is represent by
 // Option<Option<T>> and implementation can distinguish `"field:
 // null"` from absense of `field`.
