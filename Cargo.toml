@@ -33,6 +33,7 @@ keywords = ["rust", "redfish", "bmc"]
 categories = ["hardware-support"]
 
 [workspace.dependencies]
+async-lock = { version = "3.4" }
 clap = { version = "4.5" }
 clap_derive = { version = "4.5" }
 sse-stream = { version = "0.2.4" }
