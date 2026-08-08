@@ -34,7 +34,6 @@
     clippy::print_stderr
 )]
 #![allow(clippy::doc_markdown)]
-#![allow(clippy::duration_suboptimal_units)]
 #![deny(missing_docs)]
 
 //! HTTP implementation of [`nv_redfish_core::Bmc`] trait.
