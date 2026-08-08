@@ -110,7 +110,8 @@ impl<'a> ModDef<'a> {
                 })
         } else {
             let struct_name = TypeName::new_qualified(ct.name.name);
-            let builder = StructDef::builder(struct_name, ct.odata);
+            let builder = StructDef::builder(struct_name, ct.odata)
+                .with_deprecation(ct.redfish.deprecation.clone());
             let builder = if let Some(base) = ct.base {
                 builder.with_base(base)
             } else {
@@ -264,7 +265,8 @@ impl<'a> ModDef<'a> {
                 })
         } else {
             let struct_name = TypeName::new_qualified(t.name.name);
-            let builder = StructDef::builder(struct_name, t.odata);
+            let builder =
+                StructDef::builder(struct_name, t.odata).with_deprecation(t.deprecation.clone());
             let builder = if let Some(base) = t.base {
                 builder.with_base(base)
             } else {
@@ -332,6 +334,7 @@ impl<'a> ModDef<'a> {
         } else {
             let struct_name = TypeName::new_action(t.binding_name, t.name);
             let struct_def = StructDef::builder(struct_name, t.odata)
+                .with_deprecation(t.deprecation.clone())
                 .with_parameters(t.parameters.clone())
                 .with_generate_type(vec![GenerateType::Action])
                 .build(config)?;

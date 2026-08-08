@@ -91,18 +91,6 @@ pub(super) fn patch_missing_event_record_member_id(
     );
 }
 
-pub(super) fn patch_missing_event_type_to_unsupported(
-    value: &mut JsonMap<String, JsonValue>,
-    _index: usize,
-) {
-    if value.get("EventType").is_none() {
-        value.insert(
-            "EventType".to_string(),
-            JsonValue::String("UnsupportedValue".to_string()),
-        );
-    }
-}
-
 pub(super) fn patch_missing_event_record_odata_id(
     value: &mut JsonMap<String, JsonValue>,
     _index: usize,
@@ -147,7 +135,6 @@ mod tests {
     use super::fix_timestamp_offset;
     use super::patch_event_records;
     use super::patch_missing_event_record_member_id;
-    use super::patch_missing_event_type_to_unsupported;
     use super::EventRecordPatchFn;
     use serde_json::json;
 
@@ -160,44 +147,6 @@ mod tests {
     #[test]
     fn keeps_rfc3339_offset_unchanged() {
         assert_eq!(fix_timestamp_offset("2017-11-23T17:17:42-06:00"), None);
-    }
-
-    #[test]
-    fn inserts_event_type_when_absent() {
-        let payload = json!({
-            "Events": [
-                {
-                    "EventId": "1",
-                    "MessageId": "ResourceEvent.1.0.ResourceErrorsDetected"
-                },
-                {
-                    "EventId": "2",
-                    "EventType": "Alert"
-                }
-            ]
-        });
-
-        let payload = patch_event_records(
-            payload,
-            &[patch_missing_event_type_to_unsupported as EventRecordPatchFn],
-        );
-
-        let events = payload
-            .get("Events")
-            .and_then(serde_json::Value::as_array)
-            .expect("events array");
-        assert_eq!(
-            events[0]
-                .get("EventType")
-                .and_then(serde_json::Value::as_str),
-            Some("UnsupportedValue")
-        );
-        assert_eq!(
-            events[1]
-                .get("EventType")
-                .and_then(serde_json::Value::as_str),
-            Some("Alert")
-        );
     }
 
     #[test]

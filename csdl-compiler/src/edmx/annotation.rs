@@ -18,10 +18,7 @@
 use crate::edmx::attribute_values::Error as AttributeValuesError;
 use crate::edmx::EnumMemberName;
 use crate::edmx::QualifiedTypeName;
-use serde::de::Error as DeError;
-use serde::de::Visitor;
 use serde::Deserialize;
-use serde::Deserializer;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
@@ -39,12 +36,28 @@ pub struct Annotation {
     pub bool_value: Option<bool>,
     #[serde(rename = "@Int")]
     pub int_value: Option<i64>,
+    /// 14.4.7 `EnumMember` expression, kept verbatim. Use
+    /// [`Annotation::enum_members`].
     #[serde(rename = "@EnumMember")]
-    pub enum_member: Option<Box<AnnotationEnumMember>>,
+    enum_member: Option<String>,
     #[serde(rename = "Collection")]
     pub collection: Option<AnnotationCollection>,
     #[serde(rename = "Record")]
     pub record: Option<AnnotationRecord>,
+}
+
+impl Annotation {
+    /// The `EnumMember` expression members (14.4.7).
+    ///
+    /// A value may hold several space-separated members (`IsFlags`
+    /// enumerations); they are yielded individually, in document
+    /// order. Members outside the `Namespace.Type/Member` grammar of
+    /// [`AnnotationEnumMember`] are skipped: the document is stored
+    /// verbatim and interpretation is left to the consumer, so an
+    /// unsupported member cannot fail the parse of the document.
+    pub fn enum_members(&self) -> impl Iterator<Item = AnnotationEnumMember> + '_ {
+        parse_enum_members(self.enum_member.iter())
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,12 +95,52 @@ pub struct PropertyValue {
     pub string_value: Option<String>,
     #[serde(rename = "@Int")]
     pub int_value: Option<i64>,
+    /// 14.4.7 `EnumMember` expression in attribute form, kept
+    /// verbatim. Use [`PropertyValue::enum_members`].
+    #[serde(rename = "@EnumMember")]
+    enum_member_attribute: Option<String>,
+    /// 14.4.7 `EnumMember` expression in child-element form, kept
+    /// verbatim. Use [`PropertyValue::enum_members`].
+    #[serde(rename = "EnumMember", default)]
+    enum_member_elements: Vec<String>,
+}
+
+impl PropertyValue {
+    /// The `EnumMember` expression members (14.4.7), given in either
+    /// attribute or child-element form.
+    ///
+    /// A value may hold several space-separated members (`IsFlags`
+    /// enumerations); they are yielded individually, in document
+    /// order. Members outside the `Namespace.Type/Member` grammar of
+    /// [`AnnotationEnumMember`] are skipped: the document is stored
+    /// verbatim and interpretation is left to the consumer, so an
+    /// unsupported member cannot fail the parse of the document.
+    pub fn enum_members(&self) -> impl Iterator<Item = AnnotationEnumMember> + '_ {
+        parse_enum_members(
+            self.enum_member_attribute
+                .iter()
+                .chain(self.enum_member_elements.iter()),
+        )
+    }
+}
+
+// Parse the members of EnumMember expression values, skipping members
+// that do not follow the AnnotationEnumMember grammar: consumers
+// search these members for specific values, and an unsupported member
+// cannot be the value searched for.
+fn parse_enum_members<'a>(
+    values: impl Iterator<Item = &'a String> + 'a,
+) -> impl Iterator<Item = AnnotationEnumMember> + 'a {
+    values
+        .flat_map(|value| value.split_whitespace())
+        .filter_map(|member| member.parse().ok())
 }
 
 #[derive(Debug)]
 pub enum Error {
     NoForwardSlash,
     NoEnumMemberName,
+    TrailingSegments,
     BadTypeName(AttributeValuesError),
     BadMemberName(AttributeValuesError),
     InvalidEnumMember(String, Box<Self>),
@@ -98,6 +151,7 @@ impl Display for Error {
         match self {
             Self::NoForwardSlash => "no forward slash (/) in string".fmt(f),
             Self::NoEnumMemberName => "no enum member in string".fmt(f),
+            Self::TrailingSegments => "extra segments after enum member name".fmt(f),
             Self::BadTypeName(e) => write!(f, "bad enum type name: {e}"),
             Self::BadMemberName(e) => write!(f, "bad enum member name: {e}"),
             Self::InvalidEnumMember(s, e) => write!(f, "invalid enum memeber: {s}: {e}"),
@@ -105,11 +159,12 @@ impl Display for Error {
     }
 }
 
-/// 14.4.7 Expression edm:EnumMember
+/// A single member of a 14.4.7 edm:EnumMember expression.
 ///
-/// Note that spec gives possiblitity of more than one space-separated
-/// member for `IsFlags` enum. But it is not used so we keep support
-/// only one member here.
+/// An expression value holding several space-separated members
+/// (`IsFlags` enumerations) is split into individual members before
+/// this grammar applies; see [`Annotation::enum_members`] and
+/// [`PropertyValue::enum_members`].
 #[derive(Debug)]
 pub struct AnnotationEnumMember {
     pub tname: QualifiedTypeName,
@@ -130,24 +185,12 @@ impl FromStr for AnnotationEnumMember {
             .ok_or(Error::NoEnumMemberName)
             .and_then(|mname_str| mname_str.parse().map_err(Error::BadMemberName))
             .map_err(|e| Error::InvalidEnumMember(s.into(), Box::new(e)))?;
-        Ok(Self { tname, mname })
-    }
-}
-
-impl<'de> Deserialize<'de> for AnnotationEnumMember {
-    fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        struct EmVisitor {}
-        impl Visitor<'_> for EmVisitor {
-            type Value = AnnotationEnumMember;
-
-            fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
-                formatter.write_str("Annotation enum member string")
-            }
-            fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
-                value.parse().map_err(DeError::custom)
-            }
+        if iter.next().is_some() {
+            return Err(Error::InvalidEnumMember(
+                s.into(),
+                Box::new(Error::TrailingSegments),
+            ));
         }
-
-        de.deserialize_string(EmVisitor {})
+        Ok(Self { tname, mname })
     }
 }

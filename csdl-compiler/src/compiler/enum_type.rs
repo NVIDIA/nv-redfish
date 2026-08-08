@@ -22,6 +22,8 @@ use crate::edmx::EnumMember as EdmxEnumMember;
 use crate::edmx::EnumMemberName;
 use crate::edmx::EnumType as EdmxEnumType;
 use crate::edmx::EnumUnderlyingType;
+use crate::redfish::annotations::RedfishAnnotations as _;
+use crate::redfish::Deprecation;
 
 /// Compiled enumeration type.
 #[derive(Debug)]
@@ -34,6 +36,8 @@ pub struct EnumType<'a> {
     pub members: Vec<EnumMember<'a>>,
     /// `OData` annotations associated with the enum type.
     pub odata: OData<'a>,
+    /// Deprecation revision, if the schema marks the type deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 /// Compiled member of an enum type.
 #[derive(Debug)]
@@ -42,6 +46,9 @@ pub struct EnumMember<'a> {
     pub name: &'a EnumMemberName,
     /// Attached `OData` annotations.
     pub odata: OData<'a>,
+    /// Deprecation revision, if the schema marks the member
+    /// deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 
 impl<'a> From<&'a EdmxEnumMember> for EnumMember<'a> {
@@ -49,6 +56,7 @@ impl<'a> From<&'a EdmxEnumMember> for EnumMember<'a> {
         Self {
             name: &v.name,
             odata: OData::new(MustHaveId::new(false), v),
+            deprecation: v.deprecation().map(Box::new),
         }
     }
 }
@@ -64,6 +72,7 @@ pub(crate) fn compile<'a>(
             underlying_type,
             members: et.members.iter().map(Into::into).collect(),
             odata: OData::new(MustHaveId::new(false), et),
+            deprecation: et.deprecation().map(Box::new),
         }),
         TypeInfo::enum_type(),
     )

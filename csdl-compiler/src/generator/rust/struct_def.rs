@@ -34,6 +34,7 @@ use crate::generator::rust::SerializableProperties;
 use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
 use crate::odata::annotations::Permissions;
+use crate::redfish::Deprecation;
 use crate::redfish::DynamicProperties;
 use crate::redfish::ExcerptCopy;
 use crate::IsNullable;
@@ -75,6 +76,7 @@ pub struct StructDef<'a> {
     // it in active resource itself.
     need_redfish_settings: bool,
     dynamic_properties: Option<DynamicProperties<'a>>,
+    deprecation: Option<Box<Deprecation>>,
 }
 
 #[derive(PartialEq, Eq, Clone, Copy)]
@@ -201,7 +203,7 @@ impl<'a> StructDef<'a> {
         // So, we create shortcut for compiler and state that we
         // guarantee Send and Sync here and below.
         tokens.extend([
-            doc_format_and_generate(self.name, &self.odata),
+            doc_format_and_generate(self.name, &self.odata, self.deprecation.as_deref()),
             quote! {
                 #[derive(Deserialize, Debug)]
                 pub struct #name { #content }
@@ -512,7 +514,7 @@ impl<'a> StructDef<'a> {
 
         let name = self.name;
         tokens.extend([
-            doc_format_and_generate(self.name, &self.odata),
+            doc_format_and_generate(self.name, &self.odata, self.deprecation.as_deref()),
             // Action parameters can contain sensitive values such as passwords, keys, or
             // tokens. Redfish CSDL schemas do not reliably identify which action parameters
             // are sensitive, so generating a safe Debug implementation requires explicit
@@ -525,7 +527,7 @@ impl<'a> StructDef<'a> {
     }
 
     fn generate_property(p: &Property<'_>, config: &Config) -> TokenStream {
-        let doc = doc_format_and_generate(p.name, &p.odata);
+        let doc = doc_format_and_generate(p.name, &p.odata, p.redfish.deprecation.as_deref());
         let (serde, field_type) = Self::gen_de_struct_field(
             &p.ptype,
             FullTypeName::new(p.ptype.name(), config),
@@ -626,7 +628,11 @@ impl<'a> StructDef<'a> {
                 if p.odata.permissions_is_write_only() {
                     return TokenStream::new();
                 }
-                let doc = doc_format_and_generate(p.ptype.name(), &p.odata);
+                let doc = doc_format_and_generate(
+                    p.ptype.name(),
+                    &p.odata,
+                    p.redfish.deprecation.as_deref(),
+                );
                 let ptype = p.redfish.excerpt_copy.as_ref().map_or_else(
                     || {
                         let full_type = FullTypeName::new(p.ptype.name(), config);
@@ -671,7 +677,7 @@ impl<'a> StructDef<'a> {
     }
 
     fn generate_action_parameter(p: &Parameter<'_>, config: &Config) -> TokenStream {
-        let doc = doc_format_and_generate(p.name, &p.odata);
+        let doc = doc_format_and_generate(p.name, &p.odata, p.deprecation.as_deref());
         let rename = Literal::string(p.name.inner().inner());
         let name = StructFieldName::new_parameter(p.name);
         let field = match p.ptype {
@@ -897,7 +903,7 @@ impl<'a> StructDef<'a> {
                 arglist.extend(quote! {, #name: #argtype });
             }
             content.extend([
-                doc_format_and_generate(a.name, &a.odata),
+                doc_format_and_generate(a.name, &a.odata, a.deprecation.as_deref()),
                 doc_action_errors,
                 quote! {
                     pub async fn #name<B: #top::Bmc>(&self, bmc: &B #arglist) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
@@ -915,7 +921,7 @@ impl<'a> StructDef<'a> {
             ]);
         } else {
             content.extend([
-                doc_format_and_generate(a.name, &a.odata),
+                doc_format_and_generate(a.name, &a.odata, a.deprecation.as_deref()),
                 doc_action_errors,
                 quote! {
                     pub async fn #name<B: #top::Bmc>(&self, bmc: &B, t: &#typename) -> Result<nv_redfish_core::ModificationResponse<#ret_type>, B::Error>
@@ -950,7 +956,15 @@ impl<'a> StructDefBuilder<'a> {
             create_type: None,
             need_redfish_settings: false,
             dynamic_properties: None,
+            deprecation: None,
         })
+    }
+
+    /// Setup the deprecation of the generated struct's type.
+    #[must_use]
+    pub fn with_deprecation(mut self, deprecation: Option<Box<Deprecation>>) -> Self {
+        self.0.deprecation = deprecation;
+        self
     }
 
     /// Setup base struct name for the struct.

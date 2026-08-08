@@ -16,6 +16,7 @@
 //! Redfish-specific attributes used during code generation.
 
 use crate::redfish::annotations::RedfishAnnotations;
+use crate::redfish::Deprecation;
 use crate::redfish::DynamicProperties;
 use crate::redfish::Excerpt;
 use crate::redfish::ExcerptCopy;
@@ -36,18 +37,23 @@ pub struct RedfishProperty {
     pub excerpt: Option<Excerpt>,
     /// Property is excerpt copy of the resource.
     pub excerpt_copy: Option<ExcerptCopy>,
+    /// Deprecation revision, if the schema marks the property
+    /// deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 
 impl RedfishProperty {
     /// Create a new instance from an object that provides Redfish
     /// property annotations.
     pub fn new(src: &impl RedfishAnnotations) -> Self {
+        let deprecation = src.deprecation().map(Box::new);
         Self {
-            is_required: src.is_required(),
+            is_required: IsRequired::new(src.is_required().into_inner() && deprecation.is_none()),
             is_required_on_create: src.is_required_on_create(),
             is_excerpt_only: src.is_excerpt_only(),
             excerpt: src.excerpt(),
             excerpt_copy: src.excerpt_copy(),
+            deprecation,
         }
     }
 }
@@ -57,6 +63,8 @@ impl RedfishProperty {
 pub struct Redfish<'a> {
     /// Dynamic properties defined for the type.
     pub dynamic_properties: Option<DynamicProperties<'a>>,
+    /// Deprecation revision, if the schema marks the type deprecated.
+    pub deprecation: Option<Box<Deprecation>>,
 }
 
 impl<'a> Redfish<'a> {
@@ -65,6 +73,7 @@ impl<'a> Redfish<'a> {
     pub fn new(src: &'a impl RedfishAnnotations) -> Self {
         Self {
             dynamic_properties: src.dynamic_properties(),
+            deprecation: src.deprecation().map(Box::new),
         }
     }
 }

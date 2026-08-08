@@ -72,6 +72,10 @@
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
         </NavigationProperty>
 
+        <NavigationProperty Name="TestDeprecatedService" Nullable="false" Type="ServiceRoot.v1_0_0.TestDeprecatedService">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+
         <NavigationProperty Name="TestCollection" Nullable="false" Type="ServiceRoot.v1_0_0.TestCollection"/>
 
         <NavigationProperty Name="TestActionsService" Nullable="false" Type="ServiceRoot.v1_0_0.TestActionsService"/>
@@ -106,6 +110,38 @@
         <Property Name="RequiredCollection" Type="Collection(Edm.String)" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="Redfish.Required"/>
+        </Property>
+      </EntityType>
+
+      <!-- Deprecation cancels Redfish.Required on read: the shape of
+           Event.EventRecord/EventType which newer firmware omits. The
+           Added-only revision is a negative control that must stay
+           required. -->
+      <EntityType Name="TestDeprecatedService">
+        <Property Name="DeprecatedRequired" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_3_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated for testing purpose."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="RequiredWithAddedRevision" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="Redfish.Required"/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
         </Property>
       </EntityType>
 

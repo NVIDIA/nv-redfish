@@ -36,3 +36,13 @@ pub struct DynamicProperties<'a> {
     pub pattern: &'a String,
     pub ptype: &'a String,
 }
+
+/// Deprecation revision of a property: a `Redfish.Revisions` record
+/// with `Kind == Redfish.RevisionKind/Deprecated`.
+#[derive(Debug, Clone)]
+pub struct Deprecation {
+    /// Schema version the property was deprecated in.
+    pub version: Option<String>,
+    /// Deprecation rationale from the schema.
+    pub description: Option<String>,
+}
