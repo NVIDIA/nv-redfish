@@ -235,12 +235,17 @@ fn map_sse_error(err: sse_stream::Error) -> BmcError {
 /// boundaries (blank lines) directly in the raw byte stream.
 #[derive(Clone, Copy)]
 enum DelimiterState {
+    /// At the start of a line; a line terminator delimits the record.
+    LineStart,
+
     /// Inside a line.
     Data,
-    /// Saw `\r`; a following `\n` belongs to the same terminator.
+
+    /// Saw `\r` after data; a following `\n` belongs to the same terminator.
     Cr,
-    /// Saw one complete line terminator.
-    Eol,
+
+    /// Saw `\r` at line start; the record boundary awaits an optional `\n`.
+    BoundaryCr,
 }
 
 /// Bound the bytes buffered for a single, not-yet-terminated SSE event.
@@ -254,30 +259,35 @@ fn cap_event_bytes(
     bytes: impl Stream<Item = Result<Bytes, reqwest::Error>>,
     limit: usize,
 ) -> impl Stream<Item = Result<Bytes, SseByteError>> {
-    use DelimiterState::{Cr, Data, Eol};
-    bytes.scan((0_usize, Data), move |(count, state), chunk| {
+    use DelimiterState::{BoundaryCr, Cr, Data, LineStart};
+    bytes.scan((0_usize, LineStart), move |(count, state), chunk| {
         let item = chunk.map_err(SseByteError::Upstream).and_then(|bytes| {
             for &b in bytes.as_ref() {
+                if matches!(*state, BoundaryCr) && b != b'\n' {
+                    *count = 0;
+                    *state = LineStart;
+                }
+
+                // Enforce the budget before a record delimiter can reset it.
+                if *count >= limit {
+                    return Err(SseByteError::EventTooLarge { limit });
+                }
+
                 *count += 1;
+
                 *state = match (*state, b) {
+                    (LineStart | Cr, b'\r') => BoundaryCr,
+                    (LineStart | BoundaryCr, b'\n') => {
+                        *count = 0;
+                        LineStart
+                    }
                     (Data, b'\r') => Cr,
-                    (Data | Cr, b'\n') => Eol,
-                    (Cr | Eol, b'\r') => {
-                        *count = 0; // blank line: event delimited
-                        Cr
-                    }
-                    (Eol, b'\n') => {
-                        *count = 0; // blank line: event delimited
-                        Eol
-                    }
+                    (Data | Cr, b'\n') => LineStart,
                     _ => Data,
                 };
             }
-            if *count > limit {
-                Err(SseByteError::EventTooLarge { limit })
-            } else {
-                Ok(bytes)
-            }
+
+            Ok(bytes)
         });
         ready(Some(item))
     })
@@ -1407,6 +1417,38 @@ mod tests {
             .and(header("X-Custom-Secret", "custom-secret"))
     }
 
+    async fn assert_complete_event_honors_byte_limit(chunks: &[&'static [u8]]) {
+        let event_len = chunks.iter().map(|chunk| chunk.len()).sum::<usize>();
+
+        let exact = futures_util::stream::iter(
+            chunks
+                .iter()
+                .copied()
+                .map(|chunk| Ok::<_, reqwest::Error>(Bytes::from_static(chunk))),
+        );
+
+        let exact_results = cap_event_bytes(exact, event_len).collect::<Vec<_>>().await;
+
+        assert_eq!(exact_results.len(), chunks.len());
+        assert!(exact_results.iter().all(Result::is_ok));
+
+        let oversized = futures_util::stream::iter(
+            chunks
+                .iter()
+                .copied()
+                .map(|chunk| Ok::<_, reqwest::Error>(Bytes::from_static(chunk))),
+        );
+
+        let oversized_results = cap_event_bytes(oversized, event_len - 1)
+            .collect::<Vec<_>>()
+            .await;
+
+        assert!(matches!(
+            oversized_results.last(),
+            Some(Err(SseByteError::EventTooLarge { limit })) if *limit == event_len - 1
+        ));
+    }
+
     async fn mount_redirect(mock_server: &MockServer, source_path: &str, location: &str) {
         Mock::given(method("GET"))
             .and(path(source_path))
@@ -1414,6 +1456,33 @@ mod tests {
             .expect(1)
             .mount(mock_server)
             .await;
+    }
+
+    #[tokio::test]
+    async fn complete_events_honor_byte_limit_across_line_endings() {
+        const LF_EVENT: &[u8] = b"data: {}\n\n";
+        const CR_EVENT: &[u8] = b"data: {}\r\r";
+        const CRLF_EVENT: &[u8] = b"data: {}\r\n\r\n";
+
+        assert_complete_event_honors_byte_limit(&[LF_EVENT]).await;
+        assert_complete_event_honors_byte_limit(&[CR_EVENT]).await;
+        assert_complete_event_honors_byte_limit(&[CRLF_EVENT]).await;
+
+        let cr_split_at = CR_EVENT.len() - 1;
+
+        assert_complete_event_honors_byte_limit(&[
+            &CR_EVENT[..cr_split_at],
+            &CR_EVENT[cr_split_at..],
+        ])
+        .await;
+
+        let crlf_split_at = CRLF_EVENT.len() - 1;
+
+        assert_complete_event_honors_byte_limit(&[
+            &CRLF_EVENT[..crlf_split_at],
+            &CRLF_EVENT[crlf_split_at..],
+        ])
+        .await;
     }
 
     #[test]
