@@ -12,9 +12,15 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Vera Rubin (VR NVL72) boot-order integration tests.
+//! Vera Rubin (VR NVL72) integration tests.
 
+use std::error::Error as StdError;
+use std::sync::Arc;
+
+use futures_util::TryStreamExt as _;
 use nv_redfish::computer_system::ComputerSystem;
+use nv_redfish::event_service::EventStreamPayload;
+use nv_redfish::schema::event::EventType;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
@@ -24,13 +30,88 @@ use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
 use serde_json::json;
 use serde_json::Value;
-use std::error::Error as StdError;
-use std::sync::Arc;
 use tokio::test;
 
+const EVENT_SERVICE_DATA_TYPE: &str = "#EventService.v1_5_0.EventService";
 const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_15_0.ServiceRoot";
 const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSystemCollection";
 const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_22_0.ComputerSystem";
+
+#[test]
+async fn vera_rubin_sse_accepts_missing_and_present_event_type() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = test_ids();
+    let event_service_id = format!("{}/EventService", ids.root_id);
+    let sse_uri = format!("{event_service_id}/SSE");
+
+    let service_root = expect_vera_rubin_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "EventService": { ODATA_ID: &event_service_id }
+        }),
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &event_service_id,
+        json!({
+            ODATA_ID: &event_service_id,
+            ODATA_TYPE: EVENT_SERVICE_DATA_TYPE,
+            "Id": "EventService",
+            "Name": "Event Service",
+            "ServerSentEventUri": &sse_uri
+        }),
+    ));
+
+    let event_service = service_root
+        .event_service()
+        .await?
+        .expect("event service present");
+
+    bmc.expect(Expect::stream(
+        &sse_uri,
+        json!([{
+            ODATA_TYPE: "#Event.v1_7_0.Event",
+            "Id": "1",
+            "Name": "Event Array",
+            "Events": [{
+                "MemberId": "0",
+                "MessageId": "Example.1.0.TestEvent"
+            }, {
+                "MemberId": "1",
+                "EventType": "Alert",
+                "MessageId": "Example.1.0.TestEvent"
+            }]
+        }]),
+    ));
+
+    let mut stream = event_service.events().await?;
+    let payload = stream.try_next().await?.expect("event payload present");
+
+    let EventStreamPayload::Event(event) = payload else {
+        panic!("expected an event payload");
+    };
+
+    let mut records = event.events.iter();
+
+    let patched = records
+        .next()
+        .expect("event record without EventType present")
+        .get(bmc.as_ref())
+        .await?;
+
+    let preserved = records
+        .next()
+        .expect("event record with EventType present")
+        .get(bmc.as_ref())
+        .await?;
+
+    assert_eq!(patched.event_type, EventType::UnsupportedValue);
+    assert_eq!(preserved.event_type, EventType::Alert);
+
+    Ok(())
+}
 
 #[test]
 async fn vera_rubin_composite_boot_order_is_normalized() -> Result<(), Box<dyn StdError>> {
