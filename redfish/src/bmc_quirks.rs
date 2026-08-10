@@ -36,6 +36,7 @@ enum Platform {
     VeraRubin,
     Nvidia,
     NvidiaDpu,
+    Wiwynn,
     Anonymous1_9_0,
     NvSwitch,
 }
@@ -68,6 +69,9 @@ impl BmcQuirks {
             Some("Nvidia") if matches!(product_str, Some("Nvidia-BMCMezz" | "BlueField-3 DPU")) => {
                 Some(Platform::NvidiaDpu)
             }
+            // Wiwynn ODM GB200 NVL trays report their own vendor rather than
+            // `NVIDIA`
+            Some("WIWYNN") => Some(Platform::Wiwynn),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
@@ -182,8 +186,8 @@ impl BmcQuirks {
     /// In some implementations, Event records in SSE payload do not include
     /// `MemberId`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_no_member_id(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_no_member_id(&self) -> bool {
+        matches!(self.platform, Some(Platform::Nvidia | Platform::Wiwynn))
     }
 
     /// In some implementations, Event records in SSE payload use compact
@@ -195,8 +199,8 @@ impl BmcQuirks {
 
     /// In some implementations, Event records in SSE payload omit `EventType`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_missing_event_type(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_missing_event_type(&self) -> bool {
+        matches!(self.platform, Some(Platform::Nvidia | Platform::Wiwynn))
     }
 
     /// SSE payload does not include `@odata.id`.
