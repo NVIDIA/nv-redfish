@@ -28,6 +28,7 @@ nv-redfish = { workspace = true, features = [
     "chassis",
     "controls",
     "computer-systems",
+    "event-service",
     "managers",
     "manager-network-protocol",
     "memory",
