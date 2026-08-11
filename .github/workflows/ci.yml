@@ -46,6 +46,12 @@ jobs:
           sudo apt-get install -y valgrind
           valgrind --version
 
+      - name: Unshallow submodules
+        # actions/checkout fetches only the pinned submodule commit; older
+        # commits (e.g. the pre-PR schema pointer) are absent. Unshallow
+        # every submodule so the base-commit checkout below can resolve them.
+        run: git submodule foreach 'git fetch --unshallow 2>/dev/null || git fetch'
+
       - name: Benchmark merge-base
         # Installs the runner matching the *base* lockfile, so a PR that
         # bumps gungraun still measures the base correctly. Only the
