@@ -36,3 +36,12 @@ pub struct DynamicProperties<'a> {
     pub pattern: &'a String,
     pub ptype: &'a String,
 }
+
+/// Deprecation metadata attached to a Redfish schema object.
+#[derive(Debug, Clone, Copy)]
+pub struct Deprecation<'a> {
+    /// Schema version in which the object was deprecated.
+    pub version: Option<&'a str>,
+    /// Rationale or replacement guidance supplied by the schema.
+    pub description: Option<&'a str>,
+}

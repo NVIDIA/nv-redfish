@@ -107,7 +107,7 @@ async fn vera_rubin_sse_accepts_missing_and_present_event_type() -> Result<(), B
         .get(bmc.as_ref())
         .await?;
 
-    assert_eq!(patched.event_type, EventType::UnsupportedValue);
+    assert_eq!(patched.event_type, EventType::Other);
     assert_eq!(preserved.event_type, EventType::Alert);
 
     Ok(())

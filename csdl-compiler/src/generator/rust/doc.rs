@@ -16,6 +16,7 @@
 //! Generation of Rust doc by comment lines.
 
 use crate::compiler::OData;
+use crate::redfish::Deprecation;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
 use proc_macro2::Ident;
@@ -27,12 +28,29 @@ use proc_macro2::TokenStream;
 use proc_macro2::TokenTree;
 use std::fmt::Display;
 
-/// Generate rust doc from description and long description.
+/// Generate Rust documentation from `OData` descriptions.
 #[must_use]
 pub fn format_and_generate(name: impl Display, odata: &OData<'_>) -> TokenStream {
     format(name, odata)
         .map(|lines| generate(&lines))
         .unwrap_or_default()
+}
+
+/// Generate Rust documentation with Redfish deprecation metadata.
+#[must_use]
+pub fn format_and_generate_with_deprecation(
+    name: impl Display,
+    odata: &OData<'_>,
+    deprecation: Option<Deprecation<'_>>,
+) -> TokenStream {
+    let mut lines = format(name, odata).unwrap_or_default();
+    if let Some(deprecation) = deprecation {
+        if !lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines.extend(split_by_lines(&deprecation_text(deprecation)));
+    }
+    generate(&lines)
 }
 
 /// Format long and short descriptions to multiple lines.
@@ -55,6 +73,17 @@ pub fn format(name: impl Display, odata: &OData<'_>) -> Option<Vec<String>> {
             Some(result)
         }
     }
+}
+
+fn deprecation_text(deprecation: Deprecation<'_>) -> String {
+    let heading = deprecation.version.map_or_else(
+        || "Deprecated in the Redfish schema".to_owned(),
+        |version| format!("Deprecated in the Redfish schema since {version}"),
+    );
+    deprecation.description.map_or_else(
+        || format!("{heading}."),
+        |description| format!("{heading}: {description}"),
+    )
 }
 
 /// Generate muliple lines in doc strings in `TokenStream`.
@@ -95,4 +124,21 @@ fn split_by_lines(s: &str) -> Vec<String> {
         .into_iter()
         .map(|words| " ".to_owned() + &words.join(" "))
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::deprecation_text;
+    use crate::redfish::Deprecation;
+
+    #[test]
+    fn formats_redfish_deprecation_as_documentation() {
+        assert_eq!(
+            deprecation_text(Deprecation {
+                version: Some("v1_3_0"),
+                description: Some("Use Other for compatibility."),
+            }),
+            "Deprecated in the Redfish schema since v1_3_0: Use Other for compatibility."
+        );
+    }
 }
