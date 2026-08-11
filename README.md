@@ -68,6 +68,7 @@ your client needs, or use `std-redfish` for a broad standard Redfish build.
 Common feature groups:
 
 - `bmc-http`: re-export `nv-redfish-bmc-http` from `nv_redfish::bmc_http`.
+- `http-extras`: enable optional HTTP client capabilities, including per-BMC operation concurrency limits; implies `bmc-http`.
 - `std-redfish`: enable a broad standard Redfish surface.
 - Service features: `accounts`, `assembly`, `bios`, `boot-options`,
   `chassis`, `computer-systems`, `ethernet-interfaces`, `event-service`,

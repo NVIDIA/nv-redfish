@@ -38,22 +38,21 @@
 
 //! HTTP implementation of [`nv_redfish_core::Bmc`] trait.
 
+pub mod cache;
+pub mod credentials;
+
+#[cfg(feature = "http-extras")]
 mod concurrency;
 #[cfg(feature = "reqwest")]
 mod schema;
 
-pub mod cache;
-pub mod credentials;
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
-
-pub use concurrency::ConcurrencyLimitedBmc;
 
 use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::future::Future;
-use std::num::NonZeroUsize;
 use std::sync::Arc;
 use std::sync::RwLock;
 
@@ -75,6 +74,8 @@ use nv_redfish_core::UploadReader;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
+#[cfg(feature = "http-extras")]
+pub use concurrency::ConcurrencyLimitedBmc;
 #[doc(inline)]
 pub use credentials::BmcCredentials;
 
@@ -350,18 +351,6 @@ where
     #[allow(clippy::panic)] // See panics section.
     pub fn set_credentials(&self, credentials: BmcCredentials) {
         *self.credentials.write().expect("poisoned") = Arc::new(credentials);
-    }
-
-    /// Configures the maximum number of concurrent Redfish operations.
-    ///
-    /// The limit covers complete logical operations, including transport
-    /// retries. Without this method, the BMC remains unlimited.
-    #[must_use]
-    pub const fn with_request_concurrency_limit(
-        self,
-        limit: NonZeroUsize,
-    ) -> ConcurrencyLimitedBmc<Self> {
-        ConcurrencyLimitedBmc::new(self, limit)
     }
 }
 

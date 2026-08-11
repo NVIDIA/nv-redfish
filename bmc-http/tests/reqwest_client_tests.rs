@@ -17,6 +17,7 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
+    #[cfg(feature = "http-extras")]
     use std::num::NonZeroUsize;
     use std::time::Duration;
 
@@ -25,6 +26,7 @@ mod reqwest_client_tests {
     use nv_redfish_bmc_http::reqwest::Client;
     use nv_redfish_bmc_http::reqwest::ClientParams;
     use nv_redfish_bmc_http::reqwest::RetryPolicy;
+    #[cfg(any(feature = "http-extras", feature = "update-service-deprecated"))]
     use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
@@ -135,6 +137,7 @@ mod reqwest_client_tests {
         Ok(())
     }
 
+    #[cfg(feature = "http-extras")]
     #[tokio::test]
     async fn concurrency_limited_bmc_preserves_credential_rotation() {
         let mock_server = MockServer::start().await;

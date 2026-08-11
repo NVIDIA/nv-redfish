@@ -61,7 +61,7 @@ std-not-standalone-features = assembly \
 
 std-standalone-features = $(filter-out $(std-not-standalone-features),$(all-std-features))
 
-ci-features-list := $(subst $(space),$(comma),$(all-std-features))
+ci-features-list := $(subst $(space),$(comma),$(all-std-features)),http-extras
 
 # Feature sets whose only job is to prove the configuration type checks.
 # Nothing downstream consumes the artifacts, so they run under `cargo check`:
@@ -78,6 +78,7 @@ compile-only-feature-sets = computer-systems,processors,controls \
              chassis,network-adapters,network-device-functions \
              update-service-deprecated \
              bmc-http,update-service-deprecated \
+             http-extras \
              computer-systems,bios,boot-options,storages,memory,processors \
              oem-hpe,accounts \
              oem-hpe \
@@ -104,6 +105,7 @@ define build-and-test
 	$(foreach f,$(compile-only-feature-sets),$(call check-one-feature,$f))
 	$(maybe-lenovo-check)
 	cargo check -p nv-redfish
+	cargo check -p nv-redfish-bmc-http --no-default-features --features http-extras
 	cargo check -p nv-redfish-tests --tests
 	cargo check -p nv-redfish-bmc-mock
 	cargo build -p update-multipart --features update-service-deprecated

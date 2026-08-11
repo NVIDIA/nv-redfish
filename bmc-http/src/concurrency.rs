@@ -62,6 +62,23 @@ impl<B> ConcurrencyLimitedBmc<B> {
     }
 }
 
+impl<C: HttpClient> HttpBmc<C>
+where
+    C::Error: CacheableError,
+{
+    /// Configures the maximum number of concurrent Redfish operations.
+    ///
+    /// The limit covers complete logical operations, including transport
+    /// retries. Without this method, the BMC remains unlimited.
+    #[must_use]
+    pub const fn with_request_concurrency_limit(
+        self,
+        limit: NonZeroUsize,
+    ) -> ConcurrencyLimitedBmc<Self> {
+        ConcurrencyLimitedBmc::new(self, limit)
+    }
+}
+
 impl<C: HttpClient> ConcurrencyLimitedBmc<HttpBmc<C>>
 where
     C::Error: CacheableError,
