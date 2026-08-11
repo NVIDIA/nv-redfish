@@ -554,7 +554,11 @@ mod test {
                    <Property Name="RedfishVersion" Type="Edm.String" Nullable="false">
                      <Annotation Term="OData.Description" String="The version of the Redfish service."/>
                    </Property>
+                   <NavigationProperty Name="LegacyTarget" Type="ServiceRoot.Target">
+                     <Annotation Term="Redfish.Deprecated" String="Use TargetV2."/>
+                   </NavigationProperty>
                  </EntityType>
+                 <EntityType Name="Target"/>
                </Schema>
                <Schema Namespace="Schema.v1_0_0">
                  <EntityContainer Name="ServiceContainer">
@@ -576,7 +580,10 @@ mod test {
             .compile(
                 &["Service".parse().unwrap()],
                 &EntityTypeFilter::new_restrictive(vec![]),
-                Config::default(),
+                Config {
+                    entity_type_filter: EntityTypeFilter::new_restrictive(vec![]),
+                    ..Config::default()
+                },
             )
             .unwrap();
         let qtypename: QualifiedTypeName = "ServiceRoot.ServiceRoot".parse().unwrap();
@@ -598,5 +605,11 @@ mod test {
                 .inner(),
             &"The version of the Redfish service."
         );
+        assert!(matches!(
+            &et.properties.nav_properties[0],
+            NavProperty::Reference { redfish, .. }
+                if redfish.deprecation.is_some_and(|deprecation|
+                    deprecation.description == Some("Use TargetV2."))
+        ));
     }
 }

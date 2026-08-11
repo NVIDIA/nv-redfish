@@ -25,6 +25,7 @@ use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::RigidArraySupport;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::generator::rust::doc::format_and_generate_with_deprecation as doc_format_deprecated;
 use crate::generator::rust::ActionFullTypeName;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
@@ -525,7 +526,7 @@ impl<'a> StructDef<'a> {
     }
 
     fn generate_property(p: &Property<'_>, config: &Config) -> TokenStream {
-        let doc = doc_format_and_generate(p.name, &p.odata);
+        let doc = doc_format_deprecated(p.name, &p.odata, p.redfish.deprecation);
         let (serde, field_type) = Self::gen_de_struct_field(
             &p.ptype,
             FullTypeName::new(p.ptype.name(), config),
@@ -626,7 +627,7 @@ impl<'a> StructDef<'a> {
                 if p.odata.permissions_is_write_only() {
                     return TokenStream::new();
                 }
-                let doc = doc_format_and_generate(p.ptype.name(), &p.odata);
+                let doc = doc_format_deprecated(p.ptype.name(), &p.odata, p.redfish.deprecation);
                 let ptype = p.redfish.excerpt_copy.as_ref().map_or_else(
                     || {
                         let full_type = FullTypeName::new(p.ptype.name(), config);
@@ -648,12 +649,16 @@ impl<'a> StructDef<'a> {
                 );
                 (doc, sa, t)
             }
-            NavProperty::Reference(r) => {
-                let doc = TokenStream::new();
+            NavProperty::Reference {
+                cardinality,
+                odata,
+                redfish,
+            } => {
+                let doc = doc_format_deprecated(cardinality.inner(), odata, redfish.deprecation);
                 let top = &config.top_module_alias;
                 let ptype = quote! { #top::ReferenceLeaf };
                 let (sa, t) = Self::gen_de_struct_field(
-                    r,
+                    cardinality,
                     ptype,
                     rename,
                     IsNullable::new(false),

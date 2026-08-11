@@ -19,7 +19,6 @@ use crate::edmx::attribute_values::Error as AttributeValuesError;
 use crate::edmx::EnumMemberName;
 use crate::edmx::QualifiedTypeName;
 use serde::de::Error as DeError;
-use serde::de::Visitor;
 use serde::Deserialize;
 use serde::Deserializer;
 use std::fmt::Display;
@@ -39,12 +38,20 @@ pub struct Annotation {
     pub bool_value: Option<bool>,
     #[serde(rename = "@Int")]
     pub int_value: Option<i64>,
-    #[serde(rename = "@EnumMember")]
-    pub enum_member: Option<Box<AnnotationEnumMember>>,
+    /// 14.4.7 `EnumMember` expression in attribute or child-element form.
+    #[serde(rename = "@EnumMember", alias = "EnumMember")]
+    enum_member: Option<EnumMemberExpression>,
     #[serde(rename = "Collection")]
     pub collection: Option<AnnotationCollection>,
     #[serde(rename = "Record")]
     pub record: Option<AnnotationRecord>,
+}
+
+impl Annotation {
+    /// Members from the `EnumMember` expression.
+    pub fn enum_members(&self) -> impl Iterator<Item = &AnnotationEnumMember> + '_ {
+        self.enum_member.iter().flat_map(|expression| &expression.0)
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -82,12 +89,23 @@ pub struct PropertyValue {
     pub string_value: Option<String>,
     #[serde(rename = "@Int")]
     pub int_value: Option<i64>,
+    /// 14.4.7 `EnumMember` expression in attribute or child-element form.
+    #[serde(rename = "@EnumMember", alias = "EnumMember")]
+    enum_member: Option<EnumMemberExpression>,
+}
+
+impl PropertyValue {
+    /// Members from `EnumMember` expressions in either supported XML form.
+    pub fn enum_members(&self) -> impl Iterator<Item = &AnnotationEnumMember> + '_ {
+        self.enum_member.iter().flat_map(|expression| &expression.0)
+    }
 }
 
 #[derive(Debug)]
 pub enum Error {
     NoForwardSlash,
     NoEnumMemberName,
+    TrailingSegments,
     BadTypeName(AttributeValuesError),
     BadMemberName(AttributeValuesError),
     InvalidEnumMember(String, Box<Self>),
@@ -98,6 +116,7 @@ impl Display for Error {
         match self {
             Self::NoForwardSlash => "no forward slash (/) in string".fmt(f),
             Self::NoEnumMemberName => "no enum member in string".fmt(f),
+            Self::TrailingSegments => "extra segments after enum member name".fmt(f),
             Self::BadTypeName(e) => write!(f, "bad enum type name: {e}"),
             Self::BadMemberName(e) => write!(f, "bad enum member name: {e}"),
             Self::InvalidEnumMember(s, e) => write!(f, "invalid enum memeber: {s}: {e}"),
@@ -105,11 +124,7 @@ impl Display for Error {
     }
 }
 
-/// 14.4.7 Expression edm:EnumMember
-///
-/// Note that spec gives possiblitity of more than one space-separated
-/// member for `IsFlags` enum. But it is not used so we keep support
-/// only one member here.
+/// One member of a 14.4.7 `edm:EnumMember` expression.
 #[derive(Debug)]
 pub struct AnnotationEnumMember {
     pub tname: QualifiedTypeName,
@@ -130,24 +145,59 @@ impl FromStr for AnnotationEnumMember {
             .ok_or(Error::NoEnumMemberName)
             .and_then(|mname_str| mname_str.parse().map_err(Error::BadMemberName))
             .map_err(|e| Error::InvalidEnumMember(s.into(), Box::new(e)))?;
+        if iter.next().is_some() {
+            return Err(Error::InvalidEnumMember(
+                s.into(),
+                Box::new(Error::TrailingSegments),
+            ));
+        }
         Ok(Self { tname, mname })
     }
 }
 
-impl<'de> Deserialize<'de> for AnnotationEnumMember {
+/// A 14.4.7 `edm:EnumMember` expression.
+#[derive(Debug)]
+struct EnumMemberExpression(Vec<AnnotationEnumMember>);
+
+impl<'de> Deserialize<'de> for EnumMemberExpression {
     fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        struct EmVisitor {}
-        impl Visitor<'_> for EmVisitor {
-            type Value = AnnotationEnumMember;
-
-            fn expecting(&self, formatter: &mut Formatter) -> FmtResult {
-                formatter.write_str("Annotation enum member string")
-            }
-            fn visit_str<E: DeError>(self, value: &str) -> Result<Self::Value, E> {
-                value.parse().map_err(DeError::custom)
-            }
+        let value = String::deserialize(de)?;
+        let members = value
+            .split_whitespace()
+            .map(str::parse)
+            .collect::<Result<Vec<_>, _>>()
+            .map_err(DeError::custom)?;
+        if members.is_empty() {
+            Err(DeError::custom("empty enum member expression"))
+        } else {
+            Ok(Self(members))
         }
+    }
+}
 
-        de.deserialize_string(EmVisitor {})
+#[cfg(test)]
+mod tests {
+    use super::Annotation;
+    use quick_xml::de::from_str;
+
+    #[test]
+    fn enum_member_expressions_support_elements_and_flags() {
+        let annotation: Annotation = from_str(
+            r#"<Annotation Term="Example.Term">
+                 <EnumMember>Example.Flags/One Example.Flags/Two</EnumMember>
+               </Annotation>"#,
+        )
+        .expect("valid annotation");
+        let members = annotation
+            .enum_members()
+            .map(|member| member.mname.inner().inner().as_str())
+            .collect::<Vec<_>>();
+
+        assert_eq!(members, ["One", "Two"]);
+
+        assert!(from_str::<Annotation>(
+            r#"<Annotation Term="Example.Term" EnumMember="Example.Flags/One/Trailing"/>"#
+        )
+        .is_err());
     }
 }
