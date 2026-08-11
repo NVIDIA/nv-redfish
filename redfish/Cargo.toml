@@ -23,6 +23,10 @@ all-features = true
 default = []
 
 bmc-http = [ "dep:nv-redfish-bmc-http" ]
+http-extras = [
+    "bmc-http",
+    "nv-redfish-bmc-http/http-extras",
+]
 
 std-redfish = [
     "accounts",

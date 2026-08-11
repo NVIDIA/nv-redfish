@@ -41,6 +41,8 @@
 pub mod cache;
 pub mod credentials;
 
+#[cfg(feature = "http-extras")]
+mod concurrency;
 #[cfg(feature = "reqwest")]
 mod schema;
 
@@ -72,6 +74,8 @@ use nv_redfish_core::UploadReader;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
+#[cfg(feature = "http-extras")]
+pub use concurrency::ConcurrencyLimitedBmc;
 #[doc(inline)]
 pub use credentials::BmcCredentials;
 

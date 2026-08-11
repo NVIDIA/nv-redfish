@@ -15,9 +15,11 @@ default = ["reqwest"]
 
 # HTTP client implementations with reqwest
 reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream", "dep:tokio-util", "dep:tokio", "dep:bytes"]
+http-extras = ["dep:async-lock"]
 update-service-deprecated = ["nv-redfish-core/update-service-deprecated"]
 
 [dependencies]
+async-lock = { workspace = true, optional = true }
 bytes = { workspace = true, optional = true }
 futures-core = { workspace = true }
 futures-util = { workspace = true, optional = true }
@@ -45,7 +47,7 @@ nv-redfish-csdl-compiler = { workspace = true }
 nv-redfish-schema = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt", "net", "io-util"] }
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util", "sync"] }
 tokio-test = { workspace = true }
 wiremock = { workspace = true }
 

@@ -17,6 +17,8 @@ mod common;
 
 #[cfg(feature = "reqwest")]
 mod reqwest_client_tests {
+    #[cfg(feature = "http-extras")]
+    use std::num::NonZeroUsize;
     use std::time::Duration;
 
     use futures_util::io::Cursor;
@@ -24,6 +26,7 @@ mod reqwest_client_tests {
     use nv_redfish_bmc_http::reqwest::Client;
     use nv_redfish_bmc_http::reqwest::ClientParams;
     use nv_redfish_bmc_http::reqwest::RetryPolicy;
+    #[cfg(any(feature = "http-extras", feature = "update-service-deprecated"))]
     use nv_redfish_bmc_http::BmcCredentials;
     use nv_redfish_bmc_http::CacheSettings;
     use nv_redfish_bmc_http::HttpBmc;
@@ -134,8 +137,9 @@ mod reqwest_client_tests {
         Ok(())
     }
 
+    #[cfg(feature = "http-extras")]
     #[tokio::test]
-    async fn test_set_credentials() {
+    async fn concurrency_limited_bmc_preserves_credential_rotation() {
         let mock_server = MockServer::start().await;
         let first_resource_path = paths::SYSTEMS_1;
         let second_resource_path = paths::MANAGERS_1;
@@ -161,7 +165,7 @@ mod reqwest_client_tests {
             .mount(&mock_server)
             .await;
 
-        let bmc = create_test_bmc(&mock_server);
+        let bmc = create_test_bmc(&mock_server).with_request_concurrency_limit(NonZeroUsize::MIN);
 
         let first_id = create_odata_id(first_resource_path);
         let first = bmc.get::<TestResource>(&first_id).await.unwrap();
