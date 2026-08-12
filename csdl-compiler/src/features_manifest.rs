@@ -19,9 +19,7 @@
 //! entity-type patterns to compile. Intended for build scripts to
 //! tailor generated code per product or vendor.
 
-use crate::compiler::EntityTypeFilterPattern;
-use crate::compiler::PropertyPattern;
-use serde::Deserialize;
+use std::collections::HashSet;
 use std::error::Error as StdError;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -30,6 +28,11 @@ use std::fs::File;
 use std::io::Error as IoError;
 use std::io::Read as _;
 use std::path::PathBuf;
+
+use crate::compiler::EntityTypeFilterPattern;
+use crate::compiler::PropertyPattern;
+
+use serde::Deserialize;
 use toml::de::Error as TomlError;
 
 /// Root manifest describing standard and OEM feature sets.
@@ -87,10 +90,20 @@ impl FeaturesManifest {
             })
     }
 
-    /// All vendors defined by the manifest.
+    /// Distinct vendors defined by the manifest, in first-appearance order.
     #[must_use]
     pub fn all_vendors(&self) -> Vec<&String> {
-        self.oem_features.iter().map(|f| &f.vendor).collect()
+        let mut vendors = Vec::new();
+        let mut seen = HashSet::new();
+
+        for feature in &self.oem_features {
+            // Deduplicate seen vendors.
+            if seen.insert(&feature.vendor) {
+                vendors.push(&feature.vendor);
+            }
+        }
+
+        vendors
     }
 
     /// All vendor-specific feature names for a vendor.
@@ -192,3 +205,40 @@ impl Display for Error {
 }
 
 impl StdError for Error {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn all_vendors_returns_each_vendor_once_in_manifest_order() {
+        let manifest = FeaturesManifest {
+            features: Vec::new(),
+            oem_features: [
+                ("chassis", "nvidia"),
+                ("managers", "nvidia"),
+                ("attributes", "dell"),
+                ("event-service", "nvidia"),
+            ]
+            .iter()
+            .copied()
+            .map(|(name, vendor)| OemFeature {
+                name: name.into(),
+                vendor: vendor.into(),
+                oem_csdl_files: Vec::new(),
+                csdl_files: Vec::new(),
+                swordfish_csdl_files: Vec::new(),
+                patterns: Vec::new(),
+            })
+            .collect(),
+        };
+
+        let vendors = manifest
+            .all_vendors()
+            .into_iter()
+            .map(String::as_str)
+            .collect::<Vec<_>>();
+
+        assert_eq!(vendors, ["nvidia", "dell"]);
+    }
+}
