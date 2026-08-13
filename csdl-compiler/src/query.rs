@@ -13,9 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Schema queries for projection compilers: [`SchemaQuery::resolve`]
-//! answers what a path *is*, [`SchemaQuery::steps`] additionally answers
-//! how generated Rust reaches it, segment by segment.
+//! Schema queries for projection compilers.
+//!
+//! [`SchemaQuery::resolve`] answers what a path *is*; [`SchemaQuery::steps`]
+//! additionally answers how generated Rust reaches it, segment by segment.
 
 use std::collections::HashMap;
 
