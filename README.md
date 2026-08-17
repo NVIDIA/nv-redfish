@@ -68,18 +68,33 @@ your client needs, or use `std-redfish` for a broad standard Redfish build.
 Common feature groups:
 
 - `bmc-http`: re-export `nv-redfish-bmc-http` from `nv_redfish::bmc_http`.
+- `http-extras`: enable optional HTTP client capabilities, including per-BMC operation concurrency limits; implies `bmc-http`.
 - `std-redfish`: enable a broad standard Redfish surface.
 - Service features: `accounts`, `assembly`, `bios`, `boot-options`,
   `chassis`, `computer-systems`, `ethernet-interfaces`, `event-service`,
-  `host-interfaces`, `log-services`, `managers`, `memory`,
-  `network-adapters`, `network-device-functions`, `pcie-devices`, `power`,
+  `host-interfaces`, `log-services`, `managers`, `manager-network-protocol`, `memory`,
+  `network-adapters`, `network-device-functions`, `pcie-devices`, `ports`, `power`,
   `power-supplies`, `processors`, `secure-boot`, `sensors`,
   `session-service`, `storages`, `task-service`, `telemetry-service`, `thermal`,
   `update-service`.
 - OEM features: `oem-ami`, `oem-dell`, `oem-hpe`, `oem-lenovo`,
   `oem-supermicro`, `oem-nvidia`, `oem-liteon`.
-- OEM product features: `oem-nvidia-bluefield`, `oem-nvidia-baseboard`,
-  `oem-dell-attributes`.
+- OEM product features: `oem-dell-attributes`, `oem-nvidia-cper`,
+  `oem-nvidia-fabrics`, `oem-nvidia-power-management`,
+  `oem-nvidia-profiles`, `oem-nvidia-security`.
+
+`oem-nvidia` carries the whole NVIDIA OEM schema set, vendored from
+[NVIDIA/bmcweb](https://github.com/NVIDIA/bmcweb/tree/develop/redfish-core/schema/oem/nvidia/csdl),
+and covers every NVIDIA platform including the BlueField DPU. It
+compiles only the schemas belonging to the service features you already
+enabled: with `chassis` you get the NVIDIA chassis schemas, with
+`managers` the NVIDIA manager schemas, and so on. Families that extend
+no standard service have their own `oem-nvidia-*` feature. `oem-nvidia`
+on its own generates nothing.
+
+`oem-nvidia-cper` is separate because that one schema accounts for
+roughly half of the generated NVIDIA code; enable it only if you decode
+Common Platform Error Records.
 
 For smaller binaries and faster builds, enable only the service and OEM
 features your client needs.
@@ -128,6 +143,11 @@ See `examples/session-token` for Redfish SessionService authentication using
 See `examples/task-service` for polling a Redfish Task through TaskService.
 Pass a Redfish task location returned by an async operation, such as
 `/redfish/v1/TaskService/Tasks/42`, with `--location`.
+See `examples/metrics-oem-nvidia` for walking the metric resources of a live
+BMC and reporting its NVIDIA OEM extensions. It separates "no such link" from
+"no extension" from "firmware sent something the schema cannot read", and exits
+non-zero on the last of those. Add `--dump` to print the raw `Oem.Nvidia`
+objects.
 
 ## How It Fits Together
 
@@ -146,6 +166,10 @@ Pass a Redfish task location returned by an async operation, such as
 - Compile only the schema surface needed by enabled features.
 - Support standard Redfish and selected OEM extensions.
 - Keep vendor compatibility fixes isolated behind feature-gated patch helpers.
+
+## Security
+- Vulnerability disclosure: [SECURITY.md](SECURITY.md)
+- Do not file public issues for security reports.
 
 ## License
 

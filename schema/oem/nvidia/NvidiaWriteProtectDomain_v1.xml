@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaWriteProtectDomain_v1   v1.0.0                                            -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaWriteProtectDomain">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaWriteProtectDomain" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The `NvidiaWriteProtectDomain` schema defines properties for a write-protect domain."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent a write-protect domain for a Redfish implementation."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/Nvidia/WriteProtectDomains/{NvidiaWriteProtectDomainId}</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaWriteProtectDomain.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaWriteProtectDomain" BaseType="NvidiaWriteProtectDomain.NvidiaWriteProtectDomain">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="WriteProtected" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the components listed in the `AffectedComponents` array are write-protected."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the components listed in the AffectedComponents array are write-protected."/>
+        </Property>
+        <NavigationProperty Name="AffectedComponents" Type="Collection(Resource.Item)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of links to resources associated with this write-protect domain."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of links to resources associated with this write-protect domain."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

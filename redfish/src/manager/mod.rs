@@ -18,6 +18,8 @@
 //! This module provides types for working with Redfish Manager resources.
 
 mod item;
+#[cfg(feature = "manager-network-protocol")]
+mod network_protocol;
 
 use crate::core::NavProperty;
 use crate::patch_support::CollectionWithPatch;
@@ -35,6 +37,8 @@ use std::convert::identity;
 use std::sync::Arc;
 
 pub use item::Manager;
+#[cfg(feature = "manager-network-protocol")]
+pub use network_protocol::ManagerNetworkProtocol;
 
 #[doc(inline)]
 pub use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;

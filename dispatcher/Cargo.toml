@@ -20,6 +20,12 @@ version.workspace = true
 license.workspace = true
 repository.workspace = true
 readme.workspace = true
+# These repository-only tests and benchmarks depend on the unpublished
+# simulation helper crate.
+exclude = [
+    "benches/**",
+    "tests/**",
+]
 edition.workspace = true
 keywords.workspace = true
 categories.workspace = true
@@ -42,3 +48,13 @@ serde = { workspace = true, optional = true, features = ["derive"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt", "time"] }
+nv-redfish-dispatcher-sim = { path = "./sim" }
+
+# Compiles only on unix: the runner library it pulls in uses
+# std::os::unix and nix unconditionally.
+[target.'cfg(unix)'.dev-dependencies]
+gungraun = { workspace = true }
+
+[[bench]]
+name = "scheduler"
+harness = false

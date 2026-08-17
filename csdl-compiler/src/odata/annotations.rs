@@ -159,7 +159,7 @@ pub trait ODataAnnotations {
         self.annotations()
             .iter()
             .find(|a| a.is_odata_annotation("Permissions"))
-            .and_then(|a| a.enum_member.as_ref())
+            .and_then(|a| a.enum_members().next())
             .and_then(|v| match v.mname.inner().inner().as_str() {
                 "ReadWrite" => Some(Permissions::ReadWrite),
                 "Read" => Some(Permissions::Read),

@@ -23,6 +23,10 @@ all-features = true
 default = []
 
 bmc-http = [ "dep:nv-redfish-bmc-http" ]
+http-extras = [
+    "bmc-http",
+    "nv-redfish-bmc-http/http-extras",
+]
 
 std-redfish = [
     "accounts",
@@ -37,9 +41,11 @@ std-redfish = [
     "host-interfaces",
     "log-services",
     "managers",
+    "manager-network-protocol",
     "memory",
     "network-adapters",
     "network-device-functions",
+    "ports",
     "power",
     "power-equipment",
     "power-supplies",
@@ -68,14 +74,16 @@ host-interfaces = []
 network-adapters = []
 network-device-functions = []
 event-service = ["patch"]
-telemetry-service = ["impl-nv-bmc-expand"]
+telemetry-service = ["impl-nv-bmc-expand", "impl-entity-link"]
 log-services = []
 managers = ["impl-nv-bmc-expand", "patch-collection"]
+manager-network-protocol = []
 memory = []
 pcie-devices = ["resource-status"]
 power = [] # Support of legacy PowerSubsystem
 power-equipment = ["impl-nv-bmc-expand"]
 power-supplies = []
+ports = []
 processors = ["pcie-devices"]
 resource-status = []
 secure-boot = []
@@ -100,11 +108,19 @@ oem-dell = ["oem"]
 oem-ami = ["oem"]
 oem-nvidia = ["oem"]
 oem-liteon = ["oem"]
+oem-delta = ["oem"]
+
+# NVIDIA OEM schema families that extend no standard Redfish service.
+# The rest of the NVIDIA set follows the service feature owning the
+# resource it extends, so `oem-nvidia` + `chassis` compiles the NVIDIA
+# chassis schemas without a further flag.
+oem-nvidia-cper = ["oem-nvidia"]
+oem-nvidia-fabrics = ["oem-nvidia"]
+oem-nvidia-power-management = ["oem-nvidia"]
+oem-nvidia-profiles = ["oem-nvidia"]
+oem-nvidia-security = ["oem-nvidia"]
 
 # OEM product features support
-oem-nvidia-bluefield = ["oem-nvidia"]
-oem-nvidia-baseboard = ["oem-nvidia"]
-
 oem-dell-attributes = ["oem-dell"]
 
 # Patches

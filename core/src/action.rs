@@ -49,6 +49,7 @@
 
 use crate::Bmc;
 use crate::ModificationResponse;
+use core::fmt::Debug;
 use core::fmt::Display;
 use core::fmt::Formatter;
 use core::fmt::Result as FmtResult;
@@ -80,7 +81,7 @@ impl ActionTarget {
 
 impl Display for ActionTarget {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
-        self.0.fmt(f)
+        Display::fmt(&self.0, f)
     }
 }
 
@@ -89,7 +90,7 @@ impl Display for ActionTarget {
 ///
 /// `T` is the type for parameters.
 /// `R` is the type for the return value.
-#[derive(Deserialize, Debug)]
+#[derive(Deserialize)]
 pub struct Action<T, R> {
     /// URI reference used to trigger the action.
     #[serde(rename = "target")]
@@ -101,6 +102,14 @@ pub struct Action<T, R> {
     /// Establishes a dependency on the `R` (return value) type.
     #[serde(skip_deserializing)]
     _marker_retval: PhantomData<R>,
+}
+
+impl<T, R> Debug for Action<T, R> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
+        f.debug_struct("Action")
+            .field("target", &self.target)
+            .finish()
+    }
 }
 
 /// Action error trait. Needed in generated code when an action function
@@ -126,5 +135,28 @@ impl<T: Send + Sync + Serialize, R: Send + Sync + Sized + for<'de> Deserialize<'
         params: &T,
     ) -> Result<ModificationResponse<R>, B::Error> {
         bmc.action::<T, R>(self, params).await
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Action;
+    use super::ActionTarget;
+    use std::marker::PhantomData;
+
+    struct NotDebug;
+
+    #[test]
+    fn debug_does_not_require_parameter_or_result_debug() {
+        let action: Action<NotDebug, NotDebug> = Action {
+            target: ActionTarget::new("/redfish/v1/Actions/Test".into()),
+            _marker: PhantomData,
+            _marker_retval: PhantomData,
+        };
+
+        assert_eq!(
+            format!("{action:?}"),
+            "Action { target: ActionTarget(\"/redfish/v1/Actions/Test\") }"
+        );
     }
 }

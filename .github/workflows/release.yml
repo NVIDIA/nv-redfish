@@ -38,6 +38,10 @@ jobs:
         sed -i -E 's/^(nv-redfish = \{ version = ")[^"]+(", path = "\.\/redfish" \})/\1'"$VERSION"'\2/' Cargo.toml
         sed -i -E 's/^(nv-redfish-csdl-compiler = \{ version = ")[^"]+(", path = "\.\/csdl-compiler" \})/\1'"$VERSION"'\2/' Cargo.toml
         sed -i -E 's/^(nv-redfish-schema = \{ version = ")[^"]+(", path = "\.\/schema" \})/\1'"$VERSION"'\2/' Cargo.toml
+        sed -i -E 's/^(nv-redfish-dispatcher = \{ version = ")[^"]+(", path = "\.\/dispatcher" \})/\1'"$VERSION"'\2/' Cargo.toml
+
+        echo "Publishing dispatcher..."
+        cargo publish -p nv-redfish-dispatcher --all-features --allow-dirty
 
         echo "Publishing schema..."
         cargo publish -p nv-redfish-schema --all-features --allow-dirty

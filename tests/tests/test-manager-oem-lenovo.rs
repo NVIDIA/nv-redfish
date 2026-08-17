@@ -101,6 +101,27 @@ async fn manager_without_lenovo_oem_returns_not_available() -> Result<(), Box<dy
 }
 
 #[test]
+async fn manager_with_null_lenovo_oem_returns_not_available() -> Result<(), Box<dyn StdError>> {
+    // An explicit null under the vendor key means "no extension";
+    // it must read as absence, not as a parse failure.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        json_merge([
+            &manager_payload_without_lenovo(&ids),
+            &json!({ "Oem": { "Lenovo": null } }),
+        ]),
+    )
+    .await?;
+
+    assert!(manager.oem_lenovo()?.is_none());
+
+    Ok(())
+}
+
+#[test]
 async fn lenovo_oem_without_security_returns_not_available() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();

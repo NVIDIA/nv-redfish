@@ -15,6 +15,9 @@
 
 //! Integration tests of Session Service.
 
+use std::error::Error as StdError;
+use std::sync::Arc;
+
 use nv_redfish::session_service::SessionCollection;
 use nv_redfish::session_service::SessionCreate;
 use nv_redfish::session_service::SessionService;
@@ -22,13 +25,15 @@ use nv_redfish::session_service::SessionTypes;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ODataId;
+use nv_redfish_tests::assert_empty;
+use nv_redfish_tests::assert_task;
+use nv_redfish_tests::async_task;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
 use nv_redfish_tests::ODATA_TYPE;
+
 use serde_json::json;
-use std::error::Error as StdError;
-use std::sync::Arc;
 use tokio::test;
 
 const ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_13_0.ServiceRoot";
@@ -144,12 +149,13 @@ async fn delete_created_session_uses_location() -> Result<(), Box<dyn StdError>>
 
     let session = sessions.create_session(&create).await?;
     bmc.expect(Expect::delete(&location_session_id));
-    assert!(session.delete().await?.is_none());
+    assert_empty(session.delete().await?);
+
     Ok(())
 }
 
 #[test]
-async fn delete_session() -> Result<(), Box<dyn StdError>> {
+async fn delete_session_preserves_async_task() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
     let session_service = get_session_service(bmc.clone(), &root_id).await?;
@@ -172,8 +178,12 @@ async fn delete_session() -> Result<(), Box<dyn StdError>> {
     .await?;
 
     let session = sessions.members().await?.into_iter().next().unwrap();
-    bmc.expect(Expect::delete(&session_id));
-    assert!(session.delete().await?.is_none());
+    let task_id = "/redfish/v1/TaskService/Tasks/51";
+
+    bmc.expect(Expect::delete_task(&session_id, async_task(task_id, 6)));
+
+    assert_task(session.delete().await?, task_id, 6);
+
     Ok(())
 }
 

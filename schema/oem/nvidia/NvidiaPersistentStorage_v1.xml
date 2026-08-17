@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPersistentStorage   v1.1.0                                                -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaFirmwarePackageCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaFirmwarePackageCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPersistentStorage">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPersistentStorage" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the persistent storage."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the persistent storage properties."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/UpdateService/Oem/Nvidia/PersistentStorage</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="InitiateFirmwareUpdate" IsBound="true">
+        <Annotation Term="OData.Description" String="The action updates firmware components located in a staged firmware package specified by the FirmwarePackageURI parameter."/>
+        <Annotation Term="OData.LongDescription" String="This action shall update firmware components located in a staged firmware package specified by the FirmwarePackageURI parameter.  This action cannot be executed when firmware update or background copy policy is enabled and in progress by ERoTs."/>
+        <Parameter Name="NvidiaPersistentStorage" Type="NvidiaPersistentStorage.v1_0_0.Actions"/>
+        <Parameter Name="StagedFirmwarePackageURI" Type="Edm.String">
+          <Annotation Term="OData.Description" String="A resource of type FirmwarePackage that links to a staged firmware package that the service retrieves to install firmware components."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain a resource of type FirmwarePackage that links to a staged firmware package that the service retrieves to install firmware components."/>
+          <Annotation Term="OData.IsURL"/>
+        </Parameter>
+        <Parameter Name="Targets" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Description" String="An array of URIs that indicate where to apply the update image."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain zero or more URIs that indicate where to apply the update image.  These targets shall correspond to SoftwareInventory instances. If this parameter is not present or contains no targets, the service shall apply the software image to all applicable targets, as determined by the service."/>
+          <Annotation Term="OData.IsURL"/>
+        </Parameter>
+        <Parameter Name="ForceUpdate" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication of whether the service should bypass update policies when applying the provided image."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the service should bypass update policies when applying the provided image, such as allowing a component to be downgraded.  Services may contain update policies that are never bypassed, such as minimum version enforcement.  If the client does not provide this parameter, the service shall default this value to `false`."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                <PropertyValue Property="Version" String="v1_1_0"/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPersistentStorage.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPersistentStorage" BaseType="NvidiaPersistentStorage.NvidiaPersistentStorage">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Enabled" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="An indication of whether the persistent storage is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the persistent storage is enabled.  The default value is `false`.  Once it is set to `true`, the service shall not allow this value to be overwritten."/>
+        </Property>
+        <Property Name="StageFirmwarePackageHttpPushUri" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The URI used to perform an HTTP or HTTPS POST of a firmware package for the purpose of staging the firmware package to the persistent storage before the firmware udpates initiated by the InitiateFirmwareUpdate action."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a URI at which the service supports an HTTP or HTTPS POST of a firmware package for the purpose of staging the firmware package to the persistent storage before the firmware udpates initiated by the InitiateFirmwareUpdate action.  The value of this property should not contain a URI of a Redfish resource."/>
+          <Annotation Term="OData.IsURL"/>
+        </Property>
+        <Property Name="MaxFirmwarePackages" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The maximum number of firmware packages the service allows to stage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum number of firmware packages the service allows to stage."/>
+        </Property>
+        <NavigationProperty Name="FirmwarePackages" Type="NvidiaFirmwarePackageCollection.NvidiaFirmwarePackageCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of firmware packages."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type FirmwarePackageCollection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <Property Name="Actions" Type="NvidiaPersistentStorage.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPersistentStorage.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPersistentStorage" BaseType="NvidiaPersistentStorage.v1_0_0.NvidiaPersistentStorage"/>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -232,7 +232,9 @@ where
             .map_err(Error::mutex_lock)?
             .pop_front()
             .ok_or(Error::NothingIsExpected)?;
+
         let in_request = to_value(update).expect("json serializable");
+
         match expect {
             Expect {
                 request: ExpectedRequest::Update { id, request },
@@ -242,6 +244,14 @@ where
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))
             }
+            Expect {
+                request: ExpectedRequest::UpdateTask { id, request, task },
+                ..
+            } if id == *in_id && request == in_request => Ok(ModificationResponse::Task(task)),
+            Expect {
+                request: ExpectedRequest::UpdateEmpty { id, request },
+                ..
+            } if id == *in_id && request == in_request => Ok(ModificationResponse::Empty),
             _ => Err(Error::UnexpectedUpdate(
                 in_id.clone(),
                 in_request.to_string(),
@@ -264,7 +274,9 @@ where
             .map_err(Error::mutex_lock)?
             .pop_front()
             .ok_or(Error::NothingIsExpected)?;
+
         let in_request = to_value(create).expect("json serializable");
+
         match expect {
             Expect {
                 request: ExpectedRequest::Create { id, request },
@@ -274,6 +286,14 @@ where
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))
             }
+            Expect {
+                request: ExpectedRequest::CreateTask { id, request, task },
+                ..
+            } if id == *in_id && request == in_request => Ok(ModificationResponse::Task(task)),
+            Expect {
+                request: ExpectedRequest::CreateEmpty { id, request },
+                ..
+            } if id == *in_id && request == in_request => Ok(ModificationResponse::Empty),
             _ => Err(Error::UnexpectedCreate(
                 in_id.clone(),
                 in_request.to_string(),
@@ -339,6 +359,10 @@ where
                 request: ExpectedRequest::Delete { id },
                 ..
             } if id == *in_id => Ok(ModificationResponse::Empty),
+            Expect {
+                request: ExpectedRequest::DeleteTask { id, task },
+                ..
+            } if id == *in_id => Ok(ModificationResponse::Task(task)),
             _ => Err(Error::UnexpectedDelete(in_id.clone(), expect.request)),
         }
     }

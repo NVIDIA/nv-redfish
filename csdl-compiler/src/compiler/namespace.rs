@@ -15,6 +15,7 @@
 
 use crate::edmx::Namespace as EdmxNamespace;
 use crate::edmx::SimpleIdentifier;
+use std::cmp::Ordering;
 use std::fmt::Debug;
 use std::fmt::Display;
 use std::fmt::Formatter;
@@ -57,6 +58,26 @@ impl<'a> Namespace<'a> {
         }
     }
 
+    /// Namespace truncated to its first identifier: the schema family
+    /// root, without version segments.
+    #[must_use]
+    pub const fn root(&self) -> Self {
+        Self {
+            edmx_ns: self.edmx_ns,
+            len: 1,
+        }
+    }
+
+    /// Namespace truncated to at most `len` identifiers (a no-op when
+    /// it is already shorter).
+    #[must_use]
+    pub const fn truncated(&self, len: usize) -> Self {
+        Self {
+            edmx_ns: self.edmx_ns,
+            len: if len < self.len { len } else { self.len },
+        }
+    }
+
     /// Parent namespace (for namespaces with at least two identifiers).
     #[must_use]
     pub const fn parent(&self) -> Option<Self> {
@@ -85,6 +106,18 @@ impl PartialEq for Namespace<'_> {
 
 impl Eq for Namespace<'_> {}
 
+impl PartialOrd for Namespace<'_> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Namespace<'_> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.edmx_ns.ids[..self.len].cmp(&other.edmx_ns.ids[..other.len])
+    }
+}
+
 impl Hash for Namespace<'_> {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.edmx_ns.ids[..self.len].hash(state);
@@ -107,5 +140,24 @@ impl Display for Namespace<'_> {
 impl Debug for Namespace<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         Display::fmt(self, f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Namespace;
+    use crate::edmx::Namespace as EdmxNamespace;
+    use std::str::FromStr as _;
+
+    #[test]
+    fn truncated_shortens_and_clamps() {
+        let edmx = EdmxNamespace::from_str("NvidiaPortMetrics.v1_6_0").expect("valid namespace");
+        let ns = Namespace::new(&edmx);
+
+        assert_eq!(ns.to_string(), "NvidiaPortMetrics.v1_6_0");
+        assert_eq!(ns.truncated(1).to_string(), "NvidiaPortMetrics");
+        assert_eq!(ns.truncated(2).to_string(), "NvidiaPortMetrics.v1_6_0");
+        // Truncating beyond the length is a no-op, not a panic.
+        assert_eq!(ns.truncated(9).to_string(), "NvidiaPortMetrics.v1_6_0");
     }
 }

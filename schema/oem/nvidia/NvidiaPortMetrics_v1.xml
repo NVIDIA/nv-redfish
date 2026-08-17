@@ -1,0 +1,599 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPortMetrics  v1.9.0                                                       -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaNVLinkMetrics_v1.xml">
+    <edmx:Include Namespace="NvidiaNVLinkMetrics"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PortMetrics_v1.xml">
+    <edmx:Include Namespace="PortMetrics.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a PortMetrics resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a PortMetrics resource."/>
+      </ComplexType>
+      <Action Name="ClearPCIeCounters" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to clear PCIe counters."/>
+        <Annotation Term="OData.LongDescription" String="This action shall clear PCIe counters."/>
+        <Parameter Name="PortMetrics" Type="PortMetrics.v1_0_0.OemActions"/>
+        <Parameter Name="CounterType" Type="NvidiaPortMetrics.v1_3_0.PCIeCounterType">
+          <Annotation Term="OData.Description" String="The type of PCIe counter."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the type of PCIe counter."/>
+        </Parameter>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.NvidiaPortMetrics">
+        <Property Name="TXNoProtocolBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The transmitted NVLink data throughput without the protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the transmitted NVLink data throughput without the protocol overhead."/>
+          <Annotation Term="Measures.Unit" String="By"/>
+        </Property>
+        <Property Name="RXNoProtocolBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The received NVLink data throughput without the protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the received NVLink data throughput without the protocol overhead."/>
+          <Annotation Term="Measures.Unit" String="By"/>
+        </Property>
+        <Property Name="NVLinkErrors" Type="NvidiaNVLinkMetrics.NVLinkErrors" Nullable="false">
+          <Annotation Term="OData.Description" String="The NVLink errors associated with this port. "/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe the NVLink errors associated with this port."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_0_0.NvidiaPortMetrics">
+        <Property Name="NVLinkRawTxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink with protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="NVLinkRawRxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink with protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink with protocol overhead in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="NVLinkDataTxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth transferred on NVLink without protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth transferred on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+        <Property Name="NVLinkDataRxBandwidthGbps" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth received on NVLink without protocol overhead."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth received on NVLink without protocol overhead in gigabit per second (Gbit/s)."/>
+          <Annotation Term="Measures.Unit" String="Gbit/s"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_1_0.NvidiaPortMetrics">
+        <Property Name="BitErrorRate" Type="Edm.Double">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The bit error rate on a port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain bit error rate on a port since reset."/>
+        </Property>
+        <Property Name="MalformedPackets" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of packets received on the port that contain malformed packet error since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of packets received on the port that contain malformed packet error since reset."/>
+        </Property>
+        <Property Name="VL15Dropped" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of incoming VL15 packets dropped due to resource limitations in the port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of incoming VL15 packets dropped due to resource limitations in the port since reset."/>
+        </Property>
+        <Property Name="VL15TXPackets" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of packets transmitted on VL15 from the port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of packets transmitted on VL15 from the port since reset."/>
+        </Property>
+        <Property Name="VL15TXBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of bytes transmitted on VL15 from the port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of bytes transmitted on VL15 from the port since reset."/>
+        </Property>
+        <Property Name="NeighborMTUDiscards" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of outbound packets discarded by the port because packet length exceeded the PortInfo:NeighborMTU."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of outbound packets discarded by the port because packet length exceeded the PortInfo:NeighborMTU."/>
+        </Property>
+        <Property Name="SymbolErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of minor link errors detected on one or more physical lanes since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of minor link errors detected on one or more physical lanes since reset."/>
+        </Property>
+        <Property Name="LinkErrorRecoveryCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of times the Port Training state machine has successfully completed the link error recovery process since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of times the Port Training state machine has successfully completed the link error recovery process since reset."/>
+        </Property>
+        <Property Name="LinkDownedCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+        </Property>
+        <Property Name="RXRemotePhysicalErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of packets marked with the EBP delimiter received on the port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of packets marked with the EBP delimiter received on the port since reset."/>
+        </Property>
+        <Property Name="RXSwitchRelayErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of packets received on the port that were discarded because they could not be forwarded by the switch relay since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of packets received on the port that were discarded because they could not be forwarded by the switch relay since reset."/>
+        </Property>
+        <Property Name="QP1Dropped" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of QP1 MADs packets dropped due to resource limitations on the port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of QP1 MADs packets dropped due to resource limitations on the port since reset."/>
+        </Property>
+        <Property Name="TXWait" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of ticks during which the port selected by PortSelect had data to transmit but no data was sent during the entire tick either because of insufficient credits or because of lack of arbitration."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of ticks during which the port selected by PortSelect had data to transmit but no data was sent during the entire tick either because of insufficient credits or because of lack of arbitration."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to add `ClearPCIeCounters` action."/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_2_0.NvidiaNVLinkPortMetrics"/>
+      <EnumType Name="PCIeCounterType">
+        <Member Name="CorrectableErrorCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe correctable error count."/>
+        </Member>
+        <Member Name="FatalErrorCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe fatal error count."/>
+        </Member>
+        <Member Name="L0ToRecoveryCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe L0 to recovery count."/>
+        </Member>
+        <Member Name="NAKReceivedCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe NAK received count."/>
+        </Member>
+        <Member Name="NAKSentCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe NAK sent count."/>
+        </Member>
+        <Member Name="NonFatalErrorCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe non-fatal error count."/>
+        </Member>
+        <Member Name="ReplayCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe replay count."/>
+        </Member>
+        <Member Name="ReplayRolloverCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe relay rollover count."/>
+        </Member>
+        <Member Name="UnsupportedRequestCount">
+          <Annotation Term="OData.Description" String="This value shall indicate PCIe unsupported request count."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_0_0.NvidiaPortMetrics">
+        <Property Name="RXErrorsPerLane" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of RX error counts indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of RX error counts indexed by the lane number."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_3_0.NvidiaNVLinkPortMetrics">
+        <Property Name="RXIbg2Packets" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of received packets of IB Gen2 since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of received packets of IB Gen2 since reset."/>
+        </Property>
+        <Property Name="TXIbg2Packets" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of transmitted packets of IB Gen2 since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of transmitted packets of IB Gen2 since reset."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_4_0.NvidiaNVLinkPortMetrics">
+        <Property Name="EffectiveError" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of effective errors since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of effective errors since reset."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_6_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EnumType Name="LinkDownReasonCodeTypes">
+        <Member Name="NoLinkDown">
+          <Annotation Term="OData.Description" String="No link down."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="Unknown."/>
+        </Member>
+        <Member Name="HighBitErrorRate">
+          <Annotation Term="OData.Description" String="High bit error rate."/>
+        </Member>
+        <Member Name="BlockLockLost">
+          <Annotation Term="OData.Description" String="Block lock lost."/>
+        </Member>
+        <Member Name="AlignmentLost">
+          <Annotation Term="OData.Description" String="Alignment lost."/>
+        </Member>
+        <Member Name="FECSyncLost">
+          <Annotation Term="OData.Description" String="FEC sync lost."/>
+        </Member>
+        <Member Name="PllLockLost">
+          <Annotation Term="OData.Description" String="PLL lock lost."/>
+        </Member>
+        <Member Name="FIFOOverflow">
+          <Annotation Term="OData.Description" String="FIFO overflow."/>
+        </Member>
+        <Member Name="FalseSkipDetected">
+          <Annotation Term="OData.Description" String="False skip detected."/>
+        </Member>
+        <Member Name="MinorErrorThresholdExceeded">
+          <Annotation Term="OData.Description" String="Minor error threshold exceeded."/>
+        </Member>
+        <Member Name="PhyRetransmitTimeout">
+          <Annotation Term="OData.Description" String="PHY retransmit timeout."/>
+        </Member>
+        <Member Name="HeartbeatErrors">
+          <Annotation Term="OData.Description" String="Heartbeat errors."/>
+        </Member>
+        <Member Name="CreditMonitorWatchdogTimeout">
+          <Annotation Term="OData.Description" String="Credit monitor watchdog timeout."/>
+        </Member>
+        <Member Name="LinkLayerIntegrityThresholdExceeded">
+          <Annotation Term="OData.Description" String="Link layer integrity threshold exceeded."/>
+        </Member>
+        <Member Name="LinkLayerBufferOverrun">
+          <Annotation Term="OData.Description" String="Link layer buffer overrun."/>
+        </Member>
+        <Member Name="OOBCommandLinkHealthy">
+          <Annotation Term="OData.Description" String="OOB command link healthy."/>
+        </Member>
+        <Member Name="OOBCommandLinkHighBER">
+          <Annotation Term="OData.Description" String="OOB command link high BER."/>
+        </Member>
+        <Member Name="InbandCommandLinkHealthy">
+          <Annotation Term="OData.Description" String="Inband command link healthy."/>
+        </Member>
+        <Member Name="InbandCommandLinkHighBER">
+          <Annotation Term="OData.Description" String="Inband command link high BER."/>
+        </Member>
+        <Member Name="VerificationGatewayDown">
+          <Annotation Term="OData.Description" String="Verification gateway down."/>
+        </Member>
+        <Member Name="RemoteFaultReceived">
+          <Annotation Term="OData.Description" String="Remote fault received."/>
+        </Member>
+        <Member Name="TrainingSequenceReceived">
+          <Annotation Term="OData.Description" String="Training sequence received."/>
+        </Member>
+        <Member Name="ManagementCommandDown">
+          <Annotation Term="OData.Description" String="Management command down."/>
+        </Member>
+        <Member Name="CableDisconnected">
+          <Annotation Term="OData.Description" String="Cable disconnected."/>
+        </Member>
+        <Member Name="CableAccessFault">
+          <Annotation Term="OData.Description" String="Cable access fault."/>
+        </Member>
+        <Member Name="ThermalShutdown">
+          <Annotation Term="OData.Description" String="Thermal shutdown."/>
+        </Member>
+        <Member Name="CurrentIssue">
+          <Annotation Term="OData.Description" String="Current issue."/>
+        </Member>
+        <Member Name="PowerBudgetExceeded">
+          <Annotation Term="OData.Description" String="Power budget exceeded."/>
+        </Member>
+        <Member Name="FastRawBERRecovery">
+          <Annotation Term="OData.Description" String="Fast raw BER recovery."/>
+        </Member>
+        <Member Name="FastEffectiveBERRecovery">
+          <Annotation Term="OData.Description" String="Fast effective BER recovery."/>
+        </Member>
+        <Member Name="FastSymbolBERRecovery">
+          <Annotation Term="OData.Description" String="Fast symbol BER recovery."/>
+        </Member>
+        <Member Name="FastCreditWatchdogRecovery">
+          <Annotation Term="OData.Description" String="Fast credit watchdog recovery."/>
+        </Member>
+        <Member Name="PeerSleep">
+          <Annotation Term="OData.Description" String="Peer sleep."/>
+        </Member>
+        <Member Name="PeerDisabled">
+          <Annotation Term="OData.Description" String="Peer disabled."/>
+        </Member>
+        <Member Name="PeerDisableLocked">
+          <Annotation Term="OData.Description" String="Peer disable locked."/>
+        </Member>
+        <Member Name="PeerThermalEvent">
+          <Annotation Term="OData.Description" String="Peer thermal event."/>
+        </Member>
+        <Member Name="PeerForcedEvent">
+          <Annotation Term="OData.Description" String="Peer forced event."/>
+        </Member>
+        <Member Name="PeerResetEvent">
+          <Annotation Term="OData.Description" String="Peer reset event."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_5_0.NvidiaNVLinkPortMetrics">
+        <Property Name="EffectiveBER" Type="Edm.Double">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of effective BER since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of effective BER."/>
+        </Property>
+        <Property Name="TotalRawBER" Type="Edm.Double">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of raw BER since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of raw BER."/>
+        </Property>
+        <Property Name="TotalRawError" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of raw errors since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of raw errors."/>
+        </Property>
+        <Property Name="IntentionalLinkDownCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of intentional link down count since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of intentional link down count."/>
+        </Property>
+        <Property Name="UnintentionalLinkDownCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of unintentional link down count since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of unintentional link down count."/>
+        </Property>
+        <Property Name="LinkDownReasonCode" Type="NvidiaPortMetrics.v1_6_0.LinkDownReasonCodeTypes">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link down reason code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the link down reason code for the port."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_7_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNetworkPortMetrics" BaseType="NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics">
+        <Property Name="ECC" Type="NvidiaPortMetrics.v1_7_0.ECC">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ECC counters associated with this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ECC counters associated with this port."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="ECC">
+        <Property Name="SymbolErrorRXBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of symbol errors that weren't corrected by FEC correction algorithm or that ECC algorithm was not active on this interface."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of symbol errors that weren't corrected by FEC correction algorithm or that ECC algorithm was not active on this interface."/>
+        </Property>
+        <Property Name="CorrectedBits" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of corrected bits on this port according to active FEC."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of corrected bits on this port according to active FEC."/>
+        </Property>
+        <Property Name="RawErrorsPerLane" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of physical raw errors per lane."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of physical raw errors per lane. The counter counts errors before FEC corrections."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_4_0.NvidiaPortMetrics">
+        <Property Name="PCIeMetrics" Type="NvidiaPortMetrics.v1_7_0.PCIeMetrics" Nullable="false">
+          <Annotation Term="OData.Description" String="The PCIe metrics associated with this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe metrics associated with this port."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="PCIeMetrics">
+        <Property Name="OutboundReadTLPCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of outbound read transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of outbound read transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="OutboundReadTLPBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total data payload in bytes transferred through outbound read transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through outbound read transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="OutboundWriteTLPCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of outbound write transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of outbound write transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="OutboundWriteTLPBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total data payload in bytes transferred through outbound write transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through outbound write transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="OutboundCompletionTLPCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of outbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of outbound completion transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="OutboundCompletionTLPBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total data payload in bytes transferred through outbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through outbound completion transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="TagUnavailabilityDrops" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of read requests dropped due to tag unavailability."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of read requests dropped due to tag unavailability."/>
+        </Property>
+        <Property Name="CompletionCreditExhaustionDrops" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of read requests dropped due to completion credit exhaustion."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of read requests dropped due to completion credit exhaustion."/>
+        </Property>
+        <Property Name="NPCreditExhaustionDrops" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of of read requests dropped due to non-posted credit exhaustion."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of of read requests dropped due to non-posted credit exhaustion."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_8_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPortMetrics" BaseType="NvidiaPortMetrics.v1_7_0.NvidiaPortMetrics">
+        <Property Name="FlowControlTimeoutErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of Flow Control Credit timeouts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of Flow Control Credit timeouts, indicating a link-level problem that typically triggers link recovery."/>
+        </Property>
+        <Property Name="TrainingSequenceErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of training sequence errors that caused a transition from L0 to Recovery."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of training sequence errors that caused a transition from L0 to Recovery."/>
+        </Property>
+        <Property Name="FramingErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of framing errors that caused a transition from L0 to Recovery."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of framing errors that caused a transition from L0 to Recovery."/>
+        </Property>
+        <Property Name="LinkDownedCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of times the Port Training state machine has failed the link error recovery process and downed the link since reset."/>
+        </Property>
+        <Property Name="DLLPCRCErrorCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of DLLP CRC errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of DLLP CRC errors."/>
+        </Property>
+        <Property Name="CDRErrorsPerLane" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of Clock Data Recovery (CDR) error counts, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of Clock Data Recovery (CDR) error counts, indexed by the lane number."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="PCIeMetrics" BaseType="NvidiaPortMetrics.v1_7_0.PCIeMetrics">
+        <Property Name="InboundCompletionTLPCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of inbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of inbound completion transaction layer packets (TLPs)."/>
+        </Property>
+        <Property Name="InboundCompletionTLPBytes" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total data payload in bytes transferred through inbound completion transaction layer packets (TLPs)."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="NvidiaLPUPortMetrics">
+        <Property Name="FecErrorsPerLane" Type="Collection(Edm.Int64)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of Forward Error Correction (FEC) uncorrected packet counts, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of uncorrected packet counts detected by the Forward Error Correction (FEC) system, indexed by the lane number."/>
+        </Property>
+        <Property Name="LinkLockedPerLane" Type="Collection(Edm.Boolean)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An array of boolean values indicating whether each lane is detected as locked by the physical media subsystem, indexed by the lane number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an array of boolean values indicating whether each lane is detected as locked by the physical media subsystem, indexed by the lane number. A value of `true` indicates that the lane is synchronized and operational."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPortMetrics.v1_9_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaNVLinkPortMetrics" BaseType="NvidiaPortMetrics.v1_6_0.NvidiaNVLinkPortMetrics">
+        <Property Name="PacketCRCErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The cumulative count of packet CRC errors observed on this port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the cumulative count of packet CRC errors observed on this port since the last reset."/>
+        </Property>
+        <Property Name="PacketReplayErrors" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The cumulative count of packet replay errors observed on this port since reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the cumulative count of packet replay events observed on this port since the last reset."/>
+        </Property>
+        <Property Name="BandwidthBytesPerSecond" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current bandwidth on this port, expressed in bytes per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current bandwidth on this port, expressed in bytes per second."/>
+          <Annotation Term="Measures.Unit" String="By/s"/>
+        </Property>
+        <Property Name="EarlyHealthIndication" Type="NvidiaPortMetrics.v1_9_0.EarlyHealthIndication">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An early health indication of this port."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain an early health indication of this port."/>
+        </Property>
+        <Property Name="AttentionTriggerReason" Type="NvidiaPortMetrics.v1_9_0.AttentionTriggerReason">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The reason that caused the `EarlyHealthIndication` property to contain the value `Attention`."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the reason that caused the `EarlyHealthIndication` property to contain the value `Attention`.  This property shall be ignored when the `EarlyHealthIndication` property contains a value other than `Attention`."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="EarlyHealthIndication">
+        <Member Name="Healthy">
+          <Annotation Term="OData.Description" String="The link is operating normally."/>
+        </Member>
+        <Member Name="Attention">
+          <Annotation Term="OData.Description" String="The link has detected a health condition and requires attention."/>
+        </Member>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The early health indication is unavailable or not applicable."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="AttentionTriggerReason">
+        <Annotation Term="OData.Description" String="The possible reasons that caused the `EarlyHealthIndication` property to contain the value `Attention`."/>
+        <Member Name="Unknown">
+          <Annotation Term="OData.Description" String="The trigger reason is unknown or not applicable."/>
+        </Member>
+        <Member Name="RawBER">
+          <Annotation Term="OData.Description" String="The raw bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="EffectiveBER">
+          <Annotation Term="OData.Description" String="The effective bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="SymbolBER">
+          <Annotation Term="OData.Description" String="The symbol bit error rate exceeded the threshold."/>
+        </Member>
+        <Member Name="PLRTXBandwidthLoss">
+          <Annotation Term="OData.Description" String="PLR transmit bandwidth loss was detected."/>
+        </Member>
+        <Member Name="PLRRXBandwidthLoss">
+          <Annotation Term="OData.Description" String="PLR receive bandwidth loss was detected."/>
+        </Member>
+        <Member Name="RecoveryBandwidthLoss">
+          <Annotation Term="OData.Description" String="Recovery bandwidth loss was detected."/>
+        </Member>
+        <Member Name="PortTotalBandwidthLoss">
+          <Annotation Term="OData.Description" String="Port total bandwidth loss was detected."/>
+        </Member>
+        <Member Name="LinkDownCount">
+          <Annotation Term="OData.Description" String="The link down count exceeded the threshold."/>
+        </Member>
+        <Member Name="SymbolErrorCount">
+          <Annotation Term="OData.Description" String="The symbol error count exceeded the threshold."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

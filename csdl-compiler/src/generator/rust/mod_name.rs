@@ -15,8 +15,7 @@
 
 use crate::edmx::attribute_values::SimpleIdentifier;
 use crate::generator::casemungler;
-use proc_macro2::Ident;
-use proc_macro2::Span;
+use crate::generator::rust::ident;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::TokenStreamExt as _;
@@ -40,7 +39,7 @@ impl<'a> ModName<'a> {
 
 impl ToTokens for ModName<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+        tokens.append(ident::escaped(&self.to_string()));
     }
 }
 

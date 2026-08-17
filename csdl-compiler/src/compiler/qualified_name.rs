@@ -22,7 +22,7 @@ use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
 
 /// Qualified (namespace + identifier) name used during compilation.
-#[derive(PartialEq, Eq, Hash, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, PartialOrd, Ord, Hash, Clone, Copy, Debug)]
 pub struct QualifiedName<'a> {
     /// Namespace of the type.
     pub namespace: Namespace<'a>,

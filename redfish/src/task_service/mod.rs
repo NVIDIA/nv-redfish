@@ -23,17 +23,17 @@
 
 use std::sync::Arc;
 
-use crate::Error;
-use crate::NvBmc;
-use crate::Resource;
-use crate::ResourceSchema;
-use crate::ServiceRoot;
 use crate::core::Bmc;
 use crate::core::EntityTypeRef as _;
 use crate::core::NavProperty;
 use crate::entity_link::EntityLink;
 use crate::schema::task::Task as TaskSchema;
 use crate::schema::task_service::TaskService as TaskServiceSchema;
+use crate::Error;
+use crate::NvBmc;
+use crate::Resource;
+use crate::ResourceSchema;
+use crate::ServiceRoot;
 
 use nv_redfish_core::AsyncTask;
 

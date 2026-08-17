@@ -17,6 +17,7 @@
 
 use crate::core::Bmc;
 use crate::oem::lenovo::schema::lenovo_computer_system::LenovoSystemProperties as LenovoSystemPropertiesSchema;
+use crate::oem::oem_object;
 use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -47,21 +48,16 @@ impl<B: Bmc> LenovoComputerSystem<B> {
         _bmc: &NvBmc<B>,
         computer_system: &ComputerSystemSchema,
     ) -> Result<Option<Self>, Error<B>> {
-        if let Some(oem) = computer_system
+        Ok(computer_system
             .base
             .base
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Lenovo"))
-        {
-            let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Some(Self {
+            .map_or_else(|| Ok(None), |oem| oem_object(oem, "Lenovo"))?
+            .map(|data| Self {
                 data,
                 _marker: PhantomData,
             }))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get the raw schema data for this Lenovo Computer system.

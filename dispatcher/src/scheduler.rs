@@ -87,6 +87,33 @@ pub trait Scheduler<T>: Send + 'static {
     /// `&mut Completion<C::Meta>` (with the unwrapped meta) to the chosen
     /// child.
     fn on_complete(&mut self, completion: Completion<Self::Meta>);
+
+    /// Register the runtime's restricted queue-event capability.
+    ///
+    /// Externally-fed queue leaves retain this sink and push queue signals
+    /// without receiving the runtime's raw waker. Branches forward it to
+    /// their current children. The runtime repeats this synchronization
+    /// after a dynamic root mutation.
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink);
+}
+
+/// Scheduler root that accepts dynamically attached child subtrees.
+///
+/// [`crate::RuntimeRootMut::add_child_with`] registers the child with its
+/// runtime before calling [`RuntimeChildContainer::attach_child`].
+/// Implementations therefore only perform their branch-specific insertion.
+pub trait RuntimeChildContainer<T>: Scheduler<T> {
+    /// Metadata expected from an attached child.
+    type ChildMeta: WorkMeta;
+    /// Stable identifier returned by the branch.
+    type ChildId;
+    /// Branch-specific arguments needed to attach a child.
+    type ChildArgs;
+
+    /// Physically attach an already runtime-registered child.
+    fn attach_child<S>(&mut self, child: S, args: Self::ChildArgs) -> Self::ChildId
+    where
+        S: Scheduler<T, Meta = Self::ChildMeta>;
 }
 
 impl<T, S> Scheduler<T> for Box<S>
@@ -106,6 +133,10 @@ where
 
     fn on_complete(&mut self, completion: Completion<S::Meta>) {
         (**self).on_complete(completion);
+    }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        (**self).register_queue_event_sink(sink);
     }
 }
 

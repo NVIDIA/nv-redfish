@@ -27,8 +27,12 @@ use std::sync::Arc;
 
 #[cfg(feature = "sensors")]
 use crate::extract_sensor_uris;
+#[cfg(feature = "oem-delta")]
+use crate::oem::delta::DeltaPowerSupply;
 #[cfg(feature = "sensors")]
 use crate::sensor::SensorLink;
+#[cfg(feature = "oem-delta")]
+use std::convert::identity;
 
 /// Represents a power supply in a chassis.
 ///
@@ -149,6 +153,29 @@ impl<B: Bmc> PowerSupply<B> {
             .into_iter()
             .map(|r| SensorLink::new(&self.bmc, r))
             .collect())
+    }
+
+    /// Delta Energy Systems OEM extension for this power supply.
+    ///
+    /// Delta power shelves report per-PSU power state under
+    /// `Oem/deltaenergysystems` rather than the standard `PowerState` field.
+    ///
+    /// Returns `Ok(None)` when the power supply does not include Delta OEM
+    /// extension data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing the Delta OEM data fails.
+    #[cfg(feature = "oem-delta")]
+    pub fn oem_delta(&self) -> Result<Option<DeltaPowerSupply<B>>, Error<B>> {
+        self.data
+            .base
+            .base
+            .oem
+            .as_ref()
+            .map(DeltaPowerSupply::new)
+            .transpose()
+            .map(|v| v.and_then(identity))
     }
 }
 

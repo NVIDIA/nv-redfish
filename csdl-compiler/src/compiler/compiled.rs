@@ -69,6 +69,15 @@ pub type IsCreatable = TaggedType<bool, IsCreatableTag>;
 #[capability(inner_access)]
 pub enum IsCreatableTag {}
 
+/// Whether a type must emit an `Update` struct.
+pub type ForcedUpdate = TaggedType<bool, ForcedUpdateTag>;
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Copy)]
+#[transparent(Debug)]
+#[capability(inner_access)]
+pub enum ForcedUpdateTag {}
+
 /// Compiled outputs from schemas.
 /// Aggregated compilation outputs for a set of schemas.
 #[derive(Default, Debug)]
@@ -194,6 +203,54 @@ impl<'a> Compiled<'a> {
             excerpt_copies_merge_to(&mut self.excerpt_copies, qtype, copies);
         }
         self
+    }
+
+    /// Types that must emit an `Update` struct because a derived type
+    /// embeds them as the base of its own `Update`.
+    ///
+    /// A derived `Update` embeds its base type's `Update`, so every
+    /// ancestor of an updating type in the inheritance chain must also
+    /// generate one -- even a read-only base under a writable
+    /// derivation. Versioned Redfish schemas skip versions, so a base
+    /// may be several versions back; the chain is followed by name.
+    #[must_use]
+    pub fn forced_updates(&self) -> HashSet<QualifiedName<'a>> {
+        let mut forced = HashSet::new();
+        mark_update_ancestors(
+            &self.complex_types,
+            ComplexType::generates_update,
+            |t| t.base,
+            &mut forced,
+        );
+        mark_update_ancestors(
+            &self.entity_types,
+            EntityType::generates_update,
+            |t| t.base,
+            &mut forced,
+        );
+        forced
+    }
+}
+
+/// Walk each updating type's base chain and record its ancestors in
+/// `forced`, stopping at an already-seen ancestor (which cuts cycles
+/// and shared prefixes).
+fn mark_update_ancestors<'a, T>(
+    types: &HashMap<QualifiedName<'a>, T>,
+    generates_update: impl Fn(&T) -> bool,
+    base: impl Fn(&T) -> Option<QualifiedName<'a>>,
+    forced: &mut HashSet<QualifiedName<'a>>,
+) {
+    for t in types.values() {
+        if generates_update(t) {
+            let mut next = base(t);
+            while let Some(name) = next {
+                if !forced.insert(name) {
+                    break;
+                }
+                next = types.get(&name).and_then(&base);
+            }
+        }
     }
 }
 

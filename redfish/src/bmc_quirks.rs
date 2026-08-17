@@ -32,8 +32,11 @@ enum Platform {
     Hpe,
     Dell,
     AmiViking,
+    AmiGb300,
+    VeraRubin,
     Nvidia,
     NvidiaDpu,
+    Wiwynn,
     Anonymous1_9_0,
     NvSwitch,
 }
@@ -43,14 +46,32 @@ impl BmcQuirks {
         let vendor_str = root.vendor.as_ref().and_then(Option::as_deref);
         let redfish_version_str = root.redfish_version.as_deref();
         let product_str = root.product.as_ref().and_then(Option::as_deref);
+        // The GB300 host BMC exposes an AMI OEM `RtpVersion` in the service
+        // root; use it to distinguish GB300 from other AMI BMCs so the
+        // expand workaround is not applied to every AMI platform.
+        let rtp_version = root
+            .base
+            .base
+            .oem
+            .as_ref()
+            .and_then(|oem| oem.additional_properties.get("Ami"))
+            .and_then(|ami| ami.get("RtpVersion"))
+            .and_then(|v| v.as_str());
         let platform = match vendor_str {
             Some("HPE") => Some(Platform::Hpe),
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
+            Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
+            Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
-            Some("Nvidia") if product_str == Some("Nvidia-BMCMezz") => Some(Platform::NvidiaDpu),
-            Some("Nvidia") if product_str == Some("BlueField-3 DPU") => Some(Platform::NvidiaDpu),
+            // BF3 service roots use this product name with an `Nvidia` vendor.
+            Some("Nvidia") if matches!(product_str, Some("Nvidia-BMCMezz" | "BlueField-3 DPU")) => {
+                Some(Platform::NvidiaDpu)
+            }
+            // Wiwynn ODM GB200 NVL trays report their own vendor rather than
+            // `NVIDIA`
+            Some("WIWYNN") => Some(Platform::Wiwynn),
             None if redfish_version_str == Some("1.9.0") => Some(Platform::Anonymous1_9_0),
             _ => None,
         };
@@ -136,6 +157,16 @@ impl BmcQuirks {
         self.platform == Some(Platform::NvidiaDpu)
     }
 
+    /// NVIDIA DPU serves the computer system `Oem.Nvidia` object as a
+    /// separate resource, inlining only a partially expanded stub, and
+    /// puts `BaseMAC` and `Mode` in it -- neither of which the NVIDIA
+    /// OEM CSDL declares. Both the extra fetch and reading the two
+    /// properties out of the raw body are restricted to this platform.
+    #[cfg(all(feature = "computer-systems", feature = "oem-nvidia"))]
+    pub(crate) fn bug_dpu_oem_computer_system(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
     /// Missing Name property in Chassis resource. This property is
     /// required in any resource.
     #[cfg(feature = "update-service")]
@@ -155,8 +186,8 @@ impl BmcQuirks {
     /// In some implementations, Event records in SSE payload do not include
     /// `MemberId`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_no_member_id(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_no_member_id(&self) -> bool {
+        matches!(self.platform, Some(Platform::Nvidia | Platform::Wiwynn))
     }
 
     /// In some implementations, Event records in SSE payload use compact
@@ -168,8 +199,11 @@ impl BmcQuirks {
 
     /// In some implementations, Event records in SSE payload omit `EventType`.
     #[cfg(feature = "event-service")]
-    pub(crate) fn event_service_sse_missing_event_type(&self) -> bool {
-        self.platform == Some(Platform::Nvidia)
+    pub(crate) const fn event_service_sse_missing_event_type(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::Nvidia | Platform::VeraRubin | Platform::Wiwynn)
+        )
     }
 
     /// SSE payload does not include `@odata.id`.
@@ -177,6 +211,13 @@ impl BmcQuirks {
     #[allow(clippy::unused_self)]
     pub(crate) const fn event_service_sse_no_odata_id(&self) -> bool {
         true
+    }
+
+    /// Vera Rubin host BMCs report composite `BootOrder` entries such as
+    /// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
+    #[cfg(feature = "computer-systems")]
+    pub(crate) fn vera_rubin_composite_boot_order_entries(&self) -> bool {
+        self.platform == Some(Platform::VeraRubin)
     }
 
     /// Vikings provide wrong elements in computer system
@@ -203,9 +244,17 @@ impl BmcQuirks {
 
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
-    /// expand api
-    pub(crate) fn expand_is_not_working_properly(&self) -> bool {
-        self.platform == Some(Platform::AmiViking)
+    /// expand api.
+    ///
+    /// AMI host BMCs (Viking and the GB300-class `Ami`) return `$expand`
+    /// responses that drop Required fields (Id/Name/ChassisType) from embedded
+    /// members; the standalone resource GETs are complete, so disabling expand
+    /// makes nv-redfish fetch each member individually and parse correctly.
+    pub(crate) const fn expand_is_not_working_properly(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::AmiViking | Platform::AmiGb300)
+        )
     }
     
     /// Some implementations return the `Members` field of

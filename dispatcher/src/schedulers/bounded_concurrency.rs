@@ -86,6 +86,10 @@ where
         self.in_flight = self.in_flight.saturating_sub(1);
         self.inner.on_complete(completion);
     }
+
+    fn register_queue_event_sink(&mut self, sink: crate::QueueEventSink) {
+        self.inner.register_queue_event_sink(sink);
+    }
 }
 
 #[cfg(test)]
@@ -95,9 +99,9 @@ mod tests {
     use std::time::Instant;
 
     use super::BoundedConcurrency;
-    use crate::schedulers::round_robin::RoundRobin;
-    use crate::schedulers::tests::{MockLeaf, TestPayload, dispatch_and_complete};
     use crate::scheduler::Scheduler as _;
+    use crate::schedulers::round_robin::RoundRobin;
+    use crate::schedulers::tests::{dispatch_and_complete, MockLeaf, TestPayload};
     use crate::work::{Completion, CompletionOutcome, RoutingPath};
 
     fn cap(value: u32) -> NonZeroU32 {
@@ -106,9 +110,10 @@ mod tests {
 
     #[test]
     fn under_cap_passes_work_through() {
-        let leaf = MockLeaf::ready_firing(0, 7);
+        let leaf = MockLeaf::ready_firing(7);
         let handle = leaf.handle();
-        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> = BoundedConcurrency::new(cap(2), leaf);
+        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
+            BoundedConcurrency::new(cap(2), leaf);
 
         assert!(bc.update_ready(Instant::now()).ready);
         let work = bc.take_next().expect("ready");
@@ -129,8 +134,8 @@ mod tests {
     #[test]
     fn cap_blocks_further_dispatch_until_completion() {
         let mut rr: RoundRobin<TestPayload, ()> = RoundRobin::new();
-        for label in 0..3 {
-            rr.add_child(MockLeaf::ready_firing(label, u64::from(label)));
+        for id in 0..3 {
+            rr.add_child(MockLeaf::ready_firing(id));
         }
         let mut bc: BoundedConcurrency<TestPayload, RoundRobin<TestPayload, ()>> =
             BoundedConcurrency::new(cap(2), rr);
@@ -174,15 +179,20 @@ mod tests {
 
     #[test]
     fn passes_meta_and_routing_unmodified() {
-        let leaf = MockLeaf::ready_firing(0, 99);
+        let leaf = MockLeaf::ready_firing(99);
         let handle = leaf.handle();
-        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> = BoundedConcurrency::new(cap(1), leaf);
+        let mut bc: BoundedConcurrency<TestPayload, MockLeaf<()>> =
+            BoundedConcurrency::new(cap(1), leaf);
 
-        let routing = dispatch_and_complete(&mut bc, CompletionOutcome::Failed, Duration::from_millis(3))
-            .expect("ready");
+        let routing =
+            dispatch_and_complete(&mut bc, CompletionOutcome::Failed, Duration::from_millis(3))
+                .expect("ready");
 
         assert_eq!(routing, RoutingPath::empty());
         assert_eq!(handle.completion_count(), 1);
-        assert_eq!(handle.last_completion_outcome(), Some(CompletionOutcome::Failed));
+        assert_eq!(
+            handle.last_completion_outcome(),
+            Some(CompletionOutcome::Failed)
+        );
     }
 }

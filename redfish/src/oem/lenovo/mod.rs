@@ -29,5 +29,9 @@ pub mod security_service;
 #[cfg(feature = "computer-systems")]
 pub mod computer_system;
 
+/// Support of Lenovo Port OEM attributes.
+#[cfg(feature = "ports")]
+pub mod port;
+
 /// Lenovo OEM Schema.
 pub use compiled_schema::redfish as schema;

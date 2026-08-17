@@ -15,6 +15,7 @@
 
 //! Support Supermicro Manager OEM extension.
 
+use crate::oem::oem_object;
 use crate::oem::supermicro::kcs_interface::KcsInterface;
 use crate::oem::supermicro::schema::smc_manager_extensions::Manager as SupermicroManagerSchema;
 use crate::oem::supermicro::sys_lockdown::SysLockdown;
@@ -39,21 +40,16 @@ impl<B: Bmc> SupermicroManager<B> {
     ///
     /// Returns an error if parsing Supermicro manager OEM data fails.
     pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Result<Option<Self>, Error<B>> {
-        if let Some(oem) = manager
+        Ok(manager
             .base
             .base
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Supermicro"))
-        {
-            let data = Arc::new(serde_json::from_value(oem.clone()).map_err(Error::Json)?);
-            Ok(Some(Self {
+            .map_or_else(|| Ok(None), |oem| oem_object(oem, "Supermicro"))?
+            .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
             }))
-        } else {
-            Ok(None)
-        }
     }
 
     /// Get the raw schema data for this Supermicro Manager.

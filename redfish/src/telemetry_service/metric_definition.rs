@@ -53,12 +53,21 @@ impl<B: Bmc> MetricDefinition<B> {
 
     /// Update this metric definition.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the updated metric definition.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if updating the entity fails.
-    pub async fn update(&self, update: &MetricDefinitionUpdate) -> Result<Option<Self>, Error<B>> {
-        match self
-            .bmc
+    pub async fn update(
+        &self,
+        update: &MetricDefinitionUpdate,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<MetricDefinitionSchema>>(
                 self.data.odata_id(),
@@ -67,27 +76,30 @@ impl<B: Bmc> MetricDefinition<B> {
             )
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav).await.map(Some),
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 
     /// Delete this metric definition.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the metric definition returned
+    ///   by the server.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if deleting the entity fails.
-    pub async fn delete(&self) -> Result<Option<Self>, Error<B>> {
-        match self
-            .bmc
+    pub async fn delete(&self) -> Result<ModificationResponse<Self>, Error<B>> {
+        self.bmc
             .as_ref()
             .delete::<NavProperty<MetricDefinitionSchema>>(self.data.odata_id())
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav).await.map(Some),
-            ModificationResponse::Task(_) | ModificationResponse::Empty => Ok(None),
-        }
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 }

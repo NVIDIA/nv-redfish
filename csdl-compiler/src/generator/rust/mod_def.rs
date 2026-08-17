@@ -18,10 +18,10 @@ use crate::compiler::ActionsMap;
 use crate::compiler::ComplexType;
 use crate::compiler::EntityType;
 use crate::compiler::EnumType;
+use crate::compiler::ForcedUpdate;
 use crate::compiler::IsCreatable;
 use crate::compiler::Namespace;
 use crate::compiler::TypeDefinition;
-use crate::compiler::TypeInfo;
 use crate::generator::rust::doc;
 use crate::generator::rust::struct_def::GenerateType;
 use crate::generator::rust::Config;
@@ -31,7 +31,6 @@ use crate::generator::rust::ModName;
 use crate::generator::rust::StructDef;
 use crate::generator::rust::TypeDef;
 use crate::generator::rust::TypeName;
-use crate::odata::annotations::Permissions;
 use crate::redfish::ExcerptCopy;
 use proc_macro2::Ident;
 use proc_macro2::Punct;
@@ -60,7 +59,12 @@ impl<'a> ModDef<'a> {
     pub fn new(name: ModName<'a>, namespace: Namespace<'a>, depth: usize) -> Self {
         Self {
             name: Some(name),
-            namespace: Some(namespace),
+            // A module is shared by every schema version that maps to
+            // it, so record only the namespace prefix that names this
+            // module; the full namespace of whichever type happened to
+            // create it would otherwise leak into the doc comment and
+            // vary with map iteration order.
+            namespace: Some(namespace.truncated(depth + 1)),
             structs: HashMap::new(),
             sub_mods: HashMap::new(),
             enums: HashMap::new(),
@@ -80,9 +84,10 @@ impl<'a> ModDef<'a> {
         self,
         ct: ComplexType<'a>,
         actions: ActionsMap<'a>,
+        forced_update: ForcedUpdate,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
-        self.inner_add_complex_type(ct, 0, actions, config)
+        self.inner_add_complex_type(ct, 0, actions, forced_update, config)
     }
 
     fn inner_add_complex_type(
@@ -90,6 +95,7 @@ impl<'a> ModDef<'a> {
         ct: ComplexType<'a>,
         depth: usize,
         actions: ActionsMap<'a>,
+        forced_update: ForcedUpdate,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
         if let Some(id) = ct.name.namespace.get_id(depth) {
@@ -97,7 +103,7 @@ impl<'a> ModDef<'a> {
             self.sub_mods
                 .remove(&mod_name)
                 .unwrap_or_else(|| ModDef::new(mod_name, ct.name.namespace, depth))
-                .inner_add_complex_type(ct, depth + 1, actions, config)
+                .inner_add_complex_type(ct, depth + 1, actions, forced_update, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
                     self
@@ -117,11 +123,7 @@ impl<'a> ModDef<'a> {
             };
             // If complex type cannot be used for updates then skip
             // generation of Update structures.
-            let builder = if TypeInfo::complex_type(&ct)
-                .permissions
-                .is_none_or(|v| v != Permissions::Read)
-                || ct.is_abstract.into_inner()
-            {
+            let builder = if ct.generates_update() || forced_update.into_inner() {
                 builder.with_generate_type(vec![GenerateType::Read, GenerateType::Update])
             } else {
                 builder.with_generate_type(vec![GenerateType::Read])
@@ -228,9 +230,10 @@ impl<'a> ModDef<'a> {
         t: EntityType<'a>,
         creatable: IsCreatable,
         excerpt_copies: Vec<ExcerptCopy>,
+        forced_update: ForcedUpdate,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
-        self.inner_add_entity_type(t, creatable, excerpt_copies, 0, config)
+        self.inner_add_entity_type(t, creatable, excerpt_copies, forced_update, 0, config)
     }
 
     fn inner_add_entity_type(
@@ -238,6 +241,7 @@ impl<'a> ModDef<'a> {
         t: EntityType<'a>,
         creatable: IsCreatable,
         excerpt_copies: Vec<ExcerptCopy>,
+        forced_update: ForcedUpdate,
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
@@ -246,7 +250,14 @@ impl<'a> ModDef<'a> {
             self.sub_mods
                 .remove(&mod_name)
                 .unwrap_or_else(|| ModDef::new(mod_name, t.name.namespace, depth))
-                .inner_add_entity_type(t, creatable, excerpt_copies, depth + 1, config)
+                .inner_add_entity_type(
+                    t,
+                    creatable,
+                    excerpt_copies,
+                    forced_update,
+                    depth + 1,
+                    config,
+                )
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);
                     self
@@ -260,14 +271,10 @@ impl<'a> ModDef<'a> {
                 builder
             };
             let mut gen_types = vec![GenerateType::Read];
-            let need_redfish_settings = if t.odata.updatable.is_some_and(|v| v.inner().value)
-                || t.is_abstract.into_inner()
-            {
+            let need_redfish_settings = t.generates_update();
+            if need_redfish_settings || forced_update.into_inner() {
                 gen_types.push(GenerateType::Update);
-                true
-            } else {
-                false
-            };
+            }
             if creatable.into_inner() {
                 gen_types.push(GenerateType::Create);
             }
@@ -312,11 +319,11 @@ impl<'a> ModDef<'a> {
         depth: usize,
         config: &Config,
     ) -> Result<Self, Error<'a>> {
-        if let Some(id) = t.binding.namespace.get_id(depth) {
+        if let Some(id) = t.defining_namespace.get_id(depth) {
             let mod_name = ModName::new(id);
             self.sub_mods
                 .remove(&mod_name)
-                .unwrap_or_else(|| ModDef::new(mod_name, t.binding.namespace, depth))
+                .unwrap_or_else(|| ModDef::new(mod_name, t.defining_namespace, depth))
                 .inner_add_action_type(t, depth + 1, config)
                 .map(|submod| {
                     self.sub_mods.insert(mod_name, submod);

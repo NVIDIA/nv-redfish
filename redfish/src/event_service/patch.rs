@@ -91,14 +91,14 @@ pub(super) fn patch_missing_event_record_member_id(
     );
 }
 
-pub(super) fn patch_missing_event_type_to_unsupported(
+pub(super) fn patch_missing_event_type_to_other(
     value: &mut JsonMap<String, JsonValue>,
     _index: usize,
 ) {
     if value.get("EventType").is_none() {
         value.insert(
             "EventType".to_string(),
-            JsonValue::String("UnsupportedValue".to_string()),
+            JsonValue::String("Other".to_string()),
         );
     }
 }
@@ -147,7 +147,7 @@ mod tests {
     use super::fix_timestamp_offset;
     use super::patch_event_records;
     use super::patch_missing_event_record_member_id;
-    use super::patch_missing_event_type_to_unsupported;
+    use super::patch_missing_event_type_to_other;
     use super::EventRecordPatchFn;
     use serde_json::json;
 
@@ -163,7 +163,7 @@ mod tests {
     }
 
     #[test]
-    fn inserts_event_type_when_absent() {
+    fn inserts_other_event_type_when_absent() {
         let payload = json!({
             "Events": [
                 {
@@ -179,7 +179,7 @@ mod tests {
 
         let payload = patch_event_records(
             payload,
-            &[patch_missing_event_type_to_unsupported as EventRecordPatchFn],
+            &[patch_missing_event_type_to_other as EventRecordPatchFn],
         );
 
         let events = payload
@@ -190,7 +190,7 @@ mod tests {
             events[0]
                 .get("EventType")
                 .and_then(serde_json::Value::as_str),
-            Some("UnsupportedValue")
+            Some("Other")
         );
         assert_eq!(
             events[1]

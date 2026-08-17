@@ -17,13 +17,12 @@ use crate::compiler::EnumType;
 use crate::edmx::attribute_values::SimpleIdentifier;
 use crate::generator::casemungler;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::generator::rust::ident;
 use crate::generator::rust::Config;
 use crate::generator::rust::TypeName;
 use proc_macro2::Delimiter;
 use proc_macro2::Group;
-use proc_macro2::Ident;
 use proc_macro2::Literal;
-use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::quote;
 use quote::ToTokens;
@@ -105,9 +104,6 @@ impl<'a> EnumMemberName<'a> {
 
 impl ToTokens for EnumMemberName<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        match casemungler::to_camel(self.0).as_str() {
-            "Self" => tokens.append(Ident::new("Self_", Span::call_site())),
-            v => tokens.append(Ident::new(v, Span::call_site())),
-        }
+        tokens.append(ident::escaped(&casemungler::to_camel(self.0)));
     }
 }

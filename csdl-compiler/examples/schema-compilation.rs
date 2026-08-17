@@ -113,12 +113,10 @@ fn main() -> Result<(), Error> {
                         ptype: NavPropertyType::Collection(t),
                         ..
                     }) => println!("      {}: {}[]", name, t),
-                    NavProperty::Reference(OneOrCollection::One(name)) => {
-                        println!("      {}: ref", name);
-                    }
-                    NavProperty::Reference(OneOrCollection::Collection(name)) => {
-                        println!("      {}: ref[]", name);
-                    }
+                    NavProperty::Reference { cardinality, .. } => match cardinality {
+                        OneOrCollection::One(name) => println!("      {}: ref", name),
+                        OneOrCollection::Collection(name) => println!("      {}: ref[]", name),
+                    },
                 }
             }
         }
@@ -154,12 +152,10 @@ fn main() -> Result<(), Error> {
                         ptype: NavPropertyType::Collection(t),
                         ..
                     }) => println!("      {}: {}[]", name, t),
-                    NavProperty::Reference(OneOrCollection::One(name)) => {
-                        println!("      {}: ref", name);
-                    }
-                    NavProperty::Reference(OneOrCollection::Collection(name)) => {
-                        println!("      {}: ref[]", name);
-                    }
+                    NavProperty::Reference { cardinality, .. } => match cardinality {
+                        OneOrCollection::One(name) => println!("      {}: ref", name),
+                        OneOrCollection::Collection(name) => println!("      {}: ref[]", name),
+                    },
                 }
             }
         }

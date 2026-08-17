@@ -157,8 +157,11 @@ impl<'a> Properties<'a> {
             if redfish.excerpt_copy.is_none() {
                 // Don't add excerpt copy of entities that are not
                 // included in entity pattern.
-                p.nav_properties
-                    .push(NavProperty::Reference(v.ptype.as_ref().map(|_| &v.name)));
+                p.nav_properties.push(NavProperty::Reference {
+                    cardinality: v.ptype.as_ref().map(|_| &v.name),
+                    odata: OData::new(MustHaveId::new(false), v),
+                    redfish,
+                });
             }
             Ok(Compiled::default())
         }
@@ -284,7 +287,7 @@ pub struct Property<'a> {
     /// Attached `OData` annotations.
     pub odata: OData<'a>,
     /// Redfish-specific property annotations.
-    pub redfish: RedfishProperty,
+    pub redfish: RedfishProperty<'a>,
     /// Whether the property is nullable.
     pub nullable: IsNullable,
     /// Redfish specification is not very specific about which
@@ -322,7 +325,14 @@ pub enum NavProperty<'a> {
     /// Expandable navigation property (with known type).
     Expandable(NavPropertyExpandable<'a>),
     /// Reference navigation property (type is left as reference).
-    Reference(OneOrCollection<&'a PropertyName>),
+    Reference {
+        /// Property cardinality and identifier.
+        cardinality: OneOrCollection<&'a PropertyName>,
+        /// Attached `OData` annotations.
+        odata: OData<'a>,
+        /// Redfish-specific property annotations.
+        redfish: RedfishProperty<'a>,
+    },
 }
 
 impl<'a> NavProperty<'a> {
@@ -331,7 +341,7 @@ impl<'a> NavProperty<'a> {
     pub const fn name(&'a self) -> &'a PropertyName {
         match self {
             Self::Expandable(v) => v.name,
-            Self::Reference(n) => n.inner(),
+            Self::Reference { cardinality, .. } => cardinality.inner(),
         }
     }
 }
@@ -346,7 +356,7 @@ pub struct NavPropertyExpandable<'a> {
     /// Attached `OData` annotations.
     pub odata: OData<'a>,
     /// Redfish-specific property annotations.
-    pub redfish: RedfishProperty,
+    pub redfish: RedfishProperty<'a>,
     /// Whether the property is nullable.
     pub nullable: IsNullable,
 }

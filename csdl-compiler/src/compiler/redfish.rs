@@ -16,6 +16,7 @@
 //! Redfish-specific attributes used during code generation.
 
 use crate::redfish::annotations::RedfishAnnotations;
+use crate::redfish::Deprecation;
 use crate::redfish::DynamicProperties;
 use crate::redfish::Excerpt;
 use crate::redfish::ExcerptCopy;
@@ -25,7 +26,7 @@ use crate::IsRequiredOnCreate;
 
 /// Redfish property attributes attached to compiled entities.
 #[derive(Debug)]
-pub struct RedfishProperty {
+pub struct RedfishProperty<'a> {
     /// Whether the property is required.
     pub is_required: IsRequired,
     /// Whether the property is required on create.
@@ -36,18 +37,21 @@ pub struct RedfishProperty {
     pub excerpt: Option<Excerpt>,
     /// Property is excerpt copy of the resource.
     pub excerpt_copy: Option<ExcerptCopy>,
+    /// Redfish deprecation metadata.
+    pub deprecation: Option<Deprecation<'a>>,
 }
 
-impl RedfishProperty {
+impl<'a> RedfishProperty<'a> {
     /// Create a new instance from an object that provides Redfish
     /// property annotations.
-    pub fn new(src: &impl RedfishAnnotations) -> Self {
+    pub fn new(src: &'a impl RedfishAnnotations) -> Self {
         Self {
             is_required: src.is_required(),
             is_required_on_create: src.is_required_on_create(),
             is_excerpt_only: src.is_excerpt_only(),
             excerpt: src.excerpt(),
             excerpt_copy: src.excerpt_copy(),
+            deprecation: src.deprecation(),
         }
     }
 }

@@ -91,7 +91,7 @@ pub enum Commands {
         /// Pattern is a wildcard over the qualified name.
         /// Examples:
         /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
-        #[arg(short = 'r', long = "rigid-arrays")]
+        #[arg(short = 'a', long = "rigid-arrays")]
         rigid_array_patterns: Vec<PropertyPattern>,
     },
     /// Compile OEM CSDL schemas.
@@ -121,7 +121,7 @@ pub enum Commands {
         /// Pattern is a wildcard over the qualified name.
         /// Examples:
         /// `EthernetInterface.*.EthernetInterface/StaticNameServers` - matches `StaticNameServers` property of `EthernetInterface`
-        #[arg(short = 'r', long = "rigid-arrays")]
+        #[arg(short = 'a', long = "rigid-arrays")]
         rigid_array_patterns: Vec<PropertyPattern>,
     },
 }
@@ -163,8 +163,8 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             let generator = RustGenerator::new(compiled, GeneratorConfig::default())
                 .map_err(Error::generate_error)?;
 
-            let result = generator.generate().to_string();
-            let syntax_tree = syn::parse_file(&result).map_err(Error::ParseGenerated)?;
+            let syntax_tree =
+                syn::parse2::<syn::File>(generator.generate()).map_err(Error::ParseGenerated)?;
             write(output, prettyplease::unparse(&syntax_tree))
                 .map_err(|e| Error::WriteOutput(output.clone(), e))?;
             display_output.push(format!("{} file has been written", output.display()));
@@ -192,8 +192,8 @@ pub fn process_command(command: &Commands) -> Result<Vec<String>, Error> {
             let compiled = optimize(compiled, &OptimizerConfig::default());
             let generator = RustGenerator::new(compiled, GeneratorConfig::default())
                 .map_err(Error::generate_error)?;
-            let result = generator.generate().to_string();
-            let syntax_tree = syn::parse_file(&result).map_err(Error::ParseGenerated)?;
+            let syntax_tree =
+                syn::parse2::<syn::File>(generator.generate()).map_err(Error::ParseGenerated)?;
             write(output, prettyplease::unparse(&syntax_tree))
                 .map_err(|e| Error::WriteOutput(output.clone(), e))?;
             display_output.push(format!("{} file has been written", output.display()));

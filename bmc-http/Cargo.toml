@@ -14,10 +14,13 @@ documentation = "https://docs.rs/nv-redfish-bmc-http"
 default = ["reqwest"]
 
 # HTTP client implementations with reqwest
-reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream", "dep:tokio-util", "dep:tokio"]
+reqwest = ["dep:reqwest", "dep:serde_path_to_error", "dep:futures-util", "dep:sse-stream", "dep:tokio-util", "dep:tokio", "dep:bytes"]
+http-extras = ["dep:async-lock"]
 update-service-deprecated = ["nv-redfish-core/update-service-deprecated"]
 
 [dependencies]
+async-lock = { workspace = true, optional = true }
+bytes = { workspace = true, optional = true }
 futures-core = { workspace = true }
 futures-util = { workspace = true, optional = true }
 nv-redfish-core = { workspace = true }
@@ -44,6 +47,16 @@ nv-redfish-csdl-compiler = { workspace = true }
 nv-redfish-schema = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "net", "io-util", "sync"] }
 tokio-test = { workspace = true }
 wiremock = { workspace = true }
+
+# Compiles only on unix: the runner library it pulls in uses
+# std::os::unix and nix unconditionally.
+[target.'cfg(unix)'.dev-dependencies]
+gungraun = { workspace = true }
+rustc-hash = { workspace = true }
+
+[[bench]]
+name = "cache"
+harness = false

@@ -1,0 +1,340 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaDOT   v1.0.0                                                              -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDOT">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDOT" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The `NvidiaDOT` schema represents Device Ownership Transfer (DOT) as supported by a trusted component."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent Device Ownership Transfer (DOT) for a Redfish implementation."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Chassis/{ChassisId}/TrustedComponents/{TrustedComponentId}/Oem/Nvidia/DOT</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="Install" IsBound="true">
+        <Annotation Term="OData.Description" String="This action installs a public CAK key to transition from the uninitialized state to the volatile state."/>
+        <Annotation Term="OData.LongDescription" String="This action shall install a public CAK key to transition from the uninitialized state to the volatile state."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="CAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The public CAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the public CAK key."/>
+        </Parameter>
+        <Parameter Name="LAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure">
+          <Annotation Term="OData.Description" String="The public LAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the public LAK key."/>
+        </Parameter>
+        <Parameter Name="LockDisable" Type="Edm.Boolean">
+          <Annotation Term="OData.Description" String="An indication of whether to allow the subsequent Lock action."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether the subsequent Lock action is to be allowed. If this parameter is not provided, the default is `false`."/>
+        </Parameter>
+        <Parameter Name="VendorMinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The vendor-defined minimum Security Version Number used to verify the vendor firmware version in the internal Root of Trust (IROT)."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the vendor-defined minimum Security Version Number used to verify the vendor firmware version in the internal Root of Trust (IROT)."/>
+        </Parameter>
+        <Parameter Name="OwnerMinimumSecurityVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="The owner-defined minimum Security Version Number used to verify the SBIOS firmware version in the internal Root of Trust (IROT)."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the owner-defined minimum Security Version Number used to verify the SBIOS firmware version in the internal Root of Trust (IROT)."/>
+        </Parameter>
+      </Action>
+      <Action Name="Lock" IsBound="true">
+        <Annotation Term="OData.Description" String="This action transitions from the volatile state to the locked state."/>
+        <Annotation Term="OData.LongDescription" String="This action shall transition from the volatile state to the locked state."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="CAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The public CAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the public CAK key."/>
+        </Parameter>
+        <Parameter Name="LAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The public LAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the public LAK key."/>
+        </Parameter>
+        <Parameter Name="NonceType" Type="NvidiaDOT.v1_0_0.NonceType" Nullable="false">
+          <Annotation Term="OData.Description" String="The nonce type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the nonce type used to unlock Device Ownership Transfer (DOT) subsequently."/>
+        </Parameter>
+        <Parameter Name="StaticChallenge" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The static challenge."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the static challenge. This value shall only be provided when the NonceType contains `StaticValue`."/>
+        </Parameter>
+        <Parameter Name="LAKSignature" Type="NvidiaDOT.v1_0_0.SignatureStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The LAK signature for authentication."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LAK signature for authentication."/>
+        </Parameter>
+        <ReturnType Type="NvidiaDOT.v1_0_0.DOTDataResponse" Nullable="false"/>
+      </Action>
+      <Action Name="Disable" IsBound="true">
+        <Annotation Term="OData.Description" String="This action disables Device Ownership Transfer (DOT) functionality completely."/>
+        <Annotation Term="OData.LongDescription" String="This action shall disable Device Ownership Transfer (DOT) functionality completely."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="LAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The public LAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the public LAK key."/>
+        </Parameter>
+        <Parameter Name="NonceType" Type="NvidiaDOT.v1_0_0.NonceType" Nullable="false">
+          <Annotation Term="OData.Description" String="The nonce type."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the nonce type used to unlock Device Ownership Transfer (DOT) subsequently."/>
+        </Parameter>
+        <Parameter Name="StaticChallenge" Type="Edm.String">
+          <Annotation Term="OData.Description" String="The static challenge."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the static challenge. This value shall only be provided when the NonceType contains `StaticValue`."/>
+        </Parameter>
+        <Parameter Name="LAKSignature" Type="NvidiaDOT.v1_0_0.SignatureStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The LAK signature for authentication."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LAK signature for authentication."/>
+        </Parameter>
+        <ReturnType Type="NvidiaDOT.v1_0_0.DOTDataResponse" Nullable="false"/>
+      </Action>
+      <Action Name="Unlock" IsBound="true">
+        <Annotation Term="OData.Description" String="This action transitions from the locked state to the volatile state."/>
+        <Annotation Term="OData.LongDescription" String="This action shall transition from the locked state to the volatile state."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="LAKSignature" Type="NvidiaDOT.v1_0_0.SignatureStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The LAK signature including challenge."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LAK signature including challenge, which is obtained from the UnlockChallenge action."/>
+        </Parameter>
+      </Action>
+      <Action Name="CAKRotate" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to rotate the locked CAK without causing a fuse state change."/>
+        <Annotation Term="OData.LongDescription" String="This action shall be used to rotate the locked CAK without causing a fuse state change."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="NewCAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The new public CAK key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the new public CAK key."/>
+        </Parameter>
+        <Parameter Name="LAKSignature" Type="NvidiaDOT.v1_0_0.SignatureStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The LAK signature including the new public CAK key for authentication."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LAK signature including the new public CAK key for authentication."/>
+        </Parameter>
+        <ReturnType Type="NvidiaDOT.v1_0_0.DOTDataResponse" Nullable="false"/>
+      </Action>
+      <Action Name="Override" IsBound="true">
+        <Annotation Term="OData.Description" String="This action resets ownership state and is used when valid Device Ownership Transfer (DOT) data for the locked or disabled state can no longer be recovered."/>
+        <Annotation Term="OData.LongDescription" String="This action shall reset the ownership state and be used when valid Device Ownership Transfer (DOT) data for the locked or disabled state can no longer be recovered."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="VendorSignature" Type="NvidiaDOT.v1_0_0.SignatureStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The vendor signature including challenge."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the vendor signature including challenge, which is obtained from the UnlockChallenge action."/>
+        </Parameter>
+      </Action>
+      <Action Name="UnlockChallenge" IsBound="true">
+        <Annotation Term="OData.Description" String="This action generates challenge for the Unlock and Override actions."/>
+        <Annotation Term="OData.LongDescription" String="This action shall generate challenge for the Unlock and Override actions."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="UnlockType" Type="NvidiaDOT.v1_0_0.UnlockType" Nullable="false">
+          <Annotation Term="OData.Description" String="The unlock type"/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the unlock type."/>
+        </Parameter>
+        <ReturnType Type="NvidiaDOT.v1_0_0.UnlockChallengeResponse" Nullable="false"/>
+      </Action>
+      <Action Name="RecoverDOT" IsBound="true">
+        <Annotation Term="OData.Description" String="This action recovers corrupted Device Ownership Transfer (DOT) data using backup data."/>
+        <Annotation Term="OData.LongDescription" String="This action shall recover corrupted Device Ownership Transfer (DOT) data using backup data."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <Parameter Name="DOTData" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Description" String="The backup Device Ownership Transfer (DOT) data in base64 format."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the backup Device Ownership Transfer (DOT) data in base64 format."/>
+        </Parameter>
+      </Action>
+      <Action Name="GetInfo" IsBound="true">
+        <Annotation Term="OData.Description" String="This action retrieves DOT status and information."/>
+        <Annotation Term="OData.LongDescription" String="This action shall retrieve DOT status and information."/>
+        <Parameter Name="NvidiaDOT" Type="NvidiaDOT.v1_0_0.Actions"/>
+        <ReturnType Type="NvidiaDOT.v1_0_0.GetInfoResponse" Nullable="false"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDOT.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDOT" BaseType="NvidiaDOT.NvidiaDOT">
+        <Property Name="DOTState" Type="NvidiaDOT.v1_0_0.DOTState">
+          <Annotation Term="OData.Description" String="The current state of the Device Ownership Transfer (DOT)."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current state of the Device Ownership Transfer (DOT)."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaDOT.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <EnumType Name="FuseChangeState">
+        <Member Name="None">
+          <Annotation Term="OData.Description" String="No fuse state change in this cycle."/>
+        </Member>
+        <Member Name="InProgress">
+          <Annotation Term="OData.Description" String="Fuse state change in progress."/>
+        </Member>
+        <Member Name="Completed">
+          <Annotation Term="OData.Description" String="Fuse state change completed this cycle."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="NonceType">
+        <Member Name="DeviceUniqueIdentifier">
+          <Annotation Term="OData.Description" String="Per-device unique identifier."/>
+        </Member>
+        <Member Name="RandomNonce">
+          <Annotation Term="OData.Description" String="Randomly generated nonce."/>
+        </Member>
+        <Member Name="StaticValue">
+          <Annotation Term="OData.Description" String="Static value."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="UnlockType">
+        <Member Name="OwnerUnlock">
+          <Annotation Term="OData.Description" String="An owner who requests the Unlock action."/>
+        </Member>
+        <Member Name="VendorUnlock">
+          <Annotation Term="OData.Description" String="A vendor who requests the Override action."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="DOTDataResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The Device Ownership Transfer (DOT) data."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the Device Ownership Transfer (DOT) data."/>
+        <Property Name="DOTData" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The generated base64-encoded Device Ownership Transfer (DOT) data."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the generated base64-encoded Device Ownership Transfer (DOT) data."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="UnlockChallengeResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from the UnlockChallenge action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from the UnlockChallenge action."/>
+        <Property Name="Challenge" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The generated challenge."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the generated challenge."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="GetInfoResponse">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The response from the GetInfo action."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the response from the GetInfo action."/>
+        <Property Name="DOTVersion" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The DOT version."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the DOT version."/>
+        </Property>
+        <Property Name="FuseChangeState" Type="NvidiaDOT.v1_0_0.FuseChangeState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The fuse change state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the fuse change state."/>
+        </Property>
+        <Property Name="TransfersRemaining" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The number of ownership transfers remaining."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of ownership transfers remaining."/>
+        </Property>
+        <Property Name="DOTData" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The generated base64-encoded Device Ownership Transfer (DOT) data."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the generated base64-encoded Device Ownership Transfer (DOT) data."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="KeyStructure">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="A common structure for public key information used in Device Ownership Transfer (DOT) operations."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the common structure for public key information used in Device Ownership Transfer (DOT) operations."/>
+        <Property Name="AuthenticationScheme" Type="NvidiaDOT.v1_0_0.AuthenticationScheme" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The authentication scheme."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the authentication scheme."/>
+        </Property>
+        <Property Name="ECDSAKey" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The ECDSA key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the ECDSA key."/>
+        </Property>
+        <Property Name="LMSKey" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The LMS key."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LMS key. The client shall provide this parameter when the `AuthenticationScheme` parameter contains `Hybrid`."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="SignatureStructure">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="A common structure for signature information used in Device Ownership Transfer (DOT) operations."/>
+        <Annotation Term="OData.LongDescription" String="This object shall contain the common structure for public key information used in Device Ownership Transfer (DOT) operations."/>
+        <Property Name="AuthenticationScheme" Type="NvidiaDOT.v1_0_0.AuthenticationScheme" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The authentication scheme."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the authentication scheme."/>
+        </Property>
+        <Property Name="ECDSASignature" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The ECDSA signature."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the ECDSA signature. For more details, refer to the NVIDIA System Management (NSM) API Type 6 Specification."/>
+        </Property>
+        <Property Name="LMSSignature" Type="Edm.String" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The LMS signature."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the LMS signature. The client shall provide this parameter when the `AuthenticationScheme` parameter contains `Hybrid`. For more details, refer to the NVIDIA System Management (NSM) API Type 6 Specification."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="AuthenticationScheme">
+        <Member Name="ECDSA">
+          <Annotation Term="OData.Description" String="The ESDSA scheme including an ECDSA key."/>
+        </Member>
+        <Member Name="Hybrid">
+          <Annotation Term="OData.Description" String="The Hybrid scheme including both ECDSA and LMS keys."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="DOTState">
+        <Member Name="Uninitialized">
+          <Annotation Term="OData.Description" String="The uninitialized state."/>
+        </Member>
+        <Member Name="Volatile">
+          <Annotation Term="OData.Description" String="The volatile state."/>
+        </Member>
+        <Member Name="Locked">
+          <Annotation Term="OData.Description" String="The mutable locked state."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="The disabled state."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -32,6 +32,8 @@ use std::sync::Arc;
 
 #[cfg(feature = "network-device-functions")]
 use crate::network_device_function::NetworkDeviceFunctionCollection;
+#[cfg(feature = "ports")]
+use crate::port::PortCollection;
 
 /// Network adapters collection.
 ///
@@ -159,6 +161,22 @@ impl<B: Bmc> NetworkAdapter<B> {
             NetworkDeviceFunctionCollection::new(&self.bmc, p)
                 .await
                 .map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get ports for this adapter.
+    ///
+    /// Returns `Ok(None)` when the ports link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching the port collection fails.
+    #[cfg(feature = "ports")]
+    pub async fn ports(&self) -> Result<Option<PortCollection<B>>, Error<B>> {
+        if let Some(ports) = &self.data.ports {
+            PortCollection::new(&self.bmc, ports).await.map(Some)
         } else {
             Ok(None)
         }

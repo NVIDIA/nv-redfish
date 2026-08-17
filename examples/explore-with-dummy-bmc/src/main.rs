@@ -789,7 +789,7 @@ async fn main() -> Result<(), Error> {
     );
 
     println!("Performing system reset...");
-    system
+    let _reset = system
         .actions
         .as_ref()
         .ok_or(Error::ExpectedField("actions"))?

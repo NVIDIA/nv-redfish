@@ -24,6 +24,7 @@ use crate::edmx::Schema;
 use crate::edmx::SimpleIdentifier;
 use crate::edmx::Type;
 use std::collections::HashMap;
+use std::collections::HashSet;
 use std::convert::identity;
 
 /// Index over schemas spanning multiple documents.
@@ -36,20 +37,27 @@ pub struct SchemaIndex<'a> {
 
 impl<'a> SchemaIndex<'a> {
     /// Build an index from the provided documents.
-    #[must_use]
-    pub fn build(edmx_docs: &'a [Edmx]) -> Self {
-        Self {
-            index: edmx_docs
-                .iter()
-                .flat_map(|v| {
-                    v.data_services
-                        .schemas
-                        .iter()
-                        .map(|s| (Namespace::new(&s.namespace), s))
-                })
-                .collect(),
-            child_map: edmx_docs.iter().fold(HashMap::new(), |map, doc| {
-                doc.data_services.schemas.iter().fold(map, |map, s| {
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if entity or complex type inheritance contains a cycle.
+    pub fn build(edmx_docs: &'a [Edmx]) -> Result<Self, Error<'a>> {
+        let index = edmx_docs
+            .iter()
+            .flat_map(|v| {
+                v.data_services
+                    .schemas
+                    .iter()
+                    .map(|s| (Namespace::new(&s.namespace), s))
+            })
+            .collect();
+        let (child_map, base_map) = edmx_docs.iter().fold(
+            (
+                HashMap::<QualifiedName<'a>, Vec<QualifiedName<'a>>>::new(),
+                HashMap::<QualifiedName<'a>, QualifiedName<'a>>::new(),
+            ),
+            |maps, doc| {
+                doc.data_services.schemas.iter().fold(maps, |map, s| {
                     let entity_types = s
                         .entity_types
                         .values()
@@ -61,19 +69,25 @@ impl<'a> SchemaIndex<'a> {
                             None
                         }
                     });
-                    entity_types
-                        .chain(complex_types)
-                        .fold(map, |mut map, (name, base)| {
+                    entity_types.chain(complex_types).fold(
+                        map,
+                        |(mut child_map, mut base_map), (name, base)| {
                             let qname = QualifiedName::new(&s.namespace, name.inner());
                             let base_type: QualifiedName = base.into();
-                            map.entry(base_type)
+                            child_map
+                                .entry(base_type)
                                 .and_modify(|e| e.push(qname))
                                 .or_insert_with(|| vec![qname]);
-                            map
-                        })
+                            base_map.insert(qname, base_type);
+                            (child_map, base_map)
+                        },
+                    )
                 })
-            }),
-        }
+            },
+        );
+        find_inheritance_cycle(&base_map).map_or(Ok(Self { index, child_map }), |cycle| {
+            Err(Error::CyclicType(cycle))
+        })
     }
 
     /// Find schema by namespace.
@@ -305,10 +319,136 @@ impl<'a> SchemaIndex<'a> {
     }
 }
 
+/// Find a cycle in the `derived type -> base type` inheritance map.
+///
+/// Every type has at most one base, so the graph can be checked by walking
+/// each inheritance chain. `positions` records where a type first appeared in
+/// the current chain; seeing it again identifies the cyclic suffix. `visited`
+/// contains chains already proven acyclic, preventing repeated work. The walk
+/// is iterative so a deeply nested, valid hierarchy cannot overflow the stack.
+/// Starting types are sorted, and the cycle is rotated to its smallest member,
+/// making the reported path deterministic.
+fn find_inheritance_cycle<'a>(
+    base_map: &HashMap<QualifiedName<'a>, QualifiedName<'a>>,
+) -> Option<Vec<QualifiedName<'a>>> {
+    let mut visited = HashSet::new();
+    let mut starts = base_map.keys().copied().collect::<Vec<_>>();
+    starts.sort_unstable();
+    for start in starts {
+        if visited.contains(&start) {
+            continue;
+        }
+        let mut path = Vec::<QualifiedName<'a>>::new();
+        let mut positions = HashMap::new();
+        let mut current = start;
+        loop {
+            // This chain joined one that was already checked successfully.
+            if visited.contains(&current) {
+                break;
+            }
+            if let Some(position) = positions.get(&current).copied() {
+                let mut cycle = path[position..].to_vec();
+                let canonical_start = cycle
+                    .iter()
+                    .enumerate()
+                    .min_by(|(_, left), (_, right)| left.cmp(right))
+                    .map_or(0, |(index, _)| index);
+                cycle.rotate_left(canonical_start);
+                // Repeat the first cyclic type to return a closed cycle path.
+                if let Some(first) = cycle.first().copied() {
+                    cycle.push(first);
+                }
+                return Some(cycle);
+            }
+            positions.insert(current, path.len());
+            path.push(current);
+            if let Some(base) = base_map.get(&current) {
+                current = *base;
+            } else {
+                break;
+            }
+        }
+        visited.extend(path);
+    }
+    None
+}
+
 #[cfg(test)]
 mod test {
     use super::*;
     use crate::edmx::Edmx;
+
+    fn schema_with_types(types: &str) -> Vec<Edmx> {
+        let schema = format!(
+            r#"<edmx:Edmx Version="4.0">
+                 <edmx:DataServices>
+                   <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Cycle">
+                     {types}
+                   </Schema>
+                 </edmx:DataServices>
+               </edmx:Edmx>"#
+        );
+        vec![Edmx::parse(&schema).expect("cycle test schema must be valid")]
+    }
+
+    fn assert_cycle(result: Result<SchemaIndex<'_>, Error<'_>>, expected: &[&str]) {
+        assert!(matches!(result, Err(Error::CyclicType(_))));
+        if let Err(Error::CyclicType(cycle)) = result {
+            assert_eq!(
+                cycle.iter().map(ToString::to_string).collect::<Vec<_>>(),
+                expected
+            );
+        }
+    }
+
+    #[test]
+    fn rejects_cyclic_entity_type_inheritance() {
+        let schemas = schema_with_types(
+            r#"<EntityType Name="B" BaseType="Cycle.A"/>
+               <EntityType Name="A" BaseType="Cycle.B"/>"#,
+        );
+
+        assert_cycle(
+            SchemaIndex::build(&schemas),
+            &["Cycle.A", "Cycle.B", "Cycle.A"],
+        );
+    }
+
+    #[test]
+    fn rejects_cyclic_complex_type_inheritance() {
+        let schemas = schema_with_types(
+            r#"<ComplexType Name="C" BaseType="Cycle.B"/>
+               <ComplexType Name="B" BaseType="Cycle.C"/>
+               <ComplexType Name="A" BaseType="Cycle.C"/>"#,
+        );
+
+        assert_cycle(
+            SchemaIndex::build(&schemas),
+            &["Cycle.B", "Cycle.C", "Cycle.B"],
+        );
+    }
+
+    #[test]
+    fn rejects_self_inheritance() {
+        let schemas = schema_with_types(r#"<ComplexType Name="A" BaseType="Cycle.A"/>"#);
+
+        assert_cycle(SchemaIndex::build(&schemas), &["Cycle.A", "Cycle.A"]);
+    }
+
+    #[test]
+    fn reports_first_cycle_deterministically() {
+        let schemas = schema_with_types(
+            r#"<EntityType Name="D" BaseType="Cycle.C"/>
+               <EntityType Name="C" BaseType="Cycle.D"/>
+               <EntityType Name="B" BaseType="Cycle.A"/>
+               <EntityType Name="A" BaseType="Cycle.B"/>"#,
+        );
+
+        assert_cycle(
+            SchemaIndex::build(&schemas),
+            &["Cycle.A", "Cycle.B", "Cycle.A"],
+        );
+    }
 
     #[test]
     fn schema_index_test() {
@@ -331,7 +471,7 @@ mod test {
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
-        let index = SchemaIndex::build(&schemas);
+        let index = SchemaIndex::build(&schemas).expect("acyclic schemas must be indexed");
         assert!(index
             .get(&Namespace::new(&"Schema.v1_1_0".parse().unwrap()))
             .is_some());

@@ -129,7 +129,8 @@ patterns = [
 name = "network-adapters"
 csdl_files = [
     "NetworkAdapterCollection_v1.xml",
-    "NetworkAdapter_v1.xml"
+    "NetworkAdapter_v1.xml",
+    "PCIeDevice_v1.xml",
 ]
 patterns = [
     "NetworkAdapterCollection.*",
@@ -142,10 +143,23 @@ csdl_files = [
     "NetworkDeviceFunctionCollection_v1.xml",
     "NetworkDeviceFunction_v1.xml",
     "Protocol_v1.xml",
+    "VLanNetworkInterface_v1.xml",
 ]
 patterns = [
     "NetworkDeviceFunctionCollection.*",
     "NetworkDeviceFunction.*"
+]
+
+[[features]]
+name = "ports"
+csdl_files = [
+    "PortCollection_v1.xml",
+    "Port_v1.xml",
+    "Protocol_v1.xml",
+]
+patterns = [
+    "PortCollection.*",
+    "Port.*",
 ]
 
 [[features]]
@@ -273,6 +287,15 @@ csdl_files = [
 patterns = [
     "Manager.*",
     "ManagerCollection.*",
+]
+
+[[features]]
+name = "manager-network-protocol"
+csdl_files = [
+    "ManagerNetworkProtocol_v1.xml",
+]
+patterns = [
+    "ManagerNetworkProtocol.*",
 ]
 
 [[features]]
@@ -435,21 +458,402 @@ patterns = [
     "ThermalSubsystem.*.*",
 ]
 
-[[oem-features]]
-vendor = "nvidia-bluefield"
-name = "computer-systems"
-oem_csdl_files = [ # files must be located in {workspace-root}/oem/{vendor}/...
-    "NvidiaComputerSystem_v1.xml",
-]
-csdl_files = []
+# NVIDIA OEM schemas, vendored verbatim from NVIDIA/bmcweb
+# (redfish-core/schema/oem/nvidia/csdl) at commit
+# 145ee5400553630637f01734915abde5915751a7 of the `develop` branch.
+# Re-vendoring means replacing schema/oem/nvidia/*.xml from that path
+# wholesale and updating this commit id; the files are not edited
+# locally, so fix schema problems upstream instead.
+#
+# This is the whole of NVIDIA's OEM CSDL. The per-platform directories
+# upstream (BlueField and friends) duplicate these files and no
+# implementation uses them, so there is one `nvidia` vendor here and
+# platform differences are handled as quirks in Rust.
+#
+# Every schema below is a compile root. The blocks are keyed on the
+# service feature that owns the resource being extended, so enabling
+# `oem-nvidia` alongside `chassis` compiles the NVIDIA chassis schemas
+# and nothing else. Families with no standard counterpart get their own
+# `oem-nvidia-*` feature.
+#
+# A block lists only the schemas it owns. NVIDIA schemas reference each
+# other freely; build.rs offers every unselected schema of the vendor
+# for type resolution, so a block never needs its dependencies listed.
+# Each schema must therefore appear in exactly one block.
 
 [[oem-features]]
-vendor = "nvidia-baseboard"
+# NVIDIA chassis, root-of-trust chassis, cables and PCIe slots.
+vendor = "nvidia"
 name = "chassis"
-oem_csdl_files = [ # files must be located in {workspace-root}/oem/{vendor}/...
+oem_csdl_files = [
     "NvidiaChassis_v1.xml",
+    "NvidiaRoTChassis_v1.xml",
+    "NvidiaCable_v1.xml",
+    "NvidiaPCIeSlots_v1.xml",
 ]
 csdl_files = []
+patterns = [
+    "NvidiaChassis.*.*",
+    "NvidiaRoTChassis.*.*",
+    "NvidiaCable.*.*",
+    "NvidiaPCIeSlots.*.*",
+]
+
+[[oem-features]]
+# NVIDIA manager, power-compliance manager and managed-entity inventory..
+vendor = "nvidia"
+name = "managers"
+oem_csdl_files = [
+    "NvidiaManager_v1.xml",
+    "NvidiaPowerComplianceManager_v1.xml",
+    "NvidiaManagedEntity_v1.xml",
+    "NvidiaManagedEntityCollection_v1.xml",
+    "NvidiaManagedEntityGroup_v1.xml",
+    "NvidiaManagedEntityGroupCollection_v1.xml",
+]
+csdl_files = [
+    "Protocol_v1.xml",
+    "IPAddresses_v1.xml",
+]
+patterns = [
+    "NvidiaManager.*.*",
+    "NvidiaPowerComplianceManager.*.*",
+    "NvidiaManagedEntity.*.*",
+    "NvidiaManagedEntityCollection.*.*",
+    "NvidiaManagedEntityGroup.*.*",
+    "NvidiaManagedEntityGroupCollection.*.*",
+]
+
+[[oem-features]]
+# NVIDIA manager network protocol settings.
+vendor = "nvidia"
+name = "manager-network-protocol"
+oem_csdl_files = [
+    "NvidiaNetworkProtocol_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaNetworkProtocol.*.*",
+]
+
+[[oem-features]]
+# NVIDIA computer system and host privilege configuration.
+vendor = "nvidia"
+name = "computer-systems"
+oem_csdl_files = [
+    "NvidiaComputerSystem_v1.xml",
+    "NvidiaHostPrivilegeConfig_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaComputerSystem.*.*",
+    "NvidiaHostPrivilegeConfig.*.*",
+]
+
+[[oem-features]]
+# NVIDIA processor and processor metrics.
+vendor = "nvidia"
+name = "processors"
+oem_csdl_files = [
+    "NvidiaProcessor_v1.xml",
+    "NvidiaProcessorMetrics_v1.xml",
+    "NvidiaProcessorResetMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaProcessor.*.*",
+    "NvidiaProcessorMetrics.*.*",
+    "NvidiaProcessorResetMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA memory and memory metrics.
+vendor = "nvidia"
+name = "memory"
+oem_csdl_files = [
+    "NvidiaMemory_v1.xml",
+    "NvidiaMemoryMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaMemory.*.*",
+    "NvidiaMemoryMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA network adapter, including DPU operation mode.
+vendor = "nvidia"
+name = "network-adapters"
+oem_csdl_files = [
+    "NvidiaNetworkAdapter_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaNetworkAdapter.*.*",
+]
+
+[[oem-features]]
+# NVIDIA PCIe device and link equalization.
+vendor = "nvidia"
+name = "pcie-devices"
+oem_csdl_files = [
+    "NvidiaPCIeDevice_v1.xml",
+    "NvidiaPCIeEqualization_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPCIeDevice.*.*",
+    "NvidiaPCIeEqualization.*.*",
+]
+
+[[oem-features]]
+# NVIDIA power supply, PSU state and redundancy.
+vendor = "nvidia"
+name = "power-supplies"
+oem_csdl_files = [
+    "NvidiaPowerSupply_v1.xml",
+    "NvidiaPsuState_v1.xml",
+    "NvidiaPsuStateCollection_v1.xml",
+    "NvidiaPSURedundancy_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerSupply.*.*",
+    "NvidiaPsuState.*.*",
+    "NvidiaPsuStateCollection.*.*",
+    "NvidiaPSURedundancy.*.*",
+]
+
+[[oem-features]]
+# NVIDIA update service, firmware packages and persistent storage.
+vendor = "nvidia"
+name = "update-service"
+oem_csdl_files = [
+    "NvidiaUpdateService_v1.xml",
+    "NvidiaSoftwareInventory_v1.xml",
+    "NvidiaFirmwarePackage_v1.xml",
+    "NvidiaFirmwarePackageCollection_v1.xml",
+    "NvidiaPersistentStorage_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaUpdateService.*.*",
+    "NvidiaSoftwareInventory.*.*",
+    "NvidiaFirmwarePackage.*.*",
+    "NvidiaFirmwarePackageCollection.*.*",
+    "NvidiaPersistentStorage.*.*",
+]
+
+[[oem-features]]
+# NVIDIA log service, log entries and conditions.
+# NvidiaCPER is deliberately excluded: see `oem-nvidia-cper`.
+vendor = "nvidia"
+name = "log-services"
+oem_csdl_files = [
+    "NvidiaLogService_v1.xml",
+    "NvidiaLogEntry_v1.xml",
+    "NvidiaCondition_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaLogService.*.*",
+    "NvidiaLogEntry.*.*",
+    "NvidiaCondition.*.*",
+]
+
+[[oem-features]]
+# NVIDIA event payloads.
+vendor = "nvidia"
+name = "event-service"
+oem_csdl_files = [
+    "NvidiaEvent_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaEvent.*.*",
+]
+
+[[oem-features]]
+# NVIDIA metric reports and histograms.
+vendor = "nvidia"
+name = "telemetry-service"
+oem_csdl_files = [
+    "NvidiaMetricReport_v1.xml",
+    "NvidiaHistogram_v1.xml",
+    "NvidiaHistogramCollection_v1.xml",
+    "NvidiaHistogramBucket_v1.xml",
+    "NvidiaHistogramBucketCollection_v1.xml",
+    "NvidiaHistogramBuckets_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaMetricReport.*.*",
+    "NvidiaHistogram.*.*",
+    "NvidiaHistogramCollection.*.*",
+    "NvidiaHistogramBucket.*.*",
+    "NvidiaHistogramBucketCollection.*.*",
+    "NvidiaHistogramBuckets.*.*",
+]
+
+[[oem-features]]
+# NVIDIA environment metrics.
+vendor = "nvidia"
+name = "environment-metrics"
+oem_csdl_files = [
+    "NvidiaEnvironmentMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaEnvironmentMetrics.*.*",
+]
+
+[[oem-features]]
+# NVIDIA power domains.
+vendor = "nvidia"
+name = "sensors"
+oem_csdl_files = [
+    "NvidiaPowerDomain_v1.xml",
+    "NvidiaPowerDomainCollection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerDomain.*.*",
+    "NvidiaPowerDomainCollection.*.*",
+]
+
+[[oem-features]]
+# Common Platform Error Record decoding.
+# Split out because this single schema generates roughly 18k lines --
+# about half of the whole NVIDIA OEM set -- and nothing references it.
+vendor = "nvidia"
+name = "oem-nvidia-cper"
+oem_csdl_files = [
+    "NvidiaCPER_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaCPER.*.*",
+]
+
+[[oem-features]]
+# NVLink fabric, switches and ports.
+vendor = "nvidia"
+name = "oem-nvidia-fabrics"
+oem_csdl_files = [
+    "NvidiaFabric_v1.xml",
+    "NvidiaSwitch_v1.xml",
+    "NvidiaSwitchPowerCapMode_v1.xml",
+    "NvidiaSwitchPowerMode_v1.xml",
+    "NvidiaPort_v1.xml",
+    "NvidiaPortMetrics_v1.xml",
+    "NvidiaNVLinkMetrics_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaFabric.*.*",
+    "NvidiaSwitch.*.*",
+    "NvidiaSwitchPowerCapMode.*.*",
+    "NvidiaSwitchPowerMode.*.*",
+    "NvidiaPort.*.*",
+    "NvidiaPortMetrics.*.*",
+    "NvidiaNVLinkMetrics.*.*",
+]
+
+[[oem-features]]
+# Root of trust, debug tokens, DOT, write protection and error injection.
+vendor = "nvidia"
+name = "oem-nvidia-security"
+oem_csdl_files = [
+    "NvidiaTrustedComponent_v1.xml",
+    "NvidiaDebugToken_v1.xml",
+    "NvidiaDebugTokenCollection_v1.xml",
+    "NvidiaDebugTokenManagement_v1.xml",
+    "NvidiaDOT_v1.xml",
+    "NvidiaDOTManagement_v1.xml",
+    "NvidiaDOTBackupData_v1.xml",
+    "NvidiaDOTBackupDataCollection_v1.xml",
+    "NvidiaRoTImageSlot_v1.xml",
+    "NvidiaRoTImageSlotCollection_v1.xml",
+    "NvidiaRoTProtectedComponent_v1.xml",
+    "NvidiaRoTProtectedComponentCollection_v1.xml",
+    "NvidiaWriteProtectDomain_v1.xml",
+    "NvidiaWriteProtectDomainCollection_v1.xml",
+    "NvidiaPscState_v1.xml",
+    "NvidiaPscStateCollection_v1.xml",
+    "NvidiaErrorInjection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaTrustedComponent.*.*",
+    "NvidiaDebugToken.*.*",
+    "NvidiaDebugTokenCollection.*.*",
+    "NvidiaDebugTokenManagement.*.*",
+    "NvidiaDOT.*.*",
+    "NvidiaDOTManagement.*.*",
+    "NvidiaDOTBackupData.*.*",
+    "NvidiaDOTBackupDataCollection.*.*",
+    "NvidiaRoTImageSlot.*.*",
+    "NvidiaRoTImageSlotCollection.*.*",
+    "NvidiaRoTProtectedComponent.*.*",
+    "NvidiaRoTProtectedComponentCollection.*.*",
+    "NvidiaWriteProtectDomain.*.*",
+    "NvidiaWriteProtectDomainCollection.*.*",
+    "NvidiaPscState.*.*",
+    "NvidiaPscStateCollection.*.*",
+    "NvidiaErrorInjection.*.*",
+]
+
+[[oem-features]]
+# Power smoothing, power/workload policies and power state groups.
+vendor = "nvidia"
+name = "oem-nvidia-power-management"
+oem_csdl_files = [
+    "NvidiaPowerSmoothing_v1.xml",
+    "NvidiaPowerSmoothingPresetProfile_v1.xml",
+    "NvidiaPowerSmoothingPresetProfileCollection_v1.xml",
+    "NvidiaPowerPolicy_v1.xml",
+    "NvidiaPowerPolicyCollection_v1.xml",
+    "NvidiaPowerStateGroup_v1.xml",
+    "NvidiaWorkloadPower_v1.xml",
+    "NvidiaWorkloadPowerProfile_v1.xml",
+    "NvidiaWorkloadPowerProfileCollection_v1.xml",
+    "NvidiaPolicy_v1.xml",
+    "NvidiaPolicyCollection_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaPowerSmoothing.*.*",
+    "NvidiaPowerSmoothingPresetProfile.*.*",
+    "NvidiaPowerSmoothingPresetProfileCollection.*.*",
+    "NvidiaPowerPolicy.*.*",
+    "NvidiaPowerPolicyCollection.*.*",
+    "NvidiaPowerStateGroup.*.*",
+    "NvidiaWorkloadPower.*.*",
+    "NvidiaWorkloadPowerProfile.*.*",
+    "NvidiaWorkloadPowerProfileCollection.*.*",
+    "NvidiaPolicy.*.*",
+    "NvidiaPolicyCollection.*.*",
+]
+
+[[oem-features]]
+# System and system-configuration profiles.
+vendor = "nvidia"
+name = "oem-nvidia-profiles"
+oem_csdl_files = [
+    "NvidiaSystemProfile_v1.xml",
+    "NvidiaSystemProfileCollection_v1.xml",
+    "NvidiaSystemProfileFile_v1.xml",
+    "NvidiaSystemConfigProfile_v1.xml",
+    "NvidiaSystemConfigProfileStatus_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaSystemProfile.*.*",
+    "NvidiaSystemProfileCollection.*.*",
+    "NvidiaSystemProfileFile.*.*",
+    "NvidiaSystemConfigProfile.*.*",
+    "NvidiaSystemConfigProfileStatus.*.*",
+]
 
 [[oem-features]]
 vendor = "dell"
@@ -473,6 +877,14 @@ name = "managers"
 oem_csdl_files = [
     "LenovoManager_v1.xml",
     "LenovoSecurityService_v1.xml",
+]
+csdl_files = []
+
+[[oem-features]]
+vendor = "lenovo"
+name = "ports"
+oem_csdl_files = [
+    "LenovoPort_v1.xml",
 ]
 csdl_files = []
 
@@ -511,6 +923,14 @@ oem_csdl_files = [
 csdl_files = []
 
 [[oem-features]]
+vendor = "ami"
+name = "oem-ami"
+oem_csdl_files = [
+    "AMIServiceRoot_v1.xml",
+]
+csdl_files = []
+
+[[oem-features]]
 vendor = "liteon"
 name = "power-supplies"
 oem_csdl_files = [
@@ -525,3 +945,11 @@ csdl_files = [
 patterns = [
     "PowerSupply.*",
 ]
+
+[[oem-features]]
+vendor = "delta"
+name = "power-supplies"
+oem_csdl_files = [
+    "DeltaEnergySystemsPowerSupply_v1.xml",
+]
+csdl_files = []

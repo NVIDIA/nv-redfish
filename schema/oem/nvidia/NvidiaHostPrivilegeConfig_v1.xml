@@ -1,0 +1,183 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaHostPrivilegeConfig  v1.0.0                                               -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Settings_v1.xml">
+    <edmx:Include Namespace="Settings"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHostPrivilegeConfig">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHostPrivilegeConfig" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The `NvidiaHostPrivilegeConfig` schema defines the host privilege configuration for the system."/>
+        <Annotation Term="OData.LongDescription" String="The `NvidiaHostPrivilegeConfig` schema defines the host privilege configuration for the system. Changes to privilege settings typically require a NIC reset before they take effect. The client makes requests to change privilege settings by modifying the resource identified by the @Redfish.Settings term."/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Chassis/{ChassisId}/NetworkAdapters/{NetworkAdapterId}/Oem/Nvidia/HostPrivilegeConfig</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaHostPrivilegeConfig.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaHostPrivilegeConfig" BaseType="NvidiaHostPrivilegeConfig.NvidiaHostPrivilegeConfig">
+        <Property Name="PrivilegeMode" Type="NvidiaHostPrivilegeConfig.v1_0_0.PrivilegeModeType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The overall host privilege configuration mode."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate the overall privilege configuration mode. When written with `Privileged` or `Restricted`, all privilege settings will be set according to that preset. `Custom` is a read-only calculated value that indicates individual privilege settings have been configured and cannot be written. When this property is written, `PrivilegeSettings` shall not be included in the same request."/>
+        </Property>
+        <Property Name="PrivilegeSettings" Type="NvidiaHostPrivilegeConfig.v1_0_0.PrivilegeSettings" Nullable="false">
+          <Annotation Term="OData.Description" String="The individual host privilege settings."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the detailed individual privilege settings for the host."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="PrivilegeSettings">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The individual host privilege settings."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain the detailed individual privilege settings for the host."/>
+        <Property Name="HostPrivilegeLevel" Type="NvidiaHostPrivilegeConfig.v1_0_0.HostPrivilegeLevelInput">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host privilege level setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege level setting."/>
+        </Property>
+        <Property Name="ManagementInterfaceEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host management interface access setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the host will be allowed to access the management interface."/>
+        </Property>
+        <Property Name="PortOwnerEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host port owner privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the host will be allowed to be port owner."/>
+        </Property>
+        <Property Name="ReadCountersEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host read counters privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the host will be allowed to read physical port counters."/>
+        </Property>
+        <Property Name="TracerEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host tracer privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the host will be allowed to own the tracer."/>
+        </Property>
+        <Property Name="FlashAccess" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host flash access privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to perform any device flash access."/>
+        </Property>
+        <Property Name="HostParametersAccess" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to access host parameters."/>
+        </Property>
+        <Property Name="PortAccess" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host port privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to access port parameters."/>
+        </Property>
+        <Property Name="GlobalParametersAccess" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host global privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to access global parameters."/>
+        </Property>
+        <Property Name="InternalCPUAccess" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host internal CPU privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to access NV_INTERNAL_CPU_CONF TLV."/>
+        </Property>
+        <Property Name="PccUpdate" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host Programmable Congestion Control update privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to perform Programmable Congestion Control algorithm firmware image update."/>
+        </Property>
+        <Property Name="FirmwareUpdate" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host firmware update privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to perform firmware update."/>
+        </Property>
+        <Property Name="NicReset" Type="NvidiaHostPrivilegeConfig.v1_0_0.TristateValue">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The host NIC reset privilege setting."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the host privilege to perform NIC reset."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="NicAttributeValue">
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="The privilege is enabled."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="The privilege is disabled."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="TristateValue">
+        <Member Name="Default">
+          <Annotation Term="OData.Description" String="The default privilege setting is used."/>
+        </Member>
+        <Member Name="Enabled">
+          <Annotation Term="OData.Description" String="The privilege is enabled."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="The privilege is disabled."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="PrivilegeModeType">
+        <Member Name="Privileged">
+          <Annotation Term="OData.Description" String="All host privileges are enabled or set to least restrictive values."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that all host privilege settings are configured to allow maximum access to the host."/>
+        </Member>
+        <Member Name="Restricted">
+          <Annotation Term="OData.Description" String="All host privileges are disabled or set to most restrictive values."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that all host privilege settings are configured to deny or restrict host access."/>
+        </Member>
+        <Member Name="Custom">
+          <Annotation Term="OData.Description" String="Host privileges are individually configured."/>
+          <Annotation Term="OData.LongDescription" String="This value shall indicate that host privilege settings are configured with a mix of values that do not match either the Privileged or Restricted preset modes."/>
+        </Member>
+      </EnumType>
+      <EnumType Name="HostPrivilegeLevelInput">
+        <Member Name="Privileged">
+          <Annotation Term="OData.Description" String="Host privilege level is set to Privileged."/>
+          <Annotation Term="OData.LongDescription" String="This value shall configure host privilege level to Privileged."/>
+        </Member>
+        <Member Name="Restricted">
+          <Annotation Term="OData.Description" String="Host privilege level is set to Restricted."/>
+          <Annotation Term="OData.LongDescription" String="This value shall configure host privilege level to Restricted."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

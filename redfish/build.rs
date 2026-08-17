@@ -18,6 +18,7 @@ use nv_redfish_csdl_compiler::commands::Commands;
 use nv_redfish_csdl_compiler::commands::DEFAULT_ROOT;
 use nv_redfish_csdl_compiler::features_manifest::FeaturesManifest;
 use nv_redfish_schema::cargo_feature_enabled;
+use nv_redfish_schema::glob_oem_xml;
 use nv_redfish_schema::oem_schema;
 use nv_redfish_schema::out_dir;
 use nv_redfish_schema::redfish_schema;
@@ -30,6 +31,10 @@ use std::path::PathBuf;
 
 fn main() -> Result<(), String> {
     run_with_big_stack(run)
+}
+
+fn file_name(path: &str) -> &str {
+    path.rsplit(['/', '\\']).next().unwrap_or(path)
 }
 
 fn run() -> Result<(), Box<dyn StdError>> {
@@ -63,23 +68,23 @@ fn run() -> Result<(), Box<dyn StdError>> {
         .expect("must be successfuly parsed");
     let features = manifest.collect(&target_features);
 
-    let csdls = redfish_csdl
+    let standard_csdls = redfish_csdl
         .iter()
         .copied()
-        .chain(service_root.iter().copied())
         .map(redfish_schema)
-        .chain(
-            features
-                .csdl_files
-                .iter()
-                .map(|f| redfish_schema(f)),
-        )
+        .chain(features.csdl_files.iter().map(|f| redfish_schema(f)))
         .chain(
             features
                 .swordfish_csdl_files
                 .iter()
                 .map(|f| swordfish_schema(f)),
         )
+        .collect::<std::collections::HashSet<_>>();
+
+    let csdls = standard_csdls
+        .iter()
+        .cloned()
+        .chain(service_root.iter().copied().map(redfish_schema))
         .collect::<std::collections::HashSet<_>>()
         .into_iter()
         .collect::<Vec<_>>();
@@ -122,19 +127,36 @@ fn run() -> Result<(), Box<dyn StdError>> {
             continue;
         }
 
-        let (root_csdls, resolve_csdls, patterns) =
+        let (root_csdls, resolve_csdls, swordfish_resolve_csdls, patterns) =
             manifest.collect_vendor_features(v, &vendor_features);
+
+        let root_names = root_csdls
+            .iter()
+            .map(|f| f.as_str())
+            .collect::<std::collections::HashSet<_>>();
+
+        // A vendor's schemas reference each other, but only those
+        // selected by the enabled features are compiled. Offer the rest
+        // for type resolution so a feature never has to name the
+        // transitive closure of its own dependencies.
+        let unselected_oem = glob_oem_xml(v)
+            .into_iter()
+            .filter(|f| !root_names.contains(file_name(f)))
+            .collect::<Vec<_>>();
 
         let root_csdls = root_csdls
             .iter()
             .map(|f| oem_schema(v, f))
             .collect::<Vec<_>>();
 
-        let resolve_csdls = redfish_csdl
+        let resolve_csdls = standard_csdls
             .iter()
-            .copied()
-            .map(redfish_schema)
+            .cloned()
             .chain(resolve_csdls.iter().map(|f| redfish_schema(f)))
+            .chain(swordfish_resolve_csdls.iter().map(|f| swordfish_schema(f)))
+            .chain(unselected_oem)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
             .collect::<Vec<_>>();
 
         rerun_for(root_csdls.iter().chain(resolve_csdls.iter()));

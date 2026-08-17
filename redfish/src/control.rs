@@ -19,13 +19,23 @@
 //!
 //! ```ignore
 //! use nv_redfish::control::ControlUpdate;
+//! use nv_redfish_core::ModificationResponse;
 //!
 //! let Some(power_limit) = chassis.environment_power_limit_control().await? else {
 //!     return Ok(());
 //! };
 //!
 //! let update = ControlUpdate::builder().with_set_point(700.0).build();
-//! power_limit.update(&update).await?;
+//!
+//! match power_limit.update(&update).await? {
+//!     ModificationResponse::Entity(updated) => {
+//!         let _updated_control = updated.raw();
+//!     }
+//!     ModificationResponse::Task(task) => {
+//!         let _task = task;
+//!     }
+//!     ModificationResponse::Empty => {}
+//! }
 //! ```
 
 use std::sync::Arc;
@@ -42,22 +52,6 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
-
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-use crate::schema::environment_metrics::EnvironmentMetrics;
-
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-use crate::core::ODataId;
 
 pub use crate::schema::control::ControlMode;
 pub use crate::schema::control::ControlType;
@@ -182,19 +176,13 @@ impl<B: Bmc> Control<B> {
         &self,
         update: &ControlUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
-        match self
-            .bmc
+        self.bmc
             .as_ref()
             .update::<_, NavProperty<ControlSchema>>(self.data.odata_id(), self.data.etag(), update)
             .await
             .map_err(Error::Bmc)?
-        {
-            ModificationResponse::Entity(nav) => Self::new(&self.bmc, &nav)
-                .await
-                .map(ModificationResponse::Entity),
-            ModificationResponse::Task(task) => Ok(ModificationResponse::Task(task)),
-            ModificationResponse::Empty => Ok(ModificationResponse::Empty),
-        }
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 }
 
@@ -202,29 +190,4 @@ impl<B: Bmc> Resource for Control<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
     }
-}
-
-#[cfg(any(
-    feature = "chassis",
-    feature = "memory",
-    feature = "storages",
-    feature = "processors"
-))]
-pub(crate) async fn extract_environment_power_limit_control<B: Bmc>(
-    bmc: &NvBmc<B>,
-    metrics_ref: &NavProperty<EnvironmentMetrics>,
-) -> Result<Option<Control<B>>, Error<B>> {
-    let metrics = metrics_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
-
-    let Some(Some(uri)) = metrics
-        .power_limit_watts
-        .as_ref()
-        .and_then(|control| control.data_source_uri.as_ref())
-    else {
-        return Ok(None);
-    };
-
-    let control_ref = NavProperty::<ControlSchema>::new_reference(ODataId::from(uri.clone()));
-
-    Control::new(bmc, &control_ref).await.map(Some)
 }

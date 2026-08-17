@@ -29,6 +29,7 @@ use crate::compiler::Redfish;
 use crate::compiler::Stack;
 use crate::compiler::TypeInfo;
 use crate::edmx::ComplexType as EdmxComplexType;
+use crate::odata::annotations::Permissions;
 use crate::IsAbstract;
 
 /// Compiled complex type.
@@ -74,6 +75,17 @@ impl<'a> MapBase<'a> for ComplexType<'a> {
     {
         self.base = self.base.map(f);
         self
+    }
+}
+
+impl ComplexType<'_> {
+    /// Whether this type own definition warrants an Update struct.
+    #[must_use]
+    pub fn generates_update(&self) -> bool {
+        TypeInfo::complex_type(self)
+            .permissions
+            .is_none_or(|v| v != Permissions::Read)
+            || self.is_abstract.into_inner()
     }
 }
 

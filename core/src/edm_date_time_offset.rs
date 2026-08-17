@@ -105,12 +105,18 @@ impl TryFrom<EdmDateTimeOffset> for SystemTime {
         let unix_timestamp = w.0.unix_timestamp();
         let nanos = w.0.nanosecond();
 
-        let duration = Duration::new(unix_timestamp.unsigned_abs(), nanos);
         if unix_timestamp >= 0 {
+            let duration = Duration::new(unix_timestamp.unsigned_abs(), nanos);
             Self::UNIX_EPOCH
                 .checked_add(duration)
                 .ok_or(Error::OutOfSystemTimeRange)
         } else {
+            let duration = if nanos == 0 {
+                Duration::new(unix_timestamp.unsigned_abs(), nanos)
+            } else {
+                Duration::new(unix_timestamp.unsigned_abs() - 1, 1_000_000_000 - nanos)
+            };
+
             Self::UNIX_EPOCH
                 .checked_sub(duration)
                 .ok_or(Error::OutOfSystemTimeRange)
@@ -289,6 +295,12 @@ mod tests {
                 .as_secs(),
             315619200
         );
+
+        let fractional_before_epoch: EdmDateTimeOffset = "1969-12-31T23:59:59.5Z".parse().unwrap();
+        let time: SystemTime = fractional_before_epoch.try_into().unwrap();
+        let duration = SystemTime::UNIX_EPOCH.duration_since(time).unwrap();
+        assert_eq!(duration.as_secs(), 0);
+        assert_eq!(duration.subsec_nanos(), 500_000_000);
 
         // This can fail on Windows because it uses the FILETIME
         // representation, whose epoch is the year 1601.

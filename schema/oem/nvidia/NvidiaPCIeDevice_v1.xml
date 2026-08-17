@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPCIeDevice  v1.2.0                                                        -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/PCIeDevice_v1.xml">
+    <edmx:Include Namespace="PCIeDevice.v1_1_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a PCIeDevice resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a PCIeDevice resource."/>
+      </ComplexType>
+      <Action Name="ClearAERErrorStatus" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to clear PCI Express Advanced Error Reporting (AER) Error Status."/>
+        <Annotation Term="OData.LongDescription" String="This action shall clear PCI Express Advanced Error Reporting (AER) Error Status."/>
+        <Parameter Name="PCIeDevice" Type="PCIeDevice.v1_1_0.OemActions"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.NvidiaPCIeDevice">
+        <Property Name="NVLinkReferenceClockEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the NVLink reference clock is enabled for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the NVLink reference clock is enabled for this device."/>
+        </Property>
+        <Property Name="PCIeReferenceClockEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the PCIe reference clock is enabled for this device."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the PCIe reference clock is enabled for this device."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.v1_0_0.NvidiaPCIeDevice">
+        <Property Name="LTSSMState" Type="NvidiaPCIeDevice.v1_1_0.LTSSMState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="PCIe LTSSM state."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain PCIe LTSSM state."/>
+        </Property>
+      </ComplexType>
+      <EnumType Name="LTSSMState">
+        <Member Name="Detect">
+          <Annotation Term="OData.Description" String="This value shall indicate Detect state."/>
+        </Member>
+        <Member Name="Polling">
+          <Annotation Term="OData.Description" String="This value shall indicate Polling state."/>
+        </Member>
+        <Member Name="Configuration">
+          <Annotation Term="OData.Description" String="This value shall indicate Configuration state."/>
+        </Member>
+        <Member Name="Recovery">
+          <Annotation Term="OData.Description" String="This value shall indicate Recovery state."/>
+        </Member>
+        <Member Name="RecoveryEQ">
+          <Annotation Term="OData.Description" String="This value shall indicate RecoveryEQ state."/>
+        </Member>
+        <Member Name="L0">
+          <Annotation Term="OData.Description" String="This value shall indicate L0 state."/>
+        </Member>
+        <Member Name="L0s">
+          <Annotation Term="OData.Description" String="This value shall indicate L0s state."/>
+        </Member>
+        <Member Name="L1">
+          <Annotation Term="OData.Description" String="This value shall indicate L1 state."/>
+        </Member>
+        <Member Name="L1_PLL_PD">
+          <Annotation Term="OData.Description" String="This value shall indicate L1_PLL_PD state."/>
+        </Member>
+        <Member Name="L2">
+          <Annotation Term="OData.Description" String="This value shall indicate L2 state."/>
+        </Member>
+        <Member Name="L1_CPM">
+          <Annotation Term="OData.Description" String="This value shall indicate L1_CPM state."/>
+        </Member>
+        <Member Name="L1_1">
+          <Annotation Term="OData.Description" String="This value shall indicate L1_1 state."/>
+        </Member>
+        <Member Name="L1_2">
+          <Annotation Term="OData.Description" String="This value shall indicate L1_2 state."/>
+        </Member>
+        <Member Name="HotReset">
+          <Annotation Term="OData.Description" String="This value shall indicate HotReset state."/>
+        </Member>
+        <Member Name="Loopback">
+          <Annotation Term="OData.Description" String="This value shall indicate Loopback state."/>
+        </Member>
+        <Member Name="Disabled">
+          <Annotation Term="OData.Description" String="This value shall indicate Disabled state."/>
+        </Member>
+        <Member Name="LinkDown">
+          <Annotation Term="OData.Description" String="This value shall indicate LinkDown state."/>
+        </Member>
+        <Member Name="LinkReady">
+          <Annotation Term="OData.Description" String="This value shall indicate LinkReady state."/>
+        </Member>
+        <Member Name="LanesInSleep">
+          <Annotation Term="OData.Description" String="This value shall indicate LanesInSleep state."/>
+        </Member>
+        <Member Name="IllegalState">
+          <Annotation Term="OData.Description" String="This value shall indicate IllegalState state."/>
+        </Member>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPCIeDevice.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaPCIeDevice" BaseType="NvidiaPCIeDevice.v1_1_0.NvidiaPCIeDevice">
+        <Property Name="AERUncorrectableErrorStatus" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="PCI Express Advanced Error Reporting (AER) Uncorrectable Status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a hex-encoded string of PCI Express Advanced Error Reporting (AER) Uncorrectable Status."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+        </Property>
+        <Property Name="AERCorrectableErrorStatus" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="PCI Express Advanced Error Reporting (AER) Correctable Status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a hex-encoded string of PCI Express Advanced Error Reporting (AER) Correctable Status."/>
+          <Annotation Term="Validation.Pattern" String="^0x[0-9A-Fa-f]+$"/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

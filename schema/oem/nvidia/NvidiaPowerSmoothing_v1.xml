@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPowerSmoothing   v1.5.0                                                   -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfile_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfile"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerSmoothingPresetProfileCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerSmoothingPresetProfileCollection"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="This is the schema definition for the power smoothing feature."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall be used to represent the power smoothing properties."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="true"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/PowerSmoothing</String>
+            <String>/redfish/v1/Chassis/{ChassisId}/Oem/Nvidia/PowerSmoothing</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="ActivatePresetProfile" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to activate one of the preset profiles."/>
+        <Annotation Term="OData.LongDescription" String="This action shall activate one of the preset profiles."/>
+        <Parameter Name="NvidiaPowerSmoothing" Type="NvidiaPowerSmoothing.v1_0_0.Actions"/>
+        <Parameter Name="ProfileId" Type="Edm.Int64">
+          <Annotation Term="OData.Description" String="Profile ID to set as active."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the profile ID to set as active."/>
+        </Parameter>
+      </Action>
+      <Action Name="ApplyAdminOverrides" IsBound="true">
+        <Annotation Term="OData.Description" String="This action is used to apply all cached admin override values at runtime."/>
+        <Annotation Term="OData.LongDescription" String="This action shall apply all cached admin override values at runtime."/>
+        <Parameter Name="NvidiaPowerSmoothing" Type="NvidiaPowerSmoothing.v1_0_0.Actions"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.NvidiaPowerSmoothing">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Actions" Type="NvidiaPowerSmoothing.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="Enabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the power smoothing feature is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the power smoothing feature is enabled."/>
+        </Property>
+        <Property Name="ImmediateRampDown" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether immediate ramp down setting is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether immediate ramp down setting is enabled."/>
+        </Property>
+        <Property Name="TMPWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current TMP setting in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current TMP setting in watts."/>
+        </Property>
+        <Property Name="TMPFloorWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current TMP floor setting in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current TMP floor setting in watts."/>
+        </Property>
+        <Property Name="MaxAllowedTMPFloorPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Maximum allowed TMP floor setting in percent units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed TMP floor setting in percent units."/>
+        </Property>
+        <Property Name="RemainingLifetimeCircuitryPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Remaining lifetime of hardware circuitry in percent units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the remaining lifetime of hardware circuitry in percent units."/>
+        </Property>
+        <Property Name="AdminOverrideActiveMask" Type="NvidiaPowerSmoothing.v1_0_0.AdminOverrideActiveMask">
+          <Annotation Term="OData.Description" String="Runtime mask of active administrator overrides."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the runtime mask of active administrator overrides."/>
+        </Property>
+        <Property Name="TMPFloorPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for TMP floor in percent units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for TMP floor in percent units."/>
+        </Property>
+        <Property Name="RampUpWattsPerSecond" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for ramp up rate in watts per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for ramp up rate in watts per second."/>
+        </Property>
+        <Property Name="RampDownWattsPerSecond" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for ramp down rate in watts per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for ramp down rate in watts per second."/>
+        </Property>
+        <Property Name="RampDownHysteresisSeconds" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for ramp down hysteresis value in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for ramp down hysteresis in seconds."/>
+        </Property>
+        <NavigationProperty Name="PresetProfiles" Type="NvidiaPowerSmoothingPresetProfileCollection.NvidiaPowerSmoothingPresetProfileCollection" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the collection of preset profiles for the power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource collection of type NvidiaPowerSmoothingPresetProfileCollection."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="AppliedPresetProfile" Type="NvidiaPowerSmoothingPresetProfile.NvidiaPowerSmoothingPresetProfile">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the applied preset profile resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerSmoothingPresetProfile."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+        <NavigationProperty Name="AdminOverrideProfile" Type="NvidiaPowerSmoothingPresetProfile.NvidiaPowerSmoothingPresetProfile">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The link to the admin override profile resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a link to a resource of type NvidiaPowerSmoothingPresetProfile."/>
+          <Annotation Term="OData.AutoExpandReferences"/>
+        </NavigationProperty>
+      </EntityType>
+      <ComplexType Name="AdminOverrideActiveMask">
+        <Property Name="TMPFloorPercentApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of TMPFloorPercent parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of TMPFloorPercent parameter is applied."/>
+        </Property>
+        <Property Name="RampUpWattsPerSecondApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of RampUpWattsPerSecond parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of RampUpWattsPerSecond parameter is applied."/>
+        </Property>
+        <Property Name="RampDownWattsPerSecondApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of RampDownWattsPerSecond parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of RampDownWattsPerSecond parameter is applied."/>
+        </Property>
+        <Property Name="RampDownHysteresisSecondsApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of RampDownHysteresisSeconds parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of RampDownHysteresisSeconds parameter is applied."/>
+        </Property>
+      </ComplexType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_0_0.NvidiaPowerSmoothing">
+        <Property Name="PowerSmoothingSupported" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether the power smoothing feature is supported."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the power smoothing feature is supported."/>
+        </Property>
+        <Property Name="MinAllowedTMPFloorPercent" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Minimum allowed TMP floor setting in percent units."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the minimum allowed TMP floor setting in percent units."/>
+        </Property>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_1_0.NvidiaPowerSmoothing">
+        <Property Name="DelayedPowerSmoothingSupported" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether the delayed power smoothing feature is supported."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the delayed power smoothing feature is supported."/>
+        </Property>
+        <Property Name="FloorWindowMultiplierPeriod" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Floor window multiplier in seconds."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain floor window multiplier in seconds."/>
+          <Annotation Term="Measures.Unit" String="s"/>
+        </Property>
+        <Property Name="MinAllowedPFAOffsetWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Minimum allowed primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the minimum allowed value for primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="MinAllowedPFAPointWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Minimum allowed primary floor activation (PFA) point in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the minimum allowed value for primary floor activation (PFA) point in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="SecondaryPowerFloorWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for secondary power floor in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for secondary power floor in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="PFAWindowMultiplier" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for primary floor activation (PFA) window multiplier."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for primary floor activation (PFA) window multiplier."/>
+        </Property>
+        <Property Name="PFAOffsetWatts" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for primary floor activation (PFA) offset in watts."/>
+          <Annotation Term="Measures.Unit" String="W"/>
+        </Property>
+        <Property Name="PFTWindowMultiplier" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Current setting for primary floor target (PFT) window multiplier."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current setting for primary floor target (PFT) window multiplier."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="AdminOverrideActiveMask" BaseType="NvidiaPowerSmoothing.v1_0_0.AdminOverrideActiveMask">
+        <Property Name="SecondaryPowerFloorSettingApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of secondary power floor setting parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of secondary power floor setting parameter is applied."/>
+        </Property>
+        <Property Name="PFAWindowMultiplierSettingApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of primary floor activation (PFA) window multiplier parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of primary floor activation (PFA) window multiplier parameter is applied."/>
+        </Property>
+        <Property Name="PFTWindowMultiplierSettingApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of primary floor target (PFT) window multiplier parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of primary floor target (PFT) window multiplier parameter is applied."/>
+        </Property>
+        <Property Name="PFAOffsetSettingApplied" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Indicates whether administrator overrides of primary floor activation (PFA) offset parameter is applied."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether administrator overrides of primary floor activation (PFA) offset parameter is applied."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_2_0.NvidiaPowerSmoothing">
+        <Property Name="StateOfChargeFeatures" Type="NvidiaPowerSmoothing.v1_3_0.StateOfChargeFeatures">
+          <Annotation Term="OData.Description" String="The State of Charge (SoC) power smoothing features."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the State of Charge (SoC) power smoothing features."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_5_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `EnergyStorageFeatures` property."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+      </EntityType>
+      <ComplexType Name="StateOfChargeFeatures">
+        <Property Name="MaxACPowerRampPercentPerSecond" Type="Edm.Decimal">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The maximum allowed percentage change in AC power per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed percentage change in AC power per second."/>
+          <Annotation Term="Redfish.Revisions">
+            <Collection>
+              <Record>
+                <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Deprecated"/>
+                <PropertyValue Property="Version" String="v1_4_0"/>
+                <PropertyValue Property="Description" String="This property has been deprecated in favor of the `MaxACPowerRampRateWattsPerSecond` property, which expresses the maximum AC power ramp rate in watts per second."/>
+              </Record>
+            </Collection>
+          </Annotation>
+        </Property>
+        <Property Name="PowerSmoothingEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the State of Charge (SoC) power smoothing feature is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the State of Charge (SoC) power smoothing feature is enabled."/>
+        </Property>
+        <Property Name="ProfileName" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="The name of the current profile used for the State of Charge (SoC) power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the current profile used for the State of Charge (SoC) power smoothing feature."/>
+        </Property>
+        <Property Name="AvailableProfileNames" Type="Collection(Edm.String)">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The names of the available profiles for the State of Charge (SoC) power smoothing feature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the names of the available profiles for the State of Charge (SoC) power smoothing feature."/>
+        </Property>
+        <Property Name="PowerBrakeEnabled" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="OData.Description" String="Indicates whether the State of Charge (SoC) power brake feature is enabled."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the State of Charge (SoC) power brake feature is enabled."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_4_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_3_0.NvidiaPowerSmoothing"/>
+      <ComplexType Name="StateOfChargeFeatures" BaseType="NvidiaPowerSmoothing.v1_3_0.StateOfChargeFeatures">
+        <Property Name="MaxACPowerRampRateWattsPerSecond" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+          <Annotation Term="Validation.Minimum" Int="0"/>
+          <Annotation Term="OData.Description" String="The maximum allowed rate of change of AC power in watts per second."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the maximum allowed rate of change of AC power draw, expressed in watts per second."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerSmoothing.v1_5_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <Annotation Term="OData.Description" String="This version was created to deprecate the `StateOfChargeFeatures` in favor of the `EnergyStorageFeatures`."/>
+      <EntityType Name="NvidiaPowerSmoothing" BaseType="NvidiaPowerSmoothing.v1_4_0.NvidiaPowerSmoothing">
+        <Property Name="EnergyStorageFeatures" Type="NvidiaPowerSmoothing.v1_5_0.EnergyStorageFeatures">
+          <Annotation Term="OData.Description" String="The energy storage power smoothing features."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the energy storage power smoothing features."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="EnergyStorageFeatures" BaseType="NvidiaPowerSmoothing.v1_4_0.StateOfChargeFeatures"/>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

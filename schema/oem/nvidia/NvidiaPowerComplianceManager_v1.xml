@@ -1,0 +1,137 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaPowerComplianceManager  v1.0.0                                            -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+    <edmx:Include Namespace="Validation.v1_0_0" Alias="Validation"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Manager_v1.xml">
+    <edmx:Include Namespace="Manager.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerDomainCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerDomainCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerPolicy_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerPolicy.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaManagedEntityGroupCollection_v1.xml">
+    <edmx:Include Namespace="NvidiaManagedEntityGroupCollection"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPowerStateGroup_v1.xml">
+    <edmx:Include Namespace="NvidiaPowerStateGroup.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaPSURedundancy_v1.xml">
+    <edmx:Include Namespace="NvidiaPSURedundancy.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerComplianceManager">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+
+      <EntityType Name="NvidiaPowerComplianceManager" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The `NvidiaPowerComplianceManager` schema describes the Power Compliance Manager service resource."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent the Power Compliance Manager service resource."/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance</String>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/PowerCompliance/</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="AssertPowerBrake" IsBound="true">
+        <Parameter Name="NvidiaPowerComplianceManager" Type="NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager"/>
+        <Annotation Term="OData.Description" String="Assert Power Brake."/>
+        <Annotation Term="OData.LongDescription" String="This action shall request the Power Shelf to assert the power brake if the conditions allow it."/>
+      </Action>
+      <Action Name="DeassertPowerBrake" IsBound="true">
+        <Parameter Name="NvidiaPowerComplianceManager" Type="NvidiaPowerComplianceManager.v1_0_0.NvidiaPowerComplianceManager"/>
+        <Annotation Term="OData.Description" String="Deassert Power Brake."/>
+        <Annotation Term="OData.LongDescription" String="This action shall request the Power Shelf to deassert the power brake if the conditions allow it."/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaPowerComplianceManager.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaPowerComplianceManager" BaseType="NvidiaPowerComplianceManager.NvidiaPowerComplianceManager">
+        <Property Name="ManagerType" Type="NvidiaPowerComplianceManager.v1_0_0.NvidiaManagerType" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The type of manager that this resource represents."/>
+          <Annotation Term="OData.LongDescription" String="This property shall describe the function of this manager. The `ManagementController` value shall be used if none of the other enumerations apply."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaPowerComplianceManager.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <NavigationProperty Name="PowerDomains" Type="NvidiaPowerDomainCollection.NvidiaPowerDomainCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the collection of Power Domains."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Power Domains."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+        <NavigationProperty Name="ACLossPolicy" Type="NvidiaPowerPolicy.v1_0_0.NvidiaPowerPolicy" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the AC Loss Policy for the Nvidia Power Compliance Manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the AC Loss Policy for the Nvidia Power Compliance Manager."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+        <NavigationProperty Name="PSUCompliancePolicy" Type="NvidiaPowerPolicy.v1_0_0.NvidiaPowerPolicy" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the PSU Compliance Policy for the Nvidia Power Compliance Manager."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the PSU Compliance Policy for the Nvidia Power Compliance Manager."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+        <NavigationProperty Name="ManagedEntityGroups" Type="NvidiaManagedEntityGroupCollection.NvidiaManagedEntityGroupCollection" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the collection of Managed Entity Groups."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the collection of Managed Entity Groups."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+        </NavigationProperty>
+        <NavigationProperty Name="PowerStateGroup" Type="NvidiaPowerStateGroup.v1_0_0.NvidiaPowerStateGroup" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the Power State Group."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the Power State Group."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </NavigationProperty>
+        <NavigationProperty Name="PSURedundancy" Type="NvidiaPSURedundancy.v1_0_0.NvidiaPSURedundancy" ContainsTarget="true" Nullable="false">
+          <Annotation Term="OData.Description" String="A reference to the PSU Redundancy settings."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate a reference to the PSU Redundancy settings used to calculate the Max Power that the rack should support."/>
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+        </NavigationProperty>
+      </EntityType>
+      <EnumType Name="NvidiaManagerType">
+        <Member Name="PowerManager">
+          <Annotation Term="OData.Description" String="A controller that provides management functions related to power compliance and distribution."/>
+        </Member>
+      </EnumType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

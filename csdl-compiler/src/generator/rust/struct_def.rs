@@ -25,10 +25,13 @@ use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::RigidArraySupport;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
+use crate::generator::rust::doc::format_and_generate_with_deprecation as doc_format_deprecated;
+use crate::generator::rust::ActionFullTypeName;
 use crate::generator::rust::ActionName;
 use crate::generator::rust::Config;
 use crate::generator::rust::Error;
 use crate::generator::rust::FullTypeName;
+use crate::generator::rust::SerializableProperties;
 use crate::generator::rust::StructFieldName;
 use crate::generator::rust::TypeName;
 use crate::odata::annotations::Permissions;
@@ -82,11 +85,10 @@ enum ImplType {
     None,
 }
 
-struct SerializableProperty<'a> {
-    rename: Literal,
-    name: StructFieldName<'a>,
-    prop_type: TokenStream,
-    required_on_create: bool,
+#[derive(Clone, Copy)]
+enum SerializableStructKind {
+    Create,
+    Update,
 }
 
 // Action request fields are generated as two coordinated token streams. Keeping
@@ -357,10 +359,11 @@ impl<'a> StructDef<'a> {
             },
         );
 
-        let properties = self.serializable_properties(config);
+        let properties = SerializableProperties::new(&self.properties, config);
 
-        let additional_properties = if self.odata.additional_properties.is_some_and(|v| *v.inner())
-        {
+        let has_additional_properties =
+            self.odata.additional_properties.is_some_and(|v| *v.inner());
+        let additional_properties = if has_additional_properties {
             let top = &config.top_module_alias;
             // If additional_properties are explicitly set then we add
             // placeholder with serde_json::Value to
@@ -373,31 +376,24 @@ impl<'a> StructDef<'a> {
             TokenStream::new()
         };
 
-        let properties_content = properties.iter().map(|p| {
-            let rename = &p.rename;
-            let name = p.name;
-            let prop_type = &p.prop_type;
-            quote! {
-                #[serde(rename=#rename)]
-                #[serde(skip_serializing_if = "Option::is_none")]
-                pub #name: Option<#prop_type>,
-            }
-        });
-        let mut content = TokenStream::new();
-        content.extend(properties_content);
+        let content = properties.struct_content_for_update();
         let comment = format!(" Update struct corresponding to `{}`", self.name);
         let name = self.name.for_update(None);
+        let (debug_derive, debug_impl) = Self::debug_serializable(
+            &name,
+            &properties,
+            SerializableStructKind::Update,
+            self.base.is_some(),
+            has_additional_properties,
+        );
         tokens.extend(quote! {
             #[doc = #comment]
-            #[derive(Serialize, Default, Debug)]
+            #[derive(Serialize, Default)]
+            #debug_derive
             pub struct #name { #base #content #additional_properties }
         });
 
-        let properties_impl = properties
-            .iter()
-            .map(Self::generate_optional_property_setter);
-        let mut content = TokenStream::new();
-        content.extend(properties_impl);
+        let content = properties.optional_property_setter_for_update();
 
         // Generate builder for struct.
         tokens.extend(quote! {
@@ -413,72 +409,41 @@ impl<'a> StructDef<'a> {
                 #base_impl
                 #content
             }
+            #debug_impl
         });
     }
 
     fn generate_create(&self, tokens: &mut TokenStream, config: &Config) {
-        let properties = self.serializable_properties(config);
+        let properties = SerializableProperties::new(&self.properties, config);
 
-        let properties_content = properties.iter().map(|p| {
-            let rename = &p.rename;
-            let name = p.name;
-            let prop_type = &p.prop_type;
-            if p.required_on_create {
-                quote! {
-                    #[serde(rename=#rename)]
-                    pub #name: #prop_type,
-                }
-            } else {
-                quote! {
-                    #[serde(rename=#rename)]
-                    #[serde(skip_serializing_if = "Option::is_none")]
-                    pub #name: Option<#prop_type>,
-                }
-            }
-        });
-
-        let mut content = TokenStream::new();
-        content.extend(properties_content);
+        let content = properties.struct_content_for_create();
         let comment = format!(" Create struct corresponding to `{}`", self.name);
         let name = self.name.for_create();
+        let (debug_derive, debug_impl) = Self::debug_serializable(
+            &name,
+            &properties,
+            SerializableStructKind::Create,
+            false,
+            false,
+        );
         tokens.extend([quote! {
             #[doc = #comment]
-            #[derive(Serialize, Debug)]
+            #[derive(Serialize)]
+            #debug_derive
             pub struct #name { #content }
         }]);
 
+        let prop_fn_content = properties.optional_property_setter_for_create();
         // Implement builder for create struct:
-        let (builder_fn_arglist, builder_fn_impl) = properties.iter().fold(
-            (TokenStream::new(), TokenStream::new()),
-            |(mut arglist, mut implcontent), p| {
-                let name = p.name;
-                let prop_type = &p.prop_type;
-                if p.required_on_create {
-                    arglist.extend(quote! {#name: #prop_type,});
-                    implcontent.extend(quote! { #name, });
-                } else {
-                    implcontent.extend(quote! { #name: None, });
-                }
-                (arglist, implcontent)
-            },
-        );
-
-        let prop_fn_impl = properties.iter().filter_map(|p| {
-            if p.required_on_create {
-                None
-            } else {
-                Some(Self::generate_optional_property_setter(p))
-            }
-        });
-        let mut prop_fn_content = TokenStream::new();
-        prop_fn_content.extend(prop_fn_impl);
+        let builder_fn_arglist = properties.builder_fn_arg_list_for_create();
+        let builder_fn_content = properties.builder_fn_content_for_create();
 
         tokens.extend([quote! {
             impl #name {
                 #[must_use]
                 pub fn builder(#builder_fn_arglist) -> Self {
                     Self {
-                        #builder_fn_impl
+                        #builder_fn_content
                     }
                 }
                 #[must_use]
@@ -487,53 +452,54 @@ impl<'a> StructDef<'a> {
                 }
                 #prop_fn_content
             }
+            #debug_impl
         }]);
     }
 
-    fn serializable_properties(&self, config: &Config) -> Vec<SerializableProperty<'a>> {
-        self.properties
-            .properties
-            .iter()
-            .filter_map(|p| {
-                let (typeinfo, v) = &p.ptype.inner();
-                if !(p.redfish.is_required_on_create.into_inner()
-                    || (p.odata.permissions_is_write()
-                        && typeinfo.permissions.is_none_or(|p| p != Permissions::Read)))
-                {
-                    return None;
+    fn debug_serializable<N: ToTokens>(
+        name: N,
+        properties: &SerializableProperties<'a>,
+        kind: SerializableStructKind,
+        has_base: bool,
+        has_additional_properties: bool,
+    ) -> (TokenStream, TokenStream) {
+        // Additional properties contain arbitrary request values and have no schema metadata that
+        // can identify sensitive entries, so always use a redacting Debug implementation for them.
+        if properties.can_contain_sensitive_info() || has_additional_properties {
+            let mut fields = TokenStream::new();
+            match kind {
+                SerializableStructKind::Update => {
+                    properties
+                        .debug_print_fields_for_update()
+                        .to_tokens(&mut fields);
                 }
-
-                let full_type = FullTypeName::new(*v, config).for_update(Some(typeinfo.class));
-                let prop_type = match p.ptype {
-                    OneOrCollection::One(_) => quote! { #full_type },
-                    OneOrCollection::Collection(_) => {
-                        if p.rigid_array_support.into_inner() {
-                            quote! { Vec<Option<#full_type>> }
-                        } else {
-                            quote! { Vec<#full_type> }
+                SerializableStructKind::Create => {
+                    properties
+                        .debug_print_fields_for_create()
+                        .to_tokens(&mut fields);
+                }
+            }
+            let base = has_base.then(|| quote! { .field("base", &self.base) });
+            // Additional properties are arbitrary OEM-provided request values with no schema
+            // metadata that can identify sensitive entries, so never expose their contents.
+            let additional_properties = has_additional_properties
+                .then(|| quote! { .field("additional_properties", &"<redacted>") });
+            (
+                quote! {},
+                quote! {
+                    impl core::fmt::Debug for #name {
+                        fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+                            f.debug_struct(stringify!(#name))
+                                #base
+                                #fields
+                                #additional_properties
+                                .finish()
                         }
                     }
-                };
-                Some(SerializableProperty {
-                    rename: Literal::string(p.name.inner().inner()),
-                    name: StructFieldName::new_property(p.name),
-                    prop_type,
-                    required_on_create: p.redfish.is_required_on_create.into_inner(),
-                })
-            })
-            .collect()
-    }
-
-    fn generate_optional_property_setter(p: &SerializableProperty<'_>) -> TokenStream {
-        let name = p.name;
-        let prop_type = &p.prop_type;
-        let fn_name = Ident::new(&format!("with_{name}"), Span::call_site());
-        quote! {
-            #[must_use]
-            pub fn #fn_name(mut self, v: #prop_type) -> Self {
-                self.#name = Some(v);
-                self
-            }
+                },
+            )
+        } else {
+            (quote! { #[derive(Debug)] }, quote! {})
         }
     }
 
@@ -548,15 +514,19 @@ impl<'a> StructDef<'a> {
         let name = self.name;
         tokens.extend([
             doc_format_and_generate(self.name, &self.odata),
+            // Action parameters can contain sensitive values such as passwords, keys, or
+            // tokens. Redfish CSDL schemas do not reliably identify which action parameters
+            // are sensitive, so generating a safe Debug implementation requires explicit
+            // sensitivity metadata. Do not derive Debug until those fields can be redacted.
             quote! {
-                #[derive(Serialize, Debug)]
+                #[derive(Serialize)]
                 pub struct #name { #content }
             },
         ]);
     }
 
     fn generate_property(p: &Property<'_>, config: &Config) -> TokenStream {
-        let doc = doc_format_and_generate(p.name, &p.odata);
+        let doc = doc_format_deprecated(p.name, &p.odata, p.redfish.deprecation);
         let (serde, field_type) = Self::gen_de_struct_field(
             &p.ptype,
             FullTypeName::new(p.ptype.name(), config),
@@ -657,7 +627,7 @@ impl<'a> StructDef<'a> {
                 if p.odata.permissions_is_write_only() {
                     return TokenStream::new();
                 }
-                let doc = doc_format_and_generate(p.ptype.name(), &p.odata);
+                let doc = doc_format_deprecated(p.ptype.name(), &p.odata, p.redfish.deprecation);
                 let ptype = p.redfish.excerpt_copy.as_ref().map_or_else(
                     || {
                         let full_type = FullTypeName::new(p.ptype.name(), config);
@@ -679,12 +649,16 @@ impl<'a> StructDef<'a> {
                 );
                 (doc, sa, t)
             }
-            NavProperty::Reference(r) => {
-                let doc = TokenStream::new();
+            NavProperty::Reference {
+                cardinality,
+                odata,
+                redfish,
+            } => {
+                let doc = doc_format_deprecated(cardinality.inner(), odata, redfish.deprecation);
                 let top = &config.top_module_alias;
                 let ptype = quote! { #top::ReferenceLeaf };
                 let (sa, t) = Self::gen_de_struct_field(
-                    r,
+                    cardinality,
                     ptype,
                     rename,
                     IsNullable::new(false),
@@ -793,9 +767,13 @@ impl<'a> StructDef<'a> {
 
     fn generate_action_property(a: &Action, config: &Config) -> TokenStream {
         let top = &config.top_module_alias;
-        let rename = Literal::string(&format!("#{}.{}", a.binding_name, a.name));
+        // Redfish serializes an action under its defining schema's
+        // namespace ("#NvidiaChassis.Reset"), which for OEM actions
+        // differs from the binding parameter's name.
+        let rename = Literal::string(&format!("#{}.{}", a.defining_namespace, a.name));
         let name = ActionName::new(a.name);
-        let typename = TypeName::new_action(a.binding_name, a.name);
+        let typename =
+            ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {
             Some(OneOrCollection::One(v)) => FullTypeName::new(v, config).to_token_stream(),
             Some(OneOrCollection::Collection(v)) => {
@@ -868,7 +846,8 @@ impl<'a> StructDef<'a> {
     fn generate_action_function(content: &mut TokenStream, a: &Action, config: &Config) {
         let top = &config.top_module_alias;
         let name = ActionName::new(a.name);
-        let typename = TypeName::new_action(a.binding_name, a.name);
+        let typename =
+            ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {
             Some(OneOrCollection::One(v)) => FullTypeName::new(v, config).to_token_stream(),
             Some(OneOrCollection::Collection(v)) => {

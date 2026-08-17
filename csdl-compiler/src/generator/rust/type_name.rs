@@ -18,9 +18,8 @@ use crate::edmx::attribute_values::SimpleIdentifier;
 use crate::edmx::ActionName as EdmxActionName;
 use crate::edmx::ParameterName;
 use crate::generator::casemungler;
+use crate::generator::rust::ident;
 use crate::redfish::ExcerptCopy;
-use proc_macro2::Ident;
-use proc_macro2::Span;
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use quote::TokenStreamExt as _;
@@ -73,7 +72,7 @@ impl<'a> TypeName<'a> {
 
 impl ToTokens for TypeName<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+        tokens.append(ident::escaped(&self.to_string()));
     }
 }
 
@@ -112,7 +111,7 @@ impl Display for TypeNameForUpdate<'_> {
 
 impl ToTokens for TypeNameForUpdate<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+        tokens.append(ident::escaped(&self.to_string()));
     }
 }
 
@@ -126,7 +125,7 @@ impl Display for TypeNameForCreate<'_> {
 
 impl ToTokens for TypeNameForCreate<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+        tokens.append(ident::escaped(&self.to_string()));
     }
 }
 
@@ -143,6 +142,6 @@ impl Display for TypeNameForExcerptCopy<'_> {
 
 impl ToTokens for TypeNameForExcerptCopy<'_> {
     fn to_tokens(&self, tokens: &mut TokenStream) {
-        tokens.append(Ident::new(&self.to_string(), Span::call_site()));
+        tokens.append(ident::escaped(&self.to_string()));
     }
 }

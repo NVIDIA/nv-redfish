@@ -34,7 +34,6 @@
     clippy::print_stderr
 )]
 #![allow(clippy::doc_markdown)]
-#![allow(clippy::duration_suboptimal_units)]
 #![deny(missing_docs)]
 
 //! HTTP implementation of [`nv_redfish_core::Bmc`] trait.
@@ -42,6 +41,8 @@
 pub mod cache;
 pub mod credentials;
 
+#[cfg(feature = "http-extras")]
+mod concurrency;
 #[cfg(feature = "reqwest")]
 mod schema;
 
@@ -73,6 +74,8 @@ use nv_redfish_core::UploadReader;
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use url::Url;
 
+#[cfg(feature = "http-extras")]
+pub use concurrency::ConcurrencyLimitedBmc;
 #[doc(inline)]
 pub use credentials::BmcCredentials;
 
@@ -214,9 +217,13 @@ pub struct HttpBmc<C: HttpClient> {
     client: C,
     redfish_endpoint: RedfishEndpoint,
     credentials: RwLock<Arc<BmcCredentials>>,
-    cache: RwLock<TypeErasedCarCache<ODataId>>,
-    etags: RwLock<HashMap<ODataId, ODataETag>>,
+    cache: RwLock<TypeErasedCarCache<Url>>,
+    etags: RwLock<HashMap<Url, ODataETag>>,
     custom_headers: HeaderMap,
+
+    // Response bodies and ETags are enabled or disabled together because a
+    // 304 Not Modified response contains no replacement body.
+    cache_enabled: bool,
 }
 
 impl<C: HttpClient> HttpBmc<C>
@@ -329,6 +336,7 @@ where
             cache: RwLock::new(TypeErasedCarCache::new(cache_settings.capacity)),
             etags: RwLock::new(HashMap::new()),
             custom_headers,
+            cache_enabled: cache_settings.capacity > 0,
         }
     }
 
@@ -390,6 +398,41 @@ impl RedfishEndpoint {
     pub fn with_path(&self, path: &str) -> Url {
         let mut url = self.base_url.clone();
         url.set_path(path);
+        url
+    }
+
+    /// Convert an OData identifier, including its optional query, to an endpoint URL.
+    ///
+    /// `ODataId` is opaque and can contain a query, particularly when it comes
+    /// from a task or session `Location` header. Passing the whole identifier to
+    /// `Url::set_path` would encode `?` as path data, so split the two URL
+    /// components before applying them.
+    fn with_odata_id(&self, id: &ODataId) -> Url {
+        let id = id.to_string();
+        let (path, query) = id
+            .split_once('?')
+            .map_or((id.as_str(), None), |(path, query)| (path, Some(query)));
+
+        let mut url = self.with_path(path);
+        url.set_query(query);
+        url
+    }
+
+    /// Convert an OData identifier and append query parameters.
+    ///
+    /// Existing parameters can carry continuation or monitor tokens and must
+    /// survive when callers add `$expand` or `$filter` parameters.
+    fn with_odata_id_and_query(&self, id: &ODataId, query: &str) -> Url {
+        let mut url = self.with_odata_id(id);
+
+        match url.query() {
+            Some(existing) if !existing.is_empty() => {
+                let combined_query = format!("{existing}&{query}");
+                url.set_query(Some(&combined_query));
+            }
+            _ => url.set_query(Some(query)),
+        }
+
         url
     }
 
@@ -470,6 +513,8 @@ impl Default for CacheSettings {
 
 impl CacheSettings {
     /// Define capacity of the cache measured in number of items.
+    ///
+    /// A capacity of 0 disables caching.
     #[must_use]
     pub const fn with_capacity(capacity: usize) -> Self {
         Self { capacity }
@@ -531,16 +576,23 @@ where
     async fn get_with_cache<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         endpoint_url: Url,
-        id: &ODataId,
     ) -> Result<Arc<T>, C::Error> {
-        // Retrieve cached etag
-        let etag: Option<ODataETag> = {
+        let cache_key = endpoint_url.clone();
+
+        // The `etag` is always `None` when caching is disabled. Check the flag here so we can save
+        // a read lock acquisition and guarantee that disabled caching never sends If-None-Match,
+        // which could produce a 304 response without a cached body.
+        let etag = if self.cache_enabled {
             let etags = self
                 .etags
                 .read()
                 .map_err(|e| C::Error::cache_error(e.to_string()))?;
-            etags.get(id).cloned()
+
+            etags.get(&cache_key).cloned()
+        } else {
+            None
         };
+
         let credentials = self.read_credentials();
 
         // Perform GET request
@@ -554,9 +606,13 @@ where
             )
             .await
         {
+            Ok(response) if !self.cache_enabled => {
+                // With capacity zero, `put_typed` stores no representation and always returns
+                // `None`, and we can return early with the response entity.
+                Ok(Arc::new(response))
+            }
             Ok(response) => {
                 let entity = Arc::new(response);
-
                 // Update cache if entity has etag
                 if let Some(etag) = entity.etag() {
                     let mut cache = self
@@ -569,10 +625,12 @@ where
                         .write()
                         .map_err(|e| C::Error::cache_error(e.to_string()))?;
 
-                    if let Some(evicted_id) = cache.put_typed(id.clone(), Arc::clone(&entity)) {
-                        etags.remove(&evicted_id);
+                    if let Some(evicted_url) =
+                        cache.put_typed(cache_key.clone(), Arc::clone(&entity))
+                    {
+                        etags.remove(&evicted_url);
                     }
-                    etags.insert(id.clone(), etag.clone());
+                    etags.insert(cache_key.clone(), etag.clone());
                 }
                 Ok(entity)
             }
@@ -584,7 +642,7 @@ where
                         .write()
                         .map_err(|e| C::Error::cache_error(e.to_string()))?;
                     cache
-                        .get_typed::<Arc<T>>(id)
+                        .get_typed::<Arc<T>>(&cache_key)
                         .cloned()
                         .ok_or_else(C::Error::cache_miss)
                 } else {
@@ -605,8 +663,8 @@ where
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
-        self.get_with_cache(endpoint_url, id).await
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
+        self.get_with_cache(endpoint_url).await
     }
 
     async fn expand<T: Expandable + 'static>(
@@ -616,9 +674,9 @@ where
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self
             .redfish_endpoint
-            .with_path_and_query(&id.to_string(), &query.to_query_string());
+            .with_odata_id_and_query(id, &query.to_query_string());
 
-        self.get_with_cache(endpoint_url, id).await
+        self.get_with_cache(endpoint_url).await
     }
 
     async fn create<V: Sync + Send + Serialize, R: Sync + Send + for<'de> Deserialize<'de>>(
@@ -626,7 +684,7 @@ where
         id: &ODataId,
         v: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let credentials = self.read_credentials();
         self.client
             .post(endpoint_url, v, credentials.as_ref(), &self.custom_headers)
@@ -641,7 +699,7 @@ where
         id: &ODataId,
         v: &V,
     ) -> Result<SessionCreateResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         self.client
             .post_session(endpoint_url, v, &self.custom_headers)
             .await
@@ -653,7 +711,7 @@ where
         etag: Option<&ODataETag>,
         v: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let etag = etag
             .cloned()
             .unwrap_or_else(|| ODataETag::from(String::from("*")));
@@ -673,7 +731,7 @@ where
         &self,
         id: &ODataId,
     ) -> Result<ModificationResponse<T>, Self::Error> {
-        let endpoint_url = self.redfish_endpoint.with_path(&id.to_string());
+        let endpoint_url = self.redfish_endpoint.with_odata_id(id);
         let credentials = self.read_credentials();
         self.client
             .delete(endpoint_url, credentials.as_ref(), &self.custom_headers)
@@ -762,9 +820,9 @@ where
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self
             .redfish_endpoint
-            .with_path_and_query(&id.to_string(), &query.to_query_string());
+            .with_odata_id_and_query(id, &query.to_query_string());
 
-        self.get_with_cache(endpoint_url, id).await
+        self.get_with_cache(endpoint_url).await
     }
 
     async fn stream<T: Send + Sized + for<'de> Deserialize<'de>>(
@@ -820,6 +878,37 @@ mod tests {
                 "{uri}"
             );
         }
+
+        Ok(())
+    }
+
+    #[test]
+    fn odata_id_query_is_preserved_as_url_query() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+        let id =
+            ODataId::from("/redfish/v1/TaskService/Tasks/42?token=a%2Fb&state=ready".to_string());
+
+        let resolved = endpoint.with_odata_id(&id);
+
+        assert_eq!(resolved.path(), "/redfish/v1/TaskService/Tasks/42");
+        assert_eq!(resolved.query(), Some("token=a%2Fb&state=ready"));
+
+        Ok(())
+    }
+
+    #[test]
+    fn odata_id_query_is_combined_with_request_query() -> Result<(), Box<dyn Error>> {
+        let endpoint = RedfishEndpoint::new(Url::parse("https://bmc.example")?);
+        let id = ODataId::from("/redfish/v1/Systems?$skiptoken=abc".to_string());
+
+        let resolved = endpoint.with_odata_id_and_query(&id, "$filter=value%20gt%2010");
+
+        assert_eq!(resolved.path(), "/redfish/v1/Systems");
+
+        assert_eq!(
+            resolved.query(),
+            Some("$skiptoken=abc&$filter=value%20gt%2010")
+        );
 
         Ok(())
     }

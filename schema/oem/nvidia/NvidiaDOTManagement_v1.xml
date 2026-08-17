@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaDOTManagement  v1.0.0                                                     -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/schema/NvidiaDOT_v1.xml">
+    <edmx:Include Namespace="NvidiaDOT.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDOTManagement">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDOTManagement" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The manager-based Device Ownership Transfer (DOT) resource for CAK operations."/>
+        <Annotation Term="OData.LongDescription" String="This resource shall represent manager-based Device Ownership Transfer (DOT) settings and actions."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Managers/{ManagerId}/Oem/Nvidia/DOT</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+      <Action Name="CAKInstall" IsBound="true">
+        <Annotation Term="OData.Description" String="This action installs a Customer Authorization Key (CAK) for manager-based Device Ownership Transfer (DOT)."/>
+        <Annotation Term="OData.LongDescription" String="This action shall install a Customer Authorization Key (CAK) for manager-based Device Ownership Transfer (DOT)."/>
+        <Parameter Name="DOTManagement" Type="NvidiaDOTManagement.v1_0_0.Actions"/>
+        <Parameter Name="CAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure" Nullable="false">
+          <Annotation Term="OData.Description" String="The Customer Authorization Key (CAK) used for manager-based DOT management."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Customer Authorization Key (CAK) used for manager-based DOT management."/>
+        </Parameter>
+        <Parameter Name="LAKKey" Type="NvidiaDOT.v1_0_0.KeyStructure">
+          <Annotation Term="OData.Description" String="The Local Attestation Key (LAK) used for manager-based DOT management."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the Local Attestation Key (LAK) used for manager-based DOT management."/>
+        </Parameter>
+        <Parameter Name="VendorMinimumSecurityVersion" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="The vendor minimum security version."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the vendor minimum security version used for manager-based DOT verification."/>
+        </Parameter>
+        <Parameter Name="OwnerMinimumSecurityVersion" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Description" String="The owner minimum security version."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall contain the owner minimum security version used for manager-based DOT verification."/>
+        </Parameter>
+        <Parameter Name="LockDisable" Type="Edm.Boolean" Nullable="false">
+          <Annotation Term="OData.Description" String="An indication of whether DOT lock is disabled after manager-based CAK installation."/>
+          <Annotation Term="OData.LongDescription" String="This parameter shall indicate whether DOT lock is disabled after manager-based CAK installation."/>
+        </Parameter>
+      </Action>
+      <Action Name="CAKDelete" IsBound="true">
+        <Annotation Term="OData.Description" String="This action deletes the stored Customer Authorization Key (CAK) for manager-based DOT management."/>
+        <Annotation Term="OData.LongDescription" String="This action shall delete the stored Customer Authorization Key (CAK) for manager-based DOT management."/>
+        <Parameter Name="DOTManagement" Type="NvidiaDOTManagement.v1_0_0.Actions"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaDOTManagement.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaDOTManagement" BaseType="NvidiaDOTManagement.NvidiaDOTManagement">
+        <Property Name="CAKPresent" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether a CAK payload is present for this manager-based DOT management resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether a CAK payload is present for manager-based DOT management operations."/>
+        </Property>
+        <Property Name="CAKInstalled" Type="NvidiaDOTManagement.v1_0_0.CAKInstalledState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current CAK installation state for this manager-based DOT management resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the current CAK installation state for manager-based DOT management."/>
+        </Property>
+        <Property Name="CAKVerificationTimeoutInSeconds" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The timeout used to verify manager-based CAK installation."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the timeout value, in seconds, used to verify manager-based CAK installation."/>
+        </Property>
+        <Property Name="CAKDownloadUri" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The URI to retrieve the stored CAK payload for manager-based DOT management."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the URI used to retrieve the stored CAK payload for manager-based DOT management."/>
+        </Property>
+        <Property Name="Actions" Type="NvidiaDOTManagement.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this manager-based DOT management resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this manager-based DOT management resource."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this manager-based DOT management resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this manager-based DOT management resource."/>
+      </ComplexType>
+      <EnumType Name="CAKInstalledState">
+        <Member Name="NotInstalled">
+          <Annotation Term="OData.Description" String="The CAK is not installed for manager-based DOT management."/>
+        </Member>
+        <Member Name="Installed">
+          <Annotation Term="OData.Description" String="The CAK is installed for manager-based DOT management."/>
+        </Member>
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="The CAK installation encountered an error for manager-based DOT management."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

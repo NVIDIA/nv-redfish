@@ -52,6 +52,7 @@ use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use std::sync::Arc;
@@ -148,13 +149,20 @@ impl<B: Bmc> AccountCollection<B> {
 
     /// Create a new account.
     ///
+    /// Returns one of the following modification outcomes:
+    ///
+    /// - `ModificationResponse::Entity` contains the newly created account.
+    /// - `ModificationResponse::Task` identifies an asynchronous operation.
+    /// - `ModificationResponse::Empty` reports synchronous success without a
+    ///   response body.
+    ///
     /// # Errors
     ///
     /// Returns an error if creating a new account fails.
     pub async fn create_account(
         &self,
         create: ManagerAccountCreate,
-    ) -> Result<Option<Account<B>>, Error<B>> {
+    ) -> Result<ModificationResponse<Account<B>>, Error<B>> {
         if let Some(cfg) = &self.config.slot_defined_user_accounts {
             // For slot-defined configuration, find the first account
             // that is disabled (and whose id is >= `min_slot`, if defined)
@@ -204,16 +212,12 @@ impl<B: Bmc> AccountCollection<B> {
             // No available slot found
             Err(Error::AccountSlotNotAvailable)
         } else {
-            let outcome = self.create_with_patch(&create).await?;
-            Ok(match outcome {
-                nv_redfish_core::ModificationResponse::Entity(account) => Some(Account::from_data(
-                    self.bmc.clone(),
-                    account,
-                    self.config.account.clone(),
-                )),
-                nv_redfish_core::ModificationResponse::Task(_)
-                | nv_redfish_core::ModificationResponse::Empty => None,
-            })
+            Ok(self
+                .create_with_patch(&create)
+                .await?
+                .map_entity(|account| {
+                    Account::from_data(self.bmc.clone(), account, self.config.account.clone())
+                }))
         }
     }
 

@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaProcessorResetMetrics   v1.0.0                                            -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Capabilities.V1.xml">
+    <edmx:Include Namespace="Org.OData.Capabilities.V1" Alias="Capabilities"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+    <edmx:Include Namespace="Resource.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorResetMetrics">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaProcessorResetMetrics" BaseType="Resource.v1_0_0.Resource" Abstract="true">
+        <Annotation Term="OData.Description" String="The `NvidiaProcessorResetMetrics` schema contains reset counters for a processor."/>
+        <Annotation Term="OData.LongDescription" String="This resource contains the processor reset metrics for a single processor in a Redfish implementation."/>
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="Capabilities.InsertRestrictions">
+          <Record>
+            <PropertyValue Property="Insertable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.UpdateRestrictions">
+          <Record>
+            <PropertyValue Property="Updatable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Capabilities.DeleteRestrictions">
+          <Record>
+            <PropertyValue Property="Deletable" Bool="false"/>
+          </Record>
+        </Annotation>
+        <Annotation Term="Redfish.Uris">
+          <Collection>
+            <String>/redfish/v1/Systems/{ComputerSystemId}/Processors/{ProcessorId}/Oem/Nvidia/ProcessorResetMetrics</String>
+          </Collection>
+        </Annotation>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaProcessorResetMetrics.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <EntityType Name="NvidiaProcessorResetMetrics" BaseType="NvidiaProcessorResetMetrics.NvidiaProcessorResetMetrics">
+        <Property Name="Status" Type="Resource.Status" Nullable="false"/>
+        <Property Name="Actions" Type="NvidiaProcessorResetMetrics.v1_0_0.Actions" Nullable="false">
+          <Annotation Term="OData.Description" String="The available actions for this resource."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the available actions for this resource."/>
+        </Property>
+        <Property Name="LastResetType" Type="NvidiaProcessorResetMetrics.v1_0_0.LastResetType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Type of the last reset."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the type of the last reset."/>
+        </Property>
+        <Property Name="PF_FLR_ResetEntryCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="PF-FLR reset entry count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the PF-FLR reset entry count."/>
+        </Property>
+        <Property Name="PF_FLR_ResetExitCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="PF-FLR reset exit count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the PF-FLR reset exit count."/>
+        </Property>
+        <Property Name="ConventionalResetEntryCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Conventional, non-fundamental reset entry count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the Conventional, non-fundamental reset entry count."/>
+        </Property>
+        <Property Name="ConventionalResetExitCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Conventional, non-fundamental reset exit count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the Conventional, non-fundamental reset exit count."/>
+        </Property>
+        <Property Name="FundamentalResetEntryCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fundamental (PERST#) entry count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the Fundamental (PERST#) entry count."/>
+        </Property>
+        <Property Name="FundamentalResetExitCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Fundamental (PERST#) exit count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the Fundamental (PERST#) exit count."/>
+        </Property>
+        <Property Name="IRoTResetExitCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="Internal Root of Trust (IRoT) reset exit count."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the number of the internal Root of Trust (IRoT) reset exit count."/>
+        </Property>
+      </EntityType>
+      <ComplexType Name="Actions">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The available actions for this resource."/>
+        <Annotation Term="OData.LongDescription" String="This type shall contain the available actions for this resource."/>
+      </ComplexType>
+      <EnumType Name="LastResetType">
+        <Member Name="PF_FLR">
+          <Annotation Term="OData.Description" String="PF-FLR reset."/>
+        </Member>
+        <Member Name="Conventional">
+          <Annotation Term="OData.Description" String="Conventional, non-fundamental reset."/>
+        </Member>
+        <Member Name="Fundamental">
+          <Annotation Term="OData.Description" String="Fundamental reset (PERST#)."/>
+        </Member>
+        <Member Name="IRoTReset">
+          <Annotation Term="OData.Description" String="IRoT reset."/>
+        </Member>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

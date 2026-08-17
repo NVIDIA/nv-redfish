@@ -17,7 +17,9 @@ use crate::edmx::Annotation;
 use crate::edmx::ComplexType;
 use crate::edmx::NavigationProperty;
 use crate::edmx::Parameter;
+use crate::edmx::QualifiedTypeName;
 use crate::edmx::StructuralProperty;
+use crate::redfish::Deprecation;
 use crate::redfish::DynamicProperties;
 use crate::redfish::Excerpt;
 use crate::redfish::ExcerptCopy;
@@ -33,10 +35,53 @@ pub trait RedfishAnnotation {
 
 impl RedfishAnnotation for Annotation {
     fn is_redfish_annotation(&self, name: &str) -> bool {
-        self.term.inner().namespace.ids.len() == 1
-            && self.term.inner().namespace.ids[0].inner() == "Redfish"
-            && self.term.inner().name.inner() == name
+        is_redfish_qualified_name(&self.term, name)
     }
+}
+
+fn is_redfish_qualified_name(qname: &QualifiedTypeName, name: &str) -> bool {
+    qname.inner().namespace.ids.len() == 1
+        && qname.inner().namespace.ids[0].inner() == "Redfish"
+        && qname.inner().name.inner() == name
+}
+
+fn revisions_deprecation(annotations: &[Annotation]) -> Option<Deprecation<'_>> {
+    let records = &annotations
+        .iter()
+        .find(|annotation| annotation.is_redfish_annotation("Revisions"))
+        .and_then(|annotation| annotation.collection.as_ref())?
+        .record;
+
+    records.iter().find_map(|record| {
+        record
+            .property_value("Kind")?
+            .enum_members()
+            .any(|member| {
+                is_redfish_qualified_name(&member.tname, "RevisionKind")
+                    && member.mname.inner().inner() == "Deprecated"
+            })
+            .then(|| {
+                let value = |name| {
+                    record
+                        .property_value(name)
+                        .and_then(|value| value.string_value.as_deref())
+                };
+                Deprecation {
+                    version: value("Version"),
+                    description: value("Description"),
+                }
+            })
+    })
+}
+
+fn legacy_deprecation(annotations: &[Annotation]) -> Option<Deprecation<'_>> {
+    annotations
+        .iter()
+        .find(|annotation| annotation.is_redfish_annotation("Deprecated"))
+        .map(|annotation| Deprecation {
+            version: None,
+            description: annotation.string.as_deref(),
+        })
 }
 
 pub trait RedfishAnnotations {
@@ -102,6 +147,14 @@ pub trait RedfishAnnotations {
             })
     }
 
+    /// Return Redfish deprecation metadata.
+    ///
+    /// `Redfish.Revisions` is the current representation. The legacy
+    /// `Redfish.Deprecated` term remains supported for older schemas.
+    fn deprecation(&self) -> Option<Deprecation<'_>> {
+        revisions_deprecation(self.annotations()).or_else(|| legacy_deprecation(self.annotations()))
+    }
+
     /// Returns if type can contain dynamic properties.
     fn dynamic_properties(&self) -> Option<DynamicProperties<'_>> {
         self.annotations()
@@ -148,5 +201,59 @@ impl RedfishAnnotations for Parameter {
 impl RedfishAnnotations for ComplexType {
     fn annotations(&self) -> &Vec<Annotation> {
         &self.annotations
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::RedfishAnnotations as _;
+    use crate::edmx::StructuralProperty;
+    use quick_xml::de::from_str;
+
+    #[test]
+    fn reads_current_deprecation_metadata() {
+        let property: StructuralProperty = from_str(
+            r#"
+            <Property Name="EventType" Type="Edm.String" Nullable="false">
+              <Annotation Term="Redfish.Required"/>
+              <Annotation Term="Redfish.Revisions">
+                <Collection>
+                  <Record>
+                    <PropertyValue Property="Kind" EnumMember="Redfish.RevisionKind/Added"/>
+                  </Record>
+                  <Record>
+                    <PropertyValue Property="Kind">
+                      <EnumMember>Redfish.RevisionKind/Deprecated</EnumMember>
+                    </PropertyValue>
+                    <PropertyValue Property="Version" String="v1_3_0"/>
+                    <PropertyValue Property="Description" String="Use Other for compatibility."/>
+                  </Record>
+                </Collection>
+              </Annotation>
+            </Property>"#,
+        )
+        .expect("valid property");
+        let deprecation = property.deprecation().expect("deprecation metadata");
+
+        assert_eq!(deprecation.version, Some("v1_3_0"));
+        assert_eq!(
+            deprecation.description,
+            Some("Use Other for compatibility.")
+        );
+        assert!(property.is_required().into_inner());
+    }
+
+    #[test]
+    fn legacy_deprecation_is_supported() {
+        let property: StructuralProperty = from_str(
+            r#"<Property Name="Value" Type="Edm.String">
+                 <Annotation Term="Redfish.Deprecated" String="Use Replacement."/>
+               </Property>"#,
+        )
+        .expect("valid property");
+        let deprecation = property.deprecation().expect("legacy deprecation");
+
+        assert_eq!(deprecation.version, None);
+        assert_eq!(deprecation.description, Some("Use Replacement."));
     }
 }

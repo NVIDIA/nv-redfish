@@ -25,6 +25,8 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
 
+#[cfg(feature = "manager-network-protocol")]
+use super::network_protocol::ManagerNetworkProtocol;
 #[cfg(feature = "ethernet-interfaces")]
 use crate::ethernet_interface::EthernetInterfaceCollection;
 #[cfg(feature = "host-interfaces")]
@@ -73,6 +75,24 @@ impl<B: Bmc> Manager<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<ManagerSchema> {
         self.data.clone()
+    }
+
+    /// Get the network protocol resource associated with this manager.
+    ///
+    /// Returns `Ok(None)` when the network protocol link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching the network protocol resource fails.
+    #[cfg(feature = "manager-network-protocol")]
+    pub async fn network_protocol(&self) -> Result<Option<ManagerNetworkProtocol<B>>, Error<B>> {
+        if let Some(network_protocol_ref) = &self.data.network_protocol {
+            ManagerNetworkProtocol::new(&self.bmc, network_protocol_ref)
+                .await
+                .map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Reset this manager.

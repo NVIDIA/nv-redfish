@@ -44,17 +44,24 @@
 //! added through the branch's own API, reached by downcasting the root to
 //! its concrete type.
 //!
-//! NOTE: the dispatcher is currently a scaffold. `Runtime::new`, `next`, and
-//! `with_root_mut` panic with `unimplemented!`; the example illustrates the
-//! API shape and will run unchanged once the runtime body lands.
+//! The `RoundRobin` and `PollLeaf` here are hand-rolled to show how to
+//! write custom nodes; production trees can compose the built-ins from
+//! `nv_redfish_dispatcher::schedulers` instead.
+//!
+//! A background task calls `graceful_shutdown` after a few seconds; the
+//! driver drains, prints runtime stats, and exits. The driver races each
+//! `SleepUntil` deadline against `next()`, so it observes in-flight work
+//! and shutdown without waiting for the deadline.
 
 use core::marker::PhantomData;
 use core::time::Duration;
 use nv_redfish_dispatcher::ClockConfig;
 use nv_redfish_dispatcher::Completion;
 use nv_redfish_dispatcher::FutureWork;
+use nv_redfish_dispatcher::QueueEventSink;
 use nv_redfish_dispatcher::Readiness;
 use nv_redfish_dispatcher::Runtime;
+use nv_redfish_dispatcher::RuntimeChildContainer;
 use nv_redfish_dispatcher::RuntimeConfig;
 use nv_redfish_dispatcher::RuntimeOutput;
 use nv_redfish_dispatcher::ScheduledWork;
@@ -125,6 +132,10 @@ impl Scheduler<Work> for PollLeaf {
 
     fn on_complete(&mut self, _: Completion<()>) {
         // Leaves typically use this to update local stats / backoff.
+    }
+
+    fn register_queue_event_sink(&mut self, _sink: QueueEventSink) {
+        // This leaf does not produce queue events.
     }
 }
 
@@ -209,6 +220,29 @@ where
             }
         }
     }
+
+    fn register_queue_event_sink(&mut self, sink: QueueEventSink) {
+        for child in &mut self.children {
+            child.register_queue_event_sink(sink.clone());
+        }
+    }
+}
+
+impl<T, M> RuntimeChildContainer<T> for RoundRobin<T, M>
+where
+    T: Send + 'static,
+    M: WorkMeta,
+{
+    type ChildMeta = M;
+    type ChildId = ();
+    type ChildArgs = ();
+
+    fn attach_child<S>(&mut self, child: S, (): Self::ChildArgs)
+    where
+        S: Scheduler<T, Meta = M>,
+    {
+        self.add_child(child);
+    }
 }
 
 // ──────────────────────────────────────────────────────────────────────
@@ -238,24 +272,50 @@ async fn main() {
     let handle = runtime.handle();
 
     // 3a. Add another leaf to the root, dynamically.
-    handle.with_root_mut(|root: &mut RoundRobin<Work, ()>| {
-        root.add_child(PollLeaf::new("sensor-C", Duration::from_secs(3)));
-    }).expect("downcast failed");
+    handle
+        .with_root_mut::<RoundRobin<Work, ()>, _>(|mut root| {
+            root.add_child(PollLeaf::new("sensor-C", Duration::from_secs(3)));
+        })
+        .expect("downcast failed");
 
     // 3b. Add an entirely new sub-branch with its own children.
-    handle.with_root_mut(|root: &mut RoundRobin<Work, ()>| {
-        let mut subnet: RoundRobin<Work, ()> = RoundRobin::new();
-        subnet.add_child(PollLeaf::new("subnet-1-a", Duration::from_secs(5)));
-        subnet.add_child(PollLeaf::new("subnet-1-b", Duration::from_secs(5)));
-        root.add_child(subnet);
-    }).expect("downcast failed");
+    handle
+        .with_root_mut::<RoundRobin<Work, ()>, _>(|mut root| {
+            let mut subnet: RoundRobin<Work, ()> = RoundRobin::new();
+            subnet.add_child(PollLeaf::new("subnet-1-a", Duration::from_secs(5)));
+            subnet.add_child(PollLeaf::new("subnet-1-b", Duration::from_secs(5)));
+            root.add_child(subnet);
+        })
+        .expect("downcast failed");
 
-    // 4. Drive the runtime. `next()` is the single ordered output stream.
+    // 4. Shut down from the outside after a few seconds. In-flight work
+    //    still drains; `next()` then emits a sticky `Shutdown`.
+    let shutdown_handle = handle.clone();
+    tokio::spawn(async move {
+        tokio::time::sleep(Duration::from_secs(6)).await;
+        shutdown_handle.graceful_shutdown();
+    });
+
+    // 5. Drive the runtime. `next()` is the single ordered output stream.
     let start = Instant::now();
+    let mut sleep_until = None;
+
     loop {
-        match runtime.next().await {
+        let output = if let Some(deadline) = sleep_until {
+            tokio::select! {
+                output = runtime.next() => output,
+                _ = tokio::time::sleep_until(tokio::time::Instant::from_std(deadline)) => {
+                    sleep_until = None;
+                    continue;
+                }
+            }
+        } else {
+            runtime.next().await
+        };
+
+        match output {
             RuntimeOutput::SleepUntil(v) => {
-                tokio::time::sleep(v.duration_since(Instant::now())).await;
+                sleep_until = Some(v);
             }
             RuntimeOutput::Work { result, latency } => match result {
                 Ok(events) => println!(
@@ -273,4 +333,11 @@ async fn main() {
             RuntimeOutput::Shutdown => break,
         }
     }
+
+    let stats = handle.stats();
+    println!(
+        "shut down after {:?}: {} items dispatched",
+        Instant::now().duration_since(start),
+        stats.dispatched
+    );
 }

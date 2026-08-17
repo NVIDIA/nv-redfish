@@ -1,0 +1,261 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaLogEntry  v1.3.0                                                          -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/Resource_v1.xml">
+    <edmx:Include Namespace="Resource"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaLogEntry" BaseType="Resource.OemObject" Abstract="true">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="This property shall represent the NVIDIA OEM properties for a LogEntry resource."/>
+        <Annotation Term="OData.LongDescription" String="This property shall represent the NVIDIA OEM properties for a LogEntry resource."/>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_0_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="CPER" BaseType="NvidiaLogEntry.NvidiaLogEntry">
+        <Property Name="SectionType" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The section type of the event."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the section type to indicate the CPER event class."/>
+        </Property>
+        <Property Name="FruID" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The FRU ID in UUID format."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Field Replaceable Unit(FRU) ID in Universally Unique Identifier(UUID) format for the CPER event. RFC4122 describes methods to use to create the value. The value should be considered to be opaque. Client software should only treat the overall value as a universally unique identifier and should not interpret any sub-fields within the UUID."/>
+        </Property>
+        <Property Name="Severity" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The severity of the CPER event."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the severity of the condition that created the CPER event. Services can replace the value defined in the ACPI or the message registry with a value more applicable to the implementation."/>
+        </Property>
+        <Property Name="NvIpSignature" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The IP signature."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the IP signature to identify the IP for common vendor specific records."/>
+        </Property>
+        <Property Name="NvSeverity" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The ACPI severity of the CPER event."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the ACPI-defined severity of the condition that created the CPER event. Services can replace the value defined in the ACPI with a value more applicable to the implementation."/>
+        </Property>
+        <Property Name="NvSocketNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The socket number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the socket number to indicate where the error occurred."/>
+        </Property>
+        <Property Name="PCIeVendorId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The vendor ID of this PCIe function."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe vendor ID of the PCIe device function."/>
+        </Property>
+        <Property Name="PCIeDeviceId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The device ID of this PCIe function."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe device ID of the PCIe device function."/>
+        </Property>
+        <Property Name="PCIeClassCode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The class code of this PCIe function."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe class code of the PCIe device function."/>
+        </Property>
+        <Property Name="PCIeFunctionNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe function number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe function number within a given PCIe device."/>
+        </Property>
+        <Property Name="PCIeDeviceNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe device number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the PCIe device number within a given PCIe device."/>
+        </Property>
+        <Property Name="PCIeSegmentNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe segment number."/>
+          <Annotation Term="OData.LongDescription" String="The PCIe segment number is used to distinguish segments in the topology of the PCIe bus."/>
+        </Property>
+        <Property Name="PCIeDeviceBusNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe device bus number."/>
+          <Annotation Term="OData.LongDescription" String="The PCIe device bus number is a numeric identifier assigned to individual devices within the PCIe bus for effective differentiation and management."/>
+        </Property>
+        <Property Name="PCIeSecondaryBusNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe secondary bus number."/>
+          <Annotation Term="OData.LongDescription" String="The PCIe secondary bus number is an identifier assigned to distinguish secondary buses in the PCIe architecture."/>
+        </Property>
+        <Property Name="PCIeSlotNumber" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The PCIe slot number."/>
+          <Annotation Term="OData.LongDescription" String="The PCIe slot number is a unique identifier for efficient recognition and management of connected devices."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_1_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NvidiaLogEntry" BaseType="NvidiaLogEntry.NvidiaLogEntry">
+        <Property Name="Device" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The name of the device that caused this log entry."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the device the error occurred on."/>
+        </Property>
+        <Property Name="ErrorId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The Error ID of the event from the Error Catalog."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the Error ID, an identifier from the Error Catalog that identifies the specific error that occurred."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_2_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+
+      <EnumType Name="ISTType">
+        <Member Name="CPU">
+          <Annotation Term="OData.Description" String="CPU In-System Test."/>
+        </Member>
+      </EnumType>
+
+      <EnumType Name="ISTStage">
+        <Member Name="Idle">
+          <Annotation Term="OData.Description" String="The In-System Test (IST) is idle."/>
+        </Member>
+        <Member Name="CollateralVerification">
+          <Annotation Term="OData.Description" String="Verifying In-System Test (IST) collateral."/>
+        </Member>
+        <Member Name="PendingISTBoot">
+          <Annotation Term="OData.Description" String="Pending In-System Test (IST) boot."/>
+        </Member>
+        <Member Name="PendingPowerCycle">
+          <Annotation Term="OData.Description" String="Pending power cycle."/>
+        </Member>
+        <Member Name="RunningIST">
+          <Annotation Term="OData.Description" String="Running In-System Test (IST)."/>
+        </Member>
+        <Member Name="Cleanup">
+          <Annotation Term="OData.Description" String="In-System Test (IST) cleanup."/>
+        </Member>
+      </EnumType>
+
+      <EnumType Name="ISTResult">
+        <Member Name="Failed">
+          <Annotation Term="OData.Description" String="One or more In-System Test (IST) tests failed."/>
+        </Member>
+        <Member Name="Aborted">
+          <Annotation Term="OData.Description" String="The In-System Test (IST) run was aborted before completion."/>
+        </Member>
+        <Member Name="Error">
+          <Annotation Term="OData.Description" String="An unexpected error occurred during the In-System Test (IST) run."/>
+        </Member>
+      </EnumType>
+
+      <ComplexType Name="NvidiaIST">
+        <Annotation Term="OData.Description" String="Additional data for In-System Test (IST) events in log entries."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain IST-specific properties for a log entry that is associated with an In-System Test (IST) event."/>
+        <Property Name="Type" Type="NvidiaLogEntry.v1_2_0.ISTType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The type of In-System Test (IST) that was performed."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the type of In-System Test (IST) that generated this event."/>
+        </Property>
+        <Property Name="Stage" Type="NvidiaLogEntry.v1_2_0.ISTStage">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The current or final In-System Test (IST) execution stage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the IST execution stage at the time this event was generated."/>
+        </Property>
+        <Property Name="ProgressPercent" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The In-System Test (IST) progress percentage."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the IST progress as a percentage from 0 to 100 at the time this event was generated."/>
+        </Property>
+        <Property Name="Result" Type="NvidiaLogEntry.v1_2_0.ISTResult">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The overall In-System Test (IST) result."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the overall result of the IST run at the time this event was generated."/>
+        </Property>
+        <Property Name="RequestedTestNumbers" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The comma-separated list of requested test numbers."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the comma-separated list of specific test numbers that were requested for this In-System Test (IST) run. If not provided, all tests were run."/>
+        </Property>
+        <Property Name="PackageList" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The comma-separated list of packages that were tested."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the comma-separated list of package identifiers that were tested during this In-System Test (IST) run."/>
+        </Property>
+        <Property Name="ContinueOnFail" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication of whether the In-System Test (IST) was configured to continue on failure."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the IST run was configured to continue testing after encountering a failure."/>
+        </Property>
+        <Property Name="Message" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="A human-readable message providing additional details about the In-System Test (IST) error or status."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain a human-readable message that provides additional context or details about the IST result, such as a description of the failure encountered."/>
+        </Property>
+      </ComplexType>
+
+      <ComplexType Name="NvidiaLogEntry" BaseType="NvidiaLogEntry.v1_1_0.NvidiaLogEntry">
+        <Property Name="IST" Type="NvidiaLogEntry.v1_2_0.NvidiaIST">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="In-System Test (IST) details for this log entry."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the IST-specific details when this log entry is associated with an In-System Test (IST) event. This property shall only be present for IST-related platform events."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaLogEntry.v1_3_0">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+
+      <ComplexType Name="NvidiaBIOSPostCode">
+        <Annotation Term="OData.Description" String="BIOS POST code details decoded from a platform error log entry."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain the decoded BIOS POST code fields for a log entry that is associated with a pre-UEFI platform error."/>
+        <Property Name="PostCode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The raw BIOS POST code value as a hex string."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the raw 32-bit BIOS POST code value encoded as a hexadecimal string."/>
+        </Property>
+        <Property Name="Socket" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The CPU socket number that reported this POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the CPU socket number identifying which processor package reported this BIOS POST code."/>
+        </Property>
+        <Property Name="Firmware" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The firmware stage that reported this POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the name of the firmware stage (e.g., PSCROM, PSCFMC, MB1) that generated this BIOS POST code."/>
+        </Property>
+        <Property Name="Instance" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The firmware instance number."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the instance field extracted from the BIOS POST code, identifying the specific sub-component or context within the reporting firmware stage."/>
+        </Property>
+        <Property Name="Opcode" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The operation code from the POST code."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the opcode field extracted from the BIOS POST code, identifying the specific operation that was in progress when the error occurred."/>
+        </Property>
+      </ComplexType>
+
+      <ComplexType Name="NvidiaLogEntry" BaseType="NvidiaLogEntry.v1_2_0.NvidiaLogEntry">
+        <Property Name="BIOSPostCode" Type="NvidiaLogEntry.v1_3_0.NvidiaBIOSPostCode">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="BIOS POST code details for this log entry."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the decoded BIOS POST code details when this log entry is associated with a pre-UEFI platform error. This property shall only be present for BIOS POST code platform error events."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

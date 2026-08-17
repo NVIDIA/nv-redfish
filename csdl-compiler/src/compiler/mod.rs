@@ -94,6 +94,8 @@ pub use compiled::ActionsMap;
 #[doc(inline)]
 pub use compiled::Compiled;
 #[doc(inline)]
+pub use compiled::ForcedUpdate;
+
 pub use compiled::IsCreatable;
 #[doc(inline)]
 pub use compiled::TypeActions;
@@ -223,7 +225,7 @@ impl SchemaBundle {
         root_patterns: &EntityTypeFilter,
         config: Config,
     ) -> Result<Compiled<'_>, Error<'_>> {
-        let schema_index = SchemaIndex::build(&self.edmx_docs);
+        let schema_index = SchemaIndex::build(&self.edmx_docs)?;
         let root_set = self.root_set_from_singletons(&schema_index, singletons, root_patterns)?;
         let ctx = Context {
             schema_index,
@@ -243,7 +245,7 @@ impl SchemaBundle {
     pub fn compile_all(&self, config: Config) -> Result<Compiled<'_>, Error<'_>> {
         let root_set = self.root_set_all();
         let ctx = Context {
-            schema_index: SchemaIndex::build(&self.edmx_docs),
+            schema_index: SchemaIndex::build(&self.edmx_docs)?,
             config,
             root_set_entities: root_set.entity_types.iter().copied().collect(),
         };
@@ -449,9 +451,10 @@ impl SchemaBundle {
         s.actions
             .iter()
             .try_fold(stack, |stack, action| {
-                let compiled = action::compile_action(action, ctx, &stack)
-                    .map_err(Box::new)
-                    .map_err(|e| Error::Action(&action.name, e))?;
+                let compiled =
+                    action::compile_action(action, Namespace::new(&s.namespace), ctx, &stack)
+                        .map_err(Box::new)
+                        .map_err(|e| Error::Action(&action.name, e))?;
                 Ok(stack.merge(compiled))
             })
             .map_err(Box::new)
@@ -506,6 +509,32 @@ mod test {
     use crate::edmx::QualifiedTypeName;
 
     #[test]
+    fn compile_all_propagates_cyclic_type_error() {
+        let schema = r#"<edmx:Edmx Version="4.0">
+             <edmx:DataServices>
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Cycle">
+                 <EntityType Name="A" BaseType="Cycle.B"/>
+                 <EntityType Name="B" BaseType="Cycle.A"/>
+               </Schema>
+             </edmx:DataServices>
+           </edmx:Edmx>"#;
+        let bundle = SchemaBundle {
+            edmx_docs: vec![Edmx::parse(schema).expect("entity cycle schema must be valid")],
+            root_set_threshold: None,
+        };
+
+        let result = bundle.compile_all(Config::default());
+        assert!(
+            matches!(
+                result,
+                Err(Error::CyclicType(cycle))
+                    if cycle.len() >= 2 && cycle.first() == cycle.last()
+            ),
+            "compile_all must propagate the closed inheritance cycle"
+        );
+    }
+
+    #[test]
     fn schema_test() {
         let schema = r#"<edmx:Edmx Version="4.0">
              <edmx:DataServices>
@@ -525,7 +554,11 @@ mod test {
                    <Property Name="RedfishVersion" Type="Edm.String" Nullable="false">
                      <Annotation Term="OData.Description" String="The version of the Redfish service."/>
                    </Property>
+                   <NavigationProperty Name="LegacyTarget" Type="ServiceRoot.Target">
+                     <Annotation Term="Redfish.Deprecated" String="Use TargetV2."/>
+                   </NavigationProperty>
                  </EntityType>
+                 <EntityType Name="Target"/>
                </Schema>
                <Schema Namespace="Schema.v1_0_0">
                  <EntityContainer Name="ServiceContainer">
@@ -547,7 +580,10 @@ mod test {
             .compile(
                 &["Service".parse().unwrap()],
                 &EntityTypeFilter::new_restrictive(vec![]),
-                Config::default(),
+                Config {
+                    entity_type_filter: EntityTypeFilter::new_restrictive(vec![]),
+                    ..Config::default()
+                },
             )
             .unwrap();
         let qtypename: QualifiedTypeName = "ServiceRoot.ServiceRoot".parse().unwrap();
@@ -569,5 +605,11 @@ mod test {
                 .inner(),
             &"The version of the Redfish service."
         );
+        assert!(matches!(
+            &et.properties.nav_properties[0],
+            NavProperty::Reference { redfish, .. }
+                if redfish.deprecation.is_some_and(|deprecation|
+                    deprecation.description == Some("Use TargetV2."))
+        ));
     }
 }

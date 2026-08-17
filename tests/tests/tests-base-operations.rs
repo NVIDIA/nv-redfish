@@ -30,8 +30,10 @@ use nv_redfish_tests::base::redfish::service_root::ActionType;
 use nv_redfish_tests::base::redfish::service_root::ReadOnlyComplexTypeUpdate;
 use nv_redfish_tests::base::redfish::service_root::RootSetOnlyComplexType;
 use nv_redfish_tests::base::redfish::service_root::ServiceRootUpdate;
+use nv_redfish_tests::base::redfish::service_root::TestActionsServiceOemActions;
 use nv_redfish_tests::base::redfish::service_root::TestActionsServiceTestSerializationActionAction;
 use nv_redfish_tests::base::redfish::service_root::TestCollectionMemberCreate;
+use nv_redfish_tests::base::redfish::test_vendor::TestActionsServiceTestActionAction as VendorTestAction;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Error;
@@ -325,9 +327,10 @@ async fn update_property_test() -> Result<(), Error> {
     bmc.expect(Expect::update(
         root_id.clone(),
         json!({ write_only_name: &value }),
-        &json_merge([&root_json, &json!({})]),
+        json_merge([&root_json, &json!({})]),
     ));
-    service_root
+
+    let response = service_root
         .update(
             &bmc,
             &ServiceRootUpdate {
@@ -340,6 +343,9 @@ async fn update_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+
+    assert!(matches!(response, ModificationResponse::Entity(_)));
+
     Ok(())
 }
 
@@ -433,7 +439,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
 
     // Ensure field is omitted when not set in update struct.
     bmc.expect(Expect::update(root_id.clone(), json!({}), &root_json));
-    service_root
+    let response = service_root
         .update(
             &bmc,
             &ServiceRootUpdate {
@@ -446,6 +452,8 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
         )
         .await
         .map_err(Error::Bmc)?;
+
+    assert!(matches!(response, ModificationResponse::Entity(_)));
 
     // Refresh keeps null element in rigid array payload.
     bmc.expect(Expect::get(
@@ -461,11 +469,17 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
     Ok(())
 }
 
-// Check that write only is not generated in read structures.
+// Every `TestCases` spawns its own nested cargo build against trybuild's
+// separate target directory, which for this crate means rebuilding nv-redfish
+// and its dependencies from scratch. One batch keeps that to a single build.
 #[test]
-async fn no_write_only_in_read_struct() {
+async fn compile_fails() {
     let t = trybuild::TestCases::new();
+    // Write only must not be generated in read structures.
     t.compile_fail("tests/compile-fails/no-write-only-in-read.rs");
+    // Action parameters can contain sensitive information and must not implement Debug until the
+    // schema compiler can explicitly identify and redact sensitive fields.
+    t.compile_fail("tests/compile-fails/no-debug-for-action-parameters.rs");
 }
 
 // Check that collection provides create method.
@@ -561,6 +575,22 @@ async fn create_struct_required_on_create_and_writable_fields_test() -> Result<(
     Ok(())
 }
 
+// A vendor schema binds its own `TestAction` to the OEM extension
+// point: the generated struct must live in the vendor's module
+// (not collide with the standard `TestAction`) and its field must
+// serialize under the vendor's namespace.
+#[test]
+async fn oem_action_disambiguation_test() {
+    let oem_actions: TestActionsServiceOemActions = serde_json::from_value(json!({
+        "#TestVendor.TestAction": {
+            "target": "/redfish/v1/TestActionsService/Actions/Oem/TestVendor.TestAction"
+        }
+    }))
+    .expect("vendor action deserializes under its own namespace");
+    assert!(oem_actions.test_action.is_some());
+    let _distinct_from_standard: VendorTestAction = VendorTestAction {};
+}
+
 // Check that actions method.
 #[test]
 async fn action_method_test() -> Result<(), Error> {
@@ -569,8 +599,10 @@ async fn action_method_test() -> Result<(), Error> {
     let service_name = "TestActionsService";
     let service_id = format!("{root_id}/{service_name}");
     let service_data_type = format!("ServiceRoot.v1_0_0.{service_name}");
-    let action_field = format!("#{service_name}.TestAction");
-    let action_target = format!("{root_id}/{service_name}/Actions/{service_name}.TestAction");
+    // Actions key by their defining schema's namespace (the fixture
+    // defines TestAction inside ServiceRoot), not the entity name.
+    let action_field = "#ServiceRoot.TestAction";
+    let action_target = format!("{root_id}/{service_name}/Actions/ServiceRoot.TestAction");
     bmc.expect(expect_root_srv(service_name, &service_id));
     let service_root = get_service_root(&bmc).await.map_err(Error::Bmc)?;
 
@@ -611,15 +643,19 @@ async fn action_method_test() -> Result<(), Error> {
 
     bmc.expect(Expect::action(
         &action_target,
-        &json!({
+        json!({
             "ActionType": "Option1"
         }),
         &json!(null),
     ));
-    service_actions
-        .test_action(&bmc, Some(ActionType::Option1))
-        .await
-        .map_err(Error::Bmc)?;
+
+    assert!(matches!(
+        service_actions
+            .test_action(&bmc, Some(ActionType::Option1))
+            .await
+            .map_err(Error::Bmc)?,
+        ModificationResponse::Entity(())
+    ));
 
     Ok(())
 }

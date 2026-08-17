@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!---->
+<!--################################################################################                       -->
+<!--# Redfish OEM Schema:  NvidiaNVLinkMetrics                                                             -->
+<!--#                                                                                                      -->
+<!--# SPDX-FileCopyrightText: Copyright (c) 2021-2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.-->
+<!--# SPDX-License-Identifier: Apache-2.0                                                                  -->
+<!--################################################################################                       -->
+<!---->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Core.V1.xml">
+    <edmx:Include Namespace="Org.OData.Core.V1" Alias="OData"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://redfish.dmtf.org/schemas/v1/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="http://docs.oasis-open.org/odata/odata/v4.0/errata03/csd01/complete/vocabularies/Org.OData.Measures.V1.xml">
+    <edmx:Include Namespace="Org.OData.Measures.V1" Alias="Measures"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="NvidiaNVLinkMetrics">
+      <Annotation Term="Redfish.OwningEntity" String="NVIDIA"/>
+      <ComplexType Name="NVLinkErrors">
+        <Annotation Term="OData.AdditionalProperties" Bool="false"/>
+        <Annotation Term="OData.Description" String="The NVLink errors."/>
+        <Annotation Term="OData.LongDescription" String="This property shall contain properties that describe NVLink errors of a device."/>
+        <Property Name="RuntimeError" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the NVLink runtime error was detected."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the NVLink runtime error was detected."/>
+        </Property>
+        <Property Name="TrainingError" Type="Edm.Boolean">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="An indication whether the NVLink training error was detected."/>
+          <Annotation Term="OData.LongDescription" String="This property shall indicate whether the NVLink training error was detected."/>
+        </Property>
+        <Property Name="ReplayCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of NVLink replay errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLink replay errors."/>
+        </Property>
+        <Property Name="RecoveryCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of NVLink recovery errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLink recovery errors."/>
+        </Property>
+        <Property Name="FlitCRCCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of NVLink flit CRC errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLink flit CRC errors."/>
+        </Property>
+        <Property Name="DataCRCCount" Type="Edm.Int64">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+          <Annotation Term="OData.Description" String="The total number of NVLink data CRC errors."/>
+          <Annotation Term="OData.LongDescription" String="This property shall contain the total number of NVLink data CRC errors."/>
+        </Property>
+      </ComplexType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

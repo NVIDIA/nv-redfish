@@ -17,6 +17,7 @@
 
 use std::error::Error as StdErr;
 use std::fmt;
+use std::future::ready;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -31,6 +32,9 @@ use crate::MultipartUpdateRequest;
 use crate::RejectedUriReferenceError;
 use crate::RequestError;
 
+use bytes::Bytes;
+use futures_util::stream::unfold;
+use futures_util::Stream;
 use futures_util::StreamExt as _;
 use http::header;
 use http::HeaderMap;
@@ -53,6 +57,7 @@ use reqwest::Error as ReqwestError;
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::time::sleep;
+use tokio::time::timeout;
 use tokio_util::compat::FuturesAsyncReadCompatExt as _;
 use tokio_util::io::ReaderStream;
 use url::Url;
@@ -85,6 +90,16 @@ pub enum BmcError {
     EncodeError(serde_json::Error),
     /// Request rejected before transport.
     InvalidRequest(String),
+    /// A single SSE event exceeded the configured maximum buffered size.
+    SseEventTooLarge {
+        /// Configured byte limit that was exceeded.
+        limit: usize,
+    },
+    /// No SSE event was received within the configured idle timeout.
+    SseIdleTimeout {
+        /// Idle duration that elapsed with no event.
+        idle: Duration,
+    },
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -139,6 +154,13 @@ impl fmt::Display for BmcError {
             Self::DecodeError(e) => write!(f, "JSON Decode error: {e}"),
             Self::EncodeError(e) => write!(f, "JSON Encode error: {e}"),
             Self::InvalidRequest(e) => write!(f, "Invalid request: {e}"),
+            Self::SseEventTooLarge { limit } => write!(
+                f,
+                "SSE event exceeded maximum buffered size of {limit} bytes"
+            ),
+            Self::SseIdleTimeout { idle } => {
+                write!(f, "SSE stream idle for longer than {idle:?}")
+            }
         }
     }
 }
@@ -152,6 +174,136 @@ impl StdErr for BmcError {
             Self::DecodeError(e) | Self::EncodeError(e) => Some(e),
             _ => None,
         }
+    }
+}
+
+impl BmcError {
+    /// Returns `true` if this error should terminate an SSE stream.
+    ///
+    /// A JSON decode error is scoped to a single event and is therefore
+    /// non-fatal; every other error ends the stream.
+    const fn is_stream_fatal(&self) -> bool {
+        !matches!(self, Self::JsonError(_))
+    }
+}
+
+/// Error produced by the byte-counting adapter that feeds the SSE decoder.
+///
+/// It is passed through the decoder's error channel so a transport failure and
+/// the "event too large" guard can be distinguished once the decoder surfaces
+/// them (see [`map_sse_error`]).
+#[derive(Debug)]
+enum SseByteError {
+    /// Underlying transport error from the response body stream.
+    Upstream(reqwest::Error),
+    /// The per-event byte budget was exceeded before the event terminated.
+    EventTooLarge {
+        /// Configured byte limit that was exceeded.
+        limit: usize,
+    },
+}
+
+impl fmt::Display for SseByteError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Upstream(e) => write!(f, "{e}"),
+            Self::EventTooLarge { limit } => {
+                write!(f, "SSE event exceeded {limit} bytes without terminating")
+            }
+        }
+    }
+}
+
+impl StdErr for SseByteError {}
+
+/// Translate an [`sse_stream::Error`] back into a [`BmcError`], recovering the
+/// [`SseByteError`] that the byte-counting adapter passed through the decoder.
+fn map_sse_error(err: sse_stream::Error) -> BmcError {
+    match err {
+        sse_stream::Error::Body(boxed) => match boxed.downcast::<SseByteError>() {
+            Ok(inner) => match *inner {
+                SseByteError::Upstream(e) => BmcError::ReqwestError(e),
+                SseByteError::EventTooLarge { limit } => BmcError::SseEventTooLarge { limit },
+            },
+            Err(other) => BmcError::SseStreamError(sse_stream::Error::Body(other)),
+        },
+        other => BmcError::SseStreamError(other),
+    }
+}
+
+/// Line-terminator state used by [`cap_event_bytes`] to detect SSE record
+/// boundaries (blank lines) directly in the raw byte stream.
+#[derive(Clone, Copy)]
+enum DelimiterState {
+    /// At the start of a line; a line terminator delimits the record.
+    LineStart,
+
+    /// Inside a line.
+    Data,
+
+    /// Saw `\r` after data; a following `\n` belongs to the same terminator.
+    Cr,
+
+    /// Saw `\r` at line start; the record boundary awaits an optional `\n`.
+    BoundaryCr,
+}
+
+/// Bound the bytes buffered for a single, not-yet-terminated SSE event.
+///
+/// Counts bytes on the raw transport stream and resets the count at each SSE
+/// record boundary (a blank line), aborting with [`SseByteError::EventTooLarge`]
+/// once an unterminated event exceeds `limit`. Working on raw bytes (rather than
+/// decoded events) means comment/heartbeat records that end in a blank line also
+/// reset the budget, and a well-behaved long-lived stream is never penalized.
+fn cap_event_bytes(
+    bytes: impl Stream<Item = Result<Bytes, reqwest::Error>>,
+    limit: usize,
+) -> impl Stream<Item = Result<Bytes, SseByteError>> {
+    use DelimiterState::{BoundaryCr, Cr, Data, LineStart};
+    bytes.scan((0_usize, LineStart), move |(count, state), chunk| {
+        let item = chunk.map_err(SseByteError::Upstream).and_then(|bytes| {
+            for &b in bytes.as_ref() {
+                if matches!(*state, BoundaryCr) && b != b'\n' {
+                    *count = 0;
+                    *state = LineStart;
+                }
+
+                // Enforce the budget before a record delimiter can reset it.
+                if *count >= limit {
+                    return Err(SseByteError::EventTooLarge { limit });
+                }
+
+                *count += 1;
+
+                *state = match (*state, b) {
+                    (LineStart | Cr, b'\r') => BoundaryCr,
+                    (LineStart | BoundaryCr, b'\n') => {
+                        *count = 0;
+                        LineStart
+                    }
+                    (Data, b'\r') => Cr,
+                    (Data | Cr, b'\n') => LineStart,
+                    _ => Data,
+                };
+            }
+
+            Ok(bytes)
+        });
+        ready(Some(item))
+    })
+}
+
+/// Decode one SSE record into a typed item, or `None` for records without data
+/// (e.g. comments) so they are filtered out of the stream.
+fn event_to_item<T: DeserializeOwned>(
+    event: Result<sse_stream::Sse, sse_stream::Error>,
+) -> Option<Result<T, BmcError>> {
+    match event {
+        Err(err) => Some(Err(map_sse_error(err))),
+        Ok(sse) => sse.data.map(|data| {
+            serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(&data))
+                .map_err(BmcError::JsonError)
+        }),
     }
 }
 
@@ -268,8 +420,12 @@ pub struct ClientParams {
     pub user_agent: Option<String>,
     /// Whether to accept invalid TLS certificates
     pub accept_invalid_certs: bool,
-    /// Maximum number of HTTP redirects to follow
+
+    /// Maximum number of same-origin HTTP redirects to follow.
+    ///
+    /// `None` uses reqwest's default redirect limit. Cross-origin redirects are always rejected.
     pub max_redirects: Option<usize>,
+
     /// TCP keep-alive timeout
     pub tcp_keepalive: Option<Duration>,
     /// Connection pool idle timeout
@@ -282,6 +438,29 @@ pub struct ClientParams {
     pub use_rust_tls: bool,
     /// Retry policy for received responses, `None` disables retries
     pub retry: Option<RetryPolicy>,
+    /// SSE-specific limits applied by [`Client::sse`].
+    pub sse: SseOptions,
+}
+
+/// Limits applied to Server-Sent Event streams opened by [`Client::sse`].
+#[derive(Clone, Copy, Debug)]
+pub struct SseOptions {
+    /// Maximum bytes buffered for a single, not-yet-terminated SSE event before
+    /// [`Client::sse`] aborts with [`BmcError::SseEventTooLarge`]. Guards against
+    /// a server that never sends the SSE event terminator.
+    pub max_event_bytes: usize,
+    /// Maximum idle time between SSE events before [`Client::sse`] aborts with
+    /// [`BmcError::SseIdleTimeout`]. `None` disables the check.
+    pub idle_timeout: Option<Duration>,
+}
+
+impl Default for SseOptions {
+    fn default() -> Self {
+        Self {
+            max_event_bytes: 1024 * 1024,
+            idle_timeout: None,
+        }
+    }
 }
 
 impl Default for ClientParams {
@@ -298,6 +477,7 @@ impl Default for ClientParams {
             default_headers: None,
             use_rust_tls: true,
             retry: None,
+            sse: SseOptions::default(),
         }
     }
 }
@@ -337,7 +517,7 @@ impl ClientParams {
         self
     }
 
-    /// See: [`reqwest::ClientBuilder::redirect`].
+    /// Sets the maximum number of same-origin redirects to follow.
     #[must_use]
     pub const fn max_redirects(mut self, max: usize) -> Self {
         self.max_redirects = Some(max);
@@ -385,6 +565,24 @@ impl ClientParams {
         self.retry = Some(retry);
         self
     }
+
+    /// Sets the maximum buffered size of a single, not-yet-terminated SSE event.
+    ///
+    /// See [`SseOptions::max_event_bytes`].
+    #[must_use]
+    pub const fn sse_max_event_bytes(mut self, bytes: usize) -> Self {
+        self.sse.max_event_bytes = bytes;
+        self
+    }
+
+    /// Sets the maximum idle time between SSE events.
+    ///
+    /// See [`SseOptions::idle_timeout`].
+    #[must_use]
+    pub const fn sse_idle_timeout(mut self, timeout: Duration) -> Self {
+        self.sse.idle_timeout = Some(timeout);
+        self
+    }
 }
 
 /// HTTP client implementation using the reqwest library.
@@ -394,8 +592,9 @@ impl ClientParams {
 /// TLS, authentication, and connection pooling.
 #[derive(Clone)]
 pub struct Client {
-    client: ReqwestClient,
+    inner: ReqwestClient,
     retry: Option<RetryPolicy>,
+    sse: SseOptions,
 }
 
 impl Client {
@@ -438,9 +637,15 @@ impl Client {
             builder = builder.danger_accept_invalid_certs(true);
         }
 
-        if let Some(max_redirects) = params.max_redirects {
-            builder = builder.redirect(RedirectPolicy::limited(max_redirects));
-        }
+        // Reqwest's standard policies enforce redirect limits but still follow cross-origin
+        // targets, where Redfish-specific and custom authentication headers can be forwarded.
+        // Wrap the selected standard policy so its limit and error behavior remain unchanged
+        // while every redirect also receives the same-origin check.
+        let redirect_policy = params
+            .max_redirects
+            .map_or_else(RedirectPolicy::default, RedirectPolicy::limited);
+
+        builder = builder.redirect(same_origin_redirect_policy(redirect_policy));
 
         if let Some(keepalive) = params.tcp_keepalive {
             builder = builder.tcp_keepalive(keepalive);
@@ -459,17 +664,27 @@ impl Client {
         }
 
         Ok(Self {
-            client: builder.build()?,
+            inner: builder.build()?,
             retry: params.retry,
+            sse: params.sse,
         })
     }
 
-    /// Use pre-built [`reqwest::Client`] as internal client.
+    /// Uses a pre-built [`reqwest::Client`] as the internal client.
+    ///
+    /// Unlike [`Self::new`] and [`Self::with_params`], this constructor cannot install or inspect
+    /// the client's redirect policy.
+    ///
+    /// # Security
+    ///
+    /// The supplied client must reject cross-origin redirects. Reqwest's default redirect policy
+    /// can forward Redfish `X-Auth-Token` and arbitrary custom headers to another origin.
     #[must_use]
-    pub const fn with_client(client: ReqwestClient) -> Self {
+    pub fn with_client(client: ReqwestClient) -> Self {
         Self {
-            client,
+            inner: client,
             retry: None,
+            sse: SseOptions::default(),
         }
     }
 }
@@ -481,7 +696,7 @@ impl Client {
     /// bodies cannot be cloned and are sent exactly once.
     async fn send(&self, request: reqwest::Request) -> Result<reqwest::Response, BmcError> {
         let Some(policy) = &self.retry else {
-            return Ok(self.client.execute(request).await?);
+            return Ok(self.inner.execute(request).await?);
         };
 
         let mut attempt: u32 = 0;
@@ -491,7 +706,7 @@ impl Client {
             // try_clone() returns None for streaming bodies, which therefore
             // get a single attempt.
             let next = if is_last { None } else { current.try_clone() };
-            let response = self.client.execute(current).await?;
+            let response = self.inner.execute(current).await?;
             match next {
                 // The clone is identical to the request just sent, so the
                 // classifier sees what went over the wire.
@@ -551,12 +766,17 @@ impl Client {
         }
 
         let etag = etag_from_headers(&headers);
-        let location = location_from_headers(&headers);
+
+        // Resolve the header once, but defer propagating its error until a
+        // status branch actually uses Location. A malformed, irrelevant
+        // Location must not turn a valid 204 or body-bearing 200/201 into an
+        // error.
+        let location = location_from_headers(&headers, &url, status);
 
         match status {
             reqwest::StatusCode::NO_CONTENT => Ok(ModificationResponse::Empty),
             reqwest::StatusCode::ACCEPTED => {
-                let Some(task_location) = location else {
+                let Some(task_location) = location? else {
                     return Err(BmcError::InvalidResponse {
                         url,
                         status,
@@ -604,7 +824,7 @@ impl Client {
                     };
                 }
 
-                if let Some(location) = location {
+                if let Some(location) = location? {
                     let value = serde_json::json!({ "@odata.id": location });
                     return serde_path_to_error::deserialize(value)
                         .map(ModificationResponse::Entity)
@@ -646,7 +866,10 @@ impl Client {
                 text: String::from("session creation response missing X-Auth-Token header"),
             });
         };
-        let Some(location) = location_from_headers(&headers) else {
+
+        // The returned location is the durable session identifier used for
+        // later deletion, so normalize and validate it before exposing it.
+        let Some(location) = location_from_headers(&headers, &url, status)? else {
             return Err(BmcError::InvalidResponse {
                 url,
                 status,
@@ -699,23 +922,80 @@ impl Client {
     }
 }
 
-fn location_from_headers(headers: &HeaderMap) -> Option<ODataId> {
-    headers
-        .get(header::LOCATION)
-        .and_then(|value| value.to_str().ok())
-        .map(|raw| {
-            Url::parse(raw).map_or_else(
-                |_| raw.to_string().into(),
-                |url| {
-                    let mut path = url.path().to_string();
-                    if let Some(query) = url.query() {
-                        path.push('?');
-                        path.push_str(query);
-                    }
-                    path.into()
-                },
-            )
-        })
+/// Wraps a redirect policy to reject cross-origin targets.
+fn same_origin_redirect_policy(redirect_policy: RedirectPolicy) -> RedirectPolicy {
+    RedirectPolicy::custom(move |attempt| {
+        let Some(original_url) = attempt.previous().first() else {
+            return attempt.error("redirect attempt is missing the original URL");
+        };
+
+        if attempt.url().origin() != original_url.origin() {
+            return attempt.error("cross-origin redirects are not allowed");
+        }
+
+        redirect_policy.redirect(attempt)
+    })
+}
+
+/// Resolve a Redfish `Location` header into a same-origin path and query.
+///
+/// HTTP defines `Location` as a URI reference, so values may be absolute,
+/// root-relative, path-relative, or query-only. Resolution must use the final
+/// response URL; treating a relative value as a path rooted at the configured
+/// BMC endpoint can target a different resource. The returned `ODataId` keeps
+/// only path and query because fragments are not sent in subsequent HTTP
+/// requests and transport always uses the configured BMC origin.
+fn location_from_headers(
+    headers: &HeaderMap,
+    response_url: &Url,
+    status: reqwest::StatusCode,
+) -> Result<Option<ODataId>, BmcError> {
+    let invalid_response = |text: &'static str| BmcError::InvalidResponse {
+        url: response_url.clone(),
+        status,
+        text: text.to_string(),
+    };
+
+    let Some(value) = headers.get(header::LOCATION) else {
+        return Ok(None);
+    };
+
+    let raw = value
+        .to_str()
+        .map_err(|_| invalid_response("Location header is not valid text"))?;
+
+    let raw = raw.trim();
+
+    // Joining either value would resolve back to the response resource, which
+    // cannot identify a newly created session or asynchronous task monitor.
+    if raw.is_empty() || raw.starts_with('#') {
+        return Err(invalid_response(
+            "Location header does not identify a resource",
+        ));
+    }
+
+    let resolved = response_url
+        .join(raw)
+        .map_err(|_| invalid_response("Location header is not a valid URI reference"))?;
+
+    // Redfish follow-up requests carry BMC credentials. Reject another origin
+    // before reducing the URL to an OData path and losing that distinction.
+    if resolved.origin() != response_url.origin() {
+        return Err(invalid_response(
+            "Location header resolves to a different origin",
+        ));
+    }
+
+    let mut path_and_query = resolved.path().to_string();
+
+    // Preserve the query separately from the path so later polling or deletion
+    // sends it as a query instead of percent-encoded path text.
+    if let Some(query) = resolved.query() {
+        path_and_query.push('?');
+        path_and_query.push_str(query);
+    }
+
+    Ok(Some(path_and_query.into()))
 }
 
 fn auth_token_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -804,7 +1084,7 @@ impl HttpClient for Client {
         T: DeserializeOwned,
     {
         let mut request =
-            auth_headers(self.client.get(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.get(url), credentials).headers(custom_headers.clone());
 
         if let Some(etag) = etag {
             request = request.header(header::IF_NONE_MATCH, etag.to_string());
@@ -825,7 +1105,7 @@ impl HttpClient for Client {
         B: Serialize + Send + Sync,
         T: DeserializeOwned + Send + Sync,
     {
-        let request = auth_headers(self.client.post(url), credentials)
+        let request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .json(body);
 
@@ -844,7 +1124,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let request = self
-            .client
+            .inner
             .post(url)
             .headers(custom_headers.clone())
             .json(body);
@@ -866,7 +1146,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let mut request =
-            auth_headers(self.client.patch(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.patch(url), credentials).headers(custom_headers.clone());
 
         request = request.header(header::IF_MATCH, etag.to_string());
 
@@ -884,7 +1164,7 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let request =
-            auth_headers(self.client.delete(url), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.delete(url), credentials).headers(custom_headers.clone());
 
         let response = self.send(request.build()?).await?;
         self.handle_modification_response(response).await
@@ -931,7 +1211,7 @@ impl HttpClient for Client {
             form = form.part(name, part);
         }
 
-        let request = auth_headers(self.client.post(url), credentials)
+        let request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .multipart(form)
             .timeout(upload_timeout);
@@ -964,7 +1244,7 @@ impl HttpClient for Client {
 
         let body = reqwest::Body::wrap_stream(ReaderStream::new(reader.compat()));
 
-        let mut request = auth_headers(self.client.post(url), credentials)
+        let mut request = auth_headers(self.inner.post(url), credentials)
             .headers(custom_headers.clone())
             .header(header::CONTENT_TYPE, "application/octet-stream")
             .body(body)
@@ -978,13 +1258,17 @@ impl HttpClient for Client {
         self.handle_modification_response(response).await
     }
 
+    // The idle branch matches on `Option<Duration>` where both arms await
+    // distinct future types, which cannot be expressed as an `Option` combinator
+    // without boxing; `option_if_let_else`'s suggestion does not apply.
+    #[allow(clippy::option_if_let_else)]
     async fn sse<T: Send + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
         custom_headers: &HeaderMap,
     ) -> Result<BoxTryStream<T, Self::Error>, Self::Error> {
-        let request = auth_headers(self.client.get(url), credentials)
+        let request = auth_headers(self.inner.get(url), credentials)
             .headers(custom_headers.clone())
             .header(header::ACCEPT, "text/event-stream")
             .timeout(Duration::MAX);
@@ -999,21 +1283,40 @@ impl HttpClient for Client {
             });
         }
 
-        let stream = sse_stream::SseStream::from_byte_stream(response.bytes_stream()).filter_map(
-            |event| async move {
-                match event {
-                    Err(err) => Some(Err(BmcError::SseStreamError(err))),
-                    Ok(sse) => sse.data.map(|data| {
-                        serde_path_to_error::deserialize(&mut serde_json::Deserializer::from_str(
-                            &data,
-                        ))
-                        .map_err(BmcError::JsonError)
-                    }),
+        let capped = cap_event_bytes(response.bytes_stream(), self.sse.max_event_bytes);
+        let events = sse_stream::SseStream::from_bytes_stream(capped)
+            .filter_map(|event| async move { event_to_item::<T>(event) });
+
+        // Liveness bound: optionally abort if no event arrives within the idle
+        // window. It is keyed on decoded events, so comment heartbeats (which
+        // `sse_stream` discards) do NOT reset it; a server relying solely on
+        // comment heartbeats should not enable the idle timeout.
+        let idle = self.sse.idle_timeout;
+        let guarded = unfold(
+            (Box::pin(events), false),
+            move |(mut events, done)| async move {
+                if done {
+                    return None;
+                }
+                let next = match idle {
+                    Some(d) => match timeout(d, events.next()).await {
+                        Ok(item) => item,
+                        Err(_) => Some(Err(BmcError::SseIdleTimeout { idle: d })),
+                    },
+                    None => events.next().await,
+                };
+                match next {
+                    Some(Err(e)) => {
+                        let terminal = e.is_stream_fatal();
+                        Some((Err(e), (events, terminal)))
+                    }
+                    Some(ok) => Some((ok, (events, false))),
+                    None => None,
                 }
             },
         );
 
-        Ok(Box::pin(stream))
+        Ok(Box::pin(guarded))
     }
 }
 
@@ -1076,10 +1379,12 @@ mod tests {
     use super::*;
 
     use futures_util::io::Cursor;
+    use http::HeaderValue;
     use wiremock::matchers::header;
     use wiremock::matchers::method;
     use wiremock::matchers::path;
     use wiremock::Mock;
+    use wiremock::MockBuilder;
     use wiremock::MockServer;
     use wiremock::Request;
     use wiremock::ResponseTemplate;
@@ -1091,6 +1396,93 @@ mod tests {
 
         #[serde(rename = "Targets")]
         targets: Vec<String>,
+    }
+
+    fn session_auth() -> (BmcCredentials, HeaderMap) {
+        let credentials = BmcCredentials::token("session-secret".to_string());
+        let mut headers = HeaderMap::new();
+
+        headers.insert(
+            "X-Custom-Secret",
+            http::HeaderValue::from_static("custom-secret"),
+        );
+
+        (credentials, headers)
+    }
+
+    fn credentialed_get(resource_path: &str) -> MockBuilder {
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(header("X-Auth-Token", "session-secret"))
+            .and(header("X-Custom-Secret", "custom-secret"))
+    }
+
+    async fn assert_complete_event_honors_byte_limit(chunks: &[&'static [u8]]) {
+        let event_len = chunks.iter().map(|chunk| chunk.len()).sum::<usize>();
+
+        let exact = futures_util::stream::iter(
+            chunks
+                .iter()
+                .copied()
+                .map(|chunk| Ok::<_, reqwest::Error>(Bytes::from_static(chunk))),
+        );
+
+        let exact_results = cap_event_bytes(exact, event_len).collect::<Vec<_>>().await;
+
+        assert_eq!(exact_results.len(), chunks.len());
+        assert!(exact_results.iter().all(Result::is_ok));
+
+        let oversized = futures_util::stream::iter(
+            chunks
+                .iter()
+                .copied()
+                .map(|chunk| Ok::<_, reqwest::Error>(Bytes::from_static(chunk))),
+        );
+
+        let oversized_results = cap_event_bytes(oversized, event_len - 1)
+            .collect::<Vec<_>>()
+            .await;
+
+        assert!(matches!(
+            oversized_results.last(),
+            Some(Err(SseByteError::EventTooLarge { limit })) if *limit == event_len - 1
+        ));
+    }
+
+    async fn mount_redirect(mock_server: &MockServer, source_path: &str, location: &str) {
+        Mock::given(method("GET"))
+            .and(path(source_path))
+            .respond_with(ResponseTemplate::new(302).insert_header("Location", location))
+            .expect(1)
+            .mount(mock_server)
+            .await;
+    }
+
+    #[tokio::test]
+    async fn complete_events_honor_byte_limit_across_line_endings() {
+        const LF_EVENT: &[u8] = b"data: {}\n\n";
+        const CR_EVENT: &[u8] = b"data: {}\r\r";
+        const CRLF_EVENT: &[u8] = b"data: {}\r\n\r\n";
+
+        assert_complete_event_honors_byte_limit(&[LF_EVENT]).await;
+        assert_complete_event_honors_byte_limit(&[CR_EVENT]).await;
+        assert_complete_event_honors_byte_limit(&[CRLF_EVENT]).await;
+
+        let cr_split_at = CR_EVENT.len() - 1;
+
+        assert_complete_event_honors_byte_limit(&[
+            &CR_EVENT[..cr_split_at],
+            &CR_EVENT[cr_split_at..],
+        ])
+        .await;
+
+        let crlf_split_at = CRLF_EVENT.len() - 1;
+
+        assert_complete_event_honors_byte_limit(&[
+            &CRLF_EVENT[..crlf_split_at],
+            &CRLF_EVENT[crlf_split_at..],
+        ])
+        .await;
     }
 
     #[test]
@@ -1113,6 +1505,155 @@ mod tests {
 
         let created_miss = BmcError::cache_miss();
         assert!(matches!(created_miss, BmcError::CacheMiss));
+    }
+
+    #[tokio::test]
+    async fn cross_origin_redirect_is_rejected_before_forwarding_credentials(
+    ) -> Result<(), Box<dyn StdError>> {
+        let source_server = MockServer::start().await;
+        let destination_server = MockServer::start().await;
+        let source_path = "/redfish/v1";
+        let destination_path = "/capture";
+        let destination_url = format!("{}{destination_path}", destination_server.uri());
+
+        mount_redirect(&source_server, source_path, &destination_url).await;
+
+        credentialed_get(destination_path)
+            .respond_with(ResponseTemplate::new(200).set_body_json(serde_json::json!({})))
+            .expect(0)
+            .mount(&destination_server)
+            .await;
+
+        let client = Client::new()?;
+        let (credentials, headers) = session_auth();
+
+        let response = client
+            .get::<serde_json::Value>(
+                Url::parse(&format!("{}{source_path}", source_server.uri()))?,
+                &credentials,
+                None,
+                &headers,
+            )
+            .await;
+
+        assert!(matches!(
+            response,
+            Err(BmcError::ReqwestError(error)) if error.is_redirect()
+        ));
+
+        destination_server.verify().await;
+
+        Ok(())
+    }
+
+    #[tokio::test]
+    async fn same_origin_redirect_with_reqwest_default_policy_preserves_credentials(
+    ) -> Result<(), Box<dyn StdError>> {
+        let mock_server = MockServer::start().await;
+        let source_path = "/redfish/v1";
+        let destination_path = "/redfish/v1/redirected";
+
+        mount_redirect(&mock_server, source_path, destination_path).await;
+
+        credentialed_get(destination_path)
+            .respond_with(
+                ResponseTemplate::new(200).set_body_json(serde_json::json!({ "redirected": true })),
+            )
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+
+        let mut params = ClientParams::new();
+        params.max_redirects = None;
+
+        let client = Client::with_params(params)?;
+        let (credentials, headers) = session_auth();
+
+        let response: serde_json::Value = client
+            .get(
+                Url::parse(&format!("{}{source_path}", mock_server.uri()))?,
+                &credentials,
+                None,
+                &headers,
+            )
+            .await?;
+
+        assert_eq!(response["redirected"], true);
+        mock_server.verify().await;
+
+        Ok(())
+    }
+
+    #[test]
+    fn location_header_resolves_valid_and_rejects_invalid_references(
+    ) -> Result<(), Box<dyn StdError>> {
+        struct TestCase(&'static str, Result<&'static str, &'static str>);
+
+        let response_url = Url::parse("https://bmc.example/redfish/v1/SessionService/Sessions")?;
+
+        let cases = [
+            TestCase(
+                "https://bmc.example/redfish/v1/SessionService/Sessions/1?token=abc",
+                Ok("/redfish/v1/SessionService/Sessions/1?token=abc"),
+            ),
+            TestCase(
+                "/redfish/v1/SessionService/Sessions/1?token=abc",
+                Ok("/redfish/v1/SessionService/Sessions/1?token=abc"),
+            ),
+            TestCase(
+                "Sessions/1?token=abc",
+                Ok("/redfish/v1/SessionService/Sessions/1?token=abc"),
+            ),
+            TestCase(
+                "../TaskService/Tasks/42?token=abc",
+                Ok("/redfish/v1/TaskService/Tasks/42?token=abc"),
+            ),
+            TestCase(
+                "?token=abc",
+                Ok("/redfish/v1/SessionService/Sessions?token=abc"),
+            ),
+            TestCase(
+                "//bmc.example/redfish/v1/TaskService/Tasks/42",
+                Ok("/redfish/v1/TaskService/Tasks/42"),
+            ),
+            TestCase("", Err("Location header does not identify a resource")),
+            TestCase(
+                "#fragment",
+                Err("Location header does not identify a resource"),
+            ),
+            TestCase(
+                "https://other.example/redfish/v1/TaskService/Tasks/42",
+                Err("Location header resolves to a different origin"),
+            ),
+            TestCase(
+                "//bmc.example:8443/redfish/v1/TaskService/Tasks/42",
+                Err("Location header resolves to a different origin"),
+            ),
+            TestCase(
+                "//host:99999/path",
+                Err("Location header is not a valid URI reference"),
+            ),
+        ];
+
+        for TestCase(raw, expected) in cases {
+            let mut headers = HeaderMap::new();
+            headers.insert(header::LOCATION, raw.parse::<HeaderValue>()?);
+
+            let result =
+                location_from_headers(&headers, &response_url, reqwest::StatusCode::CREATED);
+
+            match (result, expected) {
+                (Ok(Some(location)), Ok(expected)) => {
+                    assert_eq!(location.to_string(), expected, "{raw}");
+                }
+                (Err(BmcError::InvalidResponse { text, .. }), Err(expected)) => {
+                    assert_eq!(text, expected, "{raw}");
+                }
+                _ => return Err(format!("{raw}: unexpected Location result").into()),
+            }
+        }
+
+        Ok(())
     }
 
     /// Retry policy used in tests: retries GET requests on 503 responses.
@@ -1311,7 +1852,7 @@ mod tests {
             })
             .respond_with(
                 ResponseTemplate::new(202)
-                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Location", format!("{}{task_path}", mock_server.uri()))
                     .insert_header("Retry-After", "15"),
             )
             .expect(0)
@@ -1381,7 +1922,7 @@ mod tests {
             })
             .respond_with(
                 ResponseTemplate::new(202)
-                    .insert_header("Location", format!("https://bmc.example{task_path}"))
+                    .insert_header("Location", format!("{}{task_path}", mock_server.uri()))
                     .insert_header("Retry-After", "15"),
             )
             .expect(1)

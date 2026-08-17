@@ -48,26 +48,24 @@ use crate::chassis::PowerSupply;
 #[cfg(feature = "thermal")]
 use crate::chassis::Thermal;
 #[cfg(feature = "controls")]
-use crate::control::extract_environment_power_limit_control;
-#[cfg(feature = "controls")]
 use crate::control::Control;
 #[cfg(feature = "controls")]
 use crate::control::ControlCollection;
+#[cfg(feature = "environment-metrics")]
+use crate::environment_metrics::EnvironmentMetrics;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
 #[cfg(all(feature = "oem-liteon", feature = "power-supplies"))]
 use crate::oem::liteon;
-#[cfg(feature = "oem-nvidia-baseboard")]
-use crate::oem::nvidia::baseboard::NvidiaCbcChassis;
+#[cfg(feature = "oem-nvidia")]
+use crate::oem::nvidia::NvidiaCbcChassis;
 #[cfg(feature = "pcie-devices")]
 use crate::pcie_device::PcieDeviceCollection;
 #[cfg(feature = "sensors")]
 use crate::schema::sensor::Sensor as SchemaSensor;
 #[cfg(feature = "sensors")]
-use crate::sensor::extract_environment_sensors;
-#[cfg(feature = "sensors")]
 use crate::sensor::SensorLink;
-#[cfg(feature = "oem-nvidia-baseboard")]
+#[cfg(feature = "oem-nvidia")]
 use std::convert::identity;
 
 #[doc(hidden)]
@@ -374,16 +372,27 @@ impl<B: Bmc> Chassis<B> {
     /// Returns an error if get of environment metrics failed.
     #[cfg(feature = "sensors")]
     pub async fn environment_sensor_links(&self) -> Result<Vec<SensorLink<B>>, Error<B>> {
-        let sensor_refs = if let Some(env_ref) = &self.data.environment_metrics {
-            extract_environment_sensors(env_ref, self.bmc.as_ref()).await?
-        } else {
-            Vec::new()
-        };
+        Ok(self
+            .environment_metrics()
+            .await?
+            .map(|metrics| metrics.sensor_links())
+            .unwrap_or_default())
+    }
 
-        Ok(sensor_refs
-            .into_iter()
-            .map(|r| SensorLink::new(&self.bmc, r))
-            .collect())
+    /// Get the environment metrics of this chassis.
+    ///
+    /// Returns `Ok(None)` when the `EnvironmentMetrics` link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching environment metrics data fails.
+    #[cfg(feature = "environment-metrics")]
+    pub async fn environment_metrics(&self) -> Result<Option<EnvironmentMetrics<B>>, Error<B>> {
+        if let Some(env_ref) = &self.data.environment_metrics {
+            EnvironmentMetrics::new(&self.bmc, env_ref).await.map(Some)
+        } else {
+            Ok(None)
+        }
     }
 
     /// Get the environment power limit control for this chassis.
@@ -395,11 +404,11 @@ impl<B: Bmc> Chassis<B> {
     /// Returns an error if fetching environment metrics or the control fails.
     #[cfg(feature = "controls")]
     pub async fn environment_power_limit_control(&self) -> Result<Option<Control<B>>, Error<B>> {
-        let Some(env_ref) = &self.data.environment_metrics else {
+        let Some(metrics) = self.environment_metrics().await? else {
             return Ok(None);
         };
 
-        extract_environment_power_limit_control(&self.bmc, env_ref).await
+        metrics.power_limit_control().await
     }
 
     /// Get the sensors collection for this chassis.
@@ -446,15 +455,15 @@ impl<B: Bmc> Chassis<B> {
         }
     }
 
-    /// NVIDIA Bluefield OEM extension
+    /// NVIDIA CBC chassis OEM extension
     ///
     /// Returns `Ok(None)` when the chassis does not include NVIDIA OEM extension data.
     ///
     /// # Errors
     ///
     /// Returns an error if NVIDIA OEM data parsing fails.
-    #[cfg(feature = "oem-nvidia-baseboard")]
-    pub fn oem_nvidia_baseboard_cbc(&self) -> Result<Option<NvidiaCbcChassis<B>>, Error<B>> {
+    #[cfg(feature = "oem-nvidia")]
+    pub fn oem_nvidia_cbc(&self) -> Result<Option<NvidiaCbcChassis<B>>, Error<B>> {
         self.data
             .base
             .base

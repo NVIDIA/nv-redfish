@@ -47,6 +47,12 @@ pub struct EntityType<'a> {
 }
 
 impl<'a> EntityType<'a> {
+    /// Whether this type's own definition warrants an `Update` struct.
+    #[must_use]
+    pub fn generates_update(&self) -> bool {
+        self.odata.updatable.is_some_and(|v| v.inner().value) || self.is_abstract.into_inner()
+    }
+
     /// Compile an `EntityType` with the specified name, including all
     /// of its dependencies.
     ///
@@ -125,7 +131,7 @@ impl<'a> EntityType<'a> {
                 .find(|p| p.name().inner().inner() == "Members")
                 .and_then(|p| match p {
                     NavProperty::Expandable(v) => Some(v),
-                    NavProperty::Reference(_) => None,
+                    NavProperty::Reference { .. } => None,
                 })
                 .map(|p| p.ptype.name())
         } else {
