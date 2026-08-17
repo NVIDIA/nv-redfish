@@ -483,23 +483,36 @@ fn ensure_type<'a>(
     } else if let Some(info) = stack.complex_type_info(qtype) {
         Ok((Compiled::default(), info))
     } else if stack.compiling_complex_type(qtype) {
-        // A self-referential complex type sees the type it is inside of
-        // rather than compiling it again forever. The shipped shape is
-        // `AttributeRegistry.v1_5_0.MapFrom`, whose `Subexpressions`
-        // declares `Collection(v1_0_0.MapFrom)` and becomes
-        // self-referential only when `find_child_type` resolves the base
-        // version down to v1_5_0 — the guard must therefore match the
-        // resolved name, never the declared one. Provisional permissions
-        // stay `None`, the permissive reading: the enclosing type is
-        // never classified read-only on account of a self-reference, so
-        // Update structs are generated rather than silently dropped.
-        Ok((
-            Compiled::default(),
-            TypeInfo {
-                class: TypeClass::ComplexType,
-                permissions: None,
-            },
-        ))
+        if stack.nearest_complex_type() == Some(qtype) {
+            // A directly self-referential complex type sees the type it is
+            // inside of rather than compiling it again forever. The shipped
+            // shape is `AttributeRegistry.v1_5_0.MapFrom`, whose
+            // `Subexpressions` declares `Collection(v1_0_0.MapFrom)` and
+            // becomes self-referential only when `find_child_type` resolves
+            // the base version down to v1_5_0 — the guard must therefore
+            // match the resolved name, never the declared one. Provisional
+            // permissions stay `None`, the permissive reading: the type is
+            // never classified read-only on account of a self-reference, so
+            // its own Update struct is generated rather than silently
+            // dropped — and because the reference is to itself, that struct
+            // always exists.
+            Ok((
+                Compiled::default(),
+                TypeInfo {
+                    class: TypeClass::ComplexType,
+                    permissions: None,
+                },
+            ))
+        } else {
+            // A cycle spanning more than one complex type — through
+            // properties, a base, or both — would bake one member's
+            // provisional info into another's compiled form: dangling
+            // Update references, order-dependent output, and by-value
+            // base embedding the generator has no layout for. No shipped
+            // schema declares one; refuse loudly instead of emitting
+            // Rust that cannot compile.
+            Err(Error::UnsupportedCycle(qtype))
+        }
     } else if stack.contains_type_definition(qtype) {
         Ok((Compiled::default(), TypeInfo::type_definition()))
     } else if stack.contains_enum_type(qtype) {
@@ -649,7 +662,10 @@ mod test {
     }
 
     #[test]
-    fn mutually_referential_complex_types_compile_through_collections() {
+    fn a_cycle_spanning_two_complex_types_is_refused() {
+        // Even collection-valued: a wider cycle would bake one member's
+        // provisional type info into the other's compiled form, and which
+        // member that is would follow compile order.
         let bundle = scaffolded(
             r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
                  <EntityType Name="Pair">
@@ -663,19 +679,22 @@ mod test {
                  </ComplexType>
                </Schema>"#,
         );
-        let compiled = bundle
+        let error = bundle
             .compile_all(Config::default())
-            .expect("collection-valued mutual references terminate");
-        assert!(has_complex_type(&compiled, "Pair.A"));
-        assert!(has_complex_type(&compiled, "Pair.B"));
+            .expect_err("a two-type cycle is refused");
+        assert!(
+            format!("{error:?}").contains("UnsupportedCycle"),
+            "the error names the unsupported cycle: {:?}",
+            error
+        );
     }
 
     #[test]
-    fn a_single_valued_reference_cycle_is_refused() {
-        // A struct cannot contain itself without indirection, and the
-        // generator has none: a cycle closed by single-valued properties
-        // must fail at schema time rather than emit Rust that cannot
-        // compile.
+    fn a_cycle_closed_through_a_base_type_is_refused() {
+        // The by-value base edge closes the cycle here: B embeds A as its
+        // base while A holds B. Inheritance-cycle detection cannot see it
+        // (B -> A is not an inheritance loop), so the in-progress guard
+        // must.
         let bundle = scaffolded(
             r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
                  <EntityType Name="Pair">
@@ -684,17 +703,41 @@ mod test {
                  <ComplexType Name="A">
                    <Property Name="Other" Type="Pair.B" Nullable="false"/>
                  </ComplexType>
-                 <ComplexType Name="B">
-                   <Property Name="Other" Type="Pair.A" Nullable="false"/>
+                 <ComplexType Name="B" BaseType="Pair.A"/>
+               </Schema>"#,
+        );
+        let error = bundle
+            .compile_all(Config::default())
+            .expect_err("a base-closed cycle is refused");
+        assert!(
+            format!("{error:?}").contains("UnsupportedCycle"),
+            "the error names the unsupported cycle: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn a_single_valued_self_reference_is_refused() {
+        // A struct cannot contain itself without indirection, and the
+        // generator has none: only a collection-valued self-reference has
+        // a representation.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
+                 <EntityType Name="Pair">
+                   <Property Name="First" Type="Pair.A" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="A">
+                   <Property Name="Inner" Type="Pair.A" Nullable="false"/>
                  </ComplexType>
                </Schema>"#,
         );
         let error = bundle
             .compile_all(Config::default())
-            .expect_err("a single-valued cycle is refused");
+            .expect_err("a single-valued self-reference is refused");
         assert!(
             format!("{error:?}").contains("UnrepresentableCycle"),
-            "the error names the unrepresentable cycle: {error:?}"
+            "the error names the unrepresentable self-reference: {:?}",
+            error
         );
     }
 
@@ -716,7 +759,8 @@ mod test {
             .expect_err("a simple-type base is refused");
         assert!(
             format!("{error:?}").contains("TypeNotFound"),
-            "the error names the missing base: {error:?}"
+            "the error names the missing base: {:?}",
+            error
         );
     }
 

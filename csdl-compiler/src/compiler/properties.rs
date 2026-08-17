@@ -65,13 +65,14 @@ impl<'a> Properties<'a> {
                         let resolved = ctx
                             .schema_index
                             .find_child_type(v.ptype.qualified_type_name().into());
-                        // A single-valued property closing a reference cycle
-                        // has no representation in generated Rust — a struct
-                        // cannot contain itself without indirection — so it
-                        // is refused loudly here. A `Collection` edge is the
-                        // representable shape.
+                        // A single-valued self-reference has no
+                        // representation in generated Rust — a struct cannot
+                        // contain itself without indirection — so it is
+                        // refused loudly here. A `Collection` edge is the
+                        // representable shape; cycles through other types
+                        // are refused wholesale by `ensure_type`.
                         if matches!(v.ptype, OneOrCollection::One(_))
-                            && stack.compiling_complex_type(resolved)
+                            && stack.nearest_complex_type() == Some(resolved)
                         {
                             return Err(Error::Property(
                                 &sp.name,

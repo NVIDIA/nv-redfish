@@ -71,11 +71,29 @@ impl<'a, 'stack> Stack<'a, 'stack> {
     }
 
     /// Check whether a complex type is currently being compiled in this
-    /// frame or any parent frame.
+    /// frame or any parent frame, without crossing an entity frame: an
+    /// entity is referenced by link, so a chain passing through one is
+    /// not a by-value embedding and must not count as a cycle.
     #[must_use]
     pub fn compiling_complex_type(&self, qtype: QualifiedName<'a>) -> bool {
-        matches!(self.in_progress, Some(InProgress::Complex(v)) if v == qtype)
-            || self.parent.is_some_and(|p| p.compiling_complex_type(qtype))
+        match self.in_progress {
+            Some(InProgress::Entity(_)) => false,
+            Some(InProgress::Complex(v)) if v == qtype => true,
+            _ => self.parent.is_some_and(|p| p.compiling_complex_type(qtype)),
+        }
+    }
+
+    /// The complex type whose declaration is being compiled in the
+    /// nearest enclosing frame, without crossing an entity frame. A
+    /// reference to exactly this type is a direct self-reference; a
+    /// reference to any farther in-progress type spans multiple types.
+    #[must_use]
+    pub fn nearest_complex_type(&self) -> Option<QualifiedName<'a>> {
+        match self.in_progress {
+            Some(InProgress::Entity(_)) => None,
+            Some(InProgress::Complex(v)) => Some(v),
+            None => self.parent.and_then(Self::nearest_complex_type),
+        }
     }
 
     /// Check that entity this has been compiled or is being compiled.

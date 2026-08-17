@@ -41,6 +41,11 @@ pub enum Error<'a> {
     /// A single-valued property closes a complex-type reference cycle,
     /// which generated Rust cannot represent without indirection.
     UnrepresentableCycle(QualifiedName<'a>),
+    /// A reference cycle spans more than one complex type — through
+    /// properties, a base, or both. Only direct self-reference is
+    /// supported: a wider cycle would bake one member's provisional type
+    /// info into another's compiled form.
+    UnsupportedCycle(QualifiedName<'a>),
     /// Settings.Settings type was not found.
     SettingsTypeNotFound,
     /// Settings.PreferredApplyTime type was not found.
@@ -90,8 +95,13 @@ impl Display for Error<'_> {
             }
             Self::UnrepresentableCycle(v) => write!(
                 f,
-                "single-valued property closes a reference cycle through {v}; \
-                 only collection-valued cycle edges are representable"
+                "single-valued property references its own type {v}, which \
+                 generated Rust cannot represent without indirection"
+            ),
+            Self::UnsupportedCycle(v) => write!(
+                f,
+                "complex-type reference cycle through {v}; only direct \
+                 self-reference is supported"
             ),
             Self::SettingsTypeNotFound => write!(
                 f,
