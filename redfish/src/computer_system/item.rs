@@ -140,7 +140,7 @@ impl<B: Bmc> ComputerSystem<B> {
         self.data.clone()
     }
 
-    /// Get hardware identifier of the network adpater.
+    /// Get hardware identifier of the network adapter.
     #[must_use]
     pub fn hardware_id(&self) -> HardwareIdRef<'_, ComputerSystemTag> {
         HardwareIdRef {
@@ -338,7 +338,7 @@ impl<B: Bmc> ComputerSystem<B> {
     #[cfg(feature = "storages")]
     pub async fn storage_controllers(&self) -> Result<Option<Vec<Storage<B>>>, Error<B>> {
         if let Some(storage_ref) = &self.data.storage {
-            use crate::computer_system::StorageCollection;
+            use crate::computer_system::storage::StorageCollection;
             let storage_collection = StorageCollection::new(&self.bmc, storage_ref).await?;
             storage_collection.members().await.map(|r| Some(r))
         } else {
