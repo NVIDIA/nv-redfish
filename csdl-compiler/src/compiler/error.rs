@@ -38,6 +38,9 @@ pub enum Error<'a> {
     ComplexTypeNotFound(QualifiedName<'a>),
     /// A cycle was found in type inheritance.
     CyclicType(Vec<QualifiedName<'a>>),
+    /// A single-valued property closes a complex-type reference cycle,
+    /// which generated Rust cannot represent without indirection.
+    UnrepresentableCycle(QualifiedName<'a>),
     /// Settings.Settings type was not found.
     SettingsTypeNotFound,
     /// Settings.PreferredApplyTime type was not found.
@@ -85,6 +88,11 @@ impl Display for Error<'_> {
                     write!(f, "{qtype}")
                 })
             }
+            Self::UnrepresentableCycle(v) => write!(
+                f,
+                "single-valued property closes a reference cycle through {v}; \
+                 only collection-valued cycle edges are representable"
+            ),
             Self::SettingsTypeNotFound => write!(
                 f,
                 "cannot find type for Redfish settings (Settings.Settings)"

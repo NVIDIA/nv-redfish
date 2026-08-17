@@ -13,7 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use crate::compiler::compile_type;
+use crate::compiler::ensure_type;
+use crate::compiler::is_simple_type;
 use crate::compiler::Compiled;
 use crate::compiler::Context;
 use crate::compiler::Error;
@@ -95,22 +96,29 @@ pub(crate) fn compile<'a>(
     ctx: &Context<'a>,
     stack: &Stack<'a, '_>,
 ) -> Result<(Compiled<'a>, TypeInfo), Error<'a>> {
-    let name = qtype;
+    // The frame marks this type as in progress before anything recurses,
+    // so a self-referential property terminates instead of compiling its
+    // own type forever.
+    let stack = stack.new_frame().with_complex_type(qtype);
     // Ensure that the base complex type is compiled, if present.
-    let (base, compiled) = if let Some(base_type) = &ct.base_type {
-        let (compiled, _) = compile_type(base_type.into(), ctx, stack)?;
-        (Some(base_type.into()), compiled)
+    // `ensure_type` short-circuits `Edm.*`, so an invalid simple-type
+    // base is rejected here to stay a schema-time error.
+    let (base, stack) = if let Some(base_type) = &ct.base_type {
+        let base: QualifiedName = base_type.into();
+        if is_simple_type(base) {
+            return Err(Error::TypeNotFound(base));
+        }
+        let (compiled, _) = ensure_type(base, ctx, &stack)?;
+        (Some(base), stack.merge(compiled))
     } else {
-        (None, Compiled::default())
+        (None, stack)
     };
-
-    let stack = stack.new_frame().merge(compiled);
 
     let (compiled, properties) =
         Properties::compile(qtype, &ct.properties, ctx, stack.new_frame())?;
 
     let complex_type = ComplexType {
-        name,
+        name: qtype,
         base,
         properties,
         odata: OData::new(MustHaveId::new(false), ct),
