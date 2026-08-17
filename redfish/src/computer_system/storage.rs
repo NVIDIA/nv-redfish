@@ -16,7 +16,10 @@
 //! Storage subsystem and its respective properties.
 
 use crate::computer_system::Drive;
+use crate::patch_support::CollectionWithPatch;
+use crate::schema::resource::ResourceCollection;
 use crate::schema::storage::Storage as StorageSchema;
+use crate::schema::storage_collection::StorageCollection as StorageCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -24,9 +27,6 @@ use crate::ResourceSchema;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
-use crate::schema::storage_collection::StorageCollection as StorageCollectionSchema;
-use crate::patch_support::CollectionWithPatch;
-use crate::schema::resource::ResourceCollection;
 
 /// Represents a storage controller in a computer system.
 ///
@@ -99,8 +99,7 @@ pub struct StorageCollection<B: Bmc> {
 }
 
 #[cfg(feature = "storages")]
-impl <B:Bmc> StorageCollection <B> {
-    
+impl<B: Bmc> StorageCollection<B> {
     /// Create a new storage collection handle.
     pub(crate) async fn new(
         bmc: &NvBmc<B>,

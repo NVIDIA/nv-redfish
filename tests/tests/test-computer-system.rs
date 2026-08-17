@@ -276,7 +276,6 @@ async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
         }),
     ));
 
-
     bmc.expect(Expect::get(
         "/redfish/v1/AccountService",
         json!(
@@ -303,8 +302,8 @@ async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
     ));
 
     bmc.expect(Expect::expand(
-    "/redfish/v1/Systems/Bluefield/Storage",
-    json!({
+        "/redfish/v1/Systems/Bluefield/Storage",
+        json!({
         "@odata.id": "/redfish/v1/Systems/Bluefield/Storage",
         "@odata.type": "#StorageCollection.StorageCollection",
         "Members": null,
@@ -319,15 +318,13 @@ async fn null_collection_member_test() -> Result<(), Box<dyn StdError>> {
     let members = boot_options.unwrap().members().await?;
 
     assert_eq!(members.len(), 0);
-    
-    let _account_service = service_root.account_service().await?.unwrap().raw();
 
+    let _account_service = service_root.account_service().await?.unwrap().raw();
 
     let storage = systems[0].storage_controllers().await?.unwrap();
     assert_eq!(storage.len(), 0);
 
     Ok(())
-
 }
 
 #[test]
@@ -454,8 +451,6 @@ async fn expect_nvidia_dpu_service_root_bf3(
 
     ServiceRoot::new(bmc).await.map_err(Into::into)
 }
-
-
 
 async fn expect_service_root(
     bmc: Arc<Bmc>,

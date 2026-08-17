@@ -256,7 +256,7 @@ impl BmcQuirks {
             Some(Platform::AmiViking | Platform::AmiGb300)
         )
     }
-    
+
     /// Some implementations return the `Members` field of
     /// a collection as `null` instead of an empty array (`[]`).
     pub(crate) fn bug_nullable_members(&self) -> bool {
