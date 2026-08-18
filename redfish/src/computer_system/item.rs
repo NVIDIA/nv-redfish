@@ -345,7 +345,7 @@ impl<B: Bmc> ComputerSystem<B> {
         if let Some(storage_ref) = &self.data.storage {
             use crate::computer_system::storage::StorageCollection;
             let storage_collection = StorageCollection::new(&self.bmc, storage_ref).await?;
-            storage_collection.members().await.map(|r| Some(r))
+            storage_collection.members().await.map(Some)
         } else {
             Ok(None)
         }
