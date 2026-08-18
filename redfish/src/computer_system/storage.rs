@@ -16,7 +16,10 @@
 //! Storage subsystem and its respective properties.
 
 use crate::computer_system::Drive;
+use crate::patch_support::CollectionWithPatch;
+use crate::schema::resource::ResourceCollection;
 use crate::schema::storage::Storage as StorageSchema;
+use crate::schema::storage_collection::StorageCollection as StorageCollectionSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -83,5 +86,54 @@ impl<B: Bmc> Storage<B> {
 impl<B: Bmc> Resource for Storage<B> {
     fn resource_ref(&self) -> &ResourceSchema {
         &self.data.as_ref().base
+    }
+}
+
+/// Storage collection.
+///
+/// Provides functions to access collection members.
+#[cfg(feature = "storages")]
+pub struct StorageCollection<B: Bmc> {
+    bmc: NvBmc<B>,
+    collection: Arc<StorageCollectionSchema>,
+}
+
+#[cfg(feature = "storages")]
+impl<B: Bmc> StorageCollection<B> {
+    /// Create a new storage collection handle.
+    pub(crate) async fn new(
+        bmc: &NvBmc<B>,
+        nav: &NavProperty<StorageCollectionSchema>,
+    ) -> Result<Self, Error<B>> {
+        let collection = Self::expand_collection(bmc, nav, None, None).await?;
+        Ok(Self {
+            bmc: bmc.clone(),
+            collection,
+        })
+    }
+
+    /// List all storages available in this BMC.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching storage data fails.
+    pub async fn members(&self) -> Result<Vec<Storage<B>>, Error<B>> {
+        let mut members = Vec::new();
+        for m in &self.collection.members {
+            members.push(Storage::new(&self.bmc, m).await?);
+        }
+        Ok(members)
+    }
+}
+
+#[cfg(feature = "storages")]
+impl<B: Bmc> CollectionWithPatch<StorageCollectionSchema, StorageSchema, B>
+    for StorageCollection<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<StorageSchema>>,
+    ) -> StorageCollectionSchema {
+        StorageCollectionSchema { base, members }
     }
 }

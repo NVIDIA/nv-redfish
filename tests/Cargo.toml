@@ -25,6 +25,8 @@ nv-redfish = { workspace = true, features = [
     "accounts",
     "assembly",
     "bios",
+    "boot-options",
+    "storages",
     "chassis",
     "controls",
     "computer-systems",
