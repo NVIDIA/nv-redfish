@@ -16,8 +16,10 @@
 //!
 
 use crate::computer_system::BootOptionReference;
+use crate::patch_support::CollectionWithPatch;
 use crate::schema::boot_option::BootOption as BootOptionSchema;
 use crate::schema::boot_option_collection::BootOptionCollection as BootOptionCollectionSchema;
+use crate::schema::resource::ResourceCollection;
 use crate::Error;
 use crate::NvBmc;
 use crate::Resource;
@@ -37,13 +39,24 @@ pub struct BootOptionCollection<B: Bmc> {
     collection: Arc<BootOptionCollectionSchema>,
 }
 
+impl<B: Bmc> CollectionWithPatch<BootOptionCollectionSchema, BootOptionSchema, B>
+    for BootOptionCollection<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<BootOptionSchema>>,
+    ) -> BootOptionCollectionSchema {
+        BootOptionCollectionSchema { base, members }
+    }
+}
+
 impl<B: Bmc> BootOptionCollection<B> {
     /// Create a new manager collection handle.
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<BootOptionCollectionSchema>,
     ) -> Result<Self, Error<B>> {
-        let collection = bmc.expand_property(nav).await?;
+        let collection = Self::expand_collection(bmc, nav, None, None).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,

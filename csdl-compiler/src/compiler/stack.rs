@@ -17,6 +17,18 @@ use crate::compiler::Compiled;
 use crate::compiler::QualifiedName;
 use crate::compiler::TypeInfo;
 
+/// The type a frame is currently compiling; a recursive reference to it
+/// must terminate instead of compiling it again. What termination means
+/// differs by class: entities are referenced by link, so the reference
+/// just resolves to the name, while complex types embed by value, so a
+/// reference needs provisional type info and a single-valued edge is
+/// refused as unrepresentable.
+#[derive(Clone, Copy)]
+enum InProgress<'a> {
+    Entity(QualifiedName<'a>),
+    Complex(QualifiedName<'a>),
+}
+
 /// Compilation stack. Created when recursing to compile nested types.
 ///
 /// Note: never return `Stack` frames from helper functions. Instead,
@@ -25,9 +37,7 @@ use crate::compiler::TypeInfo;
 #[derive(Default)]
 pub struct Stack<'a, 'stack> {
     parent: Option<&'stack Self>,
-    // If entity type is currently being compiled we use this
-    // field to prevent infinite recursion.
-    entity_type: Option<QualifiedName<'a>>,
+    in_progress: Option<InProgress<'a>>,
     current: Compiled<'a>,
 }
 
@@ -39,7 +49,7 @@ impl<'a, 'stack> Stack<'a, 'stack> {
     pub fn new_frame(&'stack self) -> Self {
         Self {
             parent: Some(self),
-            entity_type: None,
+            in_progress: None,
             current: Compiled::default(),
         }
     }
@@ -48,15 +58,49 @@ impl<'a, 'stack> Stack<'a, 'stack> {
     /// navigation-property references.
     #[must_use]
     pub const fn with_entity_type(mut self, name: QualifiedName<'a>) -> Self {
-        self.entity_type = Some(name);
+        self.in_progress = Some(InProgress::Entity(name));
         self
+    }
+
+    /// Track the complex type being compiled to avoid cycles caused by
+    /// self-referential properties.
+    #[must_use]
+    pub const fn with_complex_type(mut self, name: QualifiedName<'a>) -> Self {
+        self.in_progress = Some(InProgress::Complex(name));
+        self
+    }
+
+    /// Check whether a complex type is currently being compiled in this
+    /// frame or any parent frame, without crossing an entity frame: an
+    /// entity is referenced by link, so a chain passing through one is
+    /// not a by-value embedding and must not count as a cycle.
+    #[must_use]
+    pub fn compiling_complex_type(&self, qtype: QualifiedName<'a>) -> bool {
+        match self.in_progress {
+            Some(InProgress::Entity(_)) => false,
+            Some(InProgress::Complex(v)) if v == qtype => true,
+            _ => self.parent.is_some_and(|p| p.compiling_complex_type(qtype)),
+        }
+    }
+
+    /// The complex type whose declaration is being compiled in the
+    /// nearest enclosing frame, without crossing an entity frame. A
+    /// reference to exactly this type is a direct self-reference; a
+    /// reference to any farther in-progress type spans multiple types.
+    #[must_use]
+    pub fn nearest_complex_type(&self) -> Option<QualifiedName<'a>> {
+        match self.in_progress {
+            Some(InProgress::Entity(_)) => None,
+            Some(InProgress::Complex(v)) => Some(v),
+            None => self.parent.and_then(Self::nearest_complex_type),
+        }
     }
 
     /// Check that entity this has been compiled or is being compiled.
     #[must_use]
     pub fn contains_entity(&self, qtype: QualifiedName<'a>) -> bool {
         self.current.entity_types.contains_key(&qtype)
-            || self.entity_type.is_some_and(|v| v == qtype)
+            || matches!(self.in_progress, Some(InProgress::Entity(v)) if v == qtype)
             || self.parent.is_some_and(|p| p.contains_entity(qtype))
     }
 
@@ -91,7 +135,7 @@ impl<'a, 'stack> Stack<'a, 'stack> {
     pub fn merge(self, c: Compiled<'a>) -> Self {
         Self {
             parent: self.parent,
-            entity_type: self.entity_type,
+            in_progress: self.in_progress,
             current: self.current.merge(c),
         }
     }

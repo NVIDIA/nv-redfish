@@ -58,7 +58,7 @@ where
         patch_fn: Option<&ReadPatchFn>,
         filter_fn: Option<&FilterFn>,
     ) -> Result<Arc<T>, Error<B>> {
-        if patch_fn.is_some() || filter_fn.is_some() {
+        if patch_fn.is_some() || filter_fn.is_some() || bmc.quirks.bug_nullable_members() {
             // Patches are not free so we keep separate branch for
             // patched collections only having this cost on systems
             // that requires to pay the price.
@@ -113,7 +113,7 @@ struct Collection {
     #[serde(flatten)]
     base: ResourceCollection,
     #[serde(rename = "Members")]
-    members: Vec<Payload>,
+    members: Option<Vec<Payload>>,
 }
 
 impl Collection {
@@ -172,6 +172,8 @@ impl Collection {
         B: Bmc,
     {
         self.members
+            .as_deref()
+            .unwrap_or(&[])
             .iter()
             .filter(|v| filter_fn.is_none_or(|ff| v.filter(ff)))
             .map(|v| patch_fn.map_or_else(|| v.parse(), |fp| v.to_target(fp)))

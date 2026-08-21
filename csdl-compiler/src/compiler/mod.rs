@@ -339,7 +339,7 @@ impl SchemaBundle {
     }
 
     fn root_set_all(&self) -> RootSet<'_> {
-        let entity_types = self
+        let mut entity_types: Vec<_> = self
             .edmx_docs
             .iter()
             .take(self.root_set_threshold.unwrap_or(self.edmx_docs.len()))
@@ -356,7 +356,7 @@ impl SchemaBundle {
                     .collect::<Vec<_>>()
             })
             .collect();
-        let complex_types = self
+        let mut complex_types: Vec<_> = self
             .edmx_docs
             .iter()
             .take(self.root_set_threshold.unwrap_or(self.edmx_docs.len()))
@@ -379,6 +379,12 @@ impl SchemaBundle {
                     .collect::<Vec<_>>()
             })
             .collect();
+        // Schemas store types in hash maps, and iteration order must not
+        // decide compile order: which member of a reference cycle sees
+        // the provisional type info — and with it generated output —
+        // would otherwise vary run to run.
+        entity_types.sort_unstable();
+        complex_types.sort_unstable();
         RootSet {
             entity_types,
             complex_types,
@@ -476,6 +482,37 @@ fn ensure_type<'a>(
         Ok((Compiled::default(), TypeInfo::simple_type()))
     } else if let Some(info) = stack.complex_type_info(qtype) {
         Ok((Compiled::default(), info))
+    } else if stack.compiling_complex_type(qtype) {
+        if stack.nearest_complex_type() == Some(qtype) {
+            // A directly self-referential complex type sees the type it is
+            // inside of rather than compiling it again forever. The shipped
+            // shape is `AttributeRegistry.v1_5_0.MapFrom`, whose
+            // `Subexpressions` declares `Collection(v1_0_0.MapFrom)` and
+            // becomes self-referential only when `find_child_type` resolves
+            // the base version down to v1_5_0 — the guard must therefore
+            // match the resolved name, never the declared one. Provisional
+            // permissions stay `None`, the permissive reading: the type is
+            // never classified read-only on account of a self-reference, so
+            // its own Update struct is generated rather than silently
+            // dropped — and because the reference is to itself, that struct
+            // always exists.
+            Ok((
+                Compiled::default(),
+                TypeInfo {
+                    class: TypeClass::ComplexType,
+                    permissions: None,
+                },
+            ))
+        } else {
+            // A cycle spanning more than one complex type — through
+            // properties, a base, or both — would bake one member's
+            // provisional info into another's compiled form: dangling
+            // Update references, order-dependent output, and by-value
+            // base embedding the generator has no layout for. No shipped
+            // schema declares one; refuse loudly instead of emitting
+            // Rust that cannot compile.
+            Err(Error::UnsupportedCycle(qtype))
+        }
     } else if stack.contains_type_definition(qtype) {
         Ok((Compiled::default(), TypeInfo::type_definition()))
     } else if stack.contains_enum_type(qtype) {
@@ -531,6 +568,199 @@ mod test {
                     if cycle.len() >= 2 && cycle.first() == cycle.last()
             ),
             "compile_all must propagate the closed inheritance cycle"
+        );
+    }
+
+    /// `compile_all` unconditionally compiles the Redfish framework
+    /// types, so every fixture carries minimal Resource and Settings
+    /// declarations beside the fragment under test.
+    fn scaffolded(fragment: &str) -> SchemaBundle {
+        let schema = format!(
+            r#"<edmx:Edmx Version="4.0">
+             <edmx:DataServices>
+               {fragment}
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Resource">
+                 <EntityType Name="Resource" Abstract="true"/>
+                 <EntityType Name="ResourceCollection" Abstract="true"/>
+               </Schema>
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Settings">
+                 <ComplexType Name="Settings"/>
+                 <ComplexType Name="PreferredApplyTime"/>
+               </Schema>
+             </edmx:DataServices>
+           </edmx:Edmx>"#
+        );
+        SchemaBundle {
+            edmx_docs: vec![Edmx::parse(&schema).expect("fixture schema must be valid")],
+            root_set_threshold: None,
+        }
+    }
+
+    fn has_complex_type(compiled: &Compiled<'_>, name: &str) -> bool {
+        let qname: QualifiedTypeName = name.parse().expect("a qualified type name");
+        compiled.complex_types.contains_key(&(&qname).into())
+    }
+
+    #[test]
+    fn a_self_referential_complex_type_compiles() {
+        // A collection of the enclosing type terminates: the guard hands
+        // the self-referential property provisional type info instead of
+        // compiling its own type forever.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Registry">
+                 <EntityType Name="Registry">
+                   <Property Name="Dependency" Type="Registry.MapFrom" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="MapFrom">
+                   <Property Name="Subexpressions" Type="Collection(Registry.MapFrom)" Nullable="false"/>
+                 </ComplexType>
+               </Schema>"#,
+        );
+        let compiled = bundle
+            .compile_all(Config::default())
+            .expect("a self-referential complex type terminates");
+        let qname: QualifiedTypeName = "Registry.MapFrom".parse().expect("a qualified type name");
+        let map_from = compiled
+            .complex_types
+            .get(&(&qname).into())
+            .expect("MapFrom compiled");
+        // The provisional info pins the permissive reading: the enclosing
+        // type is never classified read-only on account of its
+        // self-reference, so an Update struct is generated for it.
+        assert_eq!(TypeInfo::complex_type(map_from).permissions, None);
+        assert!(map_from.generates_update());
+    }
+
+    #[test]
+    fn a_derived_type_self_referential_through_its_base_compiles() {
+        // The shipped AttributeRegistry v1.5.0 shape: `Subexpressions`
+        // declares the BASE version's name, and only becomes
+        // self-referential when `find_child_type` resolves it down to the
+        // derived type. A guard matching the declared name instead of the
+        // resolved one would hang on exactly this fixture.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Registry">
+                 <EntityType Name="Registry">
+                   <Property Name="Dependency" Type="Registry.v1_0_0.MapFrom" Nullable="false"/>
+                 </EntityType>
+               </Schema>
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Registry.v1_0_0">
+                 <ComplexType Name="MapFrom">
+                   <Property Name="Tag" Type="Edm.String" Nullable="false"/>
+                 </ComplexType>
+               </Schema>
+               <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Registry.v1_5_0">
+                 <ComplexType Name="MapFrom" BaseType="Registry.v1_0_0.MapFrom">
+                   <Property Name="Subexpressions" Type="Collection(Registry.v1_0_0.MapFrom)" Nullable="false"/>
+                 </ComplexType>
+               </Schema>"#,
+        );
+        let compiled = bundle
+            .compile_all(Config::default())
+            .expect("the base-declared self-reference terminates");
+        assert!(has_complex_type(&compiled, "Registry.v1_5_0.MapFrom"));
+    }
+
+    #[test]
+    fn a_cycle_spanning_two_complex_types_is_refused() {
+        // Even collection-valued: a wider cycle would bake one member's
+        // provisional type info into the other's compiled form, and which
+        // member that is would follow compile order.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
+                 <EntityType Name="Pair">
+                   <Property Name="First" Type="Pair.A" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="A">
+                   <Property Name="Others" Type="Collection(Pair.B)" Nullable="false"/>
+                 </ComplexType>
+                 <ComplexType Name="B">
+                   <Property Name="Others" Type="Collection(Pair.A)" Nullable="false"/>
+                 </ComplexType>
+               </Schema>"#,
+        );
+        let error = bundle
+            .compile_all(Config::default())
+            .expect_err("a two-type cycle is refused");
+        assert!(
+            format!("{error:?}").contains("UnsupportedCycle"),
+            "the error names the unsupported cycle: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn a_cycle_closed_through_a_base_type_is_refused() {
+        // The by-value base edge closes the cycle here: B embeds A as its
+        // base while A holds B. Inheritance-cycle detection cannot see it
+        // (B -> A is not an inheritance loop), so the in-progress guard
+        // must.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
+                 <EntityType Name="Pair">
+                   <Property Name="First" Type="Pair.A" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="A">
+                   <Property Name="Other" Type="Pair.B" Nullable="false"/>
+                 </ComplexType>
+                 <ComplexType Name="B" BaseType="Pair.A"/>
+               </Schema>"#,
+        );
+        let error = bundle
+            .compile_all(Config::default())
+            .expect_err("a base-closed cycle is refused");
+        assert!(
+            format!("{error:?}").contains("UnsupportedCycle"),
+            "the error names the unsupported cycle: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn a_single_valued_self_reference_is_refused() {
+        // A struct cannot contain itself without indirection, and the
+        // generator has none: only a collection-valued self-reference has
+        // a representation.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Pair">
+                 <EntityType Name="Pair">
+                   <Property Name="First" Type="Pair.A" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="A">
+                   <Property Name="Inner" Type="Pair.A" Nullable="false"/>
+                 </ComplexType>
+               </Schema>"#,
+        );
+        let error = bundle
+            .compile_all(Config::default())
+            .expect_err("a single-valued self-reference is refused");
+        assert!(
+            format!("{error:?}").contains("UnrepresentableCycle"),
+            "the error names the unrepresentable self-reference: {:?}",
+            error
+        );
+    }
+
+    #[test]
+    fn a_complex_type_with_a_simple_base_is_refused() {
+        // `ensure_type` short-circuits `Edm.*`, so the base check keeps
+        // an invalid base a schema-time error rather than an unresolved
+        // path in the generated crate.
+        let bundle = scaffolded(
+            r#"<Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="Bad">
+                 <EntityType Name="Bad">
+                   <Property Name="Value" Type="Bad.X" Nullable="false"/>
+                 </EntityType>
+                 <ComplexType Name="X" BaseType="Edm.String"/>
+               </Schema>"#,
+        );
+        let error = bundle
+            .compile_all(Config::default())
+            .expect_err("a simple-type base is refused");
+        assert!(
+            format!("{error:?}").contains("TypeNotFound"),
+            "the error names the missing base: {:?}",
+            error
         );
     }
 

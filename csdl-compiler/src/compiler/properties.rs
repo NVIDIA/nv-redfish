@@ -62,14 +62,26 @@ impl<'a> Properties<'a> {
             .try_fold((stack, Properties::default()), |(stack, mut p), sp| {
                 let stack = match &sp.attrs {
                     PropertyAttrs::StructuralProperty(v) => {
-                        let (compiled, typeinfo) = ensure_type(
-                            ctx.schema_index
-                                .find_child_type(v.ptype.qualified_type_name().into()),
-                            ctx,
-                            &stack,
-                        )
-                        .map_err(Box::new)
-                        .map_err(|e| Error::Property(&sp.name, e))?;
+                        let resolved = ctx
+                            .schema_index
+                            .find_child_type(v.ptype.qualified_type_name().into());
+                        // A single-valued self-reference has no
+                        // representation in generated Rust — a struct cannot
+                        // contain itself without indirection — so it is
+                        // refused loudly here. A `Collection` edge is the
+                        // representable shape; cycles through other types
+                        // are refused wholesale by `ensure_type`.
+                        if matches!(v.ptype, OneOrCollection::One(_))
+                            && stack.nearest_complex_type() == Some(resolved)
+                        {
+                            return Err(Error::Property(
+                                &sp.name,
+                                Box::new(Error::UnrepresentableCycle(resolved)),
+                            ));
+                        }
+                        let (compiled, typeinfo) = ensure_type(resolved, ctx, &stack)
+                            .map_err(Box::new)
+                            .map_err(|e| Error::Property(&sp.name, e))?;
                         p.properties.push(Property {
                             name: &v.name,
                             ptype: v.ptype.as_ref().map(|t| (typeinfo, t.into())),

@@ -303,4 +303,10 @@ impl BmcQuirks {
     pub(crate) fn chassis_contains_arbitrary_string_in_uuid_fields(&self) -> bool {
         self.platform == Some(Platform::DellPEXE9780)
     }
+
+    /// Some implementations return the `Members` field of
+    /// a collection as `null` instead of an empty array (`[]`).
+    pub(crate) fn bug_nullable_members(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
 }
