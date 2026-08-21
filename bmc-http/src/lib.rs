@@ -49,7 +49,6 @@ mod schema;
 #[cfg(feature = "reqwest")]
 pub mod reqwest;
 
-use std::collections::HashMap;
 use std::error::Error as StdError;
 use std::fmt;
 use std::future::Future;
@@ -218,7 +217,6 @@ pub struct HttpBmc<C: HttpClient> {
     redfish_endpoint: RedfishEndpoint,
     credentials: RwLock<Arc<BmcCredentials>>,
     cache: RwLock<TypeErasedCarCache<Url>>,
-    etags: RwLock<HashMap<Url, ODataETag>>,
     custom_headers: HeaderMap,
 
     // Response bodies and ETags are enabled or disabled together because a
@@ -334,7 +332,6 @@ where
             redfish_endpoint: RedfishEndpoint::from(redfish_endpoint),
             credentials: RwLock::new(Arc::new(credentials)),
             cache: RwLock::new(TypeErasedCarCache::new(cache_settings.capacity)),
-            etags: RwLock::new(HashMap::new()),
             custom_headers,
             cache_enabled: cache_settings.capacity > 0,
         }
@@ -582,17 +579,23 @@ where
         // The `etag` is always `None` when caching is disabled. Check the flag here so we can save
         // a read lock acquisition and guarantee that disabled caching never sends If-None-Match,
         // which could produce a 304 response without a cached body.
-        let etag = if self.cache_enabled {
-            let etags = self
-                .etags
-                .read()
-                .map_err(|e| C::Error::cache_error(e.to_string()))?;
+        // We need to get cached body before the request unless it can be evicted during GET
+        // if cache reach the capacity.
 
-            etags.get(&cache_key).cloned()
+        let cached = if self.cache_enabled {
+            let mut cache = self
+                .cache
+                .write()
+                .map_err(|e| C::Error::cache_error(e.to_string()))?;
+            cache.get_typed::<Arc<T>>(&cache_key).cloned()
         } else {
             None
         };
 
+        let etag = cached
+            .as_ref()
+            .and_then(|c| c.etag())
+            .map(ToOwned::to_owned);
         let credentials = self.read_credentials();
 
         // Perform GET request
@@ -614,37 +617,20 @@ where
             Ok(response) => {
                 let entity = Arc::new(response);
                 // Update cache if entity has etag
-                if let Some(etag) = entity.etag() {
+                if entity.etag().is_some() {
                     let mut cache = self
                         .cache
                         .write()
                         .map_err(|e| C::Error::cache_error(e.to_string()))?;
 
-                    let mut etags = self
-                        .etags
-                        .write()
-                        .map_err(|e| C::Error::cache_error(e.to_string()))?;
-
-                    if let Some(evicted_url) =
-                        cache.put_typed(cache_key.clone(), Arc::clone(&entity))
-                    {
-                        etags.remove(&evicted_url);
-                    }
-                    etags.insert(cache_key.clone(), etag.clone());
+                    cache.put_typed(cache_key.clone(), entity.clone());
                 }
                 Ok(entity)
             }
             Err(e) => {
                 // Handle 304 Not Modified - return from cache
                 if e.is_cached() {
-                    let mut cache = self
-                        .cache
-                        .write()
-                        .map_err(|e| C::Error::cache_error(e.to_string()))?;
-                    cache
-                        .get_typed::<Arc<T>>(&cache_key)
-                        .cloned()
-                        .ok_or_else(C::Error::cache_miss)
+                    cached.ok_or_else(C::Error::cache_miss)
                 } else {
                     Err(e)
                 }

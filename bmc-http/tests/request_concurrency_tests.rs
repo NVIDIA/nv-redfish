@@ -39,9 +39,10 @@ mod tests {
 
     #[derive(Debug)]
     enum TestResponse {
-        Resource,
+        Resource(Option<ODataETag>),
         Retry,
         SseEstablished,
+        Cached,
     }
 
     struct TransportAttempt {
@@ -75,8 +76,8 @@ mod tests {
             path: String,
         ) -> Result<ModificationResponse<T>, BmcError> {
             match self.response_for(path).await? {
-                TestResponse::Resource => Ok(ModificationResponse::Empty),
-                TestResponse::Retry | TestResponse::SseEstablished => Err(
+                TestResponse::Resource(_) => Ok(ModificationResponse::Empty),
+                TestResponse::Retry | TestResponse::SseEstablished | TestResponse::Cached => Err(
                     BmcError::InvalidRequest("unexpected test transport response".to_owned()),
                 ),
             }
@@ -97,14 +98,15 @@ mod tests {
             T: DeserializeOwned + Send + Sync,
         {
             let path = url.path().to_owned();
+            let url = url.clone();
 
             async move {
                 loop {
                     match self.response_for(path.clone()).await? {
-                        TestResponse::Resource => {
+                        TestResponse::Resource(etag) => {
                             let value = serde_json::json!({
                                 "@odata.id": path,
-                                "@odata.etag": null,
+                                "@odata.etag": etag,
                                 "name": "resource",
                                 "value": 1
                             });
@@ -116,6 +118,13 @@ mod tests {
                             return Err(BmcError::InvalidRequest(
                                 "unexpected SSE response for GET".to_owned(),
                             ));
+                        }
+                        TestResponse::Cached => {
+                            return Err(BmcError::InvalidResponse {
+                                url,
+                                status: http::StatusCode::NOT_MODIFIED,
+                                text: String::new(),
+                            });
                         }
                     }
                 }
@@ -241,9 +250,9 @@ mod tests {
 
                         Ok(stream)
                     }
-                    TestResponse::Resource | TestResponse::Retry => Err(BmcError::InvalidRequest(
-                        "unexpected non-SSE response for SSE".to_owned(),
-                    )),
+                    TestResponse::Resource(_) | TestResponse::Retry | TestResponse::Cached => Err(
+                        BmcError::InvalidRequest("unexpected non-SSE response for SSE".to_owned()),
+                    ),
                 }
             }
         }
@@ -284,12 +293,16 @@ mod tests {
 
     type LimitedTestBmc = ConcurrencyLimitedBmc<HttpBmc<ControlledClient>>;
 
-    fn create_bmc(client: ControlledClient, limit: NonZeroUsize) -> LimitedTestBmc {
+    fn create_bmc(
+        client: ControlledClient,
+        limit: NonZeroUsize,
+        cache_size: usize,
+    ) -> LimitedTestBmc {
         let bmc = HttpBmc::new(
             client,
             Url::parse("http://bmc.example").expect("test endpoint must be valid"),
             create_test_credentials(),
-            CacheSettings::with_capacity(0),
+            CacheSettings::with_capacity(cache_size),
         );
 
         bmc.with_request_concurrency_limit(limit)
@@ -299,6 +312,13 @@ mod tests {
         attempt
             .response
             .send(response)
+            .expect("request future must accept its response");
+    }
+
+    fn respond_cached(attempt: TransportAttempt) {
+        attempt
+            .response
+            .send(TestResponse::Cached)
             .expect("request future must accept its response");
     }
 
@@ -409,7 +429,7 @@ mod tests {
 
     fn assert_operation_waits_for_permit(operation: Operation) {
         let (client, mut transport) = controlled_client();
-        let bmc = create_bmc(client, NonZeroUsize::MIN);
+        let bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let holder_id = ODataId::from("/holder".to_owned());
 
         let mut holder = tokio_test::task::spawn(bmc.get::<TestResource>(&holder_id));
@@ -420,22 +440,64 @@ mod tests {
         assert_pending!(operation_task.poll());
         transport.assert_no_attempt();
 
-        respond(holder_attempt, TestResponse::Resource);
+        respond(holder_attempt, TestResponse::Resource(None));
         assert_ready_ok!(holder.poll());
         assert!(operation_task.is_woken());
         assert_pending!(operation_task.poll());
         let operation_attempt = transport.next_attempt();
 
         assert_eq!(operation_attempt.path, operation.path());
-        respond(operation_attempt, TestResponse::Resource);
+        respond(operation_attempt, TestResponse::Resource(None));
         assert_ready_ok!(operation_task.poll());
+    }
+
+    #[test]
+    fn test_missed_cache_error_on_concurrent_requests() -> Result<(), Box<dyn std::error::Error>> {
+        let (client, mut transport) = controlled_client();
+        let limit = NonZeroUsize::new(2).expect("test limit must be non-zero");
+        let bmc = create_bmc(client, limit, 1);
+
+        let first_id = ODataId::from("/first".to_owned());
+        let second_id = ODataId::from("/second".to_owned());
+
+        let mut first = tokio_test::task::spawn(bmc.get::<TestResource>(&first_id));
+        assert_pending!(first.poll());
+        //Caching the first response
+        let first_attempt = transport.next_attempt();
+        respond(
+            first_attempt,
+            TestResponse::Resource(Some("test".to_string().into())),
+        );
+        assert_ready_ok!(first.poll());
+
+        //Request it again, client should see it's cached and expects:
+        //StatusCode::NOT_MODIFIED -> Get from cache
+        let mut first_pretend_cached = tokio_test::task::spawn(bmc.get::<TestResource>(&first_id));
+        assert_pending!(first_pretend_cached.poll());
+        let first_attempt_pretend_cached = transport.next_attempt();
+
+        //Send second request to overwrite the cache meanwhile
+        let mut second = tokio_test::task::spawn(bmc.get::<TestResource>(&second_id));
+        assert_pending!(second.poll());
+        let second_attempt = transport.next_attempt();
+        respond(
+            second_attempt,
+            TestResponse::Resource(Some("another_tag".to_string().into())),
+        );
+        assert_ready_ok!(second.poll());
+
+        //Confirm StatusCode::NOT_MODIFIED for the first
+        respond_cached(first_attempt_pretend_cached);
+        assert_ready_ok!(first_pretend_cached.poll());
+
+        Ok(())
     }
 
     #[test]
     fn limit_two_allows_two_operations_and_blocks_a_third() {
         let (client, mut transport) = controlled_client();
         let limit = NonZeroUsize::new(2).expect("test limit must be non-zero");
-        let bmc = create_bmc(client, limit);
+        let bmc = create_bmc(client, limit, 0);
         let first_id = ODataId::from("/first".to_owned());
         let second_id = ODataId::from("/second".to_owned());
         let third_id = ODataId::from("/third".to_owned());
@@ -451,7 +513,7 @@ mod tests {
         assert_pending!(third.poll());
         transport.assert_no_attempt();
 
-        respond(first_attempt, TestResponse::Resource);
+        respond(first_attempt, TestResponse::Resource(None));
         assert_ready_ok!(first.poll());
 
         assert!(third.is_woken());
@@ -459,8 +521,8 @@ mod tests {
         let third_attempt = transport.next_attempt();
 
         assert_eq!(third_attempt.path, "/third");
-        respond(second_attempt, TestResponse::Resource);
-        respond(third_attempt, TestResponse::Resource);
+        respond(second_attempt, TestResponse::Resource(None));
+        respond(third_attempt, TestResponse::Resource(None));
         assert_ready_ok!(second.poll());
         assert_ready_ok!(third.poll());
     }
@@ -468,8 +530,8 @@ mod tests {
     #[test]
     fn shared_http_client_has_independent_per_bmc_limits() {
         let (client, mut transport) = controlled_client();
-        let first_bmc = create_bmc(client.clone(), NonZeroUsize::MIN);
-        let second_bmc = create_bmc(client, NonZeroUsize::MIN);
+        let first_bmc = create_bmc(client.clone(), NonZeroUsize::MIN, 0);
+        let second_bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let first_id = ODataId::from("/first".to_owned());
         let second_id = ODataId::from("/second".to_owned());
 
@@ -482,8 +544,8 @@ mod tests {
         let second_attempt = transport.next_attempt();
 
         assert_eq!(second_attempt.path, "/second");
-        respond(first_attempt, TestResponse::Resource);
-        respond(second_attempt, TestResponse::Resource);
+        respond(first_attempt, TestResponse::Resource(None));
+        respond(second_attempt, TestResponse::Resource(None));
         assert_ready_ok!(first.poll());
         assert_ready_ok!(second.poll());
     }
@@ -511,7 +573,7 @@ mod tests {
     #[test]
     fn retry_holds_permit_for_entire_logical_operation() {
         let (client, mut transport) = controlled_client();
-        let bmc = create_bmc(client, NonZeroUsize::MIN);
+        let bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let retry_id = ODataId::from("/retry".to_owned());
         let other_id = ODataId::from("/other".to_owned());
 
@@ -530,7 +592,7 @@ mod tests {
         assert_eq!(second_attempt.path, "/retry");
         transport.assert_no_attempt();
 
-        respond(second_attempt, TestResponse::Resource);
+        respond(second_attempt, TestResponse::Resource(None));
         assert_ready_ok!(retrying.poll());
 
         assert!(other.is_woken());
@@ -538,14 +600,14 @@ mod tests {
         let other_attempt = transport.next_attempt();
 
         assert_eq!(other_attempt.path, "/other");
-        respond(other_attempt, TestResponse::Resource);
+        respond(other_attempt, TestResponse::Resource(None));
         assert_ready_ok!(other.poll());
     }
 
     #[test]
     fn canceling_waiter_does_not_consume_capacity() {
         let (client, mut transport) = controlled_client();
-        let bmc = create_bmc(client, NonZeroUsize::MIN);
+        let bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let first_id = ODataId::from("/first".to_owned());
         let canceled_id = ODataId::from("/canceled".to_owned());
         let next_id = ODataId::from("/next".to_owned());
@@ -562,7 +624,7 @@ mod tests {
         let mut next = tokio_test::task::spawn(bmc.get::<TestResource>(&next_id));
         assert_pending!(next.poll());
         transport.assert_no_attempt();
-        respond(first_attempt, TestResponse::Resource);
+        respond(first_attempt, TestResponse::Resource(None));
         assert_ready_ok!(first.poll());
 
         assert!(next.is_woken());
@@ -570,14 +632,14 @@ mod tests {
         let next_attempt = transport.next_attempt();
 
         assert_eq!(next_attempt.path, "/next");
-        respond(next_attempt, TestResponse::Resource);
+        respond(next_attempt, TestResponse::Resource(None));
         assert_ready_ok!(next.poll());
     }
 
     #[test]
     fn canceling_in_flight_operation_releases_capacity() {
         let (client, mut transport) = controlled_client();
-        let bmc = create_bmc(client, NonZeroUsize::MIN);
+        let bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let first_id = ODataId::from("/first".to_owned());
         let next_id = ODataId::from("/next".to_owned());
 
@@ -597,14 +659,14 @@ mod tests {
         let next_attempt = transport.next_attempt();
 
         assert_eq!(next_attempt.path, "/next");
-        respond(next_attempt, TestResponse::Resource);
+        respond(next_attempt, TestResponse::Resource(None));
         assert_ready_ok!(next.poll());
     }
 
     #[test]
     fn sse_holds_permit_during_establishment_and_releases_it_afterward() {
         let (client, mut transport) = controlled_client();
-        let bmc = create_bmc(client, NonZeroUsize::MIN);
+        let bmc = create_bmc(client, NonZeroUsize::MIN, 0);
         let next_id = ODataId::from("/next".to_owned());
 
         let mut sse = tokio_test::task::spawn(bmc.stream::<JsonValue>(SSE_URI));
@@ -627,7 +689,7 @@ mod tests {
         let next_attempt = transport.next_attempt();
 
         assert_eq!(next_attempt.path, "/next");
-        respond(next_attempt, TestResponse::Resource);
+        respond(next_attempt, TestResponse::Resource(None));
         assert_ready_ok!(next.poll());
     }
 
@@ -652,8 +714,8 @@ mod tests {
         let first_attempt = transport.next_attempt();
         let second_attempt = transport.next_attempt();
 
-        respond(first_attempt, TestResponse::Resource);
-        respond(second_attempt, TestResponse::Resource);
+        respond(first_attempt, TestResponse::Resource(None));
+        respond(second_attempt, TestResponse::Resource(None));
         assert_ready_ok!(first.poll());
         assert_ready_ok!(second.poll());
     }
