@@ -51,6 +51,9 @@ pub mod chassis_actions;
 pub mod computer_system;
 
 #[cfg(feature = "processors")]
+pub mod processor;
+
+#[cfg(feature = "processors")]
 pub mod processor_metrics;
 
 #[cfg(feature = "update-service")]
@@ -81,6 +84,10 @@ pub use chassis_actions::NvidiaChassisResetType;
 #[cfg(feature = "computer-systems")]
 #[doc(inline)]
 pub use computer_system::NvidiaComputerSystem;
+
+#[cfg(feature = "processors")]
+#[doc(inline)]
+pub use processor::NvidiaProcessor;
 
 #[cfg(feature = "processors")]
 #[doc(inline)]
