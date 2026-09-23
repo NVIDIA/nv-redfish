@@ -53,6 +53,25 @@ async fn gpu_oem_payload_has_typed_fields() -> Result<(), Box<dyn StdError>> {
 }
 
 #[test]
+async fn lpu_oem_payload_has_typed_fields() -> Result<(), Box<dyn StdError>> {
+    let processor = get_processor(Some(json!({
+        "Nvidia": {
+            ODATA_TYPE: "#NvidiaProcessor.v1_7_0.NvidiaLPU",
+            "BootStatusCode": 7,
+            "VoltageBinNumber": 3,
+        }
+    })))
+    .await?;
+
+    let Some(NvidiaProcessor::Lpu(lpu)) = processor.oem_nvidia()? else {
+        panic!("processor must expose the LPU shape");
+    };
+    assert_eq!(lpu.boot_status_code.flatten(), Some(7));
+    assert_eq!(lpu.voltage_bin_number.flatten(), Some(3));
+    Ok(())
+}
+
+#[test]
 async fn missing_or_null_nvidia_oem_payload_is_absent() -> Result<(), Box<dyn StdError>> {
     for oem in [None, Some(json!({ "Nvidia": null }))] {
         let processor = get_processor(oem).await?;

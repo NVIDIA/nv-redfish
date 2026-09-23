@@ -17,6 +17,7 @@
 
 use crate::oem::declares;
 use crate::oem::nvidia::schema::nvidia_processor::NvidiaGpu as NvidiaGpuSchema;
+use crate::oem::nvidia::schema::nvidia_processor::NvidiaLpu as NvidiaLpuSchema;
 use crate::oem::nvidia::schema::nvidia_processor::NvidiaProcessor as NvidiaProcessorSchema;
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_value;
@@ -30,7 +31,9 @@ use std::sync::Arc;
 pub enum NvidiaProcessor {
     /// GPU properties, including the properties shared by NVIDIA processors.
     Gpu(Arc<NvidiaGpuSchema>),
-    /// Properties common to NVIDIA processors with another or unknown type.
+    /// LPU properties, including the properties shared by NVIDIA processors.
+    Lpu(Arc<NvidiaLpuSchema>),
+    /// Properties common to NVIDIA processors with an unknown type.
     Generic(Arc<NvidiaProcessorSchema>),
 }
 
@@ -49,6 +52,10 @@ impl NvidiaProcessor {
         let this = if declares(nvidia, "NvidiaProcessor", "NvidiaGPU") {
             Self::Gpu(Arc::new(
                 NvidiaGpuSchema::deserialize(nvidia).map_err(Error::Json)?,
+            ))
+        } else if declares(nvidia, "NvidiaProcessor", "NvidiaLPU") {
+            Self::Lpu(Arc::new(
+                NvidiaLpuSchema::deserialize(nvidia).map_err(Error::Json)?,
             ))
         } else {
             Self::Generic(Arc::new(
