@@ -100,7 +100,16 @@ async fn traverses_fabrics_switches_and_ports() -> Result<(), Box<dyn StdError>>
                 "Switches": { ODATA_ID: &ids.switches_id },
                 "FabricType": "NVLink",
                 "MaxZones": 16,
-                "Status": { "State": "Enabled", "Health": "OK" },
+                "Status": {
+                    "State": "Enabled",
+                    "Health": "OK",
+                    "Conditions": [{
+                        "MessageId": "Base.1.0.ResourceEvent",
+                        "Message": "A condition requires attention.",
+                        "Severity": "Warning",
+                        "OriginOfCondition": { ODATA_ID: &ids.switch_ids[0] },
+                    }],
+                },
             }),
         ),
     ));
@@ -112,6 +121,21 @@ async fn traverses_fabrics_switches_and_ports() -> Result<(), Box<dyn StdError>>
     let status = fabric.status().expect("fabric must include status");
     assert_eq!(status.state, Some(State::Enabled));
     assert_eq!(status.health, Some(Health::Ok));
+    let conditions = status
+        .conditions
+        .expect("fabric status must include conditions");
+    assert_eq!(conditions.len(), 1);
+    assert_eq!(conditions[0].message_id, "Base.1.0.ResourceEvent");
+    assert_eq!(conditions[0].severity, Some(Health::Warning));
+    assert_eq!(
+        conditions[0]
+            .origin_of_condition
+            .as_ref()
+            .expect("condition must include an origin")
+            .odata_id
+            .to_string(),
+        ids.switch_ids[0]
+    );
 
     bmc.expect(Expect::get(
         &ids.switches_id,
