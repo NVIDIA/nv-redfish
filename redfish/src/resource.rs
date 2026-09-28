@@ -22,6 +22,10 @@ use std::convert::identity;
 
 #[doc(inline)]
 #[cfg(feature = "resource-status")]
+pub use crate::schema::resource::Condition;
+
+#[doc(inline)]
+#[cfg(feature = "resource-status")]
 pub use crate::schema::resource::Health;
 
 #[doc(inline)]
@@ -66,5 +70,15 @@ pub trait ResourceProvidesStatus {
             health: status.health.and_then(identity),
             health_rollup: status.health_rollup.and_then(identity),
         })
+    }
+
+    /// Active conditions reported in this resource's status.
+    ///
+    /// Returns `None` when the status or its conditions are absent or null.
+    fn conditions(&self) -> Option<&[Condition]> {
+        self.resource_status_ref()?
+            .conditions
+            .as_ref()
+            .and_then(Option::as_deref)
     }
 }

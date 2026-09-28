@@ -47,6 +47,29 @@ const NVIDIA_FABRIC_DATA_TYPE: &str = "#NvidiaFabric.v1_0_0.NvidiaFabric";
 const NVIDIA_SWITCH_DATA_TYPE: &str = "#NvidiaSwitch.v1_5_0.NvidiaSwitch";
 
 #[test]
+async fn status_can_outlive_fabric_while_conditions_borrow_it() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = Ids::new();
+    let fabric = get_fabric(
+        bmc,
+        &ids,
+        json!({
+            "Status": {
+                "State": "Enabled",
+                "Conditions": [{ "MessageId": "Base.1.0.ResourceEvent" }],
+            },
+        }),
+    )
+    .await?;
+
+    let status = fabric.status().expect("fabric status");
+    assert_eq!(fabric.conditions().expect("conditions").len(), 1);
+    drop(fabric);
+    assert_eq!(status.state, Some(State::Enabled));
+    Ok(())
+}
+
+#[test]
 async fn fabric_preserves_managed_by_links() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = Ids::new();
@@ -100,7 +123,16 @@ async fn traverses_fabrics_switches_and_ports() -> Result<(), Box<dyn StdError>>
                 "Switches": { ODATA_ID: &ids.switches_id },
                 "FabricType": "NVLink",
                 "MaxZones": 16,
-                "Status": { "State": "Enabled", "Health": "OK" },
+                "Status": {
+                    "State": "Enabled",
+                    "Health": "OK",
+                    "Conditions": [{
+                        "MessageId": "Base.1.0.ResourceEvent",
+                        "Message": "A condition requires attention.",
+                        "Severity": "Warning",
+                        "OriginOfCondition": { ODATA_ID: &ids.switch_ids[0] },
+                    }],
+                },
             }),
         ),
     ));
@@ -112,6 +144,21 @@ async fn traverses_fabrics_switches_and_ports() -> Result<(), Box<dyn StdError>>
     let status = fabric.status().expect("fabric must include status");
     assert_eq!(status.state, Some(State::Enabled));
     assert_eq!(status.health, Some(Health::Ok));
+    let conditions = fabric
+        .conditions()
+        .expect("fabric status must include conditions");
+    assert_eq!(conditions.len(), 1);
+    assert_eq!(conditions[0].message_id, "Base.1.0.ResourceEvent");
+    assert_eq!(conditions[0].severity, Some(Health::Warning));
+    assert_eq!(
+        conditions[0]
+            .origin_of_condition
+            .as_ref()
+            .expect("condition must include an origin")
+            .odata_id
+            .to_string(),
+        ids.switch_ids[0]
+    );
 
     bmc.expect(Expect::get(
         &ids.switches_id,
