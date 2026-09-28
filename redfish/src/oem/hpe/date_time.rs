@@ -47,12 +47,6 @@ impl<B: Bmc> HpeiLoDateTime<B> {
             })
     }
 
-    /// NTP servers currently in use.
-    #[must_use]
-    pub fn ntp_servers(&self) -> Option<&[String]> {
-        self.data.ntp_servers.as_deref()
-    }
-
     /// Statically configured NTP servers.
     #[must_use]
     pub fn static_ntp_servers(&self) -> Option<&[String]> {

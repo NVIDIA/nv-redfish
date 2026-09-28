@@ -47,9 +47,6 @@ limitations under the License.
         <Property Name="DateTime" Type="Edm.DateTimeOffset" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
         </Property>
-        <Property Name="NTPServers" Type="Collection(Edm.String)" Nullable="false">
-          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
-        </Property>
         <Property Name="PropagateTimeToHost" Type="Edm.Boolean" Nullable="false">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
         </Property>
