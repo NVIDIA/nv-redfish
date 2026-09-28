@@ -15,6 +15,9 @@
 
 //! Support NVIDIA Manager OEM extension.
 //!
+//! The resource is the NVIDIA `NvidiaManager` OEM object and is returned
+//! as the compiled schema type.
+//!
 //! The BlueField DPU links a separate resource from the manager's
 //! `Oem.Nvidia` object and keeps the BMC rshim state in it:
 //!
@@ -27,16 +30,18 @@
 //! a platform quirk, only on the platform detected as the DPU.
 //! BlueField-4 does not publish the resource.
 
+use crate::oem::nvidia::schema::nvidia_manager::v1_9_0::NvidiaManager as NvidiaManagerSchema;
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_value;
 use crate::patch_support::JsonValue;
-use crate::schema::manager::Manager as ManagerSchema;
+use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use serde::Serialize;
+use std::sync::Arc;
 
 #[derive(Serialize)]
 struct BmcRshimUpdate {
@@ -50,30 +55,44 @@ struct BmcRshimState {
     enabled: bool,
 }
 
-/// NVIDIA OEM extension of a manager.
+/// Represents a NVIDIA extension of manager in the BMC.
 pub struct NvidiaManager<B: Bmc> {
-    bmc: NvBmc<B>,
+    data: Arc<NvidiaManagerSchema>,
     /// Resource linked from `Oem.Nvidia`. `None` on every platform other
     /// than the BlueField DPU; see the module documentation.
     dpu_resource: Option<ODataId>,
+    bmc: NvBmc<B>,
 }
 
 impl<B: Bmc> NvidiaManager<B> {
     /// Create a new NVIDIA manager handle.
     ///
-    /// Returns `None` when the manager carries no `Oem.Nvidia` object.
-    pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Option<Self> {
-        let nvidia = oem_value(manager.oem.as_ref()?, OEM_KEY)?;
+    /// Returns `Ok(None)` when the OEM payload carries no NVIDIA object.
+    pub(crate) fn new(bmc: &NvBmc<B>, oem: &ResourceOemSchema) -> Result<Option<Self>, Error<B>> {
+        let Some(nvidia) = oem_value(oem, OEM_KEY) else {
+            return Ok(None);
+        };
+        let data = serde_json::from_value(nvidia.clone()).map_err(Error::Json)?;
         let dpu_resource = bmc
             .quirks
             .bug_dpu_oem_manager()
             .then(|| nvidia.get("@odata.id").and_then(JsonValue::as_str))
             .flatten()
             .map(|id| ODataId::from(id.to_owned()));
-        Some(Self {
-            bmc: bmc.clone(),
+        Ok(Some(Self {
+            data: Arc::new(data),
             dpu_resource,
-        })
+            bmc: bmc.clone(),
+        }))
+    }
+
+    /// Get the raw schema data for this NVIDIA manager.
+    ///
+    /// Returns an `Arc` to the underlying schema, allowing cheap cloning
+    /// and sharing of the data.
+    #[must_use]
+    pub fn raw(&self) -> Arc<NvidiaManagerSchema> {
+        self.data.clone()
     }
 
     /// Enable or disable the BMC side of the DPU rshim interface.

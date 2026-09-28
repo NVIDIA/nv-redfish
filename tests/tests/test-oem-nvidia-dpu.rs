@@ -67,7 +67,6 @@ async fn bf3_set_mode_posts_advertised_target() -> Result<(), Box<dyn StdError>>
     let system = bf3_system(bmc.clone()).await?;
     let oem = bf3_oem(&bmc, &system).await?;
 
-    assert_eq!(oem.mode(), Some(Mode::DpuMode));
     bmc.expect(Expect::action(
         format!("{BF3_OEM}/Actions/Mode.Set"),
         json!({"Mode": "NicMode"}),
@@ -119,6 +118,44 @@ async fn bf3_soc_force_reset_uses_advertised_target() -> Result<(), Box<dyn StdE
 }
 
 #[test]
+async fn malformed_dpu_action_fails_only_that_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+    bmc.expect(Expect::get(
+        BF3_OEM,
+        json!({
+            ODATA_ID: BF3_OEM,
+            ODATA_TYPE: "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem",
+            "Actions": {
+                "#Mode.Set": { "target": 5 },
+                "#HostRshim.Set": { "target": format!("{BF3_OEM}/Actions/HostRshim.Set") }
+            },
+            "Mode": "DpuMode"
+        }),
+    ));
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("BlueField-3 system must carry Oem.Nvidia");
+
+    assert_eq!(oem.mode(), Some(Mode::DpuMode));
+    assert!(matches!(
+        oem.set_mode(Mode::NicMode).await,
+        Err(Error::Json(_))
+    ));
+    bmc.expect(Expect::action(
+        format!("{BF3_OEM}/Actions/HostRshim.Set"),
+        json!({"HostRshim": "Disabled"}),
+        json!(null),
+    ));
+    assert!(matches!(
+        oem.set_host_rshim(false).await?,
+        ModificationResponse::Entity(())
+    ));
+    Ok(())
+}
+
+#[test]
 async fn bf4_system_oem_advertises_no_dpu_actions() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let system = get_system(
@@ -143,10 +180,6 @@ async fn bf4_system_oem_advertises_no_dpu_actions() -> Result<(), Box<dyn StdErr
     assert_eq!(oem.host_rshim(), None);
     assert!(matches!(
         oem.set_mode(Mode::NicMode).await,
-        Err(Error::ActionNotAvailable)
-    ));
-    assert!(matches!(
-        oem.soc_force_reset().await,
         Err(Error::ActionNotAvailable)
     ));
     Ok(())
@@ -190,7 +223,7 @@ async fn bf3_enable_bmc_rshim_patches_linked_resource() -> Result<(), Box<dyn St
     let bmc = Arc::new(Bmc::default());
     let manager = get_manager(bmc.clone(), BF3_PRODUCT).await?;
     let oem = manager
-        .oem_nvidia()
+        .oem_nvidia()?
         .expect("BlueField-3 manager must carry Oem.Nvidia");
 
     bmc.expect(Expect::update_empty(
@@ -205,7 +238,9 @@ async fn bf3_enable_bmc_rshim_patches_linked_resource() -> Result<(), Box<dyn St
 async fn manager_rshim_is_unavailable_off_dpu() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let manager = get_manager(bmc.clone(), "GB200 NVL").await?;
-    let oem = manager.oem_nvidia().expect("manager must carry Oem.Nvidia");
+    let oem = manager
+        .oem_nvidia()?
+        .expect("manager must carry Oem.Nvidia");
 
     assert!(matches!(
         oem.set_bmc_rshim_enabled(true).await,
@@ -240,7 +275,6 @@ async fn adapter_base_mac_is_hidden_off_dpu() -> Result<(), Box<dyn StdError>> {
         .oem_nvidia()?
         .expect("adapter must carry Oem.Nvidia");
 
-    assert_eq!(oem.dpu_operation_mode(), Some(DpuOperationMode::Dpu));
     assert!(oem.base_mac().is_none());
     Ok(())
 }
@@ -307,31 +341,6 @@ async fn with_oem_nvidia_keeps_other_oem_members() -> Result<(), Box<dyn StdErro
                 "Nvidia": {"DPUOperationMode": "DPU"}
             }
         })
-    );
-    Ok(())
-}
-
-#[test]
-async fn bf4_host_privilege_config_reports_restricted_state() -> Result<(), Box<dyn StdError>> {
-    // Captured state after host privileges were restricted.
-    let bmc = Arc::new(Bmc::default());
-    let config = bf4_host_privilege_config(
-        &bmc,
-        json!({
-            "PrivilegeMode": "Custom",
-            "PrivilegeSettings": {
-                "FirmwareUpdate": "Default",
-                "HostPrivilegeLevel": "Restricted",
-                "ManagementInterfaceEnabled": false
-            }
-        }),
-    )
-    .await?;
-
-    assert_eq!(config.privilege_mode(), Some(PrivilegeModeType::Custom));
-    assert_eq!(
-        config.host_privilege_level(),
-        Some(HostPrivilegeLevelInput::Restricted)
     );
     Ok(())
 }

@@ -266,13 +266,19 @@ impl<B: Bmc> Manager<B> {
         LenovoManager::new(&self.bmc, &self.data)
     }
 
-    /// Get NVIDIA Manager OEM.
+    /// NVIDIA OEM extension
     ///
-    /// Returns `None` when the manager does not include `Oem.Nvidia`.
+    /// Returns `Ok(None)` when the manager does not include NVIDIA OEM extension data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if NVIDIA OEM data parsing fails.
     #[cfg(feature = "oem-nvidia")]
-    #[must_use]
-    pub fn oem_nvidia(&self) -> Option<NvidiaManager<B>> {
-        NvidiaManager::new(&self.bmc, &self.data)
+    pub fn oem_nvidia(&self) -> Result<Option<NvidiaManager<B>>, Error<B>> {
+        self.data
+            .oem
+            .as_ref()
+            .map_or_else(|| Ok(None), |oem| NvidiaManager::new(&self.bmc, oem))
     }
 
     /// Get HPE Manager OEM.

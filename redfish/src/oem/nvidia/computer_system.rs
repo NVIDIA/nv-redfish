@@ -122,17 +122,6 @@ struct HostRshimSetParams {
 #[derive(Serialize)]
 struct NoParams {}
 
-/// Actions the DPU advertises in its `Oem.Nvidia` body.
-#[derive(Deserialize)]
-struct DpuSystemActions {
-    #[serde(rename = "#Mode.Set")]
-    mode_set: Option<Action<ModeSetParams, ()>>,
-    #[serde(rename = "#HostRshim.Set")]
-    host_rshim_set: Option<Action<HostRshimSetParams, ()>>,
-    #[serde(rename = "#SOC.ForceReset")]
-    soc_force_reset: Option<Action<NoParams, ()>>,
-}
-
 pub use crate::oem::nvidia::BaseMac;
 #[doc(hidden)]
 pub use crate::oem::nvidia::BaseMacTag;
@@ -147,7 +136,6 @@ pub struct NvidiaComputerSystem<B: Bmc> {
     /// every other platform, which is what keeps those properties from
     /// being reported where they are not expected.
     dpu_body: Option<Arc<JsonValue>>,
-    dpu_actions: Option<DpuSystemActions>,
     bmc: NvBmc<B>,
 }
 
@@ -170,14 +158,9 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
             };
             let body = Payload::get_raw(bmc.as_ref(), &ODataId::from(id.to_owned())).await?;
             let data = serde_json::from_value(body.clone()).map_err(Error::Json)?;
-            let dpu_actions = body
-                .get("Actions")
-                .map(|actions| DpuSystemActions::deserialize(actions).map_err(Error::Json))
-                .transpose()?;
             return Ok(Some(Self {
                 data: Arc::new(data),
                 dpu_body: Some(Arc::new(body)),
-                dpu_actions,
                 bmc: bmc.clone(),
             }));
         }
@@ -185,9 +168,23 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
         Ok(Some(Self {
             data: Arc::new(data),
             dpu_body: None,
-            dpu_actions: None,
             bmc: bmc.clone(),
         }))
+    }
+
+    /// Parse the advertised `Oem.Nvidia` action `name`.
+    ///
+    /// The actions are undeclared, so each is parsed only when invoked; a
+    /// malformed action fails that call instead of the whole extension.
+    fn dpu_action<T>(&self, name: &str) -> Result<Action<T, ()>, Error<B>> {
+        let action = self
+            .dpu_body
+            .as_ref()
+            .and_then(|body| body.get("Actions"))
+            .and_then(|actions| actions.get(name))
+            .filter(|action| !action.is_null())
+            .ok_or(Error::ActionNotAvailable)?;
+        Action::deserialize(action).map_err(Error::Json)
     }
 
     /// Get the raw schema data for this NVIDIA computer system.
@@ -257,11 +254,7 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self
-            .dpu_actions
-            .as_ref()
-            .and_then(|actions| actions.mode_set.as_ref())
-            .ok_or(Error::ActionNotAvailable)?;
+        let action = self.dpu_action("#Mode.Set")?;
         action
             .run(self.bmc.as_ref(), &ModeSetParams { mode })
             .await
@@ -282,11 +275,7 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self
-            .dpu_actions
-            .as_ref()
-            .and_then(|actions| actions.host_rshim_set.as_ref())
-            .ok_or(Error::ActionNotAvailable)?;
+        let action = self.dpu_action("#HostRshim.Set")?;
         let host_rshim = if enabled { "Enabled" } else { "Disabled" };
         action
             .run(self.bmc.as_ref(), &HostRshimSetParams { host_rshim })
@@ -308,11 +297,7 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self
-            .dpu_actions
-            .as_ref()
-            .and_then(|actions| actions.soc_force_reset.as_ref())
-            .ok_or(Error::ActionNotAvailable)?;
+        let action = self.dpu_action("#SOC.ForceReset")?;
         action
             .run(self.bmc.as_ref(), &NoParams {})
             .await
