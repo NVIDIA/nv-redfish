@@ -44,6 +44,8 @@ use crate::oem::dell::DellManager;
 use crate::oem::hpe::manager::HpeManager;
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::manager::LenovoManager;
+#[cfg(feature = "oem-nvidia")]
+use crate::oem::nvidia::manager::NvidiaManager;
 #[cfg(feature = "oem-supermicro")]
 use crate::oem::supermicro::manager::SupermicroManager;
 
@@ -262,6 +264,15 @@ impl<B: Bmc> Manager<B> {
     #[cfg(feature = "oem-lenovo")]
     pub fn oem_lenovo(&self) -> Result<Option<LenovoManager<B>>, Error<B>> {
         LenovoManager::new(&self.bmc, &self.data)
+    }
+
+    /// Get NVIDIA Manager OEM.
+    ///
+    /// Returns `None` when the manager does not include `Oem.Nvidia`.
+    #[cfg(feature = "oem-nvidia")]
+    #[must_use]
+    pub fn oem_nvidia(&self) -> Option<NvidiaManager<B>> {
+        NvidiaManager::new(&self.bmc, &self.data)
     }
 
     /// Get HPE Manager OEM.

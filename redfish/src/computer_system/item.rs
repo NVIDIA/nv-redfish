@@ -27,6 +27,9 @@ use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::resource::PowerState;
 use crate::resource::ResetType;
+use crate::schema::computer_system::BootSource;
+use crate::schema::computer_system::BootSourceOverrideEnabled;
+use crate::schema::computer_system::BootSourceOverrideMode;
 use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -302,6 +305,42 @@ impl<B: Bmc> ComputerSystem<B> {
                     )
                     .build(),
             )
+            .build();
+
+        let settings = self.data.settings_object();
+        let update_odata = settings
+            .as_ref()
+            .map_or_else(|| self.data.odata_id(), |settings| settings.odata_id());
+        self.update_at(update_odata, None, &update).await
+    }
+
+    /// Override the boot source for this computer system.
+    ///
+    /// `http_boot_uri` applies when `target` is `UefiHttp`. Like
+    /// [`Self::set_boot_order`], this writes to the settings object when
+    /// the system advertises one.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating the system fails.
+    pub async fn set_boot_source_override(
+        &self,
+        target: BootSource,
+        enabled: BootSourceOverrideEnabled,
+        mode: Option<BootSourceOverrideMode>,
+        http_boot_uri: Option<String>,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
+        let mut boot = BootUpdate::builder()
+            .with_boot_source_override_target(target)
+            .with_boot_source_override_enabled(enabled);
+        if let Some(mode) = mode {
+            boot = boot.with_boot_source_override_mode(mode);
+        }
+        if let Some(uri) = http_boot_uri {
+            boot = boot.with_http_boot_uri(uri);
+        }
+        let update = ComputerSystemUpdate::builder()
+            .with_boot(boot.build())
             .build();
 
         let settings = self.data.settings_object();

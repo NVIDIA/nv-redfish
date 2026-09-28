@@ -51,6 +51,9 @@ pub use network_adapter::NetworkAdapter;
 pub use network_adapter::NetworkAdapterCollection;
 #[doc(inline)]
 #[cfg(feature = "network-adapters")]
+pub use network_adapter::NetworkAdapterUpdate;
+#[doc(inline)]
+#[cfg(feature = "network-adapters")]
 pub use network_adapter::PartNumber as NetworkAdapterPartNumber;
 #[doc(inline)]
 #[cfg(feature = "network-adapters")]

@@ -25,13 +25,19 @@
 //! * it serves the object as a separate resource and inlines only a
 //!   partially expanded stub under `Oem.Nvidia`, so the body has to be
 //!   fetched from `@odata.id`;
-//! * that body carries `BaseMAC` and `Mode`. Neither is declared by the
-//!   CSDL the device publishes, and the NVIDIA OEM schema set not only
-//!   omits them but marks the type `OData.AdditionalProperties=false`,
-//!   so no schema route to them exists or should be invented.
+//! * that body carries `BaseMAC`, `Mode`, `HostRshim` and the
+//!   `#Mode.Set`, `#HostRshim.Set` and `#SOC.ForceReset` actions. None
+//!   of them is declared by the CSDL the device publishes, and the
+//!   NVIDIA OEM schema set not only omits them but marks the type
+//!   `OData.AdditionalProperties=false`, so no schema route to them
+//!   exists or should be invented. The actions are typed here instead,
+//!   with their targets taken from the body.
 //!
-//! Both apply only on the platform detected as the DPU. Drop
-//! [`NvidiaComputerSystem::base_mac`] and [`NvidiaComputerSystem::mode`]
+//! Both apply only on the platform detected as the DPU. BlueField-4
+//! serves the object without any of these; its DPU mode and host
+//! privileges live on the network adapter instead. BlueField-3 with BMC
+//! firmware 26.04 or later also links a host privilege configuration
+//! from its network adapters, alongside these. Drop the quirk accessors
 //! once firmware either stops sending them or declares them properly.
 
 use crate::oem::nvidia::schema::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
@@ -42,16 +48,19 @@ use crate::patch_support::Payload;
 use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use crate::NvBmc;
+use nv_redfish_core::Action;
+use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
-use std::marker::PhantomData;
+use serde::Deserialize;
+use serde::Serialize;
 use std::sync::Arc;
-use tagged_types::TaggedType;
 
 /// Operating mode of a BlueField device.
 ///
 /// Undeclared by the NVIDIA OEM schema; see the module documentation.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
 pub enum Mode {
     /// This BlueField device works as a regular NIC for the host.
     NicMode,
@@ -59,10 +68,12 @@ pub enum Mode {
     /// processing.
     DpuMode,
     /// Fallback for modes this version of the library does not know.
+    #[serde(other)]
     UnsupportedValue,
 }
 
 impl Mode {
+    /// Map a reported mode, keeping unknown ones as `UnsupportedValue`.
     fn parse(v: &str) -> Self {
         match v {
             "NicMode" => Self::NicMode,
@@ -72,14 +83,59 @@ impl Mode {
     }
 }
 
-/// Base MAC address of the Bluefield DPU as reported by the device.
-pub type BaseMac<T> = TaggedType<T, BaseMacTag>;
+/// State of the host-side rshim interface of a BlueField device.
+///
+/// Undeclared by the NVIDIA OEM schema; see the module documentation.
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum HostRshim {
+    /// The host can reach the DPU over rshim.
+    Enabled,
+    /// The host cannot reach the DPU over rshim.
+    Disabled,
+    /// Fallback for states this version of the library does not know.
+    UnsupportedValue,
+}
+
+impl HostRshim {
+    /// Map a reported state, keeping unknown ones as `UnsupportedValue`.
+    fn parse(v: &str) -> Self {
+        match v {
+            "Enabled" => Self::Enabled,
+            "Disabled" => Self::Disabled,
+            _ => Self::UnsupportedValue,
+        }
+    }
+}
+
+#[derive(Serialize)]
+struct ModeSetParams {
+    #[serde(rename = "Mode")]
+    mode: Mode,
+}
+
+#[derive(Serialize)]
+struct HostRshimSetParams {
+    #[serde(rename = "HostRshim")]
+    host_rshim: &'static str,
+}
+
+#[derive(Serialize)]
+struct NoParams {}
+
+/// Actions the DPU advertises in its `Oem.Nvidia` body.
+#[derive(Deserialize)]
+struct DpuSystemActions {
+    #[serde(rename = "#Mode.Set")]
+    mode_set: Option<Action<ModeSetParams, ()>>,
+    #[serde(rename = "#HostRshim.Set")]
+    host_rshim_set: Option<Action<HostRshimSetParams, ()>>,
+    #[serde(rename = "#SOC.ForceReset")]
+    soc_force_reset: Option<Action<NoParams, ()>>,
+}
+
+pub use crate::oem::nvidia::BaseMac;
 #[doc(hidden)]
-#[derive(tagged_types::Tag)]
-#[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
-#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
-#[capability(inner_access, cloned)]
-pub enum BaseMacTag {}
+pub use crate::oem::nvidia::BaseMacTag;
 
 /// Represents a NVIDIA extension of computer system in the BMC.
 ///
@@ -91,7 +147,8 @@ pub struct NvidiaComputerSystem<B: Bmc> {
     /// every other platform, which is what keeps those properties from
     /// being reported where they are not expected.
     dpu_body: Option<Arc<JsonValue>>,
-    _marker: PhantomData<B>,
+    dpu_actions: Option<DpuSystemActions>,
+    bmc: NvBmc<B>,
 }
 
 impl<B: Bmc> NvidiaComputerSystem<B> {
@@ -113,17 +170,23 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
             };
             let body = Payload::get_raw(bmc.as_ref(), &ODataId::from(id.to_owned())).await?;
             let data = serde_json::from_value(body.clone()).map_err(Error::Json)?;
+            let dpu_actions = body
+                .get("Actions")
+                .map(|actions| DpuSystemActions::deserialize(actions).map_err(Error::Json))
+                .transpose()?;
             return Ok(Some(Self {
                 data: Arc::new(data),
                 dpu_body: Some(Arc::new(body)),
-                _marker: PhantomData,
+                dpu_actions,
+                bmc: bmc.clone(),
             }));
         }
         let data = serde_json::from_value(nvidia.clone()).map_err(Error::Json)?;
         Ok(Some(Self {
             data: Arc::new(data),
             dpu_body: None,
-            _marker: PhantomData,
+            dpu_actions: None,
+            bmc: bmc.clone(),
         }))
     }
 
@@ -163,5 +226,96 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
             .get("Mode")
             .and_then(JsonValue::as_str)
             .map(Mode::parse)
+    }
+
+    /// Get the state of the host-side rshim interface.
+    ///
+    /// Quirk: undeclared by the schema, read from the response body.
+    /// `None` on any platform other than the BlueField DPU and on DPUs
+    /// that do not report it, such as BlueField-4.
+    #[must_use]
+    pub fn host_rshim(&self) -> Option<HostRshim> {
+        self.dpu_body
+            .as_ref()?
+            .get("HostRshim")
+            .and_then(JsonValue::as_str)
+            .map(HostRshim::parse)
+    }
+
+    /// Switch the BlueField device between NIC and DPU mode.
+    ///
+    /// Invokes the `#Mode.Set` action advertised in the DPU's
+    /// `Oem.Nvidia` body.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::ActionNotAvailable`] when the DPU does not
+    /// advertise `#Mode.Set` (for example BlueField-4, which sets the
+    /// mode on its network adapter), or an error if invoking the action
+    /// fails.
+    pub async fn set_mode(&self, mode: Mode) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: ActionError,
+    {
+        let action = self
+            .dpu_actions
+            .as_ref()
+            .and_then(|actions| actions.mode_set.as_ref())
+            .ok_or(Error::ActionNotAvailable)?;
+        action
+            .run(self.bmc.as_ref(), &ModeSetParams { mode })
+            .await
+            .map_err(Error::Bmc)
+    }
+
+    /// Enable or disable the host-side rshim interface.
+    ///
+    /// Invokes the `#HostRshim.Set` action advertised in the DPU's
+    /// `Oem.Nvidia` body.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::ActionNotAvailable`] when the DPU does not
+    /// advertise `#HostRshim.Set`, or an error if invoking the action
+    /// fails.
+    pub async fn set_host_rshim(&self, enabled: bool) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: ActionError,
+    {
+        let action = self
+            .dpu_actions
+            .as_ref()
+            .and_then(|actions| actions.host_rshim_set.as_ref())
+            .ok_or(Error::ActionNotAvailable)?;
+        let host_rshim = if enabled { "Enabled" } else { "Disabled" };
+        action
+            .run(self.bmc.as_ref(), &HostRshimSetParams { host_rshim })
+            .await
+            .map_err(Error::Bmc)
+    }
+
+    /// Force a reset of the DPU's Arm SoC.
+    ///
+    /// Invokes the `#SOC.ForceReset` action advertised in the DPU's
+    /// `Oem.Nvidia` body.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::ActionNotAvailable`] when the DPU does not
+    /// advertise `#SOC.ForceReset`, or an error if invoking the action
+    /// fails.
+    pub async fn soc_force_reset(&self) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: ActionError,
+    {
+        let action = self
+            .dpu_actions
+            .as_ref()
+            .and_then(|actions| actions.soc_force_reset.as_ref())
+            .ok_or(Error::ActionNotAvailable)?;
+        action
+            .run(self.bmc.as_ref(), &NoParams {})
+            .await
+            .map_err(Error::Bmc)
     }
 }
