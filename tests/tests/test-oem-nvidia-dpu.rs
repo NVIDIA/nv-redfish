@@ -27,6 +27,7 @@ use nv_redfish::oem::nvidia::computer_system::Mode;
 use nv_redfish::oem::nvidia::network_adapter::DpuOperationMode;
 use nv_redfish::oem::nvidia::network_adapter::HostPrivilegeLevelInput;
 use nv_redfish::oem::nvidia::network_adapter::NvidiaNetworkAdapterUpdate;
+use nv_redfish::oem::nvidia::network_adapter::PrivilegeModeType;
 use nv_redfish::oem::nvidia::NvidiaNetworkAdapterUpdateExt;
 use nv_redfish::schema::computer_system::BootSource;
 use nv_redfish::schema::computer_system::BootSourceOverrideEnabled;
@@ -311,25 +312,12 @@ async fn with_oem_nvidia_keeps_other_oem_members() -> Result<(), Box<dyn StdErro
 }
 
 #[test]
-async fn bf4_host_privilege_level_reads_and_sets() -> Result<(), Box<dyn StdError>> {
+async fn bf4_host_privilege_config_reports_restricted_state() -> Result<(), Box<dyn StdError>> {
+    // Captured state after host privileges were restricted.
     let bmc = Arc::new(Bmc::default());
-    let adapter = bf4_adapter(bmc.clone(), BF4_PRODUCT).await?;
-    let oem = adapter
-        .oem_nvidia()?
-        .expect("BlueField-4 adapter must carry Oem.Nvidia");
-
-    let config_id = format!("{BF4_ADAPTER}/Oem/Nvidia/HostPrivilegeConfig");
-    bmc.expect(Expect::get(
-        &config_id,
+    let config = bf4_host_privilege_config(
+        &bmc,
         json!({
-            "@Redfish.Settings": {
-                ODATA_TYPE: "#Settings.v1_3_5.Settings",
-                "SettingsObject": { ODATA_ID: format!("{config_id}/Settings") }
-            },
-            ODATA_ID: &config_id,
-            ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
-            "Id": "HostPrivilegeConfig",
-            "Name": "Host Privilege Configuration",
             "PrivilegeMode": "Custom",
             "PrivilegeSettings": {
                 "FirmwareUpdate": "Default",
@@ -337,32 +325,60 @@ async fn bf4_host_privilege_level_reads_and_sets() -> Result<(), Box<dyn StdErro
                 "ManagementInterfaceEnabled": false
             }
         }),
-    ));
-    let config = oem
-        .host_privilege_config()
-        .await?
-        .expect("BlueField-4 adapter must link its host privilege configuration");
+    )
+    .await?;
+
+    assert_eq!(config.privilege_mode(), Some(PrivilegeModeType::Custom));
     assert_eq!(
         config.host_privilege_level(),
         Some(HostPrivilegeLevelInput::Restricted)
     );
+    Ok(())
+}
 
-    let settings_id = format!("{config_id}/Settings");
-    bmc.expect(Expect::get(
-        &settings_id,
-        json!({
-            ODATA_ID: &settings_id,
-            ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
-            "Id": "Settings",
-            "Name": "Host Privilege Configuration Settings",
-            "PrivilegeMode": "Custom",
-            "PrivilegeSettings": {
-                "FirmwareUpdate": "Default",
-                "HostPrivilegeLevel": "Restricted",
-                "ManagementInterfaceEnabled": false
-            }
-        }),
-    ));
+#[test]
+async fn factory_privileged_preset_switches_to_restricted_preset() -> Result<(), Box<dyn StdError>>
+{
+    // Factory default: the Privileged preset enables every granular
+    // permission, so `HostPrivilegeLevel` alone cannot move to Restricted.
+    let bmc = Arc::new(Bmc::default());
+    let privileged = json!({
+        "PrivilegeMode": "Privileged",
+        "PrivilegeSettings": {
+            "FirmwareUpdate": "Enabled",
+            "FlashAccess": "Enabled",
+            "GlobalParametersAccess": "Enabled",
+            "HostParametersAccess": "Enabled",
+            "HostPrivilegeLevel": "Privileged",
+            "InternalCPUAccess": "Enabled",
+            "ManagementInterfaceEnabled": true,
+            "NicReset": "Enabled",
+            "PccUpdate": "Enabled",
+            "PortAccess": "Enabled",
+            "PortOwnerEnabled": true,
+            "ReadCountersEnabled": true,
+            "TracerEnabled": true
+        }
+    });
+    let config = bf4_host_privilege_config(&bmc, privileged.clone()).await?;
+    assert_eq!(config.privilege_mode(), Some(PrivilegeModeType::Privileged));
+    assert_eq!(
+        config.host_privilege_level(),
+        Some(HostPrivilegeLevelInput::Privileged)
+    );
+
+    let settings_id = format!("{BF4_HOST_PRIVILEGE_CONFIG}/Settings");
+    let mut settings_body = json!({
+        ODATA_ID: &settings_id,
+        ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
+        "Id": "Settings",
+        "Name": "Host Privilege Configuration Settings",
+        "PrivilegeMode@Redfish.AllowableValues": ["Privileged", "Restricted"],
+    });
+    if let (Some(body), Some(fields)) = (settings_body.as_object_mut(), privileged.as_object()) {
+        body.extend(fields.clone());
+    }
+    bmc.expect(Expect::get(&settings_id, settings_body));
     let settings = config
         .settings()
         .await?
@@ -370,11 +386,11 @@ async fn bf4_host_privilege_level_reads_and_sets() -> Result<(), Box<dyn StdErro
 
     bmc.expect(Expect::update_empty(
         &settings_id,
-        json!({"PrivilegeSettings": {"HostPrivilegeLevel": "Privileged"}}),
+        json!({"PrivilegeMode": "Restricted"}),
     ));
     assert_empty(
         settings
-            .set_host_privilege_level(HostPrivilegeLevelInput::Privileged)
+            .set_privilege_mode(PrivilegeModeType::Restricted)
             .await?,
     );
     Ok(())
@@ -393,6 +409,8 @@ const CHASSIS: &str = "/redfish/v1/Chassis";
 const BF4_CHASSIS: &str = "/redfish/v1/Chassis/BlueField_0";
 const BF4_ADAPTERS: &str = "/redfish/v1/Chassis/BlueField_0/NetworkAdapters";
 const BF4_ADAPTER: &str = "/redfish/v1/Chassis/BlueField_0/NetworkAdapters/BlueField_NIC_0";
+const BF4_HOST_PRIVILEGE_CONFIG: &str =
+    "/redfish/v1/Chassis/BlueField_0/NetworkAdapters/BlueField_NIC_0/Oem/Nvidia/HostPrivilegeConfig";
 
 fn service_root(product: &str, links: Value) -> Value {
     let mut root = json!({
@@ -626,4 +644,32 @@ async fn bf4_adapter(
         .await?
         .expect("chassis must link network adapters");
     Ok(adapters.pop().expect("chassis must include an adapter"))
+}
+
+async fn bf4_host_privilege_config(
+    bmc: &Arc<Bmc>,
+    fields: Value,
+) -> Result<nv_redfish::oem::nvidia::NvidiaHostPrivilegeConfig<Bmc>, Box<dyn StdError>> {
+    let adapter = bf4_adapter(bmc.clone(), BF4_PRODUCT).await?;
+    let oem = adapter
+        .oem_nvidia()?
+        .expect("BlueField-4 adapter must carry Oem.Nvidia");
+    let mut config = json!({
+        "@Redfish.Settings": {
+            ODATA_TYPE: "#Settings.v1_3_5.Settings",
+            "SettingsObject": { ODATA_ID: format!("{BF4_HOST_PRIVILEGE_CONFIG}/Settings") }
+        },
+        ODATA_ID: BF4_HOST_PRIVILEGE_CONFIG,
+        ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
+        "Id": "HostPrivilegeConfig",
+        "Name": "Host Privilege Configuration",
+    });
+    if let (Some(config), Some(fields)) = (config.as_object_mut(), fields.as_object()) {
+        config.extend(fields.clone());
+    }
+    bmc.expect(Expect::get(BF4_HOST_PRIVILEGE_CONFIG, config));
+    Ok(oem
+        .host_privilege_config()
+        .await?
+        .expect("BlueField-4 adapter must link its host privilege configuration"))
 }

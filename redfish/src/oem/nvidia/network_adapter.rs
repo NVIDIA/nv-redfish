@@ -249,25 +249,30 @@ impl<B: Bmc> NvidiaHostPrivilegeConfig<B> {
             .await
     }
 
-    /// Set the level of access the host has to the DPU.
+    /// Apply the `Privileged` or `Restricted` preset to every host
+    /// privilege setting.
+    ///
+    /// Sends only `PrivilegeMode`, which the schema requires when the mode
+    /// is written. Unlike setting `HostPrivilegeLevel` alone, this also
+    /// moves the individual permissions the BMC requires to change
+    /// together with the level. `Custom` is read-only and cannot be
+    /// written; use [`Self::update`] with the generated builders for
+    /// individual settings.
     ///
     /// Call this method on the handle returned by [`Self::settings`] when
-    /// the service advertises `@Redfish.Settings`.
+    /// the service advertises `@Redfish.Settings`; the change applies after
+    /// the next power cycle.
     ///
     /// # Errors
     ///
     /// Returns an error if updating the configuration fails.
-    pub async fn set_host_privilege_level(
+    pub async fn set_privilege_mode(
         &self,
-        level: HostPrivilegeLevelInput,
+        mode: PrivilegeModeType,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.update(
             &NvidiaHostPrivilegeConfigUpdate::builder()
-                .with_privilege_settings(
-                    PrivilegeSettingsUpdate::builder()
-                        .with_host_privilege_level(level)
-                        .build(),
-                )
+                .with_privilege_mode(mode)
                 .build(),
         )
         .await
