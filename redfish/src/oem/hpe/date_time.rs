@@ -12,30 +12,31 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-//! Manager network protocol resource.
+
+//! HPE iLO date and time settings.
 
 use std::sync::Arc;
 
 use nv_redfish_core::{Bmc, EntityTypeRef as _, ModificationResponse, NavProperty};
 
-#[cfg(feature = "oem-hpe")]
-use crate::oem::hpe::HpeManagerNetworkProtocol;
-use crate::schema::manager_network_protocol::ManagerNetworkProtocol as ManagerNetworkProtocolSchema;
+use crate::oem::hpe::schema::hpei_lo_date_time::HpeiLoDateTime as HpeiLoDateTimeSchema;
 use crate::{Error, NvBmc};
 
 #[doc(inline)]
-pub use crate::schema::manager_network_protocol::ManagerNetworkProtocolUpdate;
+pub use crate::oem::hpe::schema::hpei_lo_date_time::{
+    HpeiLoDateTimeUpdate, TimeZone, TimeZoneUpdate,
+};
 
-/// Network protocol configuration associated with a manager.
-pub struct ManagerNetworkProtocol<B: Bmc> {
+/// HPE iLO date and time settings resource.
+pub struct HpeiLoDateTime<B: Bmc> {
     bmc: NvBmc<B>,
-    data: Arc<ManagerNetworkProtocolSchema>,
+    data: Arc<HpeiLoDateTimeSchema>,
 }
 
-impl<B: Bmc> ManagerNetworkProtocol<B> {
+impl<B: Bmc> HpeiLoDateTime<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
-        nav: &NavProperty<ManagerNetworkProtocolSchema>,
+        nav: &NavProperty<HpeiLoDateTimeSchema>,
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
@@ -46,36 +47,36 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
             })
     }
 
-    /// Get the raw schema data for the manager network protocol resource.
+    /// Statically configured NTP servers.
     #[must_use]
-    pub fn raw(&self) -> Arc<ManagerNetworkProtocolSchema> {
-        self.data.clone()
+    pub fn static_ntp_servers(&self) -> Option<&[String]> {
+        self.data.static_ntp_servers.as_deref()
     }
 
-    /// Get the HPE OEM extension.
-    ///
-    /// Returns `Ok(None)` when this resource does not include `Oem.Hpe`.
-    ///
-    /// # Errors
-    ///
-    /// Returns an error if parsing HPE OEM data fails.
-    #[cfg(feature = "oem-hpe")]
-    pub fn oem_hpe(&self) -> Result<Option<HpeManagerNetworkProtocol<B>>, Error<B>> {
-        HpeManagerNetworkProtocol::new(&self.bmc, &self.data)
+    /// Whether iLO propagates its time to the host after AC power is applied.
+    #[must_use]
+    pub fn propagate_time_to_host(&self) -> Option<bool> {
+        self.data.propagate_time_to_host
     }
 
-    /// Update this manager network protocol.
+    /// Current iLO time zone.
+    #[must_use]
+    pub fn time_zone(&self) -> Option<&TimeZone> {
+        self.data.time_zone.as_ref()
+    }
+
+    /// Update this date and time resource.
     ///
     /// # Errors
     ///
     /// Returns an error if updating or fetching the returned entity fails.
     pub async fn update(
         &self,
-        update: &ManagerNetworkProtocolUpdate,
+        update: &HpeiLoDateTimeUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
             .as_ref()
-            .update::<_, NavProperty<ManagerNetworkProtocolSchema>>(
+            .update::<_, NavProperty<HpeiLoDateTimeSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
@@ -84,5 +85,11 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
             .map_err(Error::Bmc)?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
+    }
+
+    /// Get the raw HPE date and time schema.
+    #[must_use]
+    pub fn raw(&self) -> Arc<HpeiLoDateTimeSchema> {
+        self.data.clone()
     }
 }
