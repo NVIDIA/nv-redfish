@@ -25,20 +25,25 @@ use std::mem;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::core::ActionResult;
 use crate::core::Bmc;
 use crate::core::EntityTypeRef as _;
 use crate::core::ModificationResponse;
 use crate::core::NavProperty;
 use crate::core::ODataId;
-use crate::core::OperationResponseBmc;
 use crate::entity_link::EntityLink;
 use crate::schema::task::Task as TaskSchema;
+use crate::schema::task::TaskState;
 use crate::schema::task_service::TaskService as TaskServiceSchema;
 use crate::Error;
 use crate::NvBmc;
 use crate::ServiceRoot;
 
 use nv_redfish_core::AsyncTask;
+use serde::de::Error as DeError;
+use serde::Deserialize;
+use serde::Deserializer;
+use serde_json::Value as JsonValue;
 
 /// Link to a Redfish Task returned by an asynchronous operation.
 pub type TaskLink<B> = EntityLink<B, TaskSchema>;
@@ -48,45 +53,67 @@ enum State<R> {
     Ready(R),
     /// The operation is running.
     Pending(AsyncTask),
-    /// The operation finished; its result must be read from the
-    /// compatibility result URI.
+    /// The operation completed without returning its result.
     Finished,
     /// An earlier poll returned the outcome.
     Done,
 }
 
-/// A modification response known to return a typed result, possibly
-/// asynchronously.
-#[must_use = "typed modification responses must be polled"]
-pub struct TypedModificationResponse<R> {
-    state: State<R>,
-    compatibility_result: Option<ODataId>,
+/// Body of a Task Monitor response: the operation's result, or a Task
+/// resource from a service that is polled at the Task instead.
+enum MonitorBody<R> {
+    Task(Box<TaskSchema>),
+    Result(R),
 }
 
-impl<R> TypedModificationResponse<R> {
-    /// Create a typed response from an action with a response payload.
-    pub fn from_typed_action(response: ModificationResponse<R>) -> Self {
-        Self::new(response, None)
+impl<'de, R: ActionResult> Deserialize<'de> for MonitorBody<R> {
+    fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let value = JsonValue::deserialize(deserializer)?;
+        let is_task = value
+            .get("@odata.type")
+            .and_then(JsonValue::as_str)
+            .and_then(|odata_type| odata_type.strip_prefix('#'))
+            .is_some_and(|name| name.starts_with("Task."));
+        if is_task {
+            serde_json::from_value(value).map(|task| Self::Task(Box::new(task)))
+        } else {
+            serde_json::from_value(value).map(Self::Result)
+        }
+        .map_err(DeError::custom)
     }
+}
 
-    /// Create a typed response whose result is read from `result_location`
-    /// when the service completes without returning it.
-    pub fn with_compatibility_result(
-        response: ModificationResponse<R>,
-        result_location: ODataId,
-    ) -> Self {
-        Self::new(response, Some(result_location))
-    }
+/// Result of an action that may complete asynchronously.
+///
+/// The service returns the result immediately, or a Task Monitor or Task that
+/// [`Self::poll_result`] follows until the typed result is available.
+#[must_use = "asynchronous action results must be polled"]
+pub struct AsyncActionResult<R: ActionResult> {
+    state: State<R>,
+}
 
-    fn new(response: ModificationResponse<R>, compatibility_result: Option<ODataId>) -> Self {
+impl<R: ActionResult> AsyncActionResult<R> {
+    /// Wrap the response of an action that returns `R`.
+    pub fn from_action_response(response: ModificationResponse<R>) -> Self {
         let state = match response {
             ModificationResponse::Entity(result) => State::Ready(result),
             ModificationResponse::Task(task) => State::Pending(task),
             ModificationResponse::Empty => State::Finished,
         };
-        Self {
-            state,
-            compatibility_result,
+        Self { state }
+    }
+
+    /// The Task Monitor or Task the next poll reads, while the operation is
+    /// pending.
+    ///
+    /// A monitor can move the operation to a new URI, so persist this after
+    /// each poll to resume later with [`Self::from_action_response`] and
+    /// [`ModificationResponse::Task`].
+    #[must_use]
+    pub const fn pending_task(&self) -> Option<&AsyncTask> {
+        match &self.state {
+            State::Pending(task) => Some(task),
+            State::Ready(_) | State::Finished | State::Done => None,
         }
     }
 
@@ -112,77 +139,101 @@ impl<R> TypedModificationResponse<R> {
     ///
     /// # Errors
     ///
-    /// Returns an error if a request fails, the operation completes without
-    /// exposing its result, or an earlier poll already returned the result.
-    /// After a request error the same step can be retried.
-    pub async fn poll<B>(&mut self, task_service: &TaskService<B>) -> Result<Option<R>, Error<B>>
-    where
-        B: OperationResponseBmc,
-        R: Send + Sync + for<'de> serde::Deserialize<'de>,
-    {
-        let bmc = task_service.bmc.as_ref();
-        if matches!(self.state, State::Ready(_)) {
-            let State::Ready(result) = mem::replace(&mut self.state, State::Done) else {
-                return Err(Error::TaskAlreadyFinished);
-            };
-            return Ok(Some(result));
-        }
-        if matches!(self.state, State::Done) {
-            return Err(Error::TaskAlreadyFinished);
-        }
-
-        if let State::Pending(task) = &self.state {
-            let location = task.location.0.clone();
-            match bmc
-                .get_operation_response(&location)
-                .await
-                .map_err(Error::Bmc)?
-            {
-                ModificationResponse::Task(pending) => {
-                    self.state = State::Pending(pending);
-                    return Ok(None);
-                }
-                ModificationResponse::Entity(result) => {
-                    self.state = State::Done;
-                    return Ok(Some(result));
-                }
-                ModificationResponse::Empty => {
-                    self.state = State::Finished;
-                }
+    /// Returns an error if a request fails, the Task ends without completing,
+    /// the operation completes without exposing its result, or an earlier poll
+    /// already returned the outcome. After a request error the same step can be
+    /// retried.
+    pub async fn poll_result<B: Bmc>(
+        &mut self,
+        task_service: &TaskService<B>,
+    ) -> Result<Option<R>, Error<B>> {
+        // The pending state is replaced only after a request completes, so a
+        // dropped poll leaves the handle on the same step.
+        let location = match &self.state {
+            State::Pending(task) => task.location.0.clone(),
+            State::Ready(_) | State::Finished | State::Done => {
+                return match mem::replace(&mut self.state, State::Done) {
+                    State::Ready(result) => Ok(Some(result)),
+                    State::Finished => Err(Error::TaskResultUnavailable),
+                    State::Pending(_) | State::Done => Err(Error::TaskAlreadyFinished),
+                };
             }
-        }
-
-        self.poll_finished(bmc).await
-    }
-
-    async fn poll_finished<B>(&mut self, bmc: &B) -> Result<Option<R>, Error<B>>
-    where
-        B: OperationResponseBmc,
-        R: Send + Sync + for<'de> serde::Deserialize<'de>,
-    {
-        let result = self.read_result(bmc).await;
-        if !matches!(result, Err(Error::Bmc(_))) {
-            self.state = State::Done;
-        }
-        result
-    }
-
-    async fn read_result<B>(&self, bmc: &B) -> Result<Option<R>, Error<B>>
-    where
-        B: OperationResponseBmc,
-        R: Send + Sync + for<'de> serde::Deserialize<'de>,
-    {
-        let Some(result) = &self.compatibility_result else {
-            return Err(Error::TaskResultUnavailable);
         };
-        match bmc.get_operation_response(result).await {
-            Ok(ModificationResponse::Entity(value)) => Ok(Some(value)),
-            Ok(ModificationResponse::Task(_) | ModificationResponse::Empty) => {
-                Err(Error::TaskResultUnavailable)
+
+        let bmc = task_service.bmc.as_ref();
+        let response = bmc
+            .get_task_monitor_response::<MonitorBody<R>>(&location)
+            .await
+            .map_err(Error::Bmc)?;
+        let task = match response {
+            ModificationResponse::Task(pending) => {
+                self.state = State::Pending(pending);
+                return Ok(None);
             }
-            Err(error) => Err(Error::Bmc(error)),
+            ModificationResponse::Entity(MonitorBody::Result(result)) => {
+                self.state = State::Done;
+                return Ok(Some(result));
+            }
+            ModificationResponse::Empty => {
+                self.state = State::Done;
+                return Err(Error::TaskResultUnavailable);
+            }
+            ModificationResponse::Entity(MonitorBody::Task(task)) => task,
+        };
+
+        match task.task_state {
+            Some(TaskState::Completed) => {
+                // The result location is followed once; a second redirection
+                // is reported as having no result.
+                let Some(result_location) = recorded_location(&task) else {
+                    self.state = State::Done;
+                    return Err(Error::TaskResultUnavailable);
+                };
+                let response = bmc
+                    .get_task_monitor_response::<R>(&result_location)
+                    .await
+                    .map_err(Error::Bmc)?;
+                self.state = State::Done;
+                match response {
+                    ModificationResponse::Entity(result) => Ok(Some(result)),
+                    ModificationResponse::Task(_) | ModificationResponse::Empty => {
+                        Err(Error::TaskResultUnavailable)
+                    }
+                }
+            }
+            Some(state @ (TaskState::Exception | TaskState::Killed | TaskState::Cancelled)) => {
+                self.state = State::Done;
+                Err(Error::TaskFailed {
+                    state,
+                    messages: task.messages.unwrap_or_default(),
+                })
+            }
+            _ => {
+                self.state = State::Pending(AsyncTask {
+                    location: location.into(),
+                    retry_after: None,
+                });
+                Ok(None)
+            }
         }
     }
+}
+
+/// The last `Location` a Task recorded in `Payload.HttpHeaders`, where
+/// services without a Task Monitor report the result URI.
+fn recorded_location(task: &TaskSchema) -> Option<ODataId> {
+    task.payload
+        .as_ref()?
+        .http_headers
+        .as_ref()?
+        .iter()
+        .rev()
+        .find_map(|header| {
+            let (name, location) = header.split_once(':')?;
+            let location = location.trim();
+            (name.trim().eq_ignore_ascii_case("Location") && !location.is_empty())
+                .then(|| ODataId::from(location.to_string()))
+        })
 }
 
 /// Task service.

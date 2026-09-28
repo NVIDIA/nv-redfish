@@ -44,7 +44,6 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::MultipartUpdateRequest;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
-use nv_redfish_core::OperationResponseBmc;
 use nv_redfish_core::SessionCreateResponse;
 use nv_redfish_core::StreamEvent;
 use nv_redfish_core::UploadReader;
@@ -62,7 +61,7 @@ pub enum Error {
     BadResponseJson(JsonError),
     HttpStatus(u16),
     UnexpectedGet(ODataId, ExpectedRequest),
-    UnexpectedOperationResponse(ODataId, ExpectedRequest),
+    UnexpectedTaskMonitorResponse(ODataId, ExpectedRequest),
     UnexpectedExpand(ODataId, ExpectedRequest),
     UnexpectedUpdate(ODataId, String, ExpectedRequest),
     UnexpectedCreate(ODataId, String, ExpectedRequest),
@@ -89,10 +88,10 @@ impl Display for Error {
             Self::UnexpectedGet(id, expected) => {
                 write!(f, "unexpected get: {id}; expected: {expected:?}")
             }
-            Self::UnexpectedOperationResponse(id, expected) => {
+            Self::UnexpectedTaskMonitorResponse(id, expected) => {
                 write!(
                     f,
-                    "unexpected operation response: {id}; expected: {expected:?}"
+                    "unexpected task monitor response: {id}; expected: {expected:?}"
                 )
             }
             Self::UnexpectedExpand(id, expected) => {
@@ -598,19 +597,13 @@ where
             }
         }
     }
-}
 
-impl<E> OperationResponseBmc for Bmc<E>
-where
-    E: StdError + Send + Sync + 'static,
-{
-    async fn get_operation_response<T>(
+    async fn get_task_monitor_response<
+        T: Send + Sync + Sized + for<'de> serde::Deserialize<'de>,
+    >(
         &self,
         location: &ODataId,
-    ) -> Result<ModificationResponse<T>, Self::Error>
-    where
-        T: Send + Sync + Sized + for<'de> serde::Deserialize<'de>,
-    {
+    ) -> Result<ModificationResponse<T>, Self::Error> {
         let expect = self
             .expect
             .lock()
@@ -619,7 +612,7 @@ where
             .ok_or(Error::NothingIsExpected)?;
         match expect {
             Expect {
-                request: ExpectedRequest::OperationResponseResult { id },
+                request: ExpectedRequest::TaskMonitorResult { id },
                 response,
             } if id == *location => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
@@ -628,7 +621,7 @@ where
             }
             Expect {
                 request:
-                    ExpectedRequest::OperationResponsePending {
+                    ExpectedRequest::TaskMonitorPending {
                         id,
                         location: next_location,
                         retry_after,
@@ -639,18 +632,18 @@ where
                 retry_after,
             })),
             Expect {
-                request: ExpectedRequest::OperationResponseEmpty { id },
+                request: ExpectedRequest::TaskMonitorEmpty { id },
                 ..
             } if id == *location => Ok(ModificationResponse::Empty),
             Expect {
-                request: ExpectedRequest::OperationResponseStatus { id, status },
+                request: ExpectedRequest::TaskMonitorStatus { id, status },
                 ..
             } if id == *location => Err(Error::HttpStatus(status)),
             Expect {
-                request: ExpectedRequest::OperationResponseWait { id },
+                request: ExpectedRequest::TaskMonitorWait { id },
                 ..
             } if id == *location => pending().await,
-            _ => Err(Error::UnexpectedOperationResponse(
+            _ => Err(Error::UnexpectedTaskMonitorResponse(
                 location.clone(),
                 expect.request,
             )),

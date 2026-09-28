@@ -99,6 +99,8 @@ pub use action::Action;
 #[doc(inline)]
 pub use action::ActionError;
 #[doc(inline)]
+pub use action::ActionResult;
+#[doc(inline)]
 pub use bmc::without_event_ids;
 #[doc(inline)]
 pub use bmc::Bmc;
@@ -106,8 +108,6 @@ pub use bmc::Bmc;
 pub use bmc::BmcError;
 #[doc(inline)]
 pub use bmc::BmcErrorClass;
-#[doc(inline)]
-pub use bmc::OperationResponseBmc;
 #[doc(inline)]
 pub use bmc::StreamEvent;
 #[doc(inline)]
@@ -212,7 +212,7 @@ impl From<ODataId> for AsyncTaskLocation {
 }
 
 /// Outcome of a mutating Redfish operation that can complete asynchronously.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AsyncTask {
     /// Location to use for polling completion.
     pub location: AsyncTaskLocation,

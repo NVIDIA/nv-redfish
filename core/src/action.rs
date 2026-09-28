@@ -112,6 +112,14 @@ impl<T, R> Debug for Action<T, R> {
     }
 }
 
+/// Marker for types that a Redfish action declares as its `ReturnType`.
+///
+/// The CSDL compiler implements this for every generated action result, so
+/// asynchronous result polling only accepts types an action can return.
+pub trait ActionResult: Send + Sync + for<'de> Deserialize<'de> {}
+
+impl<T: ActionResult> ActionResult for Vec<T> {}
+
 /// Action error trait. Needed in generated code when an action function
 /// is called for an action that wasn't specified by the server.
 pub trait ActionError {

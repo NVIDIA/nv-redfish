@@ -13,6 +13,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#[cfg(feature = "task-service")]
+use crate::schema::message::Message;
+#[cfg(feature = "task-service")]
+use crate::schema::task::TaskState;
 use nv_redfish_core::Bmc;
 use serde_json::Error as JsonError;
 use std::error::Error as StdError;
@@ -53,6 +57,14 @@ pub enum Error<B: Bmc> {
     /// An asynchronous operation completed without exposing its typed result.
     #[cfg(feature = "task-service")]
     TaskResultUnavailable,
+    /// The Task of an asynchronous operation ended without completing.
+    #[cfg(feature = "task-service")]
+    TaskFailed {
+        /// Terminal state: `Exception`, `Killed`, or `Cancelled`.
+        state: TaskState,
+        /// Messages the Task recorded.
+        messages: Vec<Message>,
+    },
     /// An asynchronous operation was polled after an earlier poll returned
     /// its outcome.
     #[cfg(feature = "task-service")]
@@ -107,6 +119,15 @@ impl<B: Bmc> Display for Error<B> {
             #[cfg(feature = "task-service")]
             Self::TaskResultUnavailable => {
                 write!(f, "Task completed without exposing its result")
+            }
+            #[cfg(feature = "task-service")]
+            Self::TaskFailed { state, messages } => {
+                write!(f, "Task ended in state {state:?}")?;
+                for message in messages {
+                    let text = message.message.as_deref().unwrap_or(&message.message_id);
+                    write!(f, "; {text}")?;
+                }
+                Ok(())
             }
             #[cfg(feature = "task-service")]
             Self::TaskAlreadyFinished => {

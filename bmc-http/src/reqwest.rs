@@ -795,7 +795,7 @@ impl Client {
         serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)
     }
 
-    async fn handle_operation_response<T>(
+    async fn handle_task_monitor_response<T>(
         &self,
         response: reqwest::Response,
     ) -> Result<OperationStep<T>, BmcError>
@@ -839,33 +839,6 @@ impl Client {
                 }
                 let value: serde_json::Value =
                     serde_json::from_slice(&bytes).map_err(BmcError::DecodeError)?;
-
-                // Services without a Task Monitor are polled at the Task
-                // resource, which only reports whether the operation finished
-                // and can record where its result is.
-                if is_task_body(&value) {
-                    return match value.get("TaskState").and_then(serde_json::Value::as_str) {
-                        Some("Completed") => finished(
-                            task_payload_location(&value)
-                                .map(|raw| resolve_location(raw, &url, status))
-                                .transpose(),
-                        ),
-                        Some(state @ ("Exception" | "Killed" | "Cancelled")) => {
-                            Err(BmcError::InvalidResponse {
-                                url,
-                                status,
-                                text: format!("Task ended in state {state}"),
-                            })
-                        }
-                        _ => Ok(OperationStep::Done(ModificationResponse::Task(AsyncTask {
-                            location: location?
-                                .or_else(|| task_odata_id(&value))
-                                .unwrap_or_else(requested)
-                                .into(),
-                            retry_after: retry_after_from_headers(&headers),
-                        }))),
-                    };
-                }
 
                 match serde_path_to_error::deserialize(&value) {
                     Ok(entity) => Ok(OperationStep::Done(ModificationResponse::Entity(entity))),
@@ -1125,22 +1098,6 @@ fn location_from_headers(
         .to_str()
         .map_err(|_| invalid_response("Location header is not valid text"))?;
 
-    resolve_location(raw, response_url, status).map(Some)
-}
-
-/// Resolve a `Location` value against the response URL, as
-/// [`location_from_headers`] does for the header itself.
-fn resolve_location(
-    raw: &str,
-    response_url: &Url,
-    status: reqwest::StatusCode,
-) -> Result<ODataId, BmcError> {
-    let invalid_response = |text: &'static str| BmcError::InvalidResponse {
-        url: response_url.clone(),
-        status,
-        text: text.to_string(),
-    };
-
     let raw = raw.trim();
 
     // Joining either value would resolve back to the response resource, which
@@ -1163,7 +1120,7 @@ fn resolve_location(
         ));
     }
 
-    Ok(odata_path_from_url(&resolved).into())
+    Ok(Some(odata_path_from_url(&resolved).into()))
 }
 
 fn odata_path_from_url(url: &Url) -> String {
@@ -1229,26 +1186,6 @@ fn task_odata_id(value: &serde_json::Value) -> Option<ODataId> {
         .get("@odata.id")
         .and_then(serde_json::Value::as_str)
         .map(|id| ODataId::from(id.to_string()))
-}
-
-/// Get the last `Location` recorded in a Task's `Payload.HttpHeaders`.
-///
-/// Services without a Task Monitor can record the result URI there instead
-/// of returning the result.
-fn task_payload_location(value: &serde_json::Value) -> Option<&str> {
-    value
-        .get("Payload")?
-        .get("HttpHeaders")?
-        .as_array()?
-        .iter()
-        .rev()
-        .filter_map(serde_json::Value::as_str)
-        .find_map(|header| {
-            let (name, location) = header.split_once(':')?;
-            name.trim()
-                .eq_ignore_ascii_case("Location")
-                .then_some(location)
-        })
 }
 
 fn inject_etag(etag: &ODataETag, body: &mut serde_json::Value) {
@@ -1323,7 +1260,7 @@ impl HttpClient for Client {
         self.handle_response(response).await
     }
 
-    async fn get_operation_response<T>(
+    async fn get_task_monitor_response<T>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
@@ -1335,7 +1272,7 @@ impl HttpClient for Client {
         let request =
             auth_headers(self.inner.get(url.clone()), credentials).headers(custom_headers.clone());
         let response = self.send(request.build()?).await?;
-        let result_location = match self.handle_operation_response(response).await? {
+        let result_location = match self.handle_task_monitor_response(response).await? {
             OperationStep::Done(response) => return Ok(response),
             OperationStep::Result(location) => location,
         };
@@ -1348,7 +1285,7 @@ impl HttpClient for Client {
         let request =
             auth_headers(self.inner.get(result_url), credentials).headers(custom_headers.clone());
         let response = self.send(request.build()?).await?;
-        match self.handle_operation_response(response).await? {
+        match self.handle_task_monitor_response(response).await? {
             OperationStep::Done(response) => Ok(response),
             OperationStep::Result(_) => Ok(ModificationResponse::Empty),
         }
