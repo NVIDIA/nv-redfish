@@ -55,6 +55,8 @@ use crate::computer_system::Storage;
 use crate::ethernet_interface::EthernetInterfaceCollection;
 #[cfg(feature = "log-services")]
 use crate::log_service::LogService;
+#[cfg(feature = "oem-hpe")]
+use crate::oem::hpe::HpeComputerSystemActions;
 #[cfg(feature = "oem-lenovo")]
 use crate::oem::lenovo::computer_system::LenovoComputerSystem;
 #[cfg(feature = "oem-lenovo")]
@@ -538,6 +540,18 @@ impl<B: Bmc> ComputerSystem<B> {
             .and_then(|actions| actions.oem.as_ref())
             .map(|actions| LenovoComputerSystemActions::new(&self.bmc, actions))
             .transpose()
+    }
+
+    /// Get the HPE OEM actions advertised under `Oem.Hpe.Actions`.
+    ///
+    /// Returns `Ok(None)` when the system does not include `Oem.Hpe`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if HPE OEM data cannot be parsed.
+    #[cfg(feature = "oem-hpe")]
+    pub fn oem_hpe_actions(&self) -> Result<Option<HpeComputerSystemActions<B>>, Error<B>> {
+        HpeComputerSystemActions::new(&self.bmc, &self.data)
     }
 
     /// Get the Supermicro OEM properties advertised by this computer system.

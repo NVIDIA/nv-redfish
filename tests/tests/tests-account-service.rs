@@ -27,6 +27,9 @@ use nv_redfish::account::AccountTypes;
 use nv_redfish::account::ManagerAccountCreate;
 use nv_redfish::account::ManagerAccountUpdate;
 use nv_redfish::oem::dell::IdracVersion;
+use nv_redfish::oem::hpe::account_service::{
+    HpeAccountServiceUpdate, HpeAccountServiceUpdateExt as _,
+};
 use nv_redfish::oem::lenovo::account_service::LenovoAccountServiceUpdate;
 use nv_redfish::oem::lenovo::account_service::LenovoAccountServiceUpdateExt as _;
 use nv_redfish::schema::account_service::MfaBypassCreate;
@@ -342,6 +345,74 @@ async fn update_lenovo_account_policy_uses_typed_oem_payload() -> TestResult<()>
     bmc.expect(Expect::update_empty(&service_id, &request));
     assert_empty(updated.update(&update).await?);
     Ok(())
+}
+
+#[test]
+async fn update_hpe_account_policy_composes_standard_and_oem_payloads() -> TestResult<()> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let account_service = get_account_service(bmc.clone(), &root_id, "HPE").await?;
+    let service_id = account_service.raw().odata_id().to_string();
+    let accounts_id = format!("{service_id}/Accounts");
+    let hpe_update = HpeAccountServiceUpdate::builder()
+        .with_auth_failure_delay_time_seconds(2)
+        .with_auth_failure_logging_threshold(0)
+        .with_auth_failures_before_delay(0)
+        .with_enforce_password_complexity(false)
+        .build();
+    let update = AccountServiceUpdate::builder()
+        .with_account_lockout_threshold(0)
+        .with_min_password_length(8)
+        .with_oem(nv_redfish::schema::resource::OemUpdate {
+            additional_properties: json!({ "OtherVendor": { "Keep": true } }),
+        })
+        .build()
+        .with_oem_hpe(hpe_update)?;
+    let request = json!({
+        "AccountLockoutThreshold": 0,
+        "MinPasswordLength": 8,
+        "Oem": {
+            "OtherVendor": { "Keep": true },
+            "Hpe": {
+                "AuthFailureDelayTimeSeconds": 2,
+                "AuthFailureLoggingThreshold": 0,
+                "AuthFailuresBeforeDelay": 0,
+                "EnforcePasswordComplexity": false
+            }
+        }
+    });
+    bmc.expect(Expect::update(
+        &service_id,
+        &request,
+        json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: ACCOUNT_SERVICE_DATA_TYPE,
+            "Id": "AccountService",
+            "Name": "AccountService",
+            "Accounts": { ODATA_ID: &accounts_id }
+        }),
+    ));
+
+    let ModificationResponse::Entity(updated) = account_service.update(&update).await? else {
+        return Err("expected updated account service".into());
+    };
+    bmc.expect(Expect::update_empty(&service_id, &request));
+    assert_empty(updated.update(&update).await?);
+    Ok(())
+}
+
+#[test]
+async fn hpe_account_policy_rejects_malformed_existing_oem_payload() {
+    let update = AccountServiceUpdate::builder()
+        .with_oem(nv_redfish::schema::resource::OemUpdate {
+            additional_properties: json!("not-an-object"),
+        })
+        .build();
+    let hpe = HpeAccountServiceUpdate::builder()
+        .with_auth_failure_logging_threshold(0)
+        .build();
+
+    assert!(update.with_oem_hpe(hpe).is_err());
 }
 
 fn lenovo_account_policy_update() -> Result<AccountServiceUpdate, serde_json::Error> {
