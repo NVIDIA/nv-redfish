@@ -128,7 +128,8 @@ impl<R: DeserializeOwned + Send + Sync> AsyncActionResult<R> {
                 State::Pending(pending_at(task.odata_id().clone()))
             }
             ModificationResponse::Entity(OperationBody::Location(location)) => {
-                State::Pending(pending_at(location))
+                result_without_body()
+                    .map_or_else(|| State::Pending(pending_at(location)), State::Ready)
             }
             ModificationResponse::Empty => State::Finished,
         };

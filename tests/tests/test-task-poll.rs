@@ -287,3 +287,20 @@ async fn action_without_return_value_completes() -> Result<(), Box<dyn StdError>
     assert_eq!(result.poll_result(&bmc).await?, Some(()));
     Ok(())
 }
+
+#[test]
+async fn action_without_return_value_ignores_created_location() -> Result<(), Box<dyn StdError>> {
+    // `201 Created` with `Location` and no body names a created resource,
+    // which is not a result an action without a return value can have.
+    let bmc = Bmc::default();
+    bmc.expect(Expect::action(
+        ACTION,
+        params(),
+        json!({"@odata.id": "/redfish/v1/Systems/1/LogServices/Diag/Entries/7"}),
+    ));
+    let mut result = AsyncActionResult::<()>::start(&bmc, &action(), &params()).await?;
+
+    assert!(result.pending_task().is_none());
+    assert_eq!(result.poll_result(&bmc).await?, Some(()));
+    Ok(())
+}
