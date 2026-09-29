@@ -222,7 +222,7 @@ impl BmcQuirks {
     pub(crate) const fn event_service_sse_missing_event_type(&self) -> bool {
         matches!(
             self.platform,
-            Some(Platform::Nvidia | Platform::VeraRubin | Platform::Wiwynn)
+            Some(Platform::Nvidia | Platform::VeraRubin | Platform::NvSwitch | Platform::Wiwynn)
         )
     }
 

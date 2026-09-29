@@ -43,7 +43,7 @@ const EVENT_ID: &str = "337";
 #[test]
 async fn wiwynn_sse_record_missing_member_id_and_event_type_is_supported(
 ) -> Result<(), Box<dyn StdError>> {
-    let payload = first_stream_payload("WIWYNN").await?;
+    let payload = first_stream_payload("WIWYNN", None).await?;
 
     assert!(
         matches!(payload, Ok(EventStreamPayload::Event(_))),
@@ -58,7 +58,7 @@ async fn wiwynn_sse_record_missing_member_id_and_event_type_is_supported(
 /// record is known to fail when no quirk is selected.
 #[test]
 async fn unclassified_vendor_drops_the_same_record() -> Result<(), Box<dyn StdError>> {
-    let payload = first_stream_payload("ACME").await?;
+    let payload = first_stream_payload("ACME", None).await?;
 
     // Serde reports whichever required property it reaches first, so assert on
     // the rejection rather than on which one.
@@ -77,7 +77,7 @@ async fn unclassified_vendor_drops_the_same_record() -> Result<(), Box<dyn StdEr
 #[test]
 async fn nvidia_sse_record_missing_member_id_and_event_type_is_supported(
 ) -> Result<(), Box<dyn StdError>> {
-    let payload = first_stream_payload("NVIDIA").await?;
+    let payload = first_stream_payload("NVIDIA", None).await?;
 
     assert!(
         matches!(payload, Ok(EventStreamPayload::Event(_))),
@@ -88,15 +88,35 @@ async fn nvidia_sse_record_missing_member_id_and_event_type_is_supported(
     Ok(())
 }
 
+/// NVLink switch tray BMCs (`Product: P3809`) classify as their own platform
+/// rather than generic NVIDIA, and omit both properties the same way.
+#[test]
+async fn nvswitch_sse_record_missing_member_id_and_event_type_is_supported(
+) -> Result<(), Box<dyn StdError>> {
+    let payload = first_stream_payload("NVIDIA", Some("P3809")).await?;
+
+    assert!(
+        matches!(payload, Ok(EventStreamPayload::Event(_))),
+        "NVSwitch event record must deserialize, got {:?}",
+        payload
+    );
+
+    Ok(())
+}
+
 /// Returns the stream's first item still wrapped: the error case is a result
 /// these tests assert on, not a failure.
 async fn first_stream_payload(
     vendor: &str,
+    product: Option<&str>,
 ) -> Result<Result<EventStreamPayload, impl std::fmt::Debug>, Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();
 
-    bmc.expect(Expect::get(&root_id, service_root(&root_id, vendor)));
+    bmc.expect(Expect::get(
+        &root_id,
+        service_root(&root_id, vendor, product),
+    ));
     let service_root = ServiceRoot::new(bmc.clone()).await?;
 
     bmc.expect(Expect::get(EVENT_SERVICE_ID, event_service()));
@@ -111,8 +131,8 @@ async fn first_stream_payload(
     Ok(events.next().await.expect("stream yields one payload"))
 }
 
-fn service_root(root_id: &ODataId, vendor: &str) -> Value {
-    json!({
+fn service_root(root_id: &ODataId, vendor: &str, product: Option<&str>) -> Value {
+    let mut root = json!({
         ODATA_ID: root_id,
         ODATA_TYPE: SERVICE_ROOT_DATA_TYPE,
         "Id": "RootService",
@@ -122,7 +142,11 @@ fn service_root(root_id: &ODataId, vendor: &str) -> Value {
         "Links": {
             "Sessions": { ODATA_ID: format!("{root_id}/SessionService/Sessions") }
         },
-    })
+    });
+    if let Some(product) = product {
+        root["Product"] = json!(product);
+    }
+    root
 }
 
 fn event_service() -> Value {
