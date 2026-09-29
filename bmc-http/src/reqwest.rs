@@ -39,6 +39,7 @@ use futures_util::StreamExt as _;
 use futures_util::TryStreamExt as _;
 use http::header;
 use http::HeaderMap;
+use nv_redfish_core::ActionError;
 use nv_redfish_core::AsyncTask;
 use nv_redfish_core::BmcErrorClass;
 use nv_redfish_core::BoxTryStream;
@@ -103,6 +104,8 @@ pub enum BmcError {
         /// Idle duration that elapsed with no event.
         idle: Duration,
     },
+    /// The service does not advertise the requested action.
+    ActionNotSupported,
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -131,6 +134,12 @@ impl CacheableError for BmcError {
 impl RequestError for BmcError {
     fn rejected_uri_reference(error: RejectedUriReferenceError) -> Self {
         Self::InvalidRequest(error.reason)
+    }
+}
+
+impl ActionError for BmcError {
+    fn not_supported() -> Self {
+        Self::ActionNotSupported
     }
 }
 
@@ -164,6 +173,7 @@ impl fmt::Display for BmcError {
             Self::SseIdleTimeout { idle } => {
                 write!(f, "SSE stream idle for longer than {idle:?}")
             }
+            Self::ActionNotSupported => write!(f, "Action is not supported by the service"),
         }
     }
 }
@@ -1677,7 +1687,6 @@ mod tests {
         let created_miss = BmcError::cache_miss();
         assert!(matches!(created_miss, BmcError::CacheMiss));
     }
-
     #[tokio::test]
     async fn client_classifies_absent_resources_and_response_parse_failures() {
         let client = Client::new().expect("test client must be created");
