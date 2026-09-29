@@ -91,7 +91,9 @@ compile-only-feature-sets = computer-systems,processors,controls \
              oem-nvidia-fabrics \
              fabrics,oem-nvidia-fabrics \
              computer-systems,oem-nvidia \
+             managers,oem-nvidia \
              chassis,oem-nvidia \
+             chassis,network-adapters,oem-nvidia \
              computer-systems,processors,memory,sensors,telemetry-service,oem-nvidia \
              telemetry-service \
              environment-metrics,memory,oem-nvidia \

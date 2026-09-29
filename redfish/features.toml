@@ -588,17 +588,15 @@ patterns = [
 ]
 
 [[oem-features]]
-# NVIDIA computer system and host privilege configuration.
+# NVIDIA computer system.
 vendor = "nvidia"
 name = "computer-systems"
 oem_csdl_files = [
     "NvidiaComputerSystem_v1.xml",
-    "NvidiaHostPrivilegeConfig_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "NvidiaComputerSystem.*.*",
-    "NvidiaHostPrivilegeConfig.*.*",
 ]
 
 [[oem-features]]
@@ -632,15 +630,18 @@ patterns = [
 ]
 
 [[oem-features]]
-# NVIDIA network adapter, including DPU operation mode.
+# NVIDIA network adapter, including DPU operation mode and the host
+# privilege configuration it links.
 vendor = "nvidia"
 name = "network-adapters"
 oem_csdl_files = [
     "NvidiaNetworkAdapter_v1.xml",
+    "NvidiaHostPrivilegeConfig_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "NvidiaNetworkAdapter.*.*",
+    "NvidiaHostPrivilegeConfig.*.*",
 ]
 
 [[oem-features]]
