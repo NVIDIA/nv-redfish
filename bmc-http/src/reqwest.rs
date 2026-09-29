@@ -795,6 +795,42 @@ impl Client {
         serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)
     }
 
+    /// Read a response to polling an asynchronous operation.
+    ///
+    /// Pending responses often omit `Location`, which keeps the polled URI.
+    /// Finished responses are read like modification responses, and a `204`
+    /// naming a `Location` is read like an empty `200` with one.
+    async fn handle_poll_response<T>(
+        &self,
+        response: reqwest::Response,
+    ) -> Result<ModificationResponse<T>, BmcError>
+    where
+        T: DeserializeOwned + Send + Sync,
+    {
+        let status = response.status();
+        let url = response.url();
+        let headers = response.headers();
+        match status {
+            reqwest::StatusCode::ACCEPTED => {
+                let location = location_from_headers(headers, url, status)?
+                    .unwrap_or_else(|| odata_path_from_url(url).into());
+                Ok(ModificationResponse::Task(AsyncTask {
+                    location: location.into(),
+                    retry_after: retry_after_from_headers(headers),
+                }))
+            }
+            reqwest::StatusCode::NO_CONTENT => location_from_headers(headers, url, status)?.map_or(
+                Ok(ModificationResponse::Empty),
+                |location| {
+                    serde_path_to_error::deserialize(serde_json::json!({ "@odata.id": location }))
+                        .map(ModificationResponse::Entity)
+                        .map_err(BmcError::JsonError)
+                },
+            ),
+            _ => self.handle_modification_response(response).await,
+        }
+    }
+
     async fn handle_modification_response<T>(
         &self,
         response: reqwest::Response,
@@ -1044,16 +1080,20 @@ fn location_from_headers(
         ));
     }
 
-    let mut path_and_query = resolved.path().to_string();
+    Ok(Some(odata_path_from_url(&resolved).into()))
+}
+
+fn odata_path_from_url(url: &Url) -> String {
+    let mut path_and_query = url.path().to_string();
 
     // Preserve the query separately from the path so later polling or deletion
     // sends it as a query instead of percent-encoded path text.
-    if let Some(query) = resolved.query() {
+    if let Some(query) = url.query() {
         path_and_query.push('?');
         path_and_query.push_str(query);
     }
 
-    Ok(Some(path_and_query.into()))
+    path_and_query
 }
 
 fn auth_token_from_headers(headers: &HeaderMap) -> Option<String> {
@@ -1150,6 +1190,21 @@ impl HttpClient for Client {
 
         let response = self.send(request.build()?).await?;
         self.handle_response(response).await
+    }
+
+    async fn poll<T>(
+        &self,
+        url: Url,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> Result<ModificationResponse<T>, Self::Error>
+    where
+        T: DeserializeOwned + Send + Sync,
+    {
+        let request =
+            auth_headers(self.inner.get(url), credentials).headers(custom_headers.clone());
+        let response = self.send(request.build()?).await?;
+        self.handle_poll_response(response).await
     }
 
     async fn post<B, T>(

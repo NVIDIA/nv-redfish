@@ -104,6 +104,18 @@ pub struct Action<T, R> {
     _marker_retval: PhantomData<R>,
 }
 
+impl<T, R> Action<T, R> {
+    /// Creates an action invoked at `target`.
+    #[must_use]
+    pub const fn new(target: ActionTarget) -> Self {
+        Self {
+            target,
+            _marker: PhantomData,
+            _marker_retval: PhantomData,
+        }
+    }
+}
+
 impl<T, R> Debug for Action<T, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Action")
