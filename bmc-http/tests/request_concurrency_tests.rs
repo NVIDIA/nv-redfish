@@ -131,7 +131,7 @@ mod tests {
             }
         }
 
-        fn get_task_monitor_response<T>(
+        fn poll<T>(
             &self,
             url: Url,
             _credentials: &BmcCredentials,

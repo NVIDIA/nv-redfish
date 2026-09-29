@@ -61,7 +61,7 @@ pub enum Error {
     BadResponseJson(JsonError),
     HttpStatus(u16),
     UnexpectedGet(ODataId, ExpectedRequest),
-    UnexpectedTaskMonitorResponse(ODataId, ExpectedRequest),
+    UnexpectedPoll(ODataId, ExpectedRequest),
     UnexpectedExpand(ODataId, ExpectedRequest),
     UnexpectedUpdate(ODataId, String, ExpectedRequest),
     UnexpectedCreate(ODataId, String, ExpectedRequest),
@@ -88,11 +88,8 @@ impl Display for Error {
             Self::UnexpectedGet(id, expected) => {
                 write!(f, "unexpected get: {id}; expected: {expected:?}")
             }
-            Self::UnexpectedTaskMonitorResponse(id, expected) => {
-                write!(
-                    f,
-                    "unexpected task monitor response: {id}; expected: {expected:?}"
-                )
+            Self::UnexpectedPoll(id, expected) => {
+                write!(f, "unexpected poll: {id}; expected: {expected:?}")
             }
             Self::UnexpectedExpand(id, expected) => {
                 write!(f, "unexpected expand: {id}; expected: {expected:?}")
@@ -598,9 +595,7 @@ where
         }
     }
 
-    async fn get_task_monitor_response<
-        T: Send + Sync + Sized + for<'de> serde::Deserialize<'de>,
-    >(
+    async fn poll<T: Send + Sync + Sized + for<'de> serde::Deserialize<'de>>(
         &self,
         location: &ODataId,
     ) -> Result<ModificationResponse<T>, Self::Error> {
@@ -612,7 +607,7 @@ where
             .ok_or(Error::NothingIsExpected)?;
         match expect {
             Expect {
-                request: ExpectedRequest::TaskMonitorResult { id },
+                request: ExpectedRequest::PollResult { id },
                 response,
             } if id == *location => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
@@ -621,7 +616,7 @@ where
             }
             Expect {
                 request:
-                    ExpectedRequest::TaskMonitorPending {
+                    ExpectedRequest::PollPending {
                         id,
                         location: next_location,
                         retry_after,
@@ -632,21 +627,18 @@ where
                 retry_after,
             })),
             Expect {
-                request: ExpectedRequest::TaskMonitorEmpty { id },
+                request: ExpectedRequest::PollEmpty { id },
                 ..
             } if id == *location => Ok(ModificationResponse::Empty),
             Expect {
-                request: ExpectedRequest::TaskMonitorStatus { id, status },
+                request: ExpectedRequest::PollStatus { id, status },
                 ..
             } if id == *location => Err(Error::HttpStatus(status)),
             Expect {
-                request: ExpectedRequest::TaskMonitorWait { id },
+                request: ExpectedRequest::PollWait { id },
                 ..
             } if id == *location => pending().await,
-            _ => Err(Error::UnexpectedTaskMonitorResponse(
-                location.clone(),
-                expect.request,
-            )),
+            _ => Err(Error::UnexpectedPoll(location.clone(), expect.request)),
         }
     }
 }

@@ -104,6 +104,18 @@ pub struct Action<T, R> {
     _marker_retval: PhantomData<R>,
 }
 
+impl<T, R> Action<T, R> {
+    /// Creates an action invoked at `target`.
+    #[must_use]
+    pub const fn new(target: ActionTarget) -> Self {
+        Self {
+            target,
+            _marker: PhantomData,
+            _marker_retval: PhantomData,
+        }
+    }
+}
+
 impl<T, R> Debug for Action<T, R> {
     fn fmt(&self, f: &mut Formatter<'_>) -> FmtResult {
         f.debug_struct("Action")
@@ -111,14 +123,6 @@ impl<T, R> Debug for Action<T, R> {
             .finish()
     }
 }
-
-/// Marker for types that a Redfish action declares as its `ReturnType`.
-///
-/// The CSDL compiler implements this for every generated action result, so
-/// asynchronous result polling only accepts types an action can return.
-pub trait ActionResult: Send + Sync + for<'de> Deserialize<'de> {}
-
-impl<T: ActionResult> ActionResult for Vec<T> {}
 
 /// Action error trait. Needed in generated code when an action function
 /// is called for an action that wasn't specified by the server.

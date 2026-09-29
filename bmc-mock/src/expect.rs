@@ -34,24 +34,24 @@ pub enum ExpectedRequest {
     /// Expected Get.
     Get { id: ODataId },
 
-    /// Expected Task Monitor response carrying a body.
-    TaskMonitorResult { id: ODataId },
+    /// Expected poll response carrying a body.
+    PollResult { id: ODataId },
 
-    /// Expected pending Task Monitor response.
-    TaskMonitorPending {
+    /// Expected pending poll response.
+    PollPending {
         id: ODataId,
         location: Option<ODataId>,
         retry_after: Option<Duration>,
     },
 
-    /// Expected Task Monitor response with no body.
-    TaskMonitorEmpty { id: ODataId },
+    /// Expected poll response with no body.
+    PollEmpty { id: ODataId },
 
-    /// Expected Task Monitor response failing with an HTTP status.
-    TaskMonitorStatus { id: ODataId, status: u16 },
+    /// Expected poll response failing with an HTTP status.
+    PollStatus { id: ODataId, status: u16 },
 
-    /// Expected Task Monitor response that never completes.
-    TaskMonitorWait { id: ODataId },
+    /// Expected poll response that never completes.
+    PollWait { id: ODataId },
 
     /// Expected Expand.
     Expand { id: ODataId },
@@ -155,24 +155,24 @@ impl<E> Expect<E> {
         }
     }
 
-    pub fn task_monitor_result(uri: impl Display, response: impl Display) -> Self {
+    pub fn poll_result(uri: impl Display, response: impl Display) -> Self {
         Expect {
-            request: ExpectedRequest::TaskMonitorResult {
+            request: ExpectedRequest::PollResult {
                 id: uri.to_string().into(),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),
         }
     }
 
-    /// Expect a pending Task Monitor response. A `None` location keeps polling
+    /// Expect a pending poll response. A `None` location keeps polling
     /// `uri`, as the HTTP transport does when `Location` is omitted.
-    pub fn task_monitor_pending(
+    pub fn poll_pending(
         uri: impl Display,
         location: Option<&str>,
         retry_after: Option<Duration>,
     ) -> Self {
         Expect {
-            request: ExpectedRequest::TaskMonitorPending {
+            request: ExpectedRequest::PollPending {
                 id: uri.to_string().into(),
                 location: location.map(|value| ODataId::from(value.to_string())),
                 retry_after,
@@ -181,18 +181,18 @@ impl<E> Expect<E> {
         }
     }
 
-    pub fn task_monitor_empty(uri: impl Display) -> Self {
+    pub fn poll_empty(uri: impl Display) -> Self {
         Expect {
-            request: ExpectedRequest::TaskMonitorEmpty {
+            request: ExpectedRequest::PollEmpty {
                 id: uri.to_string().into(),
             },
             response: Ok(JsonValue::Null),
         }
     }
 
-    pub fn task_monitor_status(uri: impl Display, status: u16) -> Self {
+    pub fn poll_status(uri: impl Display, status: u16) -> Self {
         Expect {
-            request: ExpectedRequest::TaskMonitorStatus {
+            request: ExpectedRequest::PollStatus {
                 id: uri.to_string().into(),
                 status,
             },
@@ -200,9 +200,9 @@ impl<E> Expect<E> {
         }
     }
 
-    pub fn task_monitor_wait(uri: impl Display) -> Self {
+    pub fn poll_wait(uri: impl Display) -> Self {
         Expect {
-            request: ExpectedRequest::TaskMonitorWait {
+            request: ExpectedRequest::PollWait {
                 id: uri.to_string().into(),
             },
             response: Ok(JsonValue::Null),

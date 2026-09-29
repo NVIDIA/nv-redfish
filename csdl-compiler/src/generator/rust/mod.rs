@@ -151,7 +151,6 @@ impl<'a> RustGenerator<'a> {
             .map(|name| (*name, InheritedProperties::new(compiled, *name)))
             .collect::<HashMap<_, _>>();
         let create_types = Self::create_types(compiled, &properties);
-        let action_result_types = Self::action_result_types(compiled);
         let annotations = &compiled.annotations;
 
         let root = ModDef::default();
@@ -169,11 +168,6 @@ impl<'a> RustGenerator<'a> {
                             .then_some(GenerateType::Update),
                     )
                     .chain(create_types.contains(name).then_some(GenerateType::Create))
-                    .chain(
-                        action_result_types
-                            .contains(name)
-                            .then_some(GenerateType::ActionResult),
-                    )
                     .collect();
                 m.add_complex_type(
                     t,
@@ -192,11 +186,6 @@ impl<'a> RustGenerator<'a> {
                     create_types
                         .contains(&t.name)
                         .then_some(GenerateType::Create),
-                )
-                .chain(
-                    action_result_types
-                        .contains(&t.name)
-                        .then_some(GenerateType::ActionResult),
                 )
                 .chain(
                     compiled
@@ -263,22 +252,6 @@ impl<'a> RustGenerator<'a> {
         result
     }
 
-    /// Find structs generated in this unit that an action declares as its
-    /// `ReturnType`. Primitive return types are excluded: a foreign trait
-    /// cannot be implemented for a foreign type.
-    fn action_result_types(compiled: &Compiled<'a>) -> HashSet<QualifiedName<'a>> {
-        compiled
-            .actions
-            .values()
-            .flat_map(|actions| actions.values())
-            .filter_map(|action| action.return_type.as_ref().map(|rt| *rt.inner()))
-            .filter(|name| {
-                compiled.complex_types.contains_key(name)
-                    || compiled.entity_types.contains_key(name)
-            })
-            .collect()
-    }
-
     /// Generate Rust code from the collected data.
     #[must_use]
     pub fn generate(self) -> TokenStream {
@@ -300,7 +273,6 @@ impl<'a> RustGenerator<'a> {
                 NavProperty,
                 RedfishSettings,
                 Action,
-                ActionResult,
                 ODataId,
                 ODataETag,
                 ReferenceLeaf,

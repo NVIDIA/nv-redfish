@@ -795,62 +795,39 @@ impl Client {
         serde_path_to_error::deserialize(value).map_err(BmcError::JsonError)
     }
 
-    async fn handle_task_monitor_response<T>(
+    /// Read a response to polling an asynchronous operation.
+    ///
+    /// Pending responses often omit `Location`, which keeps the polled URI.
+    /// Finished responses are read like modification responses, and a `204`
+    /// naming a `Location` is read like an empty `200` with one.
+    async fn handle_poll_response<T>(
         &self,
         response: reqwest::Response,
-    ) -> Result<OperationStep<T>, BmcError>
+    ) -> Result<ModificationResponse<T>, BmcError>
     where
         T: DeserializeOwned + Send + Sync,
     {
         let status = response.status();
-        let url = response.url().clone();
-        let headers = response.headers().clone();
-        if !status.is_success() {
-            return Err(BmcError::InvalidResponse {
-                url,
-                status,
-                text: response.text().await.unwrap_or_else(|_| "<no data>".into()),
-            });
-        }
-
-        // Services often omit Location on repeated pending monitor responses.
-        let location = location_from_headers(&headers, &url, status);
-        let requested = || ODataId::from(odata_path_from_url(&url));
-        let finished =
-            |location: Result<Option<ODataId>, BmcError>| -> Result<OperationStep<T>, BmcError> {
-                Ok(location?.map_or(
-                    OperationStep::Done(ModificationResponse::Empty),
-                    OperationStep::Result,
-                ))
-            };
-
+        let url = response.url();
+        let headers = response.headers();
         match status {
-            reqwest::StatusCode::NO_CONTENT => finished(location),
             reqwest::StatusCode::ACCEPTED => {
-                Ok(OperationStep::Done(ModificationResponse::Task(AsyncTask {
-                    location: location?.unwrap_or_else(requested).into(),
-                    retry_after: retry_after_from_headers(&headers),
-                })))
+                let location = location_from_headers(headers, url, status)?
+                    .unwrap_or_else(|| odata_path_from_url(url).into());
+                Ok(ModificationResponse::Task(AsyncTask {
+                    location: location.into(),
+                    retry_after: retry_after_from_headers(headers),
+                }))
             }
-            reqwest::StatusCode::OK | reqwest::StatusCode::CREATED => {
-                let bytes = response.bytes().await.map_err(BmcError::ReqwestError)?;
-                if bytes.is_empty() {
-                    return finished(location);
-                }
-                let value: serde_json::Value =
-                    serde_json::from_slice(&bytes).map_err(BmcError::DecodeError)?;
-
-                match serde_path_to_error::deserialize(&value) {
-                    Ok(entity) => Ok(OperationStep::Done(ModificationResponse::Entity(entity))),
-                    Err(_) if is_redfish_success_response(&value) => finished(location),
-                    Err(err) => Err(BmcError::JsonError(err)),
-                }
-            }
-            _ => Err(BmcError::InvalidResponse {
-                url,
-                status,
-                text: format!("Unexpected successful status code: {status}"),
-            }),
+            reqwest::StatusCode::NO_CONTENT => location_from_headers(headers, url, status)?.map_or(
+                Ok(ModificationResponse::Empty),
+                |location| {
+                    serde_path_to_error::deserialize(serde_json::json!({ "@odata.id": location }))
+                        .map(ModificationResponse::Entity)
+                        .map_err(BmcError::JsonError)
+                },
+            ),
+            _ => self.handle_modification_response(response).await,
         }
     }
 
@@ -907,23 +884,6 @@ impl Client {
                         if let Some(etag) = etag {
                             inject_etag(&etag, &mut value);
                         }
-                    }
-
-                    if is_task_body(&value) {
-                        let Some(task_location) = location?.or_else(|| task_odata_id(&value))
-                        else {
-                            return Err(BmcError::InvalidResponse {
-                                url,
-                                status,
-                                text: String::from(
-                                    "successful Task body without Location or @odata.id",
-                                ),
-                            });
-                        };
-                        return Ok(ModificationResponse::Task(AsyncTask {
-                            location: task_location.into(),
-                            retry_after: retry_after_from_headers(&headers),
-                        }));
                     }
 
                     // Non-empty 200/201 bodies are typed responses selected by the caller.
@@ -1160,34 +1120,6 @@ fn retry_after_from_headers(headers: &HeaderMap) -> Option<Duration> {
         .map(Duration::from_secs)
 }
 
-/// One operation response, before following a result location.
-enum OperationStep<T> {
-    Done(ModificationResponse<T>),
-    /// The operation finished and the service named where its result is.
-    Result(ODataId),
-}
-
-/// Identify a Task body returned by non-conforming services.
-///
-/// Standard asynchronous responses use `202 Accepted` with a `Location`
-/// header. Some services instead return a Task resource with `200` or `201`.
-/// Only `@odata.type` identifies a Task; a TaskService path alone also
-/// matches responses from operations on a Task or its sub-resources.
-fn is_task_body(value: &serde_json::Value) -> bool {
-    value
-        .get("@odata.type")
-        .and_then(serde_json::Value::as_str)
-        .and_then(|odata_type| odata_type.strip_prefix('#'))
-        .is_some_and(|name| name.starts_with("Task."))
-}
-
-fn task_odata_id(value: &serde_json::Value) -> Option<ODataId> {
-    value
-        .get("@odata.id")
-        .and_then(serde_json::Value::as_str)
-        .map(|id| ODataId::from(id.to_string()))
-}
-
 fn inject_etag(etag: &ODataETag, body: &mut serde_json::Value) {
     if let Some(obj) = body.as_object_mut() {
         let etag_value = serde_json::Value::String(etag.to_string());
@@ -1260,7 +1192,7 @@ impl HttpClient for Client {
         self.handle_response(response).await
     }
 
-    async fn get_task_monitor_response<T>(
+    async fn poll<T>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
@@ -1270,25 +1202,9 @@ impl HttpClient for Client {
         T: DeserializeOwned + Send + Sync,
     {
         let request =
-            auth_headers(self.inner.get(url.clone()), credentials).headers(custom_headers.clone());
+            auth_headers(self.inner.get(url), credentials).headers(custom_headers.clone());
         let response = self.send(request.build()?).await?;
-        let result_location = match self.handle_task_monitor_response(response).await? {
-            OperationStep::Done(response) => return Ok(response),
-            OperationStep::Result(location) => location,
-        };
-
-        // A finished operation that names its result URI is followed once;
-        // a second redirection is reported as having no result.
-        let result_url = url.join(&result_location.to_string()).map_err(|_| {
-            BmcError::InvalidRequest(format!("invalid result location {result_location}"))
-        })?;
-        let request =
-            auth_headers(self.inner.get(result_url), credentials).headers(custom_headers.clone());
-        let response = self.send(request.build()?).await?;
-        match self.handle_task_monitor_response(response).await? {
-            OperationStep::Done(response) => Ok(response),
-            OperationStep::Result(_) => Ok(ModificationResponse::Empty),
-        }
+        self.handle_poll_response(response).await
     }
 
     async fn post<B, T>(

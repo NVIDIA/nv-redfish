@@ -99,8 +99,6 @@ pub use action::Action;
 #[doc(inline)]
 pub use action::ActionError;
 #[doc(inline)]
-pub use action::ActionResult;
-#[doc(inline)]
 pub use bmc::without_event_ids;
 #[doc(inline)]
 pub use bmc::Bmc;

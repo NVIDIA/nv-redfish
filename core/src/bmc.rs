@@ -197,18 +197,18 @@ pub trait Bmc: Send + Sync {
         params: &T,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
-    /// Get one response from an asynchronous action's Task Monitor or result URI.
+    /// GET a URI of an asynchronous operation, such as a Task Monitor.
     ///
-    /// `Task` means the operation is still running; a pending response without
-    /// `Location` keeps polling `location`. `Empty` means it finished without
-    /// returning a result. A successful body is deserialized as `R`.
+    /// A pending response is a `Task`; without a new location it keeps
+    /// `uri`. A finished response is read like a modification response, and a
+    /// finished response without a body that names a `Location` is read as
+    /// `{"@odata.id": <Location>}`.
     ///
-    /// `location` should be resolved as a Redfish URI reference, since it can
-    /// come from a Task's recorded `Location` header. Implementations may
+    /// `uri` should be resolved as a Redfish URI reference. Implementations may
     /// reject references that violate their outbound request policy.
-    fn get_task_monitor_response<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
+    fn poll<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
         &self,
-        location: &ODataId,
+        uri: &ODataId,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
     /// POST a Redfish `UpdateService` multipart upload using a named stream.
@@ -285,6 +285,7 @@ pub trait Bmc: Send + Sync {
         async move { self.stream::<T>(uri).await.map(without_event_ids) }
     }
 }
+
 /// One event a server-sent event stream delivered.
 ///
 /// `data` is the event's payload, decoded into the type the stream was

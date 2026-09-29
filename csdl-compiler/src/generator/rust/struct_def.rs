@@ -56,7 +56,6 @@ pub enum GenerateType<'a> {
     Update,
     Create,
     Action,
-    ActionResult,
 }
 
 /// Generation of Rust struct.
@@ -103,7 +102,6 @@ impl<'a> StructDef<'a> {
                 GenerateType::Excerpt(v) => self.generate_excerpt(tokens, config, v),
                 GenerateType::Update => self.generate_update(tokens, config),
                 GenerateType::Action => self.generate_action(tokens, config),
-                GenerateType::ActionResult => self.generate_action_result(tokens, config),
             }
         }
     }
@@ -157,14 +155,6 @@ impl<'a> StructDef<'a> {
                 impl #name { #content }
             });
         }
-    }
-
-    fn generate_action_result(&self, tokens: &mut TokenStream, config: &Config) {
-        let top = &config.top_module_alias;
-        let name = self.name;
-        tokens.extend(quote! {
-            impl #top::ActionResult for #name {}
-        });
     }
 
     fn read_fields(&self, config: &Config) -> TokenStream {

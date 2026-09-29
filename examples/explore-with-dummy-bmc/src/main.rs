@@ -598,9 +598,9 @@ impl Bmc for MockBmc {
         Ok(ModificationResponse::Entity(result))
     }
 
-    async fn get_task_monitor_response<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
+    async fn poll<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
         &self,
-        _location: &ODataId,
+        _uri: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
         Ok(ModificationResponse::Empty)
     }

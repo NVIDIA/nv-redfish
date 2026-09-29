@@ -253,11 +253,11 @@ impl<B: Bmc> Bmc for ConcurrencyLimitedBmc<B> {
         self.inner.stream_events(uri, last_event_id).await
     }
 
-    async fn get_task_monitor_response<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
+    async fn poll<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
         &self,
-        location: &ODataId,
+        uri: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
         let _permit = permit(&self.semaphore).await;
-        self.inner.get_task_monitor_response(location).await
+        self.inner.poll(uri).await
     }
 }

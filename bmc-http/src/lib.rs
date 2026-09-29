@@ -110,8 +110,8 @@ pub trait HttpClient: Send + Sync {
     where
         T: DeserializeOwned + Send + Sync;
 
-    /// Perform a GET on an asynchronous operation monitor or result URI.
-    fn get_task_monitor_response<T>(
+    /// Perform a GET on a URI of an asynchronous operation.
+    fn poll<T>(
         &self,
         url: Url,
         credentials: &BmcCredentials,
@@ -887,18 +887,18 @@ where
             .await
     }
 
-    async fn get_task_monitor_response<R: Send + Sync + for<'de> Deserialize<'de>>(
+    async fn poll<R: Send + Sync + for<'de> Deserialize<'de>>(
         &self,
-        location: &ODataId,
+        uri: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        let location = location.to_string();
+        let uri = uri.to_string();
         let endpoint_url = self
             .redfish_endpoint
-            .with_same_origin_uri_reference(UriReference(&location))
+            .with_same_origin_uri_reference(UriReference(&uri))
             .map_err(C::Error::rejected_uri_reference)?;
         let credentials = self.read_credentials();
         self.client
-            .get_task_monitor_response(endpoint_url, credentials.as_ref(), &self.custom_headers)
+            .poll(endpoint_url, credentials.as_ref(), &self.custom_headers)
             .await
     }
 }
