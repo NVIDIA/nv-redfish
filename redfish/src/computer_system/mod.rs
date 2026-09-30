@@ -36,6 +36,8 @@ pub mod processor;
 pub mod processor_metrics;
 #[cfg(feature = "secure-boot")]
 pub mod secure_boot;
+#[cfg(feature = "secure-boot")]
+pub mod secure_boot_database;
 #[cfg(feature = "storages")]
 pub mod storage;
 
@@ -86,7 +88,15 @@ pub use secure_boot::SecureBoot;
 pub use secure_boot::SecureBootCurrentBootType;
 #[doc(inline)]
 #[cfg(feature = "secure-boot")]
+pub use secure_boot::SecureBootResetKeysType;
+#[doc(inline)]
+#[cfg(feature = "secure-boot")]
 pub use secure_boot::SecureBootUpdate;
+#[doc(inline)]
+#[cfg(feature = "secure-boot")]
+pub use secure_boot_database::{
+    SecureBootDatabase, SecureBootDatabaseCollection, SecureBootDatabaseResetKeysType,
+};
 #[doc(inline)]
 #[cfg(feature = "storages")]
 pub use storage::{Storage, Volume, VolumeCollection};

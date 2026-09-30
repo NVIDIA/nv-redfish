@@ -90,6 +90,12 @@ impl BmcQuirks {
         self.platform == Some(Platform::Hpe)
     }
 
+    /// NVIDIA DPUs inline an incomplete AccountService certificate collection.
+    #[cfg(feature = "accounts")]
+    pub(crate) fn bug_incomplete_account_service_certificate_collection(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
     // In some implementations BMC ReleaseDate is incorrectly set to
     // 00:00:00Z in FirmwareInventory (which is
     // SoftwareInventoryCollection).
