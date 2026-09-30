@@ -155,6 +155,17 @@ patterns = [
 ]
 
 [[features]]
+name = "serial-interfaces"
+csdl_files = [
+    "SerialInterface_v1.xml",
+    "SerialInterfaceCollection_v1.xml",
+]
+patterns = [
+    "SerialInterface.*",
+    "SerialInterfaceCollection.*",
+]
+
+[[features]]
 name = "memory"
 csdl_files = [
     "Memory_v1.xml",

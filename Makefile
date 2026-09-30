@@ -36,6 +36,7 @@ all-std-features = accounts \
                    power-supplies \
                    processors \
                    secure-boot \
+                   serial-interfaces \
                    sensors \
                    session-service \
                    storages \
@@ -58,6 +59,7 @@ std-not-standalone-features = assembly \
              power-supplies \
              secure-boot \
              sensors \
+             serial-interfaces \
              storages \
              update-service-deprecated
 

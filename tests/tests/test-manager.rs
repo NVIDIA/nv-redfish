@@ -24,6 +24,10 @@ use nv_redfish::manager::ManagerNetworkProtocolUpdate;
 use nv_redfish::manager::ManagerResetToDefaultsType;
 use nv_redfish::resource::ResetType;
 use nv_redfish::schema::manager_network_protocol::ProtocolUpdate;
+use nv_redfish::schema::serial_interface::FlowControl;
+use nv_redfish::schema::serial_interface::Parity;
+use nv_redfish::schema::serial_interface::PinOut;
+use nv_redfish::schema::serial_interface::SignalType;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
@@ -55,6 +59,9 @@ const ETHERNET_INTERFACE_DATA_TYPE: &str = "#EthernetInterface.v1_10_0.EthernetI
 const HOST_INTERFACE_COLLECTION_DATA_TYPE: &str =
     "#HostInterfaceCollection.HostInterfaceCollection";
 const HOST_INTERFACE_DATA_TYPE: &str = "#HostInterface.v1_3_0.HostInterface";
+const SERIAL_INTERFACE_COLLECTION_DATA_TYPE: &str =
+    "#SerialInterfaceCollection.SerialInterfaceCollection";
+const SERIAL_INTERFACE_DATA_TYPE: &str = "#SerialInterface.v1_1_8.SerialInterface";
 
 #[test]
 async fn network_protocol_returns_none_when_link_is_absent() -> Result<(), Box<dyn StdError>> {
@@ -107,6 +114,70 @@ async fn network_protocol_fetches_linked_resource() -> Result<(), Box<dyn StdErr
 
     assert_eq!(ipmi.protocol_enabled, Some(Some(true)));
     assert_eq!(ipmi.port, Some(Some(1623)));
+
+    Ok(())
+}
+
+#[test]
+async fn serial_interfaces_read_supermicro_sol_settings() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let serial_interfaces_id = format!("{}/SerialInterfaces", ids.manager_id);
+    let serial_interface_id = format!("{serial_interfaces_id}/1");
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload_with_fields(
+            &ids,
+            json!({ "SerialInterfaces": { ODATA_ID: &serial_interfaces_id } }),
+        ),
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &serial_interfaces_id,
+        json!({
+            ODATA_ID: &serial_interfaces_id,
+            ODATA_TYPE: SERIAL_INTERFACE_COLLECTION_DATA_TYPE,
+            "Name": "Serial Interface Collection",
+            "Members": [{
+                ODATA_ID: &serial_interface_id,
+                ODATA_TYPE: SERIAL_INTERFACE_DATA_TYPE,
+                "Id": "1",
+                "Name": "SerialInterface",
+                "Description": "Serial over LAN",
+                "InterfaceEnabled": true,
+                "SignalType": "Rs232",
+                "BitRate": "115200",
+                "Parity": "None",
+                "DataBits": "8",
+                "StopBits": "1",
+                "FlowControl": "None",
+                "ConnectorType": "RJ45",
+                "PinOut": "Cyclades"
+            }]
+        }),
+    ));
+
+    let serial = manager
+        .serial_interfaces()
+        .await?
+        .ok_or_else(|| std::io::Error::other("missing serial interfaces"))?
+        .members()
+        .await?
+        .pop()
+        .ok_or_else(|| std::io::Error::other("missing serial interface"))?;
+    let raw = serial.raw();
+
+    assert_eq!(serial.interface_enabled(), Some(true));
+    assert_eq!(raw.signal_type, Some(SignalType::Rs232));
+    assert_eq!(raw.bit_rate.as_deref(), Some("115200"));
+    assert_eq!(raw.parity, Some(Parity::None));
+    assert_eq!(raw.data_bits.as_deref(), Some("8"));
+    assert_eq!(raw.stop_bits.as_deref(), Some("1"));
+    assert_eq!(raw.flow_control, Some(FlowControl::None));
+    assert_eq!(raw.connector_type.as_deref(), Some("RJ45"));
+    assert_eq!(raw.pin_out, Some(Some(PinOut::Cyclades)));
 
     Ok(())
 }

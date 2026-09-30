@@ -48,6 +48,8 @@ use crate::oem::lenovo::manager::LenovoManager;
 use crate::oem::nvidia::manager::NvidiaManager;
 #[cfg(feature = "oem-supermicro")]
 use crate::oem::supermicro::manager::SupermicroManager;
+#[cfg(feature = "serial-interfaces")]
+use crate::serial_interface::SerialInterfaceCollection;
 
 /// Represents a manager (BMC) in the system.
 ///
@@ -191,6 +193,24 @@ impl<B: Bmc> Manager<B> {
     ) -> Result<Option<HostInterfaceCollection<B>>, crate::Error<B>> {
         if let Some(p) = &self.data.host_interfaces {
             HostInterfaceCollection::new(&self.bmc, p).await.map(Some)
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Get serial interfaces for this manager.
+    ///
+    /// Returns `Ok(None)` when the serial interfaces link is absent.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching serial interfaces data fails.
+    #[cfg(feature = "serial-interfaces")]
+    pub async fn serial_interfaces(
+        &self,
+    ) -> Result<Option<SerialInterfaceCollection<B>>, Error<B>> {
+        if let Some(p) = &self.data.serial_interfaces {
+            SerialInterfaceCollection::new(&self.bmc, p).await.map(Some)
         } else {
             Ok(None)
         }
