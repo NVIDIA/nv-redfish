@@ -21,8 +21,10 @@ use std::sync::Arc;
 
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::dell::attributes::{AttributesUpdate, DellAttributesUpdate};
+use nv_redfish::oem::dell::schema::dell_job::{DellJob, JobState, JobType};
+use nv_redfish::Error;
 use nv_redfish::ServiceRoot;
-use nv_redfish_core::{EdmPrimitiveType, ModificationResponse, ODataId};
+use nv_redfish_core::{AsyncTask, EdmPrimitiveType, ModificationResponse, ODataId};
 use nv_redfish_tests::{assert_empty, Bmc, Expect, ODATA_ID, ODATA_TYPE};
 use serde_json::{json, Value};
 
@@ -233,7 +235,7 @@ async fn dell_job_service_without_usable_actions_reports_unavailable(
 }
 
 #[tokio::test]
-async fn manager_top_level_configuration_job_location_becomes_task() -> Result<(), Box<dyn StdError>>
+async fn manager_top_level_configuration_job_links_to_its_dell_job() -> Result<(), Box<dyn StdError>>
 {
     let bmc = Arc::new(Bmc::default());
     let jobs_id = "/redfish/v1/Managers/1/Oem/Dell/Jobs";
@@ -271,6 +273,78 @@ async fn manager_top_level_configuration_job_location_becomes_task() -> Result<(
     };
     assert_eq!(task.location.0.to_string(), task_id);
     assert_eq!(task.retry_after, None);
+
+    let link = jobs.job_link(task)?;
+    bmc.expect(Expect::get(
+        task_id,
+        json!({
+            ODATA_ID: task_id,
+            ODATA_TYPE: "#DellJob.v1_5_0.DellJob",
+            "Id": "JID_43",
+            "Name": "Configure: BIOS.Setup.1-1",
+            "JobState": "Scheduled",
+            "MessageId": "JCP001",
+            "PercentComplete": 0
+        }),
+    ));
+    assert_eq!(
+        link.fetch().await?.job_state,
+        Some(Some(JobState::Scheduled))
+    );
+
+    let outside = AsyncTask {
+        location: ODataId::from("/redfish/v1/TaskService/Tasks/JID_43".to_string()).into(),
+        retry_after: None,
+    };
+    assert!(matches!(
+        jobs.job_link(outside),
+        Err(Error::JobLocationNotInJobs { .. })
+    ));
+
+    Ok(())
+}
+
+#[test]
+fn dell_job_reports_state_on_idrac9_and_idrac10() -> Result<(), Box<dyn StdError>> {
+    // iDRAC9 7.20.10.50: a BIOS configuration job waiting for a host reset.
+    let idrac9: DellJob = serde_json::from_value(json!({
+        ODATA_ID: "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/JID_907777700987",
+        ODATA_TYPE: "#DellJob.v1_5_0.DellJob",
+        "ActualRunningStartTime": null,
+        "ActualRunningStopTime": null,
+        "CompletionTime": null,
+        "Description": "Job Instance",
+        "EndTime": "TIME_NA",
+        "Id": "JID_907777700987",
+        "JobState": "Scheduled",
+        "JobType": "BIOSConfiguration",
+        "Message": "Task successfully scheduled.",
+        "MessageArgs": [],
+        "MessageArgs@odata.count": 0,
+        "MessageId": "JCP001",
+        "Name": "Configure: BIOS.Setup.1-1",
+        "PercentComplete": 0,
+        "StartTime": "2026-09-30T09:16:10",
+        "TargetSettingsURI": null
+    }))?;
+    assert_eq!(idrac9.job_state, Some(Some(JobState::Scheduled)));
+    assert_eq!(idrac9.job_type, Some(Some(JobType::BiosConfiguration)));
+    assert_eq!(idrac9.message_id, Some(Some("JCP001".to_string())));
+    assert_eq!(idrac9.percent_complete, Some(0));
+
+    // iDRAC10 1.30.30.52 reports the same wait as ReadyForExecution.
+    let idrac10: DellJob = serde_json::from_value(json!({
+        ODATA_ID: "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/JID_179077943563",
+        ODATA_TYPE: "#DellJob.v1_8_0.DellJob",
+        "Id": "JID_179077943563",
+        "Name": "Configure: BIOS.Setup.1-1",
+        "JobState": "ReadyForExecution",
+        "JobType": "BIOSConfiguration",
+        "Message": "Configuration changes committed",
+        "MessageId": "PR19",
+        "PercentComplete": 0
+    }))?;
+    assert_eq!(idrac10.job_state, Some(Some(JobState::ReadyForExecution)));
 
     Ok(())
 }

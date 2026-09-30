@@ -51,14 +51,162 @@ limitations under the License.
         </Annotation>
       </EntityType>
     </Schema>
-    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_5_0">
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_0_0">
       <EntityType Name="DellJob" BaseType="DellJob.DellJob">
+        <Property Name="JobState" Type="DellJob.v1_0_0.JobState">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="MessageId" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="Message" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="MessageArgs" Type="Collection(Edm.String)" Nullable="false"/>
+        <Property Name="StartTime" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="EndTime" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="CompletionTime" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="PercentComplete" Type="Edm.Int64" Nullable="false">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="JobType" Type="DellJob.v1_0_0.JobType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
         <Property Name="TargetSettingsURI" Type="Edm.String">
           <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
           <Annotation Term="OData.IsURL"/>
           <Annotation Term="Redfish.RequiredOnCreate"/>
         </Property>
       </EntityType>
+      <EnumType Name="JobState">
+        <Member Name="New"/>
+        <Member Name="Scheduled"/>
+        <Member Name="Running"/>
+        <Member Name="Completed"/>
+        <Member Name="Downloading"/>
+        <Member Name="Downloaded"/>
+        <Member Name="Scheduling"/>
+        <Member Name="ReadyForExecution"/>
+        <Member Name="Waiting"/>
+        <Member Name="Paused"/>
+        <Member Name="Failed"/>
+        <Member Name="CompletedWithErrors"/>
+        <Member Name="RebootPending"/>
+        <Member Name="RebootFailed"/>
+        <Member Name="RebootCompleted"/>
+        <Member Name="PendingActivation"/>
+        <Member Name="UserIntervention"/>
+        <Member Name="Unknown"/>
+      </EnumType>
+      <EnumType Name="JobType">
+        <Member Name="FirmwareUpdate"/>
+        <Member Name="FirmwareRollback"/>
+        <Member Name="RepositoryUpdate"/>
+        <Member Name="RebootPowerCycle"/>
+        <Member Name="RebootForce"/>
+        <Member Name="RebootNoForce"/>
+        <Member Name="Shutdown"/>
+        <Member Name="RAIDConfiguration"/>
+        <Member Name="BIOSConfiguration"/>
+        <Member Name="NICConfiguration"/>
+        <Member Name="FCConfiguration"/>
+        <Member Name="iDRACConfiguration"/>
+        <Member Name="SystemInfoConfiguration"/>
+        <Member Name="InbandBIOSConfiguration"/>
+        <Member Name="ExportConfiguration"/>
+        <Member Name="ImportConfiguration"/>
+        <Member Name="RemoteDiagnostics"/>
+        <Member Name="RealTimeNoRebootConfiguration"/>
+        <Member Name="LCLogExport"/>
+        <Member Name="HardwareInventoryExport"/>
+        <Member Name="FactoryConfigurationExport"/>
+        <Member Name="LicenseImport"/>
+        <Member Name="LicenseExport"/>
+        <Member Name="ThermalHistoryExport"/>
+        <Member Name="LCConfig"/>
+        <Member Name="LCExport"/>
+        <Member Name="PreviewConfiguration"/>
+        <Member Name="SACollectHealthData"/>
+        <Member Name="SAExportHealthData"/>
+        <Member Name="SACollectExportHealthData"/>
+        <Member Name="SAExposeISM"/>
+        <Member Name="SARegistration"/>
+        <Member Name="SystemErase"/>
+        <Member Name="MessageRegistryExport"/>
+        <Member Name="OSDeploy"/>
+        <Member Name="Miscellaneous"/>
+        <Member Name="SEKMRekey"/>
+        <Member Name="SEKMStatusSet"/>
+        <Member Name="DPUConfig"/>
+        <Member Name="UploadCustomDefaults"/>
+        <Member Name="ExportDeviceLog"/>
+        <Member Name="SetBIOSTime"/>
+        <Member Name="Unknown"/>
+        <Member Name="AutoDiscoveryGenerateClientCertPrivateKey"/>
+        <Member Name="AutoDiscoveryReplacePublicKey"/>
+        <Member Name="BackupImage"/>
+        <Member Name="DownloadServerPublicKey"/>
+        <Member Name="ExportToolResults"/>
+        <Member Name="InfiniBandConfiguration"/>
+        <Member Name="LCDownloadClientCertificate"/>
+        <Member Name="LCExportCertificate"/>
+        <Member Name="LocalFileExport"/>
+        <Member Name="RestoreImage"/>
+        <Member Name="vFlashAttachPartition"/>
+        <Member Name="vFlashCreatePartition"/>
+        <Member Name="vFlashCreatePartitionUsingImage"/>
+        <Member Name="vFlashDetachPartition"/>
+        <Member Name="vFlashExportDataFromPartition"/>
+        <Member Name="vFlashFormatPartition"/>
+        <Member Name="vFlashInit"/>
+        <Member Name="ForceGracefulShutdownJob"/>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_0_1">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_0_0.DellJob"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_0_2">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_0_1.DellJob">
+        <Property Name="RebootJobType" Type="DellJob.v1_0_2.RebootJobType">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/ReadWrite"/>
+        </Property>
+      </EntityType>
+      <EnumType Name="RebootJobType">
+        <Member Name="PowerCycle"/>
+        <Member Name="ForceReboot"/>
+        <Member Name="NoForceReboot"/>
+      </EnumType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_0_3">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_0_2.DellJob"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_1_0">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_0_3.DellJob">
+        <Property Name="ActualRunningStartTime" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+        <Property Name="ActualRunningStopTime" Type="Edm.String">
+          <Annotation Term="OData.Permissions" EnumMember="OData.Permission/Read"/>
+        </Property>
+      </EntityType>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_2_0">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_1_0.DellJob"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_3_0">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_2_0.DellJob"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_4_0">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_3_0.DellJob"/>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_5_0">
+      <EntityType Name="DellJob" BaseType="DellJob.v1_4_0.DellJob"/>
     </Schema>
     <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="DellJob.v1_6_0">
       <EntityType Name="DellJob" BaseType="DellJob.v1_5_0.DellJob"/>

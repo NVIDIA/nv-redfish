@@ -19,8 +19,9 @@ use std::error::Error as StdError;
 use std::sync::Arc;
 
 use nv_redfish::schema::job::JobState;
+use nv_redfish::Error;
 use nv_redfish::ServiceRoot;
-use nv_redfish_core::ODataId;
+use nv_redfish_core::{AsyncTask, ODataId};
 use nv_redfish_tests::{Bmc, Expect, ODATA_ID, ODATA_TYPE};
 use serde_json::json;
 
@@ -91,6 +92,32 @@ async fn job_service_follows_advertised_collection_and_job_links() -> Result<(),
         members[0].fetch().await?.job_state,
         Some(JobState::Completed)
     );
+
+    // An operation that returns the job's location links to it directly.
+    let link = jobs.job_link(AsyncTask {
+        location: ODataId::from(job_id.to_string()).into(),
+        retry_after: None,
+    })?;
+    bmc.expect(Expect::get(
+        job_id,
+        json!({
+            ODATA_ID: job_id,
+            ODATA_TYPE: "#Job.v1_3_0.Job",
+            "Id": "JID_42",
+            "Name": "Configure BIOS",
+            "JobState": "Running"
+        }),
+    ));
+    assert_eq!(link.fetch().await?.job_state, Some(JobState::Running));
+
+    let outside = AsyncTask {
+        location: ODataId::from("/redfish/v1/TaskService/Tasks/JID_42".to_string()).into(),
+        retry_after: None,
+    };
+    assert!(matches!(
+        jobs.job_link(outside),
+        Err(Error::JobLocationNotInJobs { .. })
+    ));
 
     Ok(())
 }

@@ -41,7 +41,7 @@ pub use account::IdracVersion;
 #[cfg(feature = "job-service")]
 pub use job_service::DellJobService;
 #[cfg(feature = "job-service")]
-pub use jobs::DellJobs;
+pub use jobs::{DellJobLink, DellJobs};
 #[cfg(all(
     feature = "managers",
     any(feature = "job-service", feature = "oem-dell-attributes")
