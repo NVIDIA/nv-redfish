@@ -39,6 +39,7 @@ use nv_redfish_tests::base::redfish::service_root::TestSettingsService;
 use nv_redfish_tests::base::redfish::settings::OperationApplyTime;
 use nv_redfish_tests::base::redfish::test_vendor::TestActionsServiceTestActionAction as VendorTestAction;
 use nv_redfish_tests::base::redfish::ActionAnnotations;
+use nv_redfish_tests::base::redfish::SettingsUpdateAnnotations;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Error;
@@ -316,6 +317,7 @@ async fn update_property_test() -> Result<(), Error> {
                 rigid_array_values: None,
                 updatable_guid: Some(uuid_value),
                 write_only: None,
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await
@@ -344,6 +346,7 @@ async fn update_property_test() -> Result<(), Error> {
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: Some(value.clone()),
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await
@@ -381,6 +384,7 @@ async fn update_using_nav_property_test() -> Result<(), Error> {
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: None,
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await
@@ -429,6 +433,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
                 rigid_array_values: Some(updated_payload.clone()),
                 updatable_guid: None,
                 write_only: None,
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await
@@ -453,6 +458,7 @@ async fn update_rigid_array_property_test() -> Result<(), Error> {
                 rigid_array_values: None,
                 updatable_guid: None,
                 write_only: None,
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await
@@ -1031,6 +1037,7 @@ async fn redfish_settings_update_test() -> Result<(), Error> {
             &bmc,
             &nv_redfish_tests::base::redfish::service_root::TestSettingsServiceUpdate {
                 setting_value: Some(new_value.clone()),
+                settings_annotations: SettingsUpdateAnnotations::default(),
             },
         )
         .await

@@ -329,6 +329,24 @@ impl<'a> StructDef<'a> {
             }
         });
 
+        let is_resource = self.odata.must_have_id.into_inner();
+        let top = &config.top_module_alias;
+        let settings_annotations = is_resource.then(|| {
+            quote! {
+                /// Settings annotations.
+                #[serde(flatten)]
+                pub settings_annotations: #top::SettingsUpdateAnnotations,
+            }
+        });
+        let settings_annotations_impl = is_resource.then(|| {
+            quote! {
+                #[must_use]
+                pub fn with_settings_apply_time(mut self, v: #top::SettingsApplyTimeUpdate) -> Self {
+                    self.settings_annotations.settings_apply_time = Some(v);
+                    self
+                }
+            }
+        });
         let content = properties.struct_content_for_update();
         let comment = format!(" Update struct corresponding to `{}`", self.name);
         let name = self.name.for_update(None);
@@ -338,12 +356,18 @@ impl<'a> StructDef<'a> {
             SerializableStructKind::Update,
             has_additional_properties,
             dynamic_properties_type.is_some(),
+            is_resource,
         );
         tokens.extend(quote! {
             #[doc = #comment]
             #[derive(Serialize, Default)]
             #debug_derive
-            pub struct #name { #content #additional_properties #dynamic_properties }
+            pub struct #name {
+                #content
+                #settings_annotations
+                #additional_properties
+                #dynamic_properties
+            }
         });
 
         let content = properties.optional_property_setter_for_update();
@@ -360,6 +384,7 @@ impl<'a> StructDef<'a> {
                     self
                 }
                 #content
+                #settings_annotations_impl
                 #dynamic_properties_impl
             }
             #debug_impl
@@ -390,6 +415,7 @@ impl<'a> StructDef<'a> {
             &properties,
             SerializableStructKind::Create,
             has_additional_properties,
+            false,
             false,
         );
         tokens.extend([quote! {
@@ -429,6 +455,7 @@ impl<'a> StructDef<'a> {
         kind: SerializableStructKind,
         has_additional_properties: bool,
         has_dynamic_properties: bool,
+        has_settings_annotations: bool,
     ) -> (TokenStream, TokenStream) {
         // Open properties contain arbitrary request values and have no schema metadata that can
         // identify sensitive entries, so always use a redacting Debug implementation for them.
@@ -455,6 +482,8 @@ impl<'a> StructDef<'a> {
                 .then(|| quote! { .field("additional_properties", &"<redacted>") });
             let dynamic_properties = has_dynamic_properties
                 .then(|| quote! { .field("dynamic_properties", &"<redacted>") });
+            let settings_annotations = has_settings_annotations
+                .then(|| quote! { .field("settings_annotations", &self.settings_annotations) });
             (
                 quote! {},
                 quote! {
@@ -462,6 +491,7 @@ impl<'a> StructDef<'a> {
                         fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
                             f.debug_struct(stringify!(#name))
                                 #fields
+                                #settings_annotations
                                 #additional_properties
                                 #dynamic_properties
                                 .finish()
