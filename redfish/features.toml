@@ -964,10 +964,17 @@ vendor = "dell"
 name = "managers"
 oem_csdl_files = [
     "DellManager_v1.xml",
+    "DellLCService_v1.xml",
+    "OemManager_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "DellManager.*",
+    "DellLCService.*",
+]
+action_patterns = [
+    "DellLCService.*",
+    "OemManager.*",
 ]
 
 [[oem-features]]

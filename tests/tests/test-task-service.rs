@@ -149,3 +149,72 @@ async fn task_link_fetch_exposes_schema_fields() -> Result<(), Box<dyn StdError>
 
     Ok(())
 }
+
+#[test]
+async fn tasks_lists_member_links() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let tasks_path = "/redfish/v1/TaskService/Tasks";
+
+    bmc.expect(Expect::get(
+        "/redfish/v1",
+        json!({
+            ODATA_ID: "/redfish/v1",
+            ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+            "Id": "RootService",
+            "Name": "Root Service",
+            "Tasks": { ODATA_ID: TASK_SERVICE_PATH },
+            "Links": {
+                "Sessions": { ODATA_ID: "/redfish/v1/SessionService/Sessions" }
+            }
+        }),
+    ));
+    bmc.expect(Expect::get(
+        TASK_SERVICE_PATH,
+        json!({
+            ODATA_ID: TASK_SERVICE_PATH,
+            ODATA_TYPE: "#TaskService.v1_1_4.TaskService",
+            "Id": "TaskService",
+            "Name": "Task Service",
+            "Tasks": { ODATA_ID: tasks_path }
+        }),
+    ));
+    bmc.expect(Expect::get(
+        tasks_path,
+        json!({
+            ODATA_ID: tasks_path,
+            ODATA_TYPE: "#TaskCollection.TaskCollection",
+            "Name": "Task Collection",
+            "Members": [{ ODATA_ID: TASK_PATH }],
+            "Members@odata.count": 1
+        }),
+    ));
+    bmc.expect(Expect::get(
+        TASK_PATH,
+        json!({
+            ODATA_ID: TASK_PATH,
+            ODATA_TYPE: "#Task.v1_4_3.Task",
+            "Id": "42",
+            "Name": "Task 42",
+            "TaskState": "Completed"
+        }),
+    ));
+
+    let root = ServiceRoot::new(bmc).await?;
+    let tasks = root
+        .task_service()
+        .await?
+        .ok_or_else(|| IoError::new(ErrorKind::NotFound, "expected task service"))?
+        .tasks()
+        .ok_or_else(|| IoError::new(ErrorKind::NotFound, "expected Tasks collection"))?;
+    assert_eq!(tasks.odata_id().to_string(), tasks_path);
+
+    let links = tasks.member_links().await?;
+    assert_eq!(links.len(), 1);
+    assert_eq!(links[0].odata_id().to_string(), TASK_PATH);
+    assert_eq!(
+        links[0].fetch().await?.task_state,
+        Some(TaskState::Completed)
+    );
+
+    Ok(())
+}

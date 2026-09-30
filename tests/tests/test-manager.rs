@@ -22,6 +22,7 @@ use nv_redfish::host_interface::HostInterfaceUpdate;
 use nv_redfish::manager::Manager;
 use nv_redfish::manager::ManagerNetworkProtocolUpdate;
 use nv_redfish::manager::ManagerResetToDefaultsType;
+use nv_redfish::manager::ManagerUpdate;
 use nv_redfish::resource::ResetType;
 use nv_redfish::schema::manager_network_protocol::ProtocolUpdate;
 use nv_redfish::ServiceRoot;
@@ -288,6 +289,39 @@ async fn typed_updates_use_resource_uris_and_map_responses() -> Result<(), Box<d
     assert_eq!(
         updated_host.raw().firmware_auth_role_id.as_deref(),
         Some("Operator")
+    );
+
+    Ok(())
+}
+
+#[test]
+async fn manager_update_patches_manager_and_refetches() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager(bmc.clone(), &ids, manager_payload(&ids)).await?;
+
+    let update = ManagerUpdate::builder()
+        .with_service_identification("rack-7".into())
+        .build();
+    bmc.expect(Expect::update(
+        &ids.manager_id,
+        json!({ "ServiceIdentification": "rack-7" }),
+        json!({ ODATA_ID: &ids.manager_id }),
+    ));
+    bmc.expect(Expect::get(
+        &ids.manager_id,
+        manager_payload_with_fields(&ids, json!({ "ServiceIdentification": "rack-7" })),
+    ));
+    let ModificationResponse::Entity(updated) = manager.update(&update).await? else {
+        return Err(std::io::Error::other("expected manager entity response").into());
+    };
+    assert_eq!(
+        updated
+            .raw()
+            .service_identification
+            .as_ref()
+            .and_then(Option::as_deref),
+        Some("rack-7")
     );
 
     Ok(())

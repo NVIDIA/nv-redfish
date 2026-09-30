@@ -15,10 +15,12 @@
 
 use crate::resource::ResetType;
 use crate::schema::manager::Manager as ManagerSchema;
+use crate::schema::manager::ManagerUpdate;
 use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use std::sync::Arc;
@@ -35,10 +37,7 @@ use crate::log_service::LogService;
 use crate::oem::ami::config_bmc::ConfigBmc as AmiConfigBmc;
 #[cfg(feature = "oem-dell-attributes")]
 use crate::oem::dell::attributes::DellAttributes;
-#[cfg(all(
-    feature = "oem-dell",
-    any(feature = "job-service", feature = "oem-dell-attributes")
-))]
+#[cfg(feature = "oem-dell")]
 use crate::oem::dell::DellManager;
 #[cfg(feature = "oem-hpe")]
 use crate::oem::hpe::manager::HpeManager;
@@ -80,6 +79,24 @@ impl<B: Bmc> Manager<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<ManagerSchema> {
         self.data.clone()
+    }
+
+    /// Update this manager.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if updating or fetching the returned entity fails.
+    pub async fn update(
+        &self,
+        update: &ManagerUpdate,
+    ) -> Result<ModificationResponse<Self>, Error<B>> {
+        self.bmc
+            .as_ref()
+            .update::<_, NavProperty<ManagerSchema>>(self.data.odata_id(), self.data.etag(), update)
+            .await
+            .map_err(Error::Bmc)?
+            .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
+            .await
     }
 
     /// Get the network protocol resource associated with this manager.
@@ -239,17 +256,14 @@ impl<B: Bmc> Manager<B> {
         DellAttributes::new_fallback(&self.bmc, &self.data).await
     }
 
-    /// Get Dell resources advertised through this Manager's OEM links.
+    /// Get Dell resources and OEM actions advertised by this Manager.
     ///
-    /// Returns `Ok(None)` when the Manager does not advertise Dell links.
+    /// Returns `Ok(None)` when the Manager advertises neither.
     ///
     /// # Errors
     ///
-    /// Returns an error if the Dell links cannot be parsed.
-    #[cfg(all(
-        feature = "oem-dell",
-        any(feature = "job-service", feature = "oem-dell-attributes")
-    ))]
+    /// Returns an error if the Dell links or actions cannot be parsed.
+    #[cfg(feature = "oem-dell")]
     pub fn oem_dell(&self) -> Result<Option<DellManager<B>>, Error<B>> {
         DellManager::new(&self.bmc, &self.data)
     }

@@ -26,10 +26,9 @@ pub mod attributes;
 mod job_service;
 #[cfg(feature = "job-service")]
 mod jobs;
-#[cfg(all(
-    feature = "managers",
-    any(feature = "job-service", feature = "oem-dell-attributes")
-))]
+#[cfg(feature = "managers")]
+mod lc_service;
+#[cfg(feature = "managers")]
 mod manager;
 #[cfg(all(feature = "computer-systems", feature = "storages"))]
 mod storage_actions;
@@ -42,10 +41,9 @@ pub use account::IdracVersion;
 pub use job_service::DellJobService;
 #[cfg(feature = "job-service")]
 pub use jobs::{DellJobLink, DellJobs};
-#[cfg(all(
-    feature = "managers",
-    any(feature = "job-service", feature = "oem-dell-attributes")
-))]
+#[cfg(feature = "managers")]
+pub use lc_service::DellLcService;
+#[cfg(feature = "managers")]
 pub use manager::DellManager;
 #[cfg(all(feature = "computer-systems", feature = "storages"))]
 pub use storage_actions::{DellStorageActions, OperationApplyTime};

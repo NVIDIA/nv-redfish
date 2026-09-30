@@ -22,10 +22,15 @@ use std::sync::Arc;
 use nv_redfish::manager::Manager;
 use nv_redfish::oem::dell::attributes::{AttributesUpdate, DellAttributesUpdate};
 use nv_redfish::oem::dell::schema::dell_job::{DellJob, JobState, JobType};
+use nv_redfish::oem::dell::schema::dell_lc_service::GetRemoteServicesApiStatusResponseLcStatus;
+use nv_redfish::oem::dell::schema::oem_manager::{
+    ManagerImportSystemConfigurationAction, ShareParametersUpdate, ShutdownType,
+};
+use nv_redfish::oem::dell::schema::ActionAnnotations;
 use nv_redfish::Error;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::{AsyncTask, EdmPrimitiveType, ModificationResponse, ODataId};
-use nv_redfish_tests::{assert_empty, Bmc, Expect, ODATA_ID, ODATA_TYPE};
+use nv_redfish_tests::{assert_empty, json_merge, Bmc, Expect, ODATA_ID, ODATA_TYPE};
 use serde_json::{json, Value};
 
 const SERVICE_ROOT_TYPE: &str = "#ServiceRoot.v1_13_0.ServiceRoot";
@@ -414,6 +419,144 @@ async fn manager_prefers_configuration_jobs_link_over_top_level_oem(
     Ok(())
 }
 
+#[tokio::test]
+async fn manager_imports_system_configuration() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let target =
+        "/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/EID_674_Manager.ImportSystemConfiguration";
+    let manager = get_manager(
+        bmc.clone(),
+        "/redfish/v1/Managers/manager-1",
+        json!({
+            "Links": {},
+            "Actions": {
+                "Oem": {
+                    "#OemManager.ImportSystemConfiguration": { "target": target },
+                    "#OemManager.ExportSystemConfiguration": {
+                        "target": "/redfish/v1/Managers/iDRAC.Embedded.1/Actions/Oem/EID_674_Manager.ExportSystemConfiguration"
+                    }
+                }
+            }
+        }),
+    )
+    .await?;
+    let dell = manager.oem_dell()?.expect("Dell actions are advertised");
+
+    bmc.expect(Expect::action_task(
+        target,
+        json!({
+            "ShareParameters": { "Target": ["BIOS"] },
+            "ImportBuffer": "<SystemConfiguration/>",
+            "ShutdownType": "Forced"
+        }),
+        AsyncTask {
+            location: ODataId::from("/redfish/v1/TaskService/Tasks/JID_1".to_string()).into(),
+            retry_after: None,
+        },
+    ));
+    let params = ManagerImportSystemConfigurationAction {
+        redfish_annotations: ActionAnnotations::default(),
+        share_parameters: ShareParametersUpdate::builder()
+            .with_target(vec!["BIOS".to_string()])
+            .build(),
+        import_buffer: Some("<SystemConfiguration/>".to_string()),
+        shutdown_type: Some(ShutdownType::Forced),
+        host_power_state: None,
+    };
+    let ModificationResponse::Task(task) = dell.import_system_configuration(&params).await? else {
+        return Err("expected the import to return a job".into());
+    };
+    assert_eq!(
+        task.location.0.to_string(),
+        "/redfish/v1/TaskService/Tasks/JID_1"
+    );
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn manager_reads_lifecycle_controller_status() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let lc_id = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/DellLCService";
+    let target = format!("{lc_id}/Actions/DellLCService.GetRemoteServicesAPIStatus");
+    let manager = get_manager(
+        bmc.clone(),
+        "/redfish/v1/Managers/manager-1",
+        json!({
+            "Links": {
+                "Oem": {
+                    "Dell": {
+                        "DellLCService": { ODATA_ID: lc_id }
+                    }
+                }
+            }
+        }),
+    )
+    .await?;
+    let dell = manager.oem_dell()?.expect("Dell links are advertised");
+
+    bmc.expect(Expect::get(
+        lc_id,
+        json!({
+            ODATA_ID: lc_id,
+            ODATA_TYPE: "#DellLCService.v1_8_1.DellLCService",
+            "Id": "DellLCService",
+            "Name": "DellLCService",
+            "Actions": {
+                "#DellLCService.GetRemoteServicesAPIStatus": { "target": &target }
+            }
+        }),
+    ));
+    let lc = dell.lc_service().await?.expect("DellLCService is linked");
+
+    // iDRAC9 reports TelemetryServiceStatus.
+    bmc.expect(Expect::action(
+        &target,
+        json!({}),
+        json!({
+            "LCStatus": "Ready",
+            "RTStatus": "Ready",
+            "SEKMServiceStatus": "NotReady",
+            "ServerStatus": "OutOfPOST",
+            "Status": "Ready",
+            "TelemetryServiceStatus": "Ready"
+        }),
+    ));
+    let ModificationResponse::Entity(status) = lc.remote_services_api_status().await? else {
+        return Err("expected a status body".into());
+    };
+    assert_eq!(
+        status.lc_status,
+        Some(GetRemoteServicesApiStatusResponseLcStatus::Ready)
+    );
+    assert_eq!(status.server_status.as_deref(), Some("OutOfPOST"));
+
+    // iDRAC10 reports RedfishStatus instead, and ServerStatus values outside
+    // any enum.
+    bmc.expect(Expect::action(
+        &target,
+        json!({}),
+        json!({
+            "LCStatus": "InUse",
+            "RTStatus": "Ready",
+            "SEKMServiceStatus": "NotReady",
+            "ServerStatus": "HaltedF1/F2Prompt",
+            "Status": "InUse",
+            "RedfishStatus": "Ready"
+        }),
+    ));
+    let ModificationResponse::Entity(status) = lc.remote_services_api_status().await? else {
+        return Err("expected a status body".into());
+    };
+    assert_eq!(
+        status.lc_status,
+        Some(GetRemoteServicesApiStatusResponseLcStatus::InUse)
+    );
+    assert!(status.telemetry_service_status.is_none());
+
+    Ok(())
+}
+
 async fn get_manager(
     bmc: Arc<Bmc>,
     manager_id: &str,
@@ -445,15 +588,16 @@ async fn get_manager(
             ODATA_TYPE: MANAGER_COLLECTION_TYPE,
             "Id": "Managers",
             "Name": "Managers",
-            "Members": [{
-                ODATA_ID: manager_id,
-                ODATA_TYPE: MANAGER_TYPE,
-                "Id": "manager-1",
-                "Name": "Manager",
-                "Status": { "State": "Enabled" },
-                "Links": extra["Links"].clone(),
-                "Oem": extra["Oem"].clone()
-            }]
+            "Members": [json_merge([
+                &json!({
+                    ODATA_ID: manager_id,
+                    ODATA_TYPE: MANAGER_TYPE,
+                    "Id": "manager-1",
+                    "Name": "Manager",
+                    "Status": { "State": "Enabled" }
+                }),
+                &extra,
+            ])]
         }),
     ));
     root.managers()
