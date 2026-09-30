@@ -18,12 +18,36 @@
 //! OData ABNF reference:
 //! <https://docs.oasis-open.org/odata/odata/v4.01/os/abnf/odata-abnf-construction-rules.txt>
 
+use nv_redfish_core::odata::ODataType;
+
 use serde_json::map::Map as JsonMap;
 use serde_json::Value as JsonValue;
 
 const SSE_EVENT_BASE_ID: &str = "/redfish/v1/EventService/SSE";
 
 pub(super) type EventRecordPatchFn = fn(&mut JsonMap<String, JsonValue>, usize);
+
+pub(super) fn patch_missing_event_id(
+    mut value: JsonValue,
+    last_event_id: Option<&str>,
+) -> JsonValue {
+    let Some(id) = last_event_id.filter(|id| !id.is_empty()) else {
+        return value;
+    };
+
+    if ODataType::parse_from(&value).is_none_or(|kind| kind.type_name != "Event") {
+        return value;
+    }
+
+    if let Some(payload) = value.as_object_mut() {
+        // Explicit identifiers, including null or malformed values, are not repaired.
+        if !payload.contains_key("Id") && !payload.contains_key("@odata.id") {
+            payload.insert("Id".to_string(), JsonValue::String(id.to_string()));
+        }
+    }
+
+    value
+}
 
 pub(super) fn patch_missing_event_odata_id(mut value: JsonValue) -> JsonValue {
     let Some(payload) = value.as_object_mut() else {
@@ -175,6 +199,77 @@ mod tests {
         patch_missing_event_type_to_other,
         patch_missing_event_record_odata_id,
     ];
+
+    #[test]
+    fn missing_envelope_id_repair_changes_only_the_absent_id() {
+        let mut payload = synthetic_event();
+        payload.as_object_mut().expect("object").remove("Id");
+        let mut expected = payload.clone();
+        expected["Id"] = json!("transport-42");
+
+        let patched = patch_missing_event_id(payload, Some("transport-42"));
+
+        assert_eq!(patched, expected);
+
+        let patched =
+            patch_event_records(patch_missing_event_odata_id(patched), &ID_AND_LOG_PATCHES);
+
+        let decoded: EventStreamPayload = serde_json::from_value(patched).expect("event");
+
+        assert!(matches!(decoded, EventStreamPayload::Event(_)));
+    }
+
+    #[test]
+    fn missing_envelope_id_repair_preserves_explicit_ids_and_other_payloads() {
+        for payload in [
+            json!({"@odata.type": "#MetricReport.v1_0_0.MetricReport"}),
+            json!({}),
+            json!({"@odata.type": null}),
+            json!([]),
+            Value::Null,
+        ] {
+            assert_eq!(patch_missing_event_id(payload.clone(), Some("42")), payload);
+        }
+
+        for key in ["Id", "@odata.id"] {
+            for value in [Value::Null, json!(7), json!(""), json!("existing-id")] {
+                let mut payload = json!({"@odata.type": "#Event.v1_4_0.Event"});
+                payload[key] = value;
+
+                assert_eq!(patch_missing_event_id(payload.clone(), Some("42")), payload);
+            }
+        }
+    }
+
+    #[test]
+    fn missing_envelope_id_repair_keeps_unusable_cursor_and_reference_errors() {
+        let mut payload = synthetic_event();
+        payload.as_object_mut().expect("object").remove("Id");
+
+        for cursor in [None, Some("")] {
+            let patched = patch_missing_event_id(payload.clone(), cursor);
+
+            assert_eq!(patched, payload);
+
+            let patched =
+                patch_event_records(patch_missing_event_odata_id(patched), &ID_AND_LOG_PATCHES);
+
+            assert!(serde_json::from_value::<EventStreamPayload>(patched).is_err());
+        }
+
+        payload["Events"][0]["LogEntry"] = json!({"unexpected": "value"});
+        let patched = patch_missing_event_id(payload, Some("42"));
+
+        let patched =
+            patch_event_records(patch_missing_event_odata_id(patched), &ID_AND_LOG_PATCHES);
+
+        assert_eq!(
+            patched["Events"][0]["LogEntry"],
+            json!({"unexpected": "value"})
+        );
+
+        assert!(serde_json::from_value::<EventStreamPayload>(patched).is_err());
+    }
 
     #[test]
     fn normalizes_compact_offset() {

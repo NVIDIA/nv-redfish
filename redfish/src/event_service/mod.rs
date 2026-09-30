@@ -199,11 +199,22 @@ impl<B: Bmc> EventService<B> {
             .map_err(Error::Bmc)?;
 
         let sse_read_patches = self.sse_read_patches.clone();
+        let missing_envelope_ids = self.bmc.quirks.event_service_sse_missing_envelope_ids();
+
         let stream = stream.map_err(Error::Bmc).and_then(move |event| {
             let StreamEvent {
                 last_event_id,
                 data,
             } = event;
+
+            // Supply Id before the existing envelope @odata.id patch. The transport
+            // cursor is only borrowed: it may be inherited and remains unchanged.
+            let data = if missing_envelope_ids {
+                patch::patch_missing_event_id(data, last_event_id.as_deref())
+            } else {
+                data
+            };
+
             let patched = sse_read_patches.iter().fold(data, |acc, patch| patch(acc));
 
             future::ready(

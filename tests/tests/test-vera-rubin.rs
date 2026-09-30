@@ -22,6 +22,7 @@ use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::event_service::EventStreamPayload;
 use nv_redfish::schema::event::EventType;
 use nv_redfish::ServiceRoot;
+use nv_redfish_core::nav_property::Reference;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
@@ -109,6 +110,111 @@ async fn vera_rubin_sse_accepts_missing_and_present_event_type() -> Result<(), B
 
     assert_eq!(patched.event_type, EventType::Other);
     assert_eq!(preserved.event_type, EventType::Alert);
+
+    Ok(())
+}
+
+#[test]
+async fn vera_rubin_sse_uses_transport_id_for_missing_envelope_ids() -> Result<(), Box<dyn StdError>>
+{
+    let bmc = Arc::new(Bmc::default());
+    let ids = test_ids();
+    let event_service_id = format!("{}/EventService", ids.root_id);
+    let sse_uri = format!("{event_service_id}/SSE");
+
+    let root = expect_vera_rubin_service_root(
+        bmc.clone(),
+        &ids,
+        json!({"EventService": {ODATA_ID: &event_service_id}}),
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &event_service_id,
+        json!({
+            ODATA_ID: &event_service_id,
+            ODATA_TYPE: EVENT_SERVICE_DATA_TYPE,
+            "Id": "EventService", "Name": "Event Service",
+            "ServerSentEventUri": &sse_uri
+        }),
+    ));
+
+    let service = root.event_service().await?.expect("event service");
+
+    // Synthetic capture shape: envelope IDs, MemberId, and record @odata.id are absent.
+    // The record's EventId deliberately differs from the transport ID.
+    let payload = json!({
+        ODATA_TYPE: "#Event.v1_4_0.Event",
+        "Name": "Event Log",
+        "Events": [{
+            "EventId": "record-7",
+            "EventType": "Event",
+            "EventTimestamp": "2026-01-01T00:00:00+00:00",
+            "Message": "Test hardware event",
+            "MessageId": "ResourceEvent.1.0.ResourceErrorsDetected",
+            "MessageArgs": ["test-component", "test-error"],
+            "MessageSeverity": "Critical",
+            "LogEntry": {ODATA_ID: "/redfish/v1/Managers/1/LogServices/EventLog/Entries/7"},
+            "OriginOfCondition": {ODATA_ID: "/redfish/v1/Systems/1"},
+            "Oem": {"Vendor": {"DiagnosticData": "test-data"}}
+        }]
+    });
+
+    // Repeated in-effect IDs are legal; normalization must not advance the cursor.
+    bmc.expect(Expect::stream_events(
+        &sse_uri,
+        Some("40"),
+        ["41", "41", "42"].map(|id| (Some(id), payload.clone())),
+    ));
+
+    let mut stream = service.events_from(Some("40")).await?;
+
+    for id in ["41", "41", "42"] {
+        let item = stream.try_next().await?.expect("event");
+
+        assert_eq!(item.last_event_id.as_deref(), Some(id));
+
+        let EventStreamPayload::Event(event) = item.data else {
+            panic!("expected an Event payload");
+        };
+
+        let record = event.events[0].get(bmc.as_ref()).await?;
+
+        assert_eq!(event.id, id);
+        assert_eq!(event.odata_id.to_string(), format!("{sse_uri}#/Event{id}"));
+        assert_eq!(record.event_id.as_deref(), Some("record-7"));
+        assert_eq!(record.member_id, "record-7");
+        assert_eq!(record.message.as_deref(), Some("Test hardware event"));
+
+        assert_eq!(
+            serde_json::to_value(Reference::from(
+                record.log_entry.as_ref().expect("log reference")
+            ))?,
+            json!({"@odata.id": "/redfish/v1/Managers/1/LogServices/EventLog/Entries/7"})
+        );
+
+        assert_eq!(
+            record.oem.as_ref().expect("OEM").additional_properties["Vendor"]["DiagnosticData"],
+            "test-data"
+        );
+    }
+
+    assert!(stream.try_next().await?.is_none());
+
+    bmc.expect(Expect::stream_events(
+        &sse_uri,
+        None,
+        [(Some("43"), payload)],
+    ));
+
+    let mut stream = service.events().await?;
+
+    let EventStreamPayload::Event(event) = stream.try_next().await?.expect("event") else {
+        panic!("expected an Event payload");
+    };
+
+    assert_eq!(event.id, "43");
+    assert!(stream.try_next().await?.is_none());
 
     Ok(())
 }
