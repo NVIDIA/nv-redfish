@@ -13,14 +13,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Dell configuration-job creation through the OEM Jobs endpoint advertised
-//! by a Manager.
+//! Dell configuration jobs through the OEM Jobs endpoint advertised by a
+//! Manager: creating them and linking to them for status.
 
 use crate::core::{AsyncTask, Bmc, EntityTypeRef as _, ModificationResponse, NavProperty, ODataId};
+use crate::entity_link::EntityLink;
 use crate::oem::dell::schema::dell_job::{DellJob, DellJobCreate};
 #[cfg(feature = "managers")]
 use crate::oem::dell::schema::dell_job_collection::DellJobCollection;
 use crate::{Error, NvBmc};
+
+/// Link to a Dell job returned by an asynchronous operation.
+pub type DellJobLink<B> = EntityLink<B, DellJob>;
 
 /// Dell OEM configuration Jobs endpoint.
 pub struct DellJobs<B: Bmc> {
@@ -73,6 +77,32 @@ impl<B: Bmc> DellJobs<B> {
                 ModificationResponse::Empty => ModificationResponse::Empty,
             })
             .map_err(Error::Bmc)
+    }
+
+    /// Create a job link from an asynchronous operation result, such as the
+    /// one [`Self::create_configuration_job`] returns.
+    ///
+    /// The job location must be a child of this Jobs collection, such as
+    /// `/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/{id}`. The
+    /// returned link does not fetch the job until [`DellJobLink::fetch`] is
+    /// called.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the job location is not a child of this Jobs
+    /// collection.
+    pub fn job_link(&self, job: AsyncTask) -> Result<DellJobLink<B>, Error<B>> {
+        let job_location = job.location.0;
+        if self.collection_id == job_location || !self.collection_id.is_path_prefix(&job_location) {
+            return Err(Error::JobLocationNotInJobs {
+                job_location,
+                job_collection: self.collection_id.clone(),
+            });
+        }
+        Ok(DellJobLink::new(
+            &self.bmc,
+            NavProperty::new_reference(job_location),
+        ))
     }
 
     /// Advertised Dell jobs collection identifier.

@@ -69,6 +69,14 @@ pub enum Error<B: Bmc> {
     /// its outcome.
     #[cfg(feature = "task-service")]
     TaskAlreadyFinished,
+    /// Job location does not point at this Jobs collection.
+    #[cfg(feature = "job-service")]
+    JobLocationNotInJobs {
+        /// Job location.
+        job_location: nv_redfish_core::ODataId,
+        /// Expected Jobs collection path.
+        job_collection: nv_redfish_core::ODataId,
+    },
     /// Metric definitions are not available for telemetry service
     #[cfg(feature = "telemetry-service")]
     MetricDefinitionsNotAvailable,
@@ -115,6 +123,14 @@ impl<B: Bmc> Display for Error<B> {
             } => write!(
                 f,
                 "Task location {task_location} is not in TaskService Tasks collection {task_collection}"
+            ),
+            #[cfg(feature = "job-service")]
+            Self::JobLocationNotInJobs {
+                job_location,
+                job_collection,
+            } => write!(
+                f,
+                "Job location {job_location} is not in Jobs collection {job_collection}"
             ),
             #[cfg(feature = "task-service")]
             Self::TaskResultUnavailable => {

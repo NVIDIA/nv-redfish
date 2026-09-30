@@ -17,7 +17,7 @@
 
 use std::sync::Arc;
 
-use crate::core::{Bmc, NavProperty, ODataId};
+use crate::core::{AsyncTask, Bmc, NavProperty, ODataId};
 use crate::entity_link::EntityLink;
 use crate::schema::job::Job as JobSchema;
 use crate::schema::job_collection::JobCollection as JobCollectionSchema;
@@ -89,6 +89,30 @@ impl<B: Bmc> JobCollection<B> {
     #[must_use]
     pub const fn odata_id(&self) -> &ODataId {
         &self.id
+    }
+
+    /// Create a job link from an asynchronous operation result.
+    ///
+    /// The job location must be a child of this Jobs collection, such as
+    /// `/redfish/v1/JobService/Jobs/{id}`. The returned link does not fetch
+    /// the job until [`JobLink::fetch`] is called.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the job location is not a child of this Jobs
+    /// collection.
+    pub fn job_link(&self, job: AsyncTask) -> Result<JobLink<B>, Error<B>> {
+        let job_location = job.location.0;
+        if self.id == job_location || !self.id.is_path_prefix(&job_location) {
+            return Err(Error::JobLocationNotInJobs {
+                job_location,
+                job_collection: self.id.clone(),
+            });
+        }
+        Ok(EntityLink::new(
+            &self.bmc,
+            NavProperty::new_reference(job_location),
+        ))
     }
 
     /// Fetch links to every Job currently in the collection.
