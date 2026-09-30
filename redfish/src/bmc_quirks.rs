@@ -240,6 +240,12 @@ impl BmcQuirks {
         true
     }
 
+    /// Event envelopes can omit both `Id` and `@odata.id` while carrying an SSE ID.
+    #[cfg(feature = "event-service")]
+    pub(crate) const fn event_service_sse_missing_envelope_ids(&self) -> bool {
+        matches!(self.platform, Some(Platform::VeraRubin))
+    }
+
     /// Vera Rubin host BMCs report composite `BootOrder` entries such as
     /// `"Boot0019: Ubuntu"` while boot option resources use the bare reference.
     #[cfg(feature = "computer-systems")]
@@ -299,20 +305,25 @@ mod tests {
 
     #[test]
     fn sse_repairs_are_scoped_to_affected_platforms() {
-        for (platform, missing_member_id, empty_log_entry) in [
-            (Some(Platform::VeraRubin), true, true),
-            (Some(Platform::NvSwitch), true, false),
-            (Some(Platform::Nvidia), true, false),
-            (Some(Platform::Wiwynn), true, false),
-            (Some(Platform::Dell), false, false),
-            (Some(Platform::Hpe), false, false),
-            (Some(Platform::NvidiaDpu), false, false),
-            (None, false, false),
+        for (platform, missing_member_id, empty_log_entry, missing_envelope_ids) in [
+            (Some(Platform::VeraRubin), true, true, true),
+            (Some(Platform::NvSwitch), true, false, false),
+            (Some(Platform::Nvidia), true, false, false),
+            (Some(Platform::Wiwynn), true, false, false),
+            (Some(Platform::Dell), false, false, false),
+            (Some(Platform::Hpe), false, false, false),
+            (Some(Platform::NvidiaDpu), false, false, false),
+            (None, false, false, false),
         ] {
             let quirks = BmcQuirks { platform };
 
             assert_eq!(quirks.event_service_sse_no_member_id(), missing_member_id);
             assert_eq!(quirks.event_service_sse_empty_log_entry(), empty_log_entry);
+
+            assert_eq!(
+                quirks.event_service_sse_missing_envelope_ids(),
+                missing_envelope_ids
+            );
         }
     }
 }
