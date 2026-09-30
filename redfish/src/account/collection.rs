@@ -48,6 +48,7 @@ use crate::schema::manager_account::ManagerAccount;
 use crate::schema::manager_account::SnmpUserInfoUpdate;
 use crate::schema::manager_account_collection::ManagerAccountCollection;
 use crate::schema::resource::ResourceCollection;
+use crate::schema::SettingsUpdateAnnotations;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -256,6 +257,7 @@ impl<B: Bmc> AccountCollection<B> {
                         bypass_types: mfa.bypass_types,
                     }),
                     links: None,
+                    settings_annotations: SettingsUpdateAnnotations::default(),
                 };
 
                 return account.update(&update).await;

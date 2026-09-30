@@ -16,6 +16,7 @@
 //! Generate the container for settings annotations on resources.
 
 use crate::compiler::annotations::Annotations;
+use crate::compiler::TypeClass;
 use crate::generator::rust::{doc, Config, FullTypeName};
 use proc_macro2::{Ident, Span, TokenStream};
 use quote::quote;
@@ -50,6 +51,25 @@ pub fn generate(annotations: &Annotations<'_>, config: &Config) -> TokenStream {
             pub settings_apply_time: Option<#value_type>,
         }
     });
+    let settings_apply_time_update = annotations.redfish_settings_apply_time.map(|annotation| {
+        let value_type = FullTypeName::new(annotation.value_type, &config)
+            .for_update(Some(TypeClass::ComplexType));
+        let field_doc = doc::format_and_generate(&annotation.term.name, &annotation.odata());
+        let wire_name = format!("@Redfish.{}", annotation.term.name);
+        quote! {
+            /// Value of `@Redfish.SettingsApplyTime` in a resource update.
+            pub type SettingsApplyTimeUpdate = #value_type;
+
+            /// Optional settings annotations flattened into a resource update.
+            #[derive(serde::Serialize, Debug, Default)]
+            #[non_exhaustive]
+            pub struct SettingsUpdateAnnotations {
+                #field_doc
+                #[serde(rename = #wire_name, skip_serializing_if = "Option::is_none")]
+                pub settings_apply_time: Option<SettingsApplyTimeUpdate>,
+            }
+        }
+    });
     quote! {
         /// Optional settings annotations flattened into a resource object.
         #serialize
@@ -59,5 +79,7 @@ pub fn generate(annotations: &Annotations<'_>, config: &Config) -> TokenStream {
             #settings
             #settings_apply_time
         }
+
+        #settings_apply_time_update
     }
 }

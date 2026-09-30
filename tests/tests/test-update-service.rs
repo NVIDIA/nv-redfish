@@ -23,6 +23,8 @@ use futures_util::io::Cursor;
 #[cfg(feature = "update-service-deprecated")]
 use nv_redfish::schema::update_service::HttpPushUriOptionsUpdate;
 use nv_redfish::update_service::MultipartUpdateParameters;
+use nv_redfish::update_service::MultipartUpdateParametersWithApplyTime;
+use nv_redfish::update_service::OperationApplyTime;
 use nv_redfish::update_service::UpdateService;
 #[cfg(feature = "update-service-deprecated")]
 use nv_redfish::update_service::UpdateServiceUpdate;
@@ -278,6 +280,49 @@ async fn uses_multipart_http_push_uri() -> Result<(), Box<dyn StdError>> {
     };
 
     assert_eq!(body["@odata.id"], "/redfish/v1/TaskService/Tasks/42");
+
+    Ok(())
+}
+
+#[tokio::test]
+async fn multipart_update_parameters_carry_operation_apply_time() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+
+    bmc.expect(Expect::get("/redfish/v1", service_root_json()));
+    bmc.expect(Expect::get(
+        UPDATE_SERVICE_URI,
+        update_service_json(Some(MULTIPART_URI)),
+    ));
+    bmc.expect(Expect::multipart_update(
+        MULTIPART_URI,
+        json!({
+            "Targets": ["/redfish/v1/Systems/1"],
+            "@Redfish.OperationApplyTime": "OnReset"
+        }),
+        "firmware.bin",
+        json!({ "@odata.id": "/redfish/v1/TaskService/Tasks/43" }),
+    ));
+
+    let root = ServiceRoot::new(Arc::clone(&bmc)).await?;
+    let update_service = root
+        .update_service()
+        .await?
+        .ok_or("expected update service")?;
+    let parameters = MultipartUpdateParametersWithApplyTime {
+        parameters: MultipartUpdateParameters::builder()
+            .with_targets(vec!["/redfish/v1/Systems/1".to_string()])
+            .build(),
+        operation_apply_time: Some(OperationApplyTime::OnReset),
+    };
+
+    update_service
+        .multipart_update_from_reader::<_, _, serde_json::Value>(
+            &parameters,
+            DataStream::new("firmware.bin", Cursor::new(b"firmware".to_vec()))
+                .with_content_length(8),
+            Duration::from_secs(600),
+        )
+        .await?;
 
     Ok(())
 }

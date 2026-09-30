@@ -19,6 +19,8 @@ use nv_redfish::computer_system::Bios;
 use nv_redfish::computer_system::BiosUpdate;
 use nv_redfish::computer_system::ComputerSystem;
 use nv_redfish::oem::hpe::schema::hpe_server_boot_settings::HpeServerBootSettingsUpdate;
+use nv_redfish::schema::settings::ApplyTime;
+use nv_redfish::schema::SettingsApplyTimeUpdate;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::EdmPrimitiveType;
 use nv_redfish_core::ModificationResponse;
@@ -73,6 +75,23 @@ async fn bios_dynamic_attribute_update_serializes_and_redacts_debug() {
     let debug = format!("{update:?}");
     assert!(!debug.contains(SECRET));
     assert!(debug.contains("dynamic_properties: \"<redacted>\""));
+}
+
+#[test]
+async fn bios_update_serializes_settings_apply_time() {
+    let update = bios_update("BootMode", "Uefi").with_settings_apply_time(
+        SettingsApplyTimeUpdate::builder()
+            .with_apply_time(ApplyTime::OnReset)
+            .build(),
+    );
+
+    assert_eq!(
+        serde_json::to_value(&update).expect("BIOS update must serialize"),
+        json!({
+            "Attributes": { "BootMode": "Uefi" },
+            "@Redfish.SettingsApplyTime": { "ApplyTime": "OnReset" }
+        })
+    );
 }
 
 // Test 1: basic BIOS retrieval via bios() and EdmPrimitiveType mapping.
