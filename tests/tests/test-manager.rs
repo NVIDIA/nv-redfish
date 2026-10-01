@@ -459,6 +459,85 @@ async fn reset_to_defaults_invokes_manager_reset_to_defaults_action(
 }
 
 #[test]
+async fn liteon_reset_to_defaults_sends_reset_to_defaults_type() -> Result<(), Box<dyn StdError>> {
+    // Detected from the manager's Manufacturer (service root without Vendor)
+    // or from a Lite-On service root Vendor.
+    for (root_fields, manager_fields) in [
+        (
+            json!({}),
+            json!({ "Manufacturer": "LITE-ON TECHNOLOGY CORP." }),
+        ),
+        (
+            json!({ "Vendor": "LITE-ON TECHNOLOGY CORP.", "RedfishVersion": "1.15.0" }),
+            json!({}),
+        ),
+    ] {
+        let bmc = Arc::new(Bmc::default());
+        let ids = ids();
+        let action_target = format!("{}/Actions/Manager.ResetToDefaults", ids.manager_id);
+        let manager = get_manager_with_root_fields(
+            bmc.clone(),
+            &ids,
+            root_fields,
+            manager_payload_with_fields(
+                &ids,
+                json_merge([
+                    &redfish_action_payload("Manager.ResetToDefaults", &action_target),
+                    &manager_fields,
+                ]),
+            ),
+        )
+        .await?;
+
+        bmc.expect(Expect::action(
+            &action_target,
+            json!({ "ResetToDefaultsType": "ResetAll" }),
+            json!(null),
+        ));
+
+        assert!(matches!(
+            manager
+                .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
+                .await?,
+            ModificationResponse::Entity(())
+        ));
+    }
+
+    Ok(())
+}
+
+#[test]
+async fn delta_reset_to_defaults_sends_reset_type() -> Result<(), Box<dyn StdError>> {
+    // Delta shares the vendor-less Redfish 1.9.0 service root with Lite-On.
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let action_target = format!("{}/Actions/Manager.ResetToDefaults", ids.manager_id);
+    let manager = get_manager(
+        bmc.clone(),
+        &ids,
+        manager_payload_with_fields(
+            &ids,
+            json_merge([
+                &redfish_action_payload("Manager.ResetToDefaults", &action_target),
+                &json!({ "Manufacturer": "Delta" }),
+            ]),
+        ),
+    )
+    .await?;
+
+    expect_redfish_reset_action(&bmc, &action_target, Some("ResetAll"));
+
+    assert!(matches!(
+        manager
+            .reset_to_defaults(ManagerResetToDefaultsType::ResetAll)
+            .await?,
+        ModificationResponse::Entity(())
+    ));
+
+    Ok(())
+}
+
+#[test]
 async fn reset_helpers_return_action_not_available_when_manager_actions_are_absent(
 ) -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
@@ -696,12 +775,22 @@ async fn get_manager(
     ids: &Ids,
     member: Value,
 ) -> Result<Manager<Bmc>, Box<dyn StdError>> {
+    get_manager_with_root_fields(bmc, ids, json!({}), member).await
+}
+
+async fn get_manager_with_root_fields(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    root_fields: Value,
+    member: Value,
+) -> Result<Manager<Bmc>, Box<dyn StdError>> {
     let root = expect_anonymous_1_9_service_root(
         bmc.clone(),
         ids,
-        json!({
-            "Managers": { ODATA_ID: &ids.managers_id }
-        }),
+        json_merge([
+            &json!({ "Managers": { ODATA_ID: &ids.managers_id } }),
+            &root_fields,
+        ]),
     )
     .await?;
     bmc.expect(Expect::get(

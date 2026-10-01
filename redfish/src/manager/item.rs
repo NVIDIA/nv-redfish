@@ -19,10 +19,12 @@ use crate::schema::manager::ManagerUpdate;
 use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;
 use crate::Error;
 use crate::NvBmc;
+use nv_redfish_core::action::Action;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
+use serde_json::json;
 use std::sync::Arc;
 
 #[cfg(feature = "manager-network-protocol")]
@@ -148,6 +150,9 @@ impl<B: Bmc> Manager<B> {
 
     /// Reset this manager's settings to defaults.
     ///
+    /// On Lite-On power shelves the reset type is sent as
+    /// `ResetToDefaultsType`, the only parameter name they accept.
+    ///
     /// # Errors
     ///
     /// Returns an error if the manager does not support the `ResetToDefaults`
@@ -164,9 +169,26 @@ impl<B: Bmc> Manager<B> {
             .actions
             .as_ref()
             .ok_or(Error::ActionNotAvailable)?;
+        let action = actions
+            .reset_to_defaults
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
 
-        if actions.reset_to_defaults.is_none() {
-            return Err(Error::ActionNotAvailable);
+        let manufacturer = self.data.manufacturer.as_ref().and_then(Option::as_deref);
+        if self
+            .bmc
+            .quirks
+            .bug_reset_to_defaults_type_parameter(manufacturer)
+        {
+            return self
+                .bmc
+                .as_ref()
+                .action::<_, ()>(
+                    &Action::new(action.target.clone()),
+                    &json!({ "ResetToDefaultsType": reset_type }),
+                )
+                .await
+                .map_err(Error::Bmc);
         }
 
         actions
