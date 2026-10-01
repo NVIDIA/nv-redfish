@@ -36,14 +36,14 @@ const JOB_ID: &str = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/JID_00
 const DECOMMISSION_TARGET: &str =
     "/redfish/v1/Systems/system-1/Storage/controller-1/Actions/Oem/DellStorage.ControllerDrivesDecommission";
 
-fn service_root_payload() -> Value {
+fn service_root_payload(vendor: Option<&str>) -> Value {
     let root_id = ODataId::service_root();
     json!({
         ODATA_ID: &root_id,
         ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
         "Id": "RootService",
         "Name": "Root service",
-        "Vendor": "Dell",
+        "Vendor": vendor,
         "Systems": { ODATA_ID: SYSTEMS_ID },
         "ProtocolFeaturesSupported": {
             "ExpandQuery": { "NoLinks": true }
@@ -114,8 +114,16 @@ async fn storage(
     bmc: Arc<Bmc>,
     oem_actions: Option<Value>,
 ) -> Result<Storage<Bmc>, Box<dyn StdError>> {
+    storage_from_vendor(bmc, None, oem_actions).await
+}
+
+async fn storage_from_vendor(
+    bmc: Arc<Bmc>,
+    vendor: Option<&str>,
+    oem_actions: Option<Value>,
+) -> Result<Storage<Bmc>, Box<dyn StdError>> {
     let root_id = ODataId::service_root();
-    bmc.expect(Expect::get(&root_id, service_root_payload()));
+    bmc.expect(Expect::get(&root_id, service_root_payload(vendor)));
     let root = ServiceRoot::new(bmc.clone()).await?;
 
     bmc.expect(Expect::expand(SYSTEMS_ID, system_collection_payload()));
@@ -145,7 +153,14 @@ async fn storage(
 async fn volumes(
     bmc: Arc<Bmc>,
 ) -> Result<nv_redfish::computer_system::VolumeCollection<Bmc>, Box<dyn StdError>> {
-    Ok(storage(bmc, None)
+    volumes_from_vendor(bmc, None).await
+}
+
+async fn volumes_from_vendor(
+    bmc: Arc<Bmc>,
+    vendor: Option<&str>,
+) -> Result<nv_redfish::computer_system::VolumeCollection<Bmc>, Box<dyn StdError>> {
+    Ok(storage_from_vendor(bmc, vendor, None)
         .await?
         .volumes()
         .expect("Volumes is advertised"))
@@ -268,36 +283,42 @@ async fn standard_create_resolves_reference_response() -> Result<(), Box<dyn Std
 }
 
 #[tokio::test]
-async fn standard_create_returns_job_location_as_task() -> Result<(), Box<dyn StdError>> {
-    let bmc = Arc::new(Bmc::default());
-    let volumes = volumes(bmc.clone()).await?;
-    bmc.expect(Expect::create(
-        VOLUMES_ID,
-        standard_request_payload(),
-        json!({ ODATA_ID: JOB_ID }),
-    ));
+async fn dell_create_returns_job_as_task() -> Result<(), Box<dyn StdError>> {
+    for response in [json!({ ODATA_ID: JOB_ID }), job_payload()] {
+        let bmc = Arc::new(Bmc::default());
+        let volumes = volumes_from_vendor(bmc.clone(), Some("Dell")).await?;
+        bmc.expect(Expect::create(
+            VOLUMES_ID,
+            standard_request_payload(),
+            response,
+        ));
 
-    let ModificationResponse::Task(task) = volumes.create(&standard_create()).await? else {
-        panic!("expected the iDRAC job as a task");
-    };
-    assert_eq!(task.location.0.to_string(), JOB_ID);
+        let ModificationResponse::Task(task) = volumes.create(&standard_create()).await? else {
+            panic!("expected the iDRAC job as a task");
+        };
+        assert_eq!(task.location.0.to_string(), JOB_ID);
+    }
     Ok(())
 }
 
 #[tokio::test]
-async fn standard_create_returns_job_body_as_task() -> Result<(), Box<dyn StdError>> {
+async fn dell_create_fetches_returned_volume() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
-    let volumes = volumes(bmc.clone()).await?;
+    let volumes = volumes_from_vendor(bmc.clone(), Some("Dell")).await?;
     bmc.expect(Expect::create(
         VOLUMES_ID,
         standard_request_payload(),
-        job_payload(),
+        json!({ ODATA_ID: VOLUME_ID }),
+    ));
+    bmc.expect(Expect::get(
+        VOLUME_ID,
+        volume_payload(VOLUME_ID, "volume-1"),
     ));
 
-    let ModificationResponse::Task(task) = volumes.create(&standard_create()).await? else {
-        panic!("expected the iDRAC job as a task");
+    let ModificationResponse::Entity(volume) = volumes.create(&standard_create()).await? else {
+        panic!("expected the created Volume");
     };
-    assert_eq!(task.location.0.to_string(), JOB_ID);
+    assert_eq!(volume.raw().odata_id.to_string(), VOLUME_ID);
     Ok(())
 }
 
@@ -447,15 +468,48 @@ async fn decommission_returns_job_as_task() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
-/// Job body iDRAC10 returns with a 201 when it schedules a job.
+/// Job body iDRAC10 (1.30.30.52) returned with a 201 when it scheduled a
+/// configuration job.
 fn job_payload() -> Value {
     json!({
+        "@odata.context": "/redfish/v1/$metadata#DellJob.DellJob",
+        "@odata.etag": "W/\"gen-4\"",
         ODATA_ID: JOB_ID,
         ODATA_TYPE: "#DellJob.v1_8_0.DellJob",
+        "ActualRunningStartTime": null,
+        "ActualRunningStopTime": null,
+        "CompletionTime": null,
+        "Description": "Job Instance",
+        "EndTime": "TIME_NA",
         "Id": "JID_000000000001",
-        "Name": "Configure: RAID.SL.3-1",
         "JobState": "ReadyForExecution",
-        "Message": "Configuration changes committed"
+        "JobType": "BIOSConfiguration",
+        "Message": "Configuration changes committed",
+        "MessageArgs": [],
+        "MessageArgs@odata.count": 0,
+        "MessageId": "PR19",
+        "Name": "Configure: BIOS.Setup.1-1",
+        "PercentComplete": 0,
+        "StartTime": "2026-09-30T14:43:55",
+        "TargetSettingsURI": null,
+        "@Message.ExtendedInfo": [
+            {
+                "MessageId": "Base.1.18.Created",
+                "MessageArgs": [],
+                "RelatedProperties": [],
+                "Message": "The resource was created successfully.",
+                "Severity": "OK",
+                "Resolution": "None."
+            },
+            {
+                "MessageId": "IDRAC.2.16.SYS414",
+                "MessageArgs": [],
+                "RelatedProperties": [],
+                "Message": "A new resource is successfully created.",
+                "Severity": "Informational",
+                "Resolution": "No response action is required."
+            }
+        ]
     })
 }
 

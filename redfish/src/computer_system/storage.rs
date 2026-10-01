@@ -30,6 +30,7 @@ use nv_redfish_core::Bmc;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
+use nv_redfish_core::ReferenceLeaf;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
@@ -181,8 +182,10 @@ impl<B: Bmc> VolumeCollection<B> {
     /// Create a standard Redfish Volume.
     ///
     /// Embedded entities are used directly.  A Location-only response is
-    /// resolved with a follow-up GET.  On iDRAC, a returned job instead of a
-    /// member of this collection is returned as a task.
+    /// resolved with a follow-up GET.  On iDRAC, which may answer with the
+    /// job that builds the volume, the response is read only as a reference:
+    /// a member of this collection is fetched, any other is returned as a
+    /// task.
     ///
     /// # Errors
     ///
@@ -192,15 +195,15 @@ impl<B: Bmc> VolumeCollection<B> {
         &self,
         request: &VolumeCreate,
     ) -> Result<ModificationResponse<Volume<B>>, Error<B>> {
-        let response = self
-            .bmc
-            .as_ref()
-            .create::<_, NavProperty<VolumeSchema>>(&self.id, request)
-            .await
-            .map_err(Error::Bmc)?;
         if self.bmc.quirks.bug_job_location_in_create_response() {
-            if let ModificationResponse::Entity(nav) = &response {
-                let location = nav.id();
+            let response = self
+                .bmc
+                .as_ref()
+                .create::<_, ReferenceLeaf>(&self.id, request)
+                .await
+                .map_err(Error::Bmc)?;
+            if let ModificationResponse::Entity(reference) = &response {
+                let location = &reference.odata_id;
                 if *location == self.id || !self.id.is_path_prefix(location) {
                     return Ok(ModificationResponse::Task(AsyncTask {
                         location: location.clone().into(),
@@ -208,8 +211,21 @@ impl<B: Bmc> VolumeCollection<B> {
                     }));
                 }
             }
+            return response
+                .try_map_entity_async(|reference| async move {
+                    NavProperty::<VolumeSchema>::new_reference(reference.odata_id)
+                        .get(self.bmc.as_ref())
+                        .await
+                        .map(Volume::from_data)
+                        .map_err(Error::Bmc)
+                })
+                .await;
         }
-        response
+        self.bmc
+            .as_ref()
+            .create::<_, NavProperty<VolumeSchema>>(&self.id, request)
+            .await
+            .map_err(Error::Bmc)?
             .try_map_entity_async(|nav| async move {
                 nav.get(self.bmc.as_ref())
                     .await
