@@ -32,6 +32,7 @@ const STORAGE_COLLECTION_ID: &str = "/redfish/v1/Systems/system-1/Storage";
 const STORAGE_ID: &str = "/redfish/v1/Systems/system-1/Storage/controller-1";
 const VOLUMES_ID: &str = "/redfish/v1/Systems/system-1/Storage/controller-1/Volumes";
 const VOLUME_ID: &str = "/redfish/v1/Systems/system-1/Storage/controller-1/Volumes/volume-1";
+const JOB_ID: &str = "/redfish/v1/Managers/iDRAC.Embedded.1/Oem/Dell/Jobs/JID_000000000001";
 const DECOMMISSION_TARGET: &str =
     "/redfish/v1/Systems/system-1/Storage/controller-1/Actions/Oem/DellStorage.ControllerDrivesDecommission";
 
@@ -42,6 +43,7 @@ fn service_root_payload() -> Value {
         ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
         "Id": "RootService",
         "Name": "Root service",
+        "Vendor": "Dell",
         "Systems": { ODATA_ID: SYSTEMS_ID },
         "ProtocolFeaturesSupported": {
             "ExpandQuery": { "NoLinks": true }
@@ -266,6 +268,40 @@ async fn standard_create_resolves_reference_response() -> Result<(), Box<dyn Std
 }
 
 #[tokio::test]
+async fn standard_create_returns_job_location_as_task() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let volumes = volumes(bmc.clone()).await?;
+    bmc.expect(Expect::create(
+        VOLUMES_ID,
+        standard_request_payload(),
+        json!({ ODATA_ID: JOB_ID }),
+    ));
+
+    let ModificationResponse::Task(task) = volumes.create(&standard_create()).await? else {
+        panic!("expected the iDRAC job as a task");
+    };
+    assert_eq!(task.location.0.to_string(), JOB_ID);
+    Ok(())
+}
+
+#[tokio::test]
+async fn standard_create_returns_job_body_as_task() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let volumes = volumes(bmc.clone()).await?;
+    bmc.expect(Expect::create(
+        VOLUMES_ID,
+        standard_request_payload(),
+        job_payload(),
+    ));
+
+    let ModificationResponse::Task(task) = volumes.create(&standard_create()).await? else {
+        panic!("expected the iDRAC job as a task");
+    };
+    assert_eq!(task.location.0.to_string(), JOB_ID);
+    Ok(())
+}
+
+#[tokio::test]
 async fn standard_create_preserves_task() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let volumes = volumes(bmc.clone()).await?;
@@ -362,21 +398,19 @@ async fn decommission_serializes_supported_apply_times() -> Result<(), Box<dyn S
     ] {
         let bmc = Arc::new(Bmc::default());
         let storage = storage(bmc.clone(), Some(advertised_decommission_action())).await?;
-        bmc.expect(Expect::action(
+        bmc.expect(Expect::action_empty(
             DECOMMISSION_TARGET,
             json!({ "@Redfish.OperationApplyTime": expected }),
-            json!(null),
         ));
 
         let actions = storage
             .oem_dell_actions()?
             .expect("Dell OEM actions are advertised");
-        assert!(matches!(
+        assert_empty(
             actions
                 .decommission_controller_drives(Some(apply_time))
                 .await?,
-            ModificationResponse::Entity(())
-        ));
+        );
     }
     Ok(())
 }
@@ -385,16 +419,44 @@ async fn decommission_serializes_supported_apply_times() -> Result<(), Box<dyn S
 async fn decommission_omits_unspecified_apply_time() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let storage = storage(bmc.clone(), Some(advertised_decommission_action())).await?;
-    bmc.expect(Expect::action(DECOMMISSION_TARGET, json!({}), json!(null)));
+    bmc.expect(Expect::action_empty(DECOMMISSION_TARGET, json!({})));
 
     let actions = storage
         .oem_dell_actions()?
         .expect("Dell OEM actions are advertised");
-    assert!(matches!(
-        actions.decommission_controller_drives(None).await?,
-        ModificationResponse::Entity(())
-    ));
+    assert_empty(actions.decommission_controller_drives(None).await?);
     Ok(())
+}
+
+#[tokio::test]
+async fn decommission_returns_job_as_task() -> Result<(), Box<dyn StdError>> {
+    for response in [json!({ ODATA_ID: JOB_ID }), job_payload()] {
+        let bmc = Arc::new(Bmc::default());
+        let storage = storage(bmc.clone(), Some(advertised_decommission_action())).await?;
+        bmc.expect(Expect::action(DECOMMISSION_TARGET, json!({}), response));
+
+        let actions = storage
+            .oem_dell_actions()?
+            .expect("Dell OEM actions are advertised");
+        let ModificationResponse::Task(task) = actions.decommission_controller_drives(None).await?
+        else {
+            panic!("expected the iDRAC job as a task");
+        };
+        assert_eq!(task.location.0.to_string(), JOB_ID);
+    }
+    Ok(())
+}
+
+/// Job body iDRAC10 returns with a 201 when it schedules a job.
+fn job_payload() -> Value {
+    json!({
+        ODATA_ID: JOB_ID,
+        ODATA_TYPE: "#DellJob.v1_8_0.DellJob",
+        "Id": "JID_000000000001",
+        "Name": "Configure: RAID.SL.3-1",
+        "JobState": "ReadyForExecution",
+        "Message": "Configuration changes committed"
+    })
 }
 
 #[tokio::test]

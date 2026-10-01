@@ -98,6 +98,14 @@ impl BmcQuirks {
         self.platform == Some(Platform::Dell)
     }
 
+    // iDRAC answers a Volume create with 200 or 201 and the URI of the
+    // Dell job that will build the volume (in Location or as the body's
+    // `@odata.id`) instead of 202 Accepted.
+    #[cfg(feature = "storages")]
+    pub(crate) fn bug_job_location_in_create_response(&self) -> bool {
+        self.platform == Some(Platform::Dell)
+    }
+
     /// In some cases there is addtional fields in Links.ContainedBy in
     /// Chassis resource, this flag aims to patch this invalid links
     #[cfg(feature = "chassis")]
