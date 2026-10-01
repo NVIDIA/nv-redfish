@@ -42,6 +42,8 @@ pub use network_protocol::ManagerNetworkProtocol;
 pub use network_protocol::ManagerNetworkProtocolUpdate;
 
 #[doc(inline)]
+pub use crate::schema::manager::ManagerUpdate;
+#[doc(inline)]
 pub use crate::schema::manager::ResetToDefaultsType as ManagerResetToDefaultsType;
 
 /// Manager collection.

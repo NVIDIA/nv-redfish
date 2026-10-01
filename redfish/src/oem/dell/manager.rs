@@ -13,29 +13,32 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! Dell resources advertised from a Manager's OEM links.
+//! Dell resources and OEM actions advertised by a Manager.
 
 use std::sync::Arc;
 
 use serde::Deserialize as _;
 
-use crate::core::Bmc;
 #[cfg(feature = "oem-dell-attributes")]
 use crate::core::EntityTypeRef as _;
+use crate::core::{ActionError, Bmc, ModificationResponse};
 #[cfg(feature = "oem-dell-attributes")]
 use crate::oem::dell::attributes::DellAttributes;
 #[cfg(feature = "job-service")]
 use crate::oem::dell::job_service::DellJobService;
 #[cfg(feature = "job-service")]
 use crate::oem::dell::jobs::DellJobs;
+use crate::oem::dell::lc_service::DellLcService;
 #[cfg(feature = "job-service")]
 use crate::oem::dell::schema::dell_manager::DellManager as DellManagerSchema;
 use crate::oem::dell::schema::dell_manager::DellManagerLinks as DellManagerLinksSchema;
+use crate::oem::dell::schema::manager::OemActions as DellManagerActionsSchema;
+use crate::oem::dell::schema::oem_manager::ManagerImportSystemConfigurationAction;
 use crate::oem::oem_value;
 use crate::schema::manager::Manager as ManagerSchema;
 use crate::{Error, NvBmc};
 
-/// Dell resources linked by a Manager.
+/// Dell resources and OEM actions advertised by a Manager.
 pub struct DellManager<B: Bmc> {
     bmc: NvBmc<B>,
     #[cfg(feature = "oem-dell-attributes")]
@@ -43,10 +46,12 @@ pub struct DellManager<B: Bmc> {
     links: Option<Arc<DellManagerLinksSchema>>,
     #[cfg(feature = "job-service")]
     resources: Option<Arc<DellManagerSchema>>,
+    actions: Option<Arc<DellManagerActionsSchema>>,
 }
 
 impl<B: Bmc> DellManager<B> {
-    /// Parse Dell Manager resources from both supported OEM locations.
+    /// Parse Dell Manager resources from both supported OEM locations, and
+    /// the Manager's Dell OEM actions.
     pub(crate) fn new(bmc: &NvBmc<B>, manager: &ManagerSchema) -> Result<Option<Self>, Error<B>> {
         let links = manager
             .links
@@ -67,9 +72,20 @@ impl<B: Bmc> DellManager<B> {
             .map_err(Error::Json)?
             .map(Arc::new);
 
+        let actions = manager
+            .actions
+            .as_ref()
+            .and_then(|actions| actions.oem.as_ref())
+            .map(|actions| DellManagerActionsSchema::deserialize(&actions.additional_properties))
+            .transpose()
+            .map_err(Error::Json)?
+            .filter(|actions| actions.import_system_configuration.is_some())
+            .map(Arc::new);
+
         let links_are_empty = links.as_ref().is_none_or(|links| {
             links.dell_attributes.as_ref().is_none_or(Vec::is_empty)
                 && links.dell_job_service.is_none()
+                && links.dell_lc_service.is_none()
                 && links.jobs.is_none()
         });
         #[cfg(feature = "job-service")]
@@ -78,7 +94,7 @@ impl<B: Bmc> DellManager<B> {
             .is_none_or(|resources| resources.jobs.is_none());
         #[cfg(not(feature = "job-service"))]
         let resources_are_empty = true;
-        if links_are_empty && resources_are_empty {
+        if links_are_empty && resources_are_empty && actions.is_none() {
             return Ok(None);
         }
 
@@ -89,7 +105,47 @@ impl<B: Bmc> DellManager<B> {
             links,
             #[cfg(feature = "job-service")]
             resources,
+            actions,
         }))
+    }
+
+    /// Import a Server Configuration Profile with the Dell
+    /// `ImportSystemConfiguration` action.
+    ///
+    /// iDRAC schedules the import as a job and returns its location.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::ActionNotAvailable`] when the Manager does not
+    /// advertise the action, or a BMC error if invocation fails.
+    pub async fn import_system_configuration(
+        &self,
+        params: &ManagerImportSystemConfigurationAction,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: ActionError,
+    {
+        let actions = self.actions.as_ref().ok_or(Error::ActionNotAvailable)?;
+        actions
+            .import_system_configuration(self.bmc.as_ref(), params)
+            .await
+            .map_err(Error::Bmc)
+    }
+
+    /// Fetch the advertised Dell Lifecycle Controller service.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the advertised resource cannot be fetched.
+    pub async fn lc_service(&self) -> Result<Option<DellLcService<B>>, Error<B>> {
+        match self
+            .links
+            .as_ref()
+            .and_then(|links| links.dell_lc_service.as_ref())
+        {
+            Some(nav) => DellLcService::new(&self.bmc, nav).await.map(Some),
+            None => Ok(None),
+        }
     }
 
     /// Fetch the Dell attributes resource corresponding to this Manager.

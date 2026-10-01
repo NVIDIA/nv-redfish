@@ -34,6 +34,7 @@ use crate::core::ODataId;
 use crate::entity_link::EntityLink;
 use crate::schema::task::Task as TaskSchema;
 use crate::schema::task::TaskState;
+use crate::schema::task_collection::TaskCollection as TaskCollectionSchema;
 use crate::schema::task_service::TaskService as TaskServiceSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -49,6 +50,37 @@ use serde_json::Value as JsonValue;
 
 /// Link to a Redfish Task returned by an asynchronous operation.
 pub type TaskLink<B> = EntityLink<B, TaskSchema>;
+
+/// Tasks collection of a task service.
+pub struct TaskCollection<B: Bmc> {
+    bmc: NvBmc<B>,
+    id: ODataId,
+}
+
+impl<B: Bmc> TaskCollection<B> {
+    /// Advertised collection identifier.
+    #[must_use]
+    pub const fn odata_id(&self) -> &ODataId {
+        &self.id
+    }
+
+    /// Fetch links to every Task currently in the collection.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the collection cannot be fetched.
+    pub async fn member_links(&self) -> Result<Vec<TaskLink<B>>, Error<B>> {
+        let collection = NavProperty::<TaskCollectionSchema>::new_reference(self.id.clone())
+            .get(self.bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)?;
+        Ok(collection
+            .members
+            .iter()
+            .map(|task| EntityLink::new(&self.bmc, NavProperty::new_reference(task.id().clone())))
+            .collect())
+    }
+}
 
 enum State<R> {
     /// The result arrived with the original response.
@@ -341,6 +373,15 @@ impl<B: Bmc> TaskService<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<TaskServiceSchema> {
         self.data.clone()
+    }
+
+    /// Get the Tasks collection advertised by this service.
+    #[must_use]
+    pub fn tasks(&self) -> Option<TaskCollection<B>> {
+        self.data.tasks.as_ref().map(|tasks| TaskCollection {
+            bmc: self.bmc.clone(),
+            id: tasks.odata_id().clone(),
+        })
     }
 
     /// Create a task link from an asynchronous operation result.
