@@ -49,13 +49,16 @@ patterns = [
 [[features]]
 name = "certificates"
 csdl_files = [
+    "CertificateCollection_v1.xml",
     "Certificate_v1.xml",
 ]
 patterns = [
+    "CertificateCollection.*",
     "Certificate.*",
     "Certificate.*.*",
 ]
 root_patterns = [
+    "CertificateCollection.*",
     "Certificate.*.*",
 ]
 
@@ -502,10 +505,14 @@ patterns = [
 [[features]]
 name = "secure-boot"
 csdl_files = [
-     "SecureBoot_v1.xml"
+    "SecureBoot_v1.xml",
+    "SecureBootDatabase_v1.xml",
+    "SecureBootDatabaseCollection_v1.xml",
 ]
 patterns = [
-     "SecureBoot.*"
+    "SecureBoot.*",
+    "SecureBootDatabase.*",
+    "SecureBootDatabaseCollection.*",
 ]
 
 [[features]]

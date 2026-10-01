@@ -1,0 +1,20 @@
+[package]
+name = "secure-boot-pk-upload"
+version.workspace = true
+license.workspace = true
+repository.workspace = true
+readme.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+keywords.workspace = true
+categories.workspace = true
+
+[dependencies]
+clap = { workspace = true, features = ["derive"] }
+nv-redfish = { workspace = true, features = [
+    "bmc-http",
+    "computer-systems",
+    "secure-boot",
+] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+url = { workspace = true }

@@ -35,6 +35,7 @@ mod collection;
 mod item;
 
 use crate::patch_support::JsonValue;
+use crate::patch_support::Payload;
 use crate::patch_support::ReadPatchFn;
 use crate::schema::account_service::AccountService as SchemaAccountService;
 use crate::Error;
@@ -135,7 +136,7 @@ impl<B: Bmc> AccountService<B> {
         let Some(service_nav) = root.root.account_service.as_ref() else {
             return Ok(None);
         };
-        let service = service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+        let service = fetch_account_service(bmc, service_nav).await?;
 
         let mut patches = Vec::new();
         if bmc.quirks.bug_no_account_type_in_accounts() {
@@ -187,15 +188,13 @@ impl<B: Bmc> AccountService<B> {
             .await
             .map_err(Error::Bmc)?
             .try_map_entity_async(|nav| async move {
-                nav.get(self.bmc.as_ref())
-                    .await
-                    .map_err(Error::Bmc)
-                    .map(|service| Self {
-                        config: self.config.clone(),
-                        account_read_patch_fn: self.account_read_patch_fn.clone(),
-                        service,
-                        bmc: self.bmc.clone(),
-                    })
+                let service = fetch_account_service(&self.bmc, &nav).await?;
+                Ok(Self {
+                    config: self.config.clone(),
+                    account_read_patch_fn: self.account_read_patch_fn.clone(),
+                    service,
+                    bmc: self.bmc.clone(),
+                })
             })
             .await
     }
@@ -224,6 +223,27 @@ impl<B: Bmc> AccountService<B> {
     }
 }
 
+/// Fetch AccountService while applying platform-specific payload repairs.
+async fn fetch_account_service<B: Bmc>(
+    bmc: &NvBmc<B>,
+    nav: &NavProperty<SchemaAccountService>,
+) -> Result<Arc<SchemaAccountService>, Error<B>> {
+    if cfg!(feature = "certificates")
+        && bmc
+            .quirks
+            .bug_incomplete_account_service_certificate_collection()
+    {
+        Payload::get(
+            bmc.as_ref(),
+            nav,
+            normalize_dpu_certificate_collection_stubs,
+        )
+        .await
+    } else {
+        nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+    }
+}
+
 // `AccountTypes` is marked as `Redfish.Required`, but some systems
 // ignore this requirement. The account service replaces its value with
 // a reasonable default (see below).
@@ -238,4 +258,37 @@ fn append_default_account_type(v: JsonValue) -> JsonValue {
     } else {
         v
     }
+}
+
+/// Convert incomplete NVIDIA DPU certificate collection stubs to references.
+fn normalize_dpu_certificate_collection_stubs(mut value: JsonValue) -> JsonValue {
+    fn normalize(value: &mut JsonValue) {
+        match value {
+            JsonValue::Object(object) => {
+                let certificate_collection = object
+                    .get("@odata.type")
+                    .and_then(JsonValue::as_str)
+                    .is_some_and(|odata_type| odata_type.starts_with("#CertificateCollection."));
+                if certificate_collection && !object.contains_key("Name") {
+                    if let Some(odata_id) = object.get("@odata.id").cloned() {
+                        object.clear();
+                        object.insert("@odata.id".to_string(), odata_id);
+                        return;
+                    }
+                }
+                for value in object.values_mut() {
+                    normalize(value);
+                }
+            }
+            JsonValue::Array(values) => {
+                for value in values {
+                    normalize(value);
+                }
+            }
+            _ => {}
+        }
+    }
+
+    normalize(&mut value);
+    value
 }

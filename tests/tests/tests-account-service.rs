@@ -38,6 +38,7 @@ use nv_redfish::ServiceRoot;
 use nv_redfish_core::AsyncTask;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::ModificationResponse;
+use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
@@ -184,6 +185,97 @@ async fn list_no_patch_accounts() -> Result<(), Box<dyn StdError>> {
     .await
     .is_err());
     Ok(())
+}
+
+#[test]
+async fn dpu_account_service_links_incomplete_certificate_collection() -> TestResult<()> {
+    // BlueField-3 BMC 3.4.1 inlines this collection without its required `Name`.
+    let payload = json!({
+        ODATA_ID: "/redfish/v1/AccountService",
+        ODATA_TYPE: "#AccountService.v1_15_0.AccountService",
+        "AccountLockoutDuration": 600,
+        "AccountLockoutThreshold": 10,
+        "Accounts": { ODATA_ID: "/redfish/v1/AccountService/Accounts" },
+        "Description": "Account Service",
+        "HTTPBasicAuth": "Enabled",
+        "Id": "AccountService",
+        "LDAP": {
+            "Certificates": { ODATA_ID: "/redfish/v1/AccountService/LDAP/Certificates" }
+        },
+        "MaxPasswordLength": 64,
+        "MinPasswordLength": 12,
+        "MultiFactorAuth": {
+            "ClientCertificate": {
+                "CertificateMappingAttribute": "CommonName",
+                "Certificates": {
+                    ODATA_ID: "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates",
+                    ODATA_TYPE: "#CertificateCollection.CertificateCollection",
+                    "Members": [{
+                        ODATA_ID: "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates/1"
+                    }],
+                    "Members@odata.count": 1
+                },
+                "Enabled": true,
+                "RespondToUnauthenticatedClients": true
+            }
+        },
+        "Name": "Account Service",
+        "Roles": { ODATA_ID: "/redfish/v1/AccountService/Roles" },
+        "ServiceEnabled": true
+    });
+
+    let bmc = Arc::new(Bmc::default());
+    let root = account_service_root(&bmc, "Nvidia", "BlueField-3 DPU").await?;
+    bmc.expect(Expect::get("/redfish/v1/AccountService", payload.clone()));
+    let service = root
+        .account_service(AccountServiceConfig::standard())
+        .await?
+        .expect("AccountService is advertised");
+    let raw = service.raw();
+    let certificates = raw
+        .multi_factor_auth
+        .as_ref()
+        .and_then(Option::as_ref)
+        .and_then(|mfa| mfa.client_certificate.as_ref())
+        .and_then(Option::as_ref)
+        .and_then(|client| client.certificates.as_ref())
+        .expect("client certificates are linked");
+    assert!(matches!(certificates, NavProperty::Reference(_)));
+
+    // Without the DPU quirk the incomplete collection fails to parse.
+    let bmc = Arc::new(Bmc::default());
+    let root = account_service_root(&bmc, "Contoso", "Server").await?;
+    bmc.expect(Expect::get("/redfish/v1/AccountService", payload));
+    assert!(root
+        .account_service(AccountServiceConfig::standard())
+        .await
+        .is_err());
+
+    Ok(())
+}
+
+async fn account_service_root(
+    bmc: &Arc<Bmc>,
+    vendor: &str,
+    product: &str,
+) -> TestResult<ServiceRoot<Bmc>> {
+    let root_id = ODataId::service_root();
+    bmc.expect(Expect::get(
+        &root_id,
+        json!({
+            ODATA_ID: &root_id,
+            ODATA_TYPE: "#ServiceRoot.v1_15_0.ServiceRoot",
+            "Id": "RootService",
+            "Name": "Root Service",
+            "Vendor": vendor,
+            "Product": product,
+            "AccountService": { ODATA_ID: "/redfish/v1/AccountService" },
+            "Links": {
+                "Sessions": { ODATA_ID: "/redfish/v1/SessionService/Sessions" }
+            }
+        }),
+    ));
+    Ok(ServiceRoot::new(bmc.clone()).await?)
 }
 
 async fn get_account_service(
