@@ -244,7 +244,7 @@ where
     >(
         &self,
         in_id: &ODataId,
-        _etag: Option<&ODataETag>,
+        in_etag: Option<&ODataETag>,
         update: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
         let expect = self
@@ -261,6 +261,14 @@ where
                 request: ExpectedRequest::Update { id, request },
                 response,
             } if id == *in_id && request == in_request => {
+                let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
+                let result: R = from_value(response).map_err(Error::BadResponseJson)?;
+                Ok(ModificationResponse::Entity(result))
+            }
+            Expect {
+                request: ExpectedRequest::UpdateWithEtag { id, etag, request },
+                response,
+            } if id == *in_id && etag.as_ref() == in_etag && request == in_request => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))

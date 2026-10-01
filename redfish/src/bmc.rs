@@ -18,12 +18,16 @@
 
 use crate::bmc_quirks::BmcQuirks;
 use crate::protocol_features::ExpandQueryFeatures;
+use crate::Error;
 use crate::ProtocolFeatures;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
+use nv_redfish_core::ODataETag;
+use nv_redfish_core::ODataId;
+use serde::Deserialize;
+use serde::Serialize;
 use std::sync::Arc;
 
-#[cfg(feature = "impl-nv-bmc-expand")]
-use crate::Error;
 #[cfg(feature = "impl-nv-bmc-expand")]
 use nv_redfish_core::query::ExpandQuery;
 #[cfg(feature = "impl-nv-bmc-expand")]
@@ -103,6 +107,33 @@ impl<B: Bmc> NvBmc<B> {
             // if query is not suported.
             nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
         }
+    }
+
+    /// Update the resource at `id`, sending `etag` as `If-Match`.
+    ///
+    /// On BMCs that reject their own ETags the ETag is dropped, so the
+    /// transport sends `If-Match: *`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Error::Bmc` if the update fails.
+    #[allow(dead_code)] // feature-enabled func
+    pub(crate) async fn update<V, R>(
+        &self,
+        id: &ODataId,
+        etag: Option<&ODataETag>,
+        update: &V,
+    ) -> Result<ModificationResponse<R>, Error<B>>
+    where
+        V: Sync + Send + Serialize,
+        R: Send + Sync + for<'de> Deserialize<'de>,
+    {
+        let etag = if self.quirks.bug_rejects_own_etag() {
+            None
+        } else {
+            etag
+        };
+        self.bmc.update(id, etag, update).await.map_err(Error::Bmc)
     }
 }
 

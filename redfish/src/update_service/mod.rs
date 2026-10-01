@@ -314,14 +314,12 @@ impl<B: Bmc> UpdateService<B> {
         update: &UpdateServiceUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<UpdateServiceSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
 
