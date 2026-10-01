@@ -19,6 +19,8 @@
 //! power shelf resources exposed through its `PowerShelves` collection.
 
 use crate::core::NavProperty;
+#[cfg(feature = "oem-delta")]
+use crate::oem::delta::DeltaPowerShelf;
 use crate::schema::power_distribution::PowerDistribution as PowerDistributionSchema;
 use crate::schema::power_distribution_collection::PowerDistributionCollection as PowerDistributionCollectionSchema;
 use crate::schema::power_equipment::PowerEquipment as PowerEquipmentSchema;
@@ -125,6 +127,8 @@ impl<B: Bmc> PowerShelfCollection<B> {
 /// A power shelf is represented by the Redfish `PowerDistribution` schema with
 /// `EquipmentType` set to `PowerShelf`.
 pub struct PowerShelf<B: Bmc> {
+    #[cfg(feature = "oem-delta")]
+    bmc: NvBmc<B>,
     data: Arc<PowerDistributionSchema>,
     _marker: PhantomData<B>,
 }
@@ -136,6 +140,8 @@ impl<B: Bmc> PowerShelf<B> {
     ) -> Result<Self, Error<B>> {
         let data = nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
         Ok(Self {
+            #[cfg(feature = "oem-delta")]
+            bmc: bmc.clone(),
             data,
             _marker: PhantomData,
         })
@@ -148,5 +154,23 @@ impl<B: Bmc> PowerShelf<B> {
     #[must_use]
     pub fn raw(&self) -> Arc<PowerDistributionSchema> {
         self.data.clone()
+    }
+
+    /// Delta Energy Systems OEM extension for this power shelf.
+    ///
+    /// Returns `Ok(None)` when the power shelf does not include Delta OEM
+    /// extension data.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing the Delta OEM data fails.
+    #[cfg(feature = "oem-delta")]
+    pub fn oem_delta(&self) -> Result<Option<DeltaPowerShelf<B>>, Error<B>> {
+        self.data
+            .oem
+            .as_ref()
+            .map(|oem| DeltaPowerShelf::new(&self.bmc, oem))
+            .transpose()
+            .map(Option::flatten)
     }
 }

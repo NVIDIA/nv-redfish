@@ -24,8 +24,8 @@ use std::convert::identity;
 use std::marker::PhantomData;
 use std::sync::Arc;
 
-/// Vendor key under which Delta nests its OEM `PowerSupply` extension.
-pub const OEM_KEY: &str = "deltaenergysystems";
+#[doc(inline)]
+pub use crate::oem::delta::OEM_KEY;
 
 /// Delta Energy Systems OEM extension for a `PowerSupply`.
 ///

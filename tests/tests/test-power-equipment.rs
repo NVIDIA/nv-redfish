@@ -16,8 +16,10 @@
 //! Integration tests for standard PowerEquipment and PowerShelves.
 
 use nv_redfish::power_equipment::PowerEquipmentType;
+use nv_redfish::power_equipment::PowerShelf;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
+use nv_redfish_tests::assert_empty;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
 use nv_redfish_tests::Expect;
@@ -121,6 +123,53 @@ async fn power_equipment_lists_power_shelves() -> Result<(), Box<dyn StdError>> 
 }
 
 #[test]
+async fn delta_power_shelf_turns_psus_on_and_off() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let actions_id = format!("{}/Oem/deltaenergysystems/Actions", ids.power_shelf_id);
+    let turn_on_target = format!("{actions_id}/PowerShelf.TurnOnPSUs");
+    let turn_off_target = format!("{actions_id}/PowerShelf.TurnOffPSUs");
+    let shelf = get_power_shelf(
+        &bmc,
+        &ids,
+        json!({
+            ODATA_ID: &ids.power_shelf_id,
+            ODATA_TYPE: "#PowerDistribution.v1_1_0.PowerDistribution",
+            "Id": "PowerShelf",
+            "Name": "Power Shelf Configuration",
+            "EquipmentType": "PowerShelf",
+            "Manufacturer": "DELTA",
+            "Oem": {
+                "deltaenergysystems": {
+                    ODATA_ID: format!("{}#/Oem/deltaenergysystems", ids.power_shelf_id),
+                    ODATA_TYPE: "#DeltaEnergySystemsPowerDistribution.v1_0_0.PowerDistribution",
+                    "Actions": {
+                        "#PowerShelf.TurnOffPSUs": { "target": &turn_off_target },
+                        "#PowerShelf.TurnOnPSUs": { "target": &turn_on_target }
+                    },
+                    "ShelfType": "1RU_HPR_Power_Shelf",
+                    "VoltageOutputSelectLow": false
+                }
+            }
+        }),
+    )
+    .await?;
+    let delta = shelf
+        .oem_delta()?
+        .ok_or_else(|| missing("missing Delta power shelf OEM"))?;
+
+    assert_eq!(delta.shelf_type(), Some("1RU_HPR_Power_Shelf"));
+    assert_eq!(delta.voltage_output_select_low(), Some(false));
+
+    bmc.expect(Expect::action_empty(&turn_on_target, json!({})));
+    assert_empty(delta.turn_on_psus().await?);
+    bmc.expect(Expect::action_empty(&turn_off_target, json!({})));
+    assert_empty(delta.turn_off_psus().await?);
+
+    Ok(())
+}
+
+#[test]
 async fn missing_power_equipment_link_returns_none() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
@@ -181,6 +230,51 @@ fn ids() -> Ids {
         power_shelves_id,
         power_shelf_id,
     }
+}
+
+async fn get_power_shelf(
+    bmc: &Arc<Bmc>,
+    ids: &Ids,
+    shelf: Value,
+) -> Result<PowerShelf<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        &ids.root_id,
+        root_payload(
+            ids,
+            json!({ "PowerEquipment": { ODATA_ID: &ids.power_equipment_id } }),
+        ),
+    ));
+    let service_root = ServiceRoot::new(bmc.clone()).await?;
+    bmc.expect(Expect::get(
+        &ids.power_equipment_id,
+        power_equipment_payload(
+            ids,
+            json!({ "PowerShelves": { ODATA_ID: &ids.power_shelves_id } }),
+        ),
+    ));
+    let power_equipment = service_root
+        .power_equipment()
+        .await?
+        .ok_or_else(|| missing("missing PowerEquipment"))?;
+    bmc.expect(Expect::expand(
+        &ids.power_shelves_id,
+        json!({
+            ODATA_ID: &ids.power_shelves_id,
+            ODATA_TYPE: POWER_DISTRIBUTION_COLLECTION_DATA_TYPE,
+            "Name": "Power Shelves",
+            "Members": [{ ODATA_ID: &ids.power_shelf_id }],
+        }),
+    ));
+    let collection = power_equipment
+        .power_shelves()
+        .await?
+        .ok_or_else(|| missing("missing PowerShelves"))?;
+    bmc.expect(Expect::get(&ids.power_shelf_id, shelf));
+    collection
+        .members()
+        .await?
+        .pop()
+        .ok_or_else(|| missing("missing power shelf member").into())
 }
 
 fn root_payload(ids: &Ids, fields: Value) -> Value {
