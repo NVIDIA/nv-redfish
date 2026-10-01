@@ -281,6 +281,23 @@ impl BmcQuirks {
         })
     }
 
+    /// Lite-On power shelves advertise `ResetType` for
+    /// `Manager.ResetToDefaults` but reject it, requiring the parameter
+    /// to be named `ResetToDefaultsType`.
+    ///
+    /// Their service root often omits `Vendor` and is then indistinguishable
+    /// from a Delta shelf, so the manager's own `Manufacturer` is checked too.
+    #[cfg(feature = "managers")]
+    pub(crate) fn bug_reset_to_defaults_type_parameter(
+        &self,
+        manager_manufacturer: Option<&str>,
+    ) -> bool {
+        self.platform == Some(Platform::LiteonPowershelf)
+            || manager_manufacturer.is_some_and(|manufacturer| {
+                manufacturer.eq_ignore_ascii_case("LITE-ON TECHNOLOGY CORP.")
+            })
+    }
+
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
     /// expand api.
