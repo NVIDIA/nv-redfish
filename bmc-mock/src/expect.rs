@@ -20,6 +20,7 @@ use std::time::Duration;
 
 use nv_redfish_core::action::ActionTarget;
 use nv_redfish_core::AsyncTask;
+use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 
 use serde_json::from_str;
@@ -58,6 +59,13 @@ pub enum ExpectedRequest {
 
     /// Expected Update.
     Update { id: ODataId, request: JsonValue },
+
+    /// Expected Update sent with a specific `If-Match` ETag (`None` for `*`).
+    UpdateWithEtag {
+        id: ODataId,
+        etag: Option<ODataETag>,
+        request: JsonValue,
+    },
 
     /// Expected asynchronous update.
     UpdateTask {
@@ -221,6 +229,22 @@ impl<E> Expect<E> {
         Expect {
             request: ExpectedRequest::Update {
                 id: uri.to_string().into(),
+                request: from_str(&request.to_string()).expect("invalid json"),
+            },
+            response: Ok(from_str(&response.to_string()).expect("invalid json")),
+        }
+    }
+
+    pub fn update_with_etag(
+        uri: impl Display,
+        etag: Option<&str>,
+        request: impl Display,
+        response: impl Display,
+    ) -> Self {
+        Expect {
+            request: ExpectedRequest::UpdateWithEtag {
+                id: uri.to_string().into(),
+                etag: etag.map(|etag| ODataETag::from(etag.to_string())),
                 request: from_str(&request.to_string()).expect("invalid json"),
             },
             response: Ok(from_str(&response.to_string()).expect("invalid json")),

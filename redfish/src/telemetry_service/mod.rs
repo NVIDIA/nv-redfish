@@ -111,14 +111,12 @@ impl<B: Bmc> TelemetryService<B> {
             .build();
 
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<TelemetryServiceSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 &update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
 

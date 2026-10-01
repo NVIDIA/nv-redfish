@@ -119,14 +119,12 @@ impl<B: Bmc> LenovoComputerSystem<B> {
             .build();
 
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<ComputerSystemSchema>>(
                 &self.computer_system_id,
                 self.computer_system_etag.as_ref(),
                 &update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 ComputerSystem::new(&self.bmc, &nav, self.read_patch_fn.as_ref()).await
             })

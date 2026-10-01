@@ -110,14 +110,12 @@ impl<B: Bmc> HpeManager<B> {
             .build();
 
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<ManagerSchema>>(
                 &self.manager_id,
                 self.manager_etag.as_ref(),
                 &update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move { Manager::new(&self.bmc, &nav).await })
             .await
     }

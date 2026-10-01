@@ -360,10 +360,8 @@ impl<B: Bmc> ComputerSystem<B> {
         update: &ComputerSystemUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<ComputerSystemSchema>>(odata_id, etag, update)
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 Self::new(&self.bmc, &nav, self.read_patch_fn.as_ref()).await
             })

@@ -28,8 +28,10 @@ pub struct BmcQuirks {
 enum Platform {
     Hpe,
     Dell,
+    Ami,
     AmiViking,
     AmiGb300,
+    LenovoAmi,
     VeraRubin,
     Nvidia,
     NvidiaDpu,
@@ -47,10 +49,11 @@ impl BmcQuirks {
         // The GB300 host BMC exposes an AMI OEM `RtpVersion` in the service
         // root; use it to distinguish GB300 from other AMI BMCs so the
         // expand workaround is not applied to every AMI platform.
-        let rtp_version = root
+        let ami_oem = root
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Ami"))
+            .and_then(|oem| oem.additional_properties.get("Ami"));
+        let rtp_version = ami_oem
             .and_then(|ami| ami.get("RtpVersion"))
             .and_then(|v| v.as_str());
         let platform = match vendor_str {
@@ -58,6 +61,10 @@ impl BmcQuirks {
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
+            Some("AMI") => Some(Platform::Ami),
+            // Lenovo trays running AMI firmware (HS350x class) keep the
+            // Lenovo vendor but expose an AMI OEM object in the service root.
+            Some("Lenovo") if ami_oem.is_some() => Some(Platform::LenovoAmi),
             Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
@@ -301,6 +308,15 @@ impl BmcQuirks {
     #[cfg(feature = "patch-collection")]
     pub(crate) fn bug_nullable_members(&self) -> bool {
         self.platform == Some(Platform::NvidiaDpu)
+    }
+
+    /// AMI MegaRAC firmware requires `If-Match` on PATCH but rejects the
+    /// ETag it served, accepting only `*`.
+    pub(crate) const fn bug_rejects_own_etag(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::Ami | Platform::AmiViking | Platform::AmiGb300 | Platform::LenovoAmi)
+        )
     }
 }
 

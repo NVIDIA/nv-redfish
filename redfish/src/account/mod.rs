@@ -179,14 +179,12 @@ impl<B: Bmc> AccountService<B> {
         update: &AccountServiceUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<SchemaAccountService>>(
                 self.service.odata_id(),
                 self.service.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 let service = fetch_account_service(&self.bmc, &nav).await?;
                 Ok(Self {

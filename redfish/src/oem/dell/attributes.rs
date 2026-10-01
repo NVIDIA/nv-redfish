@@ -28,7 +28,6 @@ use crate::core::EntityTypeRef as _;
 use crate::core::NavProperty;
 #[cfg(feature = "managers")]
 use crate::core::ODataId;
-use crate::core::Updatable as _;
 #[cfg(feature = "managers")]
 use crate::schema::manager::Manager as ManagerSchema;
 
@@ -112,8 +111,8 @@ impl<B: Bmc> DellAttributes<B> {
         &self,
         update: &DellAttributesUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
-        self.data
-            .update(self.bmc.as_ref(), update)
+        self.bmc
+            .update(self.data.odata_id(), self.data.etag(), update)
             .await
             .map(|response| {
                 response.map_entity(|data| Self {
@@ -121,7 +120,6 @@ impl<B: Bmc> DellAttributes<B> {
                     data: Arc::new(data),
                 })
             })
-            .map_err(Error::Bmc)
     }
 }
 

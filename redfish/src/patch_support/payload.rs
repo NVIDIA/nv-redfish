@@ -37,6 +37,8 @@ use std::sync::Arc;
 #[cfg(feature = "patch-payload-update")]
 use crate::patch_support::ReadPatchFn;
 #[cfg(feature = "patch-payload-update")]
+use crate::NvBmc;
+#[cfg(feature = "patch-payload-update")]
 use nv_redfish_core::ModificationResponse;
 #[cfg(feature = "patch-payload-update")]
 use nv_redfish_core::Updatable;
@@ -52,21 +54,19 @@ where
 {
     fn entity_ref(&self) -> &T;
     fn patch(&self) -> Option<&ReadPatchFn>;
-    fn bmc(&self) -> &B;
+    fn bmc(&self) -> &NvBmc<B>;
 
     async fn update_with_patch(&self, update: &V) -> Result<ModificationResponse<T>, Error<B>> {
+        let entity = self.entity_ref();
         if let Some(patch_fn) = self.patch() {
-            Updator {
-                id: self.entity_ref().odata_id(),
-                etag: self.entity_ref().etag(),
-            }
-            .update(self.bmc(), update, patch_fn.as_ref())
-            .await
+            self.bmc()
+                .update::<V, Payload>(entity.odata_id(), entity.etag(), update)
+                .await?
+                .try_map_entity(|payload| payload.to_target::<T, B, _>(patch_fn.as_ref()))
         } else {
-            self.entity_ref()
-                .update(self.bmc(), update)
+            self.bmc()
+                .update(entity.odata_id(), entity.etag(), update)
                 .await
-                .map_err(Error::Bmc)
         }
     }
 }
@@ -186,42 +186,5 @@ impl<'de> Deserialize<'de> for Getter {
             id: String::new().into(),
             payload: Payload::deserialize(deserializer)?,
         })
-    }
-}
-
-#[cfg(feature = "patch-payload-update")]
-struct Updator<'a> {
-    id: &'a ODataId,
-    etag: Option<&'a ODataETag>,
-}
-
-#[cfg(feature = "patch-payload-update")]
-impl EntityTypeRef for Updator<'_> {
-    fn odata_id(&self) -> &ODataId {
-        self.id
-    }
-    fn etag(&self) -> Option<&ODataETag> {
-        self.etag
-    }
-}
-
-#[cfg(feature = "patch-payload-update")]
-impl Updator<'_> {
-    async fn update<B, U, T, F>(
-        &self,
-        bmc: &B,
-        update: &U,
-        patch_fn: F,
-    ) -> Result<ModificationResponse<T>, Error<B>>
-    where
-        B: Bmc,
-        T: EntityTypeRef + for<'de> Deserialize<'de>,
-        U: Serialize + Send + Sync,
-        F: Fn(JsonValue) -> JsonValue + Sync + Send,
-    {
-        bmc.update::<U, Payload>(self.odata_id(), self.etag(), update)
-            .await
-            .map_err(Error::Bmc)?
-            .try_map_entity(|payload| payload.to_target::<T, B, _>(&patch_fn))
     }
 }

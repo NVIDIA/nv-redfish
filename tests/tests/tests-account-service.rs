@@ -337,6 +337,87 @@ async fn get_account_service_with_config(
 }
 
 #[test]
+async fn update_sends_wildcard_if_match_on_ami_firmware() -> TestResult<()> {
+    let etag = "\"account-service-1\"";
+    for (name, root_fields, expected_etag) in [
+        (
+            "AMI",
+            json!({ "Vendor": "AMI", "RedfishVersion": "1.15.0" }),
+            None,
+        ),
+        (
+            "AMI Viking",
+            json!({ "Vendor": "AMI", "RedfishVersion": "1.11.0" }),
+            None,
+        ),
+        (
+            "AMI GB300",
+            json!({ "Vendor": "AMI", "Oem": { "Ami": { "RtpVersion": "13.09.1" } } }),
+            None,
+        ),
+        (
+            "Lenovo AMI",
+            json!({ "Vendor": "Lenovo", "Oem": { "Ami": {} } }),
+            None,
+        ),
+        ("Lenovo XCC", json!({ "Vendor": "Lenovo" }), Some(etag)),
+        ("Dell", json!({ "Vendor": "Dell" }), Some(etag)),
+    ] {
+        let bmc = Arc::new(Bmc::default());
+        let root_id = ODataId::service_root();
+        let service_id = format!("{root_id}/AccountService");
+        bmc.expect(Expect::get(
+            &root_id,
+            json_merge([
+                &json!({
+                    ODATA_ID: &root_id,
+                    ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+                    "Id": "RootService",
+                    "Name": "RootService",
+                    "AccountService": { ODATA_ID: &service_id },
+                    "Links": {
+                        "Sessions": { ODATA_ID: format!("{root_id}/SessionService/Sessions") }
+                    },
+                }),
+                &root_fields,
+            ]),
+        ));
+        let service_root = ServiceRoot::new(bmc.clone()).await?;
+        let service = json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: ACCOUNT_SERVICE_DATA_TYPE,
+            "@odata.etag": etag,
+            "Id": "AccountService",
+            "Name": "AccountService",
+        });
+        bmc.expect(Expect::get(&service_id, &service));
+        let account_service = service_root
+            .account_service(AccountServiceConfig::standard())
+            .await?
+            .ok_or("missing account service")?;
+
+        let update = AccountServiceUpdate::builder()
+            .with_account_lockout_threshold(0)
+            .build();
+        bmc.expect(Expect::update_with_etag(
+            &service_id,
+            expected_etag,
+            json!({ "AccountLockoutThreshold": 0 }),
+            &service,
+        ));
+        let response = account_service
+            .update(&update)
+            .await
+            .map_err(|error| format!("{name}: {error}"))?;
+        assert!(
+            matches!(response, ModificationResponse::Entity(_)),
+            "{name}"
+        );
+    }
+    Ok(())
+}
+
+#[test]
 async fn update_account_service_preserves_uri_config_and_read_patch() -> TestResult<()> {
     let bmc = Arc::new(Bmc::default());
     let root_id = ODataId::service_root();

@@ -81,14 +81,12 @@ impl<B: Bmc> HpeManagerNetworkProtocol<B> {
             .build();
 
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<ManagerNetworkProtocolSchema>>(
                 &self.network_protocol_id,
                 self.network_protocol_etag.as_ref(),
                 &update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 ManagerNetworkProtocol::new(&self.bmc, &nav).await
             })
