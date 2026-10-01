@@ -155,6 +155,9 @@ pub mod power_equipment;
 /// Metrics and sensor abstraction.
 #[cfg(feature = "sensors")]
 pub mod sensor;
+/// Serial interfaces.
+#[cfg(feature = "serial-interfaces")]
+pub mod serial_interface;
 /// Session Service.
 #[cfg(feature = "session-service")]
 pub mod session_service;

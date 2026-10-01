@@ -44,6 +44,7 @@ std-redfish = [
     "event-service",
     "fabrics",
     "host-interfaces",
+    "serial-interfaces",
     "job-service",
     "log-services",
     "managers",
@@ -97,6 +98,7 @@ ports = []
 processors = ["pcie-devices"]
 resource-status = []
 secure-boot = []
+serial-interfaces = []
 sensors = ["impl-entity-link", "environment-metrics"]
 session-service = ["impl-nv-bmc-expand"]
 storages = []

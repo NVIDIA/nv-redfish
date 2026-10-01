@@ -77,7 +77,7 @@ Common feature groups:
   `ethernet-interfaces`, `event-service`, `fabrics`,
   `host-interfaces`, `log-services`, `managers`, `manager-network-protocol`, `memory`,
   `network-adapters`, `network-device-functions`, `pcie-devices`, `ports`, `power`,
-  `power-supplies`, `processors`, `secure-boot`, `sensors`,
+  `power-supplies`, `processors`, `secure-boot`, `serial-interfaces`, `sensors`,
   `session-service`, `storages`, `task-service`, `telemetry-service`, `thermal`,
   `update-service`.
 - OEM features: `oem-ami`, `oem-dell`, `oem-hpe`, `oem-lenovo`,
