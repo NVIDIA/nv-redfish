@@ -17,11 +17,15 @@ use serde::Deserialize;
 use serde::Deserializer;
 use serde::Serialize;
 
+/// Redfish `LocationIndicatorActive` (`Edm.Boolean` or vendor LED map).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum LocationIndicatorActive {
+    /// Standard Redfish boolean indicator.
     Boolean(bool),
+    /// Lite-On-style LED states on some power-supply firmware.
     LedIndicators {
+        /// Fault LED state (e.g. `"OFF"`).
         #[serde(rename = "FaultLed")]
         fault_led: String,
         /// Power LED state (e.g. `"Solid"`).
