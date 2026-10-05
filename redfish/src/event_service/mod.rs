@@ -97,9 +97,16 @@ impl<B: Bmc> EventService<B> {
             let mut sse_read_patches = Vec::new();
             let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
 
+            // Remove empty links before deciding whether a record is reference-only.
+            if bmc.quirks.event_service_sse_empty_log_entry() {
+                sse_event_record_patches.push(patch::patch_empty_log_entry);
+            }
+
+            // Record ID generation below needs MemberId to be present first.
             if bmc.quirks.event_service_sse_no_member_id() {
                 sse_event_record_patches.push(patch::patch_missing_event_record_member_id);
             }
+
             if bmc.quirks.event_service_sse_missing_event_type() {
                 sse_event_record_patches.push(patch::patch_missing_event_type_to_other);
             }
@@ -192,11 +199,22 @@ impl<B: Bmc> EventService<B> {
             .map_err(Error::Bmc)?;
 
         let sse_read_patches = self.sse_read_patches.clone();
+        let missing_envelope_ids = self.bmc.quirks.event_service_sse_missing_envelope_ids();
+
         let stream = stream.map_err(Error::Bmc).and_then(move |event| {
             let StreamEvent {
                 last_event_id,
                 data,
             } = event;
+
+            // Supply Id before the existing envelope @odata.id patch. The transport
+            // cursor is only borrowed: it may be inherited and remains unchanged.
+            let data = if missing_envelope_ids {
+                patch::patch_missing_event_id(data, last_event_id.as_deref())
+            } else {
+                data
+            };
+
             let patched = sse_read_patches.iter().fold(data, |acc, patch| patch(acc));
 
             future::ready(

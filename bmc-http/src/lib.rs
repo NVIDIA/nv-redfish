@@ -114,6 +114,16 @@ pub trait HttpClient: Send + Sync {
     where
         T: DeserializeOwned + Send + Sync;
 
+    /// Perform a GET on a URI of an asynchronous operation.
+    fn poll<T>(
+        &self,
+        url: Url,
+        credentials: &BmcCredentials,
+        custom_headers: &HeaderMap,
+    ) -> impl Future<Output = Result<ModificationResponse<T>, Self::Error>> + Send
+    where
+        T: DeserializeOwned + Send + Sync;
+
     /// Perform an HTTP POST request.
     fn post<B, T>(
         &self,
@@ -886,6 +896,21 @@ where
                 &self.custom_headers,
                 last_event_id,
             )
+            .await
+    }
+
+    async fn poll<R: Send + Sync + for<'de> Deserialize<'de>>(
+        &self,
+        uri: &ODataId,
+    ) -> Result<ModificationResponse<R>, Self::Error> {
+        let uri = uri.to_string();
+        let endpoint_url = self
+            .redfish_endpoint
+            .with_same_origin_uri_reference(UriReference(&uri))
+            .map_err(C::Error::rejected_uri_reference)?;
+        let credentials = self.read_credentials();
+        self.client
+            .poll(endpoint_url, credentials.as_ref(), &self.custom_headers)
             .await
     }
 }

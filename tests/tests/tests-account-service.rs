@@ -27,6 +27,9 @@ use nv_redfish::account::AccountTypes;
 use nv_redfish::account::ManagerAccountCreate;
 use nv_redfish::account::ManagerAccountUpdate;
 use nv_redfish::oem::dell::IdracVersion;
+use nv_redfish::oem::hpe::account_service::{
+    HpeAccountServiceUpdate, HpeAccountServiceUpdateExt as _,
+};
 use nv_redfish::oem::lenovo::account_service::LenovoAccountServiceUpdate;
 use nv_redfish::oem::lenovo::account_service::LenovoAccountServiceUpdateExt as _;
 use nv_redfish::schema::account_service::MfaBypassCreate;
@@ -35,6 +38,7 @@ use nv_redfish::ServiceRoot;
 use nv_redfish_core::AsyncTask;
 use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::ModificationResponse;
+use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
 use nv_redfish_tests::json_merge;
 use nv_redfish_tests::Bmc;
@@ -183,6 +187,97 @@ async fn list_no_patch_accounts() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
+#[test]
+async fn dpu_account_service_links_incomplete_certificate_collection() -> TestResult<()> {
+    // BlueField-3 BMC 3.4.1 inlines this collection without its required `Name`.
+    let payload = json!({
+        ODATA_ID: "/redfish/v1/AccountService",
+        ODATA_TYPE: "#AccountService.v1_15_0.AccountService",
+        "AccountLockoutDuration": 600,
+        "AccountLockoutThreshold": 10,
+        "Accounts": { ODATA_ID: "/redfish/v1/AccountService/Accounts" },
+        "Description": "Account Service",
+        "HTTPBasicAuth": "Enabled",
+        "Id": "AccountService",
+        "LDAP": {
+            "Certificates": { ODATA_ID: "/redfish/v1/AccountService/LDAP/Certificates" }
+        },
+        "MaxPasswordLength": 64,
+        "MinPasswordLength": 12,
+        "MultiFactorAuth": {
+            "ClientCertificate": {
+                "CertificateMappingAttribute": "CommonName",
+                "Certificates": {
+                    ODATA_ID: "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates",
+                    ODATA_TYPE: "#CertificateCollection.CertificateCollection",
+                    "Members": [{
+                        ODATA_ID: "/redfish/v1/AccountService/MultiFactorAuth/ClientCertificate/Certificates/1"
+                    }],
+                    "Members@odata.count": 1
+                },
+                "Enabled": true,
+                "RespondToUnauthenticatedClients": true
+            }
+        },
+        "Name": "Account Service",
+        "Roles": { ODATA_ID: "/redfish/v1/AccountService/Roles" },
+        "ServiceEnabled": true
+    });
+
+    let bmc = Arc::new(Bmc::default());
+    let root = account_service_root(&bmc, "Nvidia", "BlueField-3 DPU").await?;
+    bmc.expect(Expect::get("/redfish/v1/AccountService", payload.clone()));
+    let service = root
+        .account_service(AccountServiceConfig::standard())
+        .await?
+        .expect("AccountService is advertised");
+    let raw = service.raw();
+    let certificates = raw
+        .multi_factor_auth
+        .as_ref()
+        .and_then(Option::as_ref)
+        .and_then(|mfa| mfa.client_certificate.as_ref())
+        .and_then(Option::as_ref)
+        .and_then(|client| client.certificates.as_ref())
+        .expect("client certificates are linked");
+    assert!(matches!(certificates, NavProperty::Reference(_)));
+
+    // Without the DPU quirk the incomplete collection fails to parse.
+    let bmc = Arc::new(Bmc::default());
+    let root = account_service_root(&bmc, "Contoso", "Server").await?;
+    bmc.expect(Expect::get("/redfish/v1/AccountService", payload));
+    assert!(root
+        .account_service(AccountServiceConfig::standard())
+        .await
+        .is_err());
+
+    Ok(())
+}
+
+async fn account_service_root(
+    bmc: &Arc<Bmc>,
+    vendor: &str,
+    product: &str,
+) -> TestResult<ServiceRoot<Bmc>> {
+    let root_id = ODataId::service_root();
+    bmc.expect(Expect::get(
+        &root_id,
+        json!({
+            ODATA_ID: &root_id,
+            ODATA_TYPE: "#ServiceRoot.v1_15_0.ServiceRoot",
+            "Id": "RootService",
+            "Name": "Root Service",
+            "Vendor": vendor,
+            "Product": product,
+            "AccountService": { ODATA_ID: "/redfish/v1/AccountService" },
+            "Links": {
+                "Sessions": { ODATA_ID: "/redfish/v1/SessionService/Sessions" }
+            }
+        }),
+    ));
+    Ok(ServiceRoot::new(bmc.clone()).await?)
+}
+
 async fn get_account_service(
     bmc: Arc<Bmc>,
     root_id: &ODataId,
@@ -239,6 +334,87 @@ async fn get_account_service_with_config(
         }),
     ));
     Ok(service_root.account_service(config).await?.unwrap())
+}
+
+#[test]
+async fn update_sends_wildcard_if_match_on_ami_firmware() -> TestResult<()> {
+    let etag = "\"account-service-1\"";
+    for (name, root_fields, expected_etag) in [
+        (
+            "AMI",
+            json!({ "Vendor": "AMI", "RedfishVersion": "1.15.0" }),
+            None,
+        ),
+        (
+            "AMI Viking",
+            json!({ "Vendor": "AMI", "RedfishVersion": "1.11.0" }),
+            None,
+        ),
+        (
+            "AMI GB300",
+            json!({ "Vendor": "AMI", "Oem": { "Ami": { "RtpVersion": "13.09.1" } } }),
+            None,
+        ),
+        (
+            "Lenovo AMI",
+            json!({ "Vendor": "Lenovo", "Oem": { "Ami": {} } }),
+            None,
+        ),
+        ("Lenovo XCC", json!({ "Vendor": "Lenovo" }), Some(etag)),
+        ("Dell", json!({ "Vendor": "Dell" }), Some(etag)),
+    ] {
+        let bmc = Arc::new(Bmc::default());
+        let root_id = ODataId::service_root();
+        let service_id = format!("{root_id}/AccountService");
+        bmc.expect(Expect::get(
+            &root_id,
+            json_merge([
+                &json!({
+                    ODATA_ID: &root_id,
+                    ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+                    "Id": "RootService",
+                    "Name": "RootService",
+                    "AccountService": { ODATA_ID: &service_id },
+                    "Links": {
+                        "Sessions": { ODATA_ID: format!("{root_id}/SessionService/Sessions") }
+                    },
+                }),
+                &root_fields,
+            ]),
+        ));
+        let service_root = ServiceRoot::new(bmc.clone()).await?;
+        let service = json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: ACCOUNT_SERVICE_DATA_TYPE,
+            "@odata.etag": etag,
+            "Id": "AccountService",
+            "Name": "AccountService",
+        });
+        bmc.expect(Expect::get(&service_id, &service));
+        let account_service = service_root
+            .account_service(AccountServiceConfig::standard())
+            .await?
+            .ok_or("missing account service")?;
+
+        let update = AccountServiceUpdate::builder()
+            .with_account_lockout_threshold(0)
+            .build();
+        bmc.expect(Expect::update_with_etag(
+            &service_id,
+            expected_etag,
+            json!({ "AccountLockoutThreshold": 0 }),
+            &service,
+        ));
+        let response = account_service
+            .update(&update)
+            .await
+            .map_err(|error| format!("{name}: {error}"))?;
+        assert!(
+            matches!(response, ModificationResponse::Entity(_)),
+            "{name}"
+        );
+    }
+    Ok(())
 }
 
 #[test]
@@ -342,6 +518,74 @@ async fn update_lenovo_account_policy_uses_typed_oem_payload() -> TestResult<()>
     bmc.expect(Expect::update_empty(&service_id, &request));
     assert_empty(updated.update(&update).await?);
     Ok(())
+}
+
+#[test]
+async fn update_hpe_account_policy_composes_standard_and_oem_payloads() -> TestResult<()> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let account_service = get_account_service(bmc.clone(), &root_id, "HPE").await?;
+    let service_id = account_service.raw().odata_id().to_string();
+    let accounts_id = format!("{service_id}/Accounts");
+    let hpe_update = HpeAccountServiceUpdate::builder()
+        .with_auth_failure_delay_time_seconds(2)
+        .with_auth_failure_logging_threshold(0)
+        .with_auth_failures_before_delay(0)
+        .with_enforce_password_complexity(false)
+        .build();
+    let update = AccountServiceUpdate::builder()
+        .with_account_lockout_threshold(0)
+        .with_min_password_length(8)
+        .with_oem(nv_redfish::schema::resource::OemUpdate {
+            additional_properties: json!({ "OtherVendor": { "Keep": true } }),
+        })
+        .build()
+        .with_oem_hpe(hpe_update)?;
+    let request = json!({
+        "AccountLockoutThreshold": 0,
+        "MinPasswordLength": 8,
+        "Oem": {
+            "OtherVendor": { "Keep": true },
+            "Hpe": {
+                "AuthFailureDelayTimeSeconds": 2,
+                "AuthFailureLoggingThreshold": 0,
+                "AuthFailuresBeforeDelay": 0,
+                "EnforcePasswordComplexity": false
+            }
+        }
+    });
+    bmc.expect(Expect::update(
+        &service_id,
+        &request,
+        json!({
+            ODATA_ID: &service_id,
+            ODATA_TYPE: ACCOUNT_SERVICE_DATA_TYPE,
+            "Id": "AccountService",
+            "Name": "AccountService",
+            "Accounts": { ODATA_ID: &accounts_id }
+        }),
+    ));
+
+    let ModificationResponse::Entity(updated) = account_service.update(&update).await? else {
+        return Err("expected updated account service".into());
+    };
+    bmc.expect(Expect::update_empty(&service_id, &request));
+    assert_empty(updated.update(&update).await?);
+    Ok(())
+}
+
+#[test]
+async fn hpe_account_policy_rejects_malformed_existing_oem_payload() {
+    let update = AccountServiceUpdate::builder()
+        .with_oem(nv_redfish::schema::resource::OemUpdate {
+            additional_properties: json!("not-an-object"),
+        })
+        .build();
+    let hpe = HpeAccountServiceUpdate::builder()
+        .with_auth_failure_logging_threshold(0)
+        .build();
+
+    assert!(update.with_oem_hpe(hpe).is_err());
 }
 
 fn lenovo_account_policy_update() -> Result<AccountServiceUpdate, serde_json::Error> {

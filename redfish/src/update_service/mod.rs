@@ -49,6 +49,8 @@ use serde_json::Value as JsonValue;
 use software_inventory::SoftwareInventoryCollection;
 
 #[doc(inline)]
+pub use crate::schema::settings::OperationApplyTime;
+#[doc(inline)]
 pub use crate::schema::update_service::TransferProtocolType;
 #[doc(inline)]
 pub use crate::schema::update_service::UpdateParametersUpdate as MultipartUpdateParameters;
@@ -60,6 +62,23 @@ pub use software_inventory::SoftwareInventory;
 pub use software_inventory::Version;
 #[doc(inline)]
 pub use software_inventory::VersionRef;
+
+/// Multipart update parameters with `@Redfish.OperationApplyTime`.
+///
+/// The Redfish specification allows the annotation in multipart update
+/// parameters, but the schema type can't carry it.
+#[derive(serde::Serialize, Debug, Default)]
+pub struct MultipartUpdateParametersWithApplyTime {
+    /// Update parameters.
+    #[serde(flatten)]
+    pub parameters: MultipartUpdateParameters,
+    /// When the service applies the update.
+    #[serde(
+        rename = "@Redfish.OperationApplyTime",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub operation_apply_time: Option<OperationApplyTime>,
+}
 
 /// Update service.
 ///
@@ -295,14 +314,12 @@ impl<B: Bmc> UpdateService<B> {
         update: &UpdateServiceUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<UpdateServiceSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move {
                 let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
 

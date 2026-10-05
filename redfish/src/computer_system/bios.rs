@@ -14,6 +14,8 @@
 // limitations under the License.
 //! Bios
 
+#[cfg(feature = "oem-hpe")]
+use crate::oem::hpe::HpeBios;
 use crate::schema::bios::Bios as BiosSchema;
 use crate::Error;
 use crate::NvBmc;
@@ -57,6 +59,21 @@ impl<B: Bmc> Bios<B> {
         self.data.clone()
     }
 
+    /// Get the HPE OEM extension advertised by this BIOS resource.
+    ///
+    /// Returns `Ok(None)` when the BIOS does not include `Oem.Hpe`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing the HPE BIOS extension fails.
+    #[cfg(feature = "oem-hpe")]
+    pub fn oem_hpe(&self) -> Result<Option<HpeBios<B>>, Error<B>> {
+        self.data
+            .oem
+            .as_ref()
+            .map_or_else(|| Ok(None), |oem| HpeBios::new(&self.bmc, oem))
+    }
+
     /// Get the advertised BIOS settings object.
     ///
     /// Returns `Ok(None)` when this BIOS resource does not advertise
@@ -85,10 +102,8 @@ impl<B: Bmc> Bios<B> {
         update: &BiosUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<BiosSchema>>(self.data.odata_id(), self.data.etag(), update)
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
     }

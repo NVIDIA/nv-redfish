@@ -88,9 +88,15 @@ pub mod mac_address;
 /// Accounts Service.
 #[cfg(feature = "accounts")]
 pub mod account;
+/// Certificates.
+#[cfg(feature = "certificates")]
+pub mod certificate;
 /// Chassis.
 #[cfg(feature = "chassis")]
 pub mod chassis;
+/// Component integrity and attestation.
+#[cfg(feature = "component-integrity")]
+pub mod component_integrity;
 /// Computer System.
 #[cfg(feature = "computer-systems")]
 pub mod computer_system;
@@ -123,6 +129,9 @@ pub mod ethernet_interface;
 /// Event Service.
 #[cfg(feature = "event-service")]
 pub mod event_service;
+/// Fabrics and switches.
+#[cfg(feature = "fabrics")]
+pub mod fabric;
 /// Host interfaces.
 #[cfg(feature = "host-interfaces")]
 pub mod host_interface;
@@ -146,6 +155,9 @@ pub mod power_equipment;
 /// Metrics and sensor abstraction.
 #[cfg(feature = "sensors")]
 pub mod sensor;
+/// Serial interfaces.
+#[cfg(feature = "serial-interfaces")]
+pub mod serial_interface;
 /// Session Service.
 #[cfg(feature = "session-service")]
 pub mod session_service;

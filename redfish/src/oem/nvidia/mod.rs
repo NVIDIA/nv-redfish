@@ -38,6 +38,23 @@ pub use compiled_schema::redfish as schema;
 /// object.
 pub const OEM_KEY: &str = "Nvidia";
 
+/// Base MAC address of the Bluefield DPU as reported by the device.
+#[cfg(any(
+    feature = "computer-systems",
+    all(feature = "chassis", feature = "network-adapters")
+))]
+pub type BaseMac<T> = tagged_types::TaggedType<T, BaseMacTag>;
+#[cfg(any(
+    feature = "computer-systems",
+    all(feature = "chassis", feature = "network-adapters")
+))]
+#[doc(hidden)]
+#[derive(tagged_types::Tag)]
+#[implement(Clone, Hash, PartialEq, Eq, PartialOrd, Ord)]
+#[transparent(Debug, Display, FromStr, Serialize, Deserialize)]
+#[capability(inner_access, cloned)]
+pub enum BaseMacTag {}
+
 // These modules carry their own `//!` docs. Do not add outer `///`
 // docs here: rustdoc merges them and then resolves intra-doc links in
 // this parent scope instead of the module's own.
@@ -50,11 +67,26 @@ pub mod chassis_actions;
 #[cfg(feature = "computer-systems")]
 pub mod computer_system;
 
+#[cfg(feature = "managers")]
+pub mod manager;
+
+#[cfg(all(feature = "chassis", feature = "network-adapters"))]
+pub mod network_adapter;
+
+#[cfg(feature = "processors")]
+pub mod processor;
+
 #[cfg(feature = "processors")]
 pub mod processor_metrics;
 
 #[cfg(feature = "update-service")]
 pub mod update_service_actions;
+
+#[cfg(feature = "fabrics")]
+pub mod fabric;
+
+#[cfg(feature = "fabrics")]
+pub mod switch;
 
 #[cfg(feature = "chassis")]
 #[doc(inline)]
@@ -76,6 +108,26 @@ pub use chassis_actions::NvidiaChassisResetType;
 #[doc(inline)]
 pub use computer_system::NvidiaComputerSystem;
 
+#[cfg(feature = "managers")]
+#[doc(inline)]
+pub use manager::NvidiaManager;
+
+#[cfg(all(feature = "chassis", feature = "network-adapters"))]
+#[doc(inline)]
+pub use network_adapter::NvidiaHostPrivilegeConfig;
+
+#[cfg(all(feature = "chassis", feature = "network-adapters"))]
+#[doc(inline)]
+pub use network_adapter::NvidiaNetworkAdapter;
+
+#[cfg(all(feature = "chassis", feature = "network-adapters"))]
+#[doc(inline)]
+pub use network_adapter::NvidiaNetworkAdapterUpdateExt;
+
+#[cfg(feature = "processors")]
+#[doc(inline)]
+pub use processor::NvidiaProcessor;
+
 #[cfg(feature = "processors")]
 #[doc(inline)]
 pub use processor_metrics::NvidiaProcessorMetrics;
@@ -83,3 +135,11 @@ pub use processor_metrics::NvidiaProcessorMetrics;
 #[cfg(feature = "update-service")]
 #[doc(inline)]
 pub use update_service_actions::NvidiaUpdateServiceActions;
+
+#[cfg(feature = "fabrics")]
+#[doc(inline)]
+pub use fabric::NvidiaFabric;
+
+#[cfg(feature = "fabrics")]
+#[doc(inline)]
+pub use switch::NvidiaSwitch;

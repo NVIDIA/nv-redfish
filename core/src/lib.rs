@@ -210,7 +210,7 @@ impl From<ODataId> for AsyncTaskLocation {
 }
 
 /// Outcome of a mutating Redfish operation that can complete asynchronously.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct AsyncTask {
     /// Location to use for polling completion.
     pub location: AsyncTaskLocation,

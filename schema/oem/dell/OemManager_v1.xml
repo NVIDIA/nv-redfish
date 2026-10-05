@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!--
+SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+SPDX-License-Identifier: Apache-2.0
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx" Version="4.0">
+  <edmx:Reference Uri="/redfish/v1/Schemas/RedfishExtensions_v1.xml">
+    <edmx:Include Namespace="RedfishExtensions.v1_0_0" Alias="Redfish"/>
+  </edmx:Reference>
+  <edmx:Reference Uri="/redfish/v1/Schemas/Manager_v1.xml">
+    <edmx:Include Namespace="Manager"/>
+    <edmx:Include Namespace="Manager.v1_0_0"/>
+  </edmx:Reference>
+  <edmx:DataServices>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemManager">
+      <Annotation Term="Redfish.OwningEntity" String="Dell"/>
+      <Action Name="ImportSystemConfiguration" IsBound="true">
+        <Parameter Name="Manager" Type="Manager.v1_0_0.OemActions"/>
+        <Parameter Name="ShareParameters" Type="OemManager.v1_0_0.ShareParameters" Nullable="false">
+          <Annotation Term="Redfish.Required"/>
+        </Parameter>
+        <Parameter Name="ImportBuffer" Type="Edm.String"/>
+        <Parameter Name="ShutdownType" Type="OemManager.v1_0_0.ShutdownType"/>
+        <Parameter Name="HostPowerState" Type="OemManager.v1_0_0.HostPowerState"/>
+      </Action>
+    </Schema>
+    <Schema xmlns="http://docs.oasis-open.org/odata/ns/edm" Namespace="OemManager.v1_0_0">
+      <ComplexType Name="ShareParameters">
+        <Property Name="IPAddress" Type="Edm.String" Nullable="false"/>
+        <Property Name="PortNumber" Type="Edm.String" Nullable="false"/>
+        <Property Name="ShareName" Type="Edm.String" Nullable="false"/>
+        <Property Name="FileName" Type="Edm.String" Nullable="false"/>
+        <Property Name="ShareType" Type="OemManager.v1_0_0.ShareType" Nullable="false"/>
+        <Property Name="Username" Type="Edm.String" Nullable="false"/>
+        <Property Name="Password" Type="Edm.String" Nullable="false"/>
+        <Property Name="Workgroup" Type="Edm.String" Nullable="false"/>
+        <Property Name="Target" Type="Collection(Edm.String)" Nullable="false"/>
+      </ComplexType>
+      <EnumType Name="ShareType">
+        <Member Name="NFS"/>
+        <Member Name="CIFS"/>
+        <Member Name="HTTP"/>
+        <Member Name="HTTPS"/>
+        <Member Name="LOCAL"/>
+      </EnumType>
+      <EnumType Name="ShutdownType">
+        <Member Name="Graceful"/>
+        <Member Name="Forced"/>
+        <Member Name="NoReboot"/>
+      </EnumType>
+      <EnumType Name="HostPowerState">
+        <Member Name="On"/>
+        <Member Name="Off"/>
+      </EnumType>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>

@@ -47,6 +47,33 @@ patterns = [
 ]
 
 [[features]]
+name = "certificates"
+csdl_files = [
+    "CertificateCollection_v1.xml",
+    "Certificate_v1.xml",
+]
+patterns = [
+    "CertificateCollection.*",
+    "Certificate.*",
+    "Certificate.*.*",
+]
+root_patterns = [
+    "CertificateCollection.*",
+    "Certificate.*.*",
+]
+
+[[features]]
+name = "component-integrity"
+csdl_files = [
+    "ComponentIntegrity_v1.xml",
+    "ComponentIntegrityCollection_v1.xml",
+]
+patterns = [
+    "ComponentIntegrity.*",
+    "ComponentIntegrityCollection.*",
+]
+
+[[features]]
 name = "chassis"
 csdl_files = [
     "Chassis_v1.xml",
@@ -102,6 +129,24 @@ patterns = [
 ]
 
 [[features]]
+name = "fabrics"
+csdl_files = [
+    "Fabric_v1.xml",
+    "FabricCollection_v1.xml",
+    "Protocol_v1.xml",
+    "Redundancy_v1.xml",
+    "SoftwareInventory_v1.xml",
+    "Switch_v1.xml",
+    "SwitchCollection_v1.xml",
+]
+patterns = [
+    "Fabric.*",
+    "FabricCollection.*",
+    "Switch.*",
+    "SwitchCollection.*",
+]
+
+[[features]]
 name = "host-interfaces"
 csdl_files = [
     "HostInterface_v1.xml",
@@ -110,6 +155,17 @@ csdl_files = [
 patterns = [
     "HostInterface.*",
     "HostInterfaceCollection.*",
+]
+
+[[features]]
+name = "serial-interfaces"
+csdl_files = [
+    "SerialInterface_v1.xml",
+    "SerialInterfaceCollection_v1.xml",
+]
+patterns = [
+    "SerialInterface.*",
+    "SerialInterfaceCollection.*",
 ]
 
 [[features]]
@@ -449,10 +505,14 @@ patterns = [
 [[features]]
 name = "secure-boot"
 csdl_files = [
-     "SecureBoot_v1.xml"
+    "SecureBoot_v1.xml",
+    "SecureBootDatabase_v1.xml",
+    "SecureBootDatabaseCollection_v1.xml",
 ]
 patterns = [
-     "SecureBoot.*"
+    "SecureBoot.*",
+    "SecureBootDatabase.*",
+    "SecureBootDatabaseCollection.*",
 ]
 
 [[features]]
@@ -498,6 +558,20 @@ patterns = [
 # other freely; build.rs offers every unselected schema of the vendor
 # for type resolution, so a block never needs its dependencies listed.
 # Each schema must therefore appear in exactly one block.
+
+[[oem-features]]
+# NVIDIA extensions of standard Fabric and Switch resources.
+vendor = "nvidia"
+name = "fabrics"
+oem_csdl_files = [
+    "NvidiaFabric_v1.xml",
+    "NvidiaSwitch_v1.xml",
+]
+csdl_files = []
+patterns = [
+    "NvidiaFabric.*.*",
+    "NvidiaSwitch.*.*",
+]
 
 [[oem-features]]
 # NVIDIA chassis, root-of-trust chassis, cables and PCIe slots.
@@ -556,17 +630,15 @@ patterns = [
 ]
 
 [[oem-features]]
-# NVIDIA computer system and host privilege configuration.
+# NVIDIA computer system.
 vendor = "nvidia"
 name = "computer-systems"
 oem_csdl_files = [
     "NvidiaComputerSystem_v1.xml",
-    "NvidiaHostPrivilegeConfig_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "NvidiaComputerSystem.*.*",
-    "NvidiaHostPrivilegeConfig.*.*",
 ]
 
 [[oem-features]]
@@ -600,15 +672,18 @@ patterns = [
 ]
 
 [[oem-features]]
-# NVIDIA network adapter, including DPU operation mode.
+# NVIDIA network adapter, including DPU operation mode and the host
+# privilege configuration it links.
 vendor = "nvidia"
 name = "network-adapters"
 oem_csdl_files = [
     "NvidiaNetworkAdapter_v1.xml",
+    "NvidiaHostPrivilegeConfig_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "NvidiaNetworkAdapter.*.*",
+    "NvidiaHostPrivilegeConfig.*.*",
 ]
 
 [[oem-features]]
@@ -759,12 +834,10 @@ patterns = [
 ]
 
 [[oem-features]]
-# NVLink fabric, switches and ports.
+# Additional NVLink schemas; Fabric/Switch schemas belong to fabrics.
 vendor = "nvidia"
 name = "oem-nvidia-fabrics"
 oem_csdl_files = [
-    "NvidiaFabric_v1.xml",
-    "NvidiaSwitch_v1.xml",
     "NvidiaSwitchPowerCapMode_v1.xml",
     "NvidiaSwitchPowerMode_v1.xml",
     "NvidiaPort_v1.xml",
@@ -773,8 +846,6 @@ oem_csdl_files = [
 ]
 csdl_files = []
 patterns = [
-    "NvidiaFabric.*.*",
-    "NvidiaSwitch.*.*",
     "NvidiaSwitchPowerCapMode.*.*",
     "NvidiaSwitchPowerMode.*.*",
     "NvidiaPort.*.*",
@@ -911,10 +982,17 @@ vendor = "dell"
 name = "managers"
 oem_csdl_files = [
     "DellManager_v1.xml",
+    "DellLCService_v1.xml",
+    "OemManager_v1.xml",
 ]
 csdl_files = []
 patterns = [
     "DellManager.*",
+    "DellLCService.*",
+]
+action_patterns = [
+    "DellLCService.*",
+    "OemManager.*",
 ]
 
 [[oem-features]]
@@ -988,13 +1066,30 @@ csdl_files = []
 
 [[oem-features]]
 vendor = "supermicro"
-name = "managers"
+name = "computer-systems"
 oem_csdl_files = [
-    "SmcManagerExtensions_v1.xml",
-    "SysLockdown_v1.xml",
-    "KCSInterface_v1.xml"
+    "OemSystemExtensions_v1.xml",
+    "SmcFixedBootOrder_v1.xml",
+    "SmcSystemExtensions_v1.xml",
 ]
 csdl_files = []
+action_patterns = [
+    "OemSystemExtensions.*",
+]
+
+[[oem-features]]
+vendor = "supermicro"
+name = "managers"
+oem_csdl_files = [
+    "SmcManagerConfig_v1.xml",
+    "SmcManagerExtensions_v1.xml",
+    "SysLockdown_v1.xml",
+    "KCSInterface_v1.xml",
+]
+csdl_files = []
+action_patterns = [
+    "SmcManagerConfig.*",
+]
 
 [[oem-features]]
 vendor = "hpe"
@@ -1008,7 +1103,47 @@ csdl_files = []
 vendor = "hpe"
 name = "managers"
 oem_csdl_files = [
+    "HpeiLODateTime_v1.xml",
     "HpeiLO_v1.xml",
+]
+csdl_files = []
+action_patterns = [
+    "HpeiLO.ResetToFactoryDefaults",
+]
+
+[[oem-features]]
+vendor = "hpe"
+name = "computer-systems"
+oem_csdl_files = [
+    "HpeComputerSystemExt_v1.xml",
+]
+csdl_files = []
+action_patterns = [
+    "HpeComputerSystemExt.SystemReset",
+]
+
+[[oem-features]]
+vendor = "hpe"
+name = "bios"
+oem_csdl_files = [
+    "HpeBiosExt_v1.xml",
+    "HpeServerBootSettings_v1.xml",
+]
+csdl_files = []
+
+[[oem-features]]
+vendor = "hpe"
+name = "manager-network-protocol"
+oem_csdl_files = [
+    "HpeiLOManagerNetworkService_v1.xml",
+]
+csdl_files = []
+
+[[oem-features]]
+vendor = "hpe"
+name = "accounts"
+oem_csdl_files = [
+    "HpeiLOAccountService_v1.xml",
 ]
 csdl_files = []
 
@@ -1059,3 +1194,14 @@ oem_csdl_files = [
     "DeltaEnergySystemsPowerSupply_v1.xml",
 ]
 csdl_files = []
+
+[[oem-features]]
+vendor = "delta"
+name = "power-equipment"
+oem_csdl_files = [
+    "DeltaEnergySystemsPowerDistribution_v1.xml",
+]
+csdl_files = []
+action_patterns = [
+    "PowerShelf.*",
+]

@@ -19,7 +19,8 @@ use std::sync::Arc;
 
 use serde::Deserialize as _;
 
-use crate::core::{Bmc, ModificationResponse};
+use crate::core::action::Action;
+use crate::core::{AsyncTask, Bmc, ModificationResponse, ReferenceLeaf};
 use crate::oem::dell::schema::dell_storage::StorageControllerDrivesDecommissionAction;
 use crate::oem::dell::schema::storage::OemActions as DellStorageOemActions;
 use crate::oem::dell::schema::ActionAnnotations;
@@ -47,6 +48,8 @@ impl<B: Bmc> DellStorageActions<B> {
 
     /// Decommission every drive attached to the controller.
     ///
+    /// A job `Location` returned with a 200 or 201 is returned as a task.
+    ///
     /// # Errors
     ///
     /// Returns [`Error::ActionNotAvailable`] when the Storage resource does
@@ -64,14 +67,26 @@ impl<B: Bmc> DellStorageActions<B> {
         let redfish_annotations = ActionAnnotations {
             operation_apply_time: apply_time,
         };
-        action
-            .run(
-                self.bmc.as_ref(),
+        self.bmc
+            .as_ref()
+            .action::<_, ReferenceLeaf>(
+                &Action::new(action.target.clone()),
                 &StorageControllerDrivesDecommissionAction {
                     redfish_annotations,
                 },
             )
             .await
+            .map(|response| match response {
+                // iDRAC can report the scheduled job as 200/201 with its URI
+                // in Location or as the body's `@odata.id`; expose it as
+                // asynchronous work to callers.
+                ModificationResponse::Entity(job) => ModificationResponse::Task(AsyncTask {
+                    location: job.odata_id.into(),
+                    retry_after: None,
+                }),
+                ModificationResponse::Task(task) => ModificationResponse::Task(task),
+                ModificationResponse::Empty => ModificationResponse::Empty,
+            })
             .map_err(Error::Bmc)
     }
 }

@@ -181,14 +181,12 @@ impl<B: Bmc> LenovoBootManager<B> {
         update: &LenovoBootManagerUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<LenovoBootManagerSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
     }

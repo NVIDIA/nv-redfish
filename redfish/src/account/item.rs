@@ -73,8 +73,8 @@ impl<B: Bmc> UpdateWithPatch<ManagerAccount, ManagerAccountUpdate, B> for Accoun
     fn patch(&self) -> Option<&ReadPatchFn> {
         self.config.read_patch_fn.as_ref()
     }
-    fn bmc(&self) -> &B {
-        self.bmc.as_ref()
+    fn bmc(&self) -> &NvBmc<B> {
+        &self.bmc
     }
 }
 

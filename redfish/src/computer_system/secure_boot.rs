@@ -14,9 +14,11 @@
 // limitations under the License.
 //! Secure boot.
 
+use crate::computer_system::secure_boot_database::SecureBootDatabaseCollection;
 use crate::schema::secure_boot::SecureBoot as SecureBootSchema;
 use crate::Error;
 use crate::NvBmc;
+use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::EntityTypeRef as _;
 use nv_redfish_core::ModificationResponse;
@@ -24,6 +26,8 @@ use nv_redfish_core::NavProperty;
 use std::convert::identity;
 use std::sync::Arc;
 
+#[doc(inline)]
+pub use crate::schema::secure_boot::ResetKeysType as SecureBootResetKeysType;
 #[doc(inline)]
 pub use crate::schema::secure_boot::{SecureBootCurrentBootType, SecureBootUpdate};
 
@@ -66,16 +70,56 @@ impl<B: Bmc> SecureBoot<B> {
         update: &SecureBootUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<SecureBootSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
+    }
+
+    /// Get the UEFI Secure Boot database collection.
+    ///
+    /// Returns `Ok(None)` when this resource does not advertise databases.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if fetching the collection fails.
+    pub async fn databases(&self) -> Result<Option<SecureBootDatabaseCollection<B>>, Error<B>> {
+        let Some(databases) = &self.data.secure_boot_databases else {
+            return Ok(None);
+        };
+        SecureBootDatabaseCollection::new(&self.bmc, databases)
+            .await
+            .map(Some)
+    }
+
+    /// Reset or delete UEFI Secure Boot keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the action is unavailable or invocation fails.
+    pub async fn reset_keys(
+        &self,
+        reset_type: SecureBootResetKeysType,
+    ) -> Result<ModificationResponse<()>, Error<B>>
+    where
+        B::Error: ActionError,
+    {
+        let actions = self
+            .data
+            .actions
+            .as_ref()
+            .ok_or(Error::ActionNotAvailable)?;
+        if actions.reset_keys.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+        actions
+            .reset_keys(self.bmc.as_ref(), reset_type)
+            .await
+            .map_err(Error::Bmc)
     }
 
     /// Get an indication of whether UEFI Secure Boot is enabled.

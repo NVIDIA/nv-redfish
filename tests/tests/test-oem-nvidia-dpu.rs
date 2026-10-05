@@ -1,0 +1,684 @@
+// SPDX-FileCopyrightText: Copyright (c) 2026 NVIDIA CORPORATION & AFFILIATES. All rights reserved.
+// SPDX-License-Identifier: Apache-2.0
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+//! Integration tests for BlueField DPU controls.
+//!
+//! Payloads are trimmed from BlueField-3 (BMC 3.2.3) and BlueField-4
+//! (BMC 26.07) mockups.
+
+use nv_redfish::chassis::NetworkAdapter;
+use nv_redfish::chassis::NetworkAdapterUpdate;
+use nv_redfish::computer_system::ComputerSystem;
+use nv_redfish::manager::Manager;
+use nv_redfish::oem::nvidia::computer_system::HostRshim;
+use nv_redfish::oem::nvidia::computer_system::Mode;
+use nv_redfish::oem::nvidia::network_adapter::DpuOperationMode;
+use nv_redfish::oem::nvidia::network_adapter::HostPrivilegeLevelInput;
+use nv_redfish::oem::nvidia::network_adapter::NvidiaNetworkAdapterUpdate;
+use nv_redfish::oem::nvidia::network_adapter::PrivilegeModeType;
+use nv_redfish::oem::nvidia::NvidiaNetworkAdapterUpdateExt;
+use nv_redfish::schema::computer_system::BootSource;
+use nv_redfish::schema::computer_system::BootSourceOverrideEnabled;
+use nv_redfish::schema::computer_system::BootSourceOverrideMode;
+use nv_redfish::schema::resource::OemUpdate;
+use nv_redfish::Error;
+use nv_redfish::ServiceRoot;
+use nv_redfish_core::ModificationResponse;
+use nv_redfish_tests::assert_empty;
+use nv_redfish_tests::Bmc;
+use nv_redfish_tests::Expect;
+use nv_redfish_tests::ODATA_ID;
+use nv_redfish_tests::ODATA_TYPE;
+use serde_json::json;
+use serde_json::Value;
+use std::error::Error as StdError;
+use std::sync::Arc;
+use tokio::test;
+
+const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_17_0.ServiceRoot";
+const SYSTEM_COLLECTION_DATA_TYPE: &str = "#ComputerSystemCollection.ComputerSystemCollection";
+const SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_17_0.ComputerSystem";
+const MANAGER_COLLECTION_DATA_TYPE: &str = "#ManagerCollection.ManagerCollection";
+const MANAGER_DATA_TYPE: &str = "#Manager.v1_14_0.Manager";
+const CHASSIS_COLLECTION_DATA_TYPE: &str = "#ChassisCollection.ChassisCollection";
+const NETWORK_ADAPTER_COLLECTION_DATA_TYPE: &str =
+    "#NetworkAdapterCollection.NetworkAdapterCollection";
+
+const BF3_PRODUCT: &str = "BlueField-3 DPU";
+const BF4_PRODUCT: &str = "BlueField-4";
+
+// BlueField-3 ComputerSystem OEM actions.
+
+#[test]
+async fn bf3_set_mode_posts_advertised_target() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+    let oem = bf3_oem(&bmc, &system).await?;
+
+    bmc.expect(Expect::action(
+        format!("{BF3_OEM}/Actions/Mode.Set"),
+        json!({"Mode": "NicMode"}),
+        json!(null),
+    ));
+    assert!(matches!(
+        oem.set_mode(Mode::NicMode).await?,
+        ModificationResponse::Entity(())
+    ));
+    Ok(())
+}
+
+#[test]
+async fn bf3_host_rshim_reads_and_sets() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+    let oem = bf3_oem(&bmc, &system).await?;
+
+    assert_eq!(oem.host_rshim(), Some(HostRshim::Disabled));
+    bmc.expect(Expect::action(
+        format!("{BF3_OEM}/Actions/HostRshim.Set"),
+        json!({"HostRshim": "Enabled"}),
+        json!(null),
+    ));
+    assert!(matches!(
+        oem.set_host_rshim(true).await?,
+        ModificationResponse::Entity(())
+    ));
+    Ok(())
+}
+
+#[test]
+async fn bf3_soc_force_reset_uses_advertised_target() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+    let oem = bf3_oem(&bmc, &system).await?;
+
+    // BlueField-3 advertises this target without an `Actions` segment.
+    bmc.expect(Expect::action(
+        format!("{BF3_OEM}/SOC.ForceReset"),
+        json!({}),
+        json!(null),
+    ));
+    assert!(matches!(
+        oem.soc_force_reset().await?,
+        ModificationResponse::Entity(())
+    ));
+    Ok(())
+}
+
+#[test]
+async fn malformed_dpu_action_fails_only_that_action() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+    bmc.expect(Expect::get(
+        BF3_OEM,
+        json!({
+            ODATA_ID: BF3_OEM,
+            ODATA_TYPE: "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem",
+            "Actions": {
+                "#Mode.Set": { "target": 5 },
+                "#HostRshim.Set": { "target": format!("{BF3_OEM}/Actions/HostRshim.Set") }
+            },
+            "Mode": "DpuMode"
+        }),
+    ));
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("BlueField-3 system must carry Oem.Nvidia");
+
+    assert_eq!(oem.mode(), Some(Mode::DpuMode));
+    assert!(matches!(
+        oem.set_mode(Mode::NicMode).await,
+        Err(Error::Json(_))
+    ));
+    bmc.expect(Expect::action(
+        format!("{BF3_OEM}/Actions/HostRshim.Set"),
+        json!({"HostRshim": "Disabled"}),
+        json!(null),
+    ));
+    assert!(matches!(
+        oem.set_host_rshim(false).await?,
+        ModificationResponse::Entity(())
+    ));
+    Ok(())
+}
+
+#[test]
+async fn bf4_system_oem_advertises_no_dpu_actions() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = get_system(
+        bmc.clone(),
+        BF4_PRODUCT,
+        system_payload(BF4_SYSTEM, "BlueField_0", json!({})),
+    )
+    .await?;
+    bmc.expect(Expect::get(
+        format!("{BF4_SYSTEM}/Oem/Nvidia"),
+        json!({
+            ODATA_ID: format!("{BF4_SYSTEM}/Oem/Nvidia"),
+            ODATA_TYPE: "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem",
+        }),
+    ));
+    let oem = system
+        .oem_nvidia()
+        .await?
+        .expect("BlueField-4 system must carry Oem.Nvidia");
+
+    assert_eq!(oem.mode(), None);
+    assert_eq!(oem.host_rshim(), None);
+    assert!(matches!(
+        oem.set_mode(Mode::NicMode).await,
+        Err(Error::ActionNotAvailable)
+    ));
+    Ok(())
+}
+
+// Boot override through the settings object.
+
+#[test]
+async fn boot_source_override_patches_system_settings_object() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let system = bf3_system(bmc.clone()).await?;
+
+    bmc.expect(Expect::update_empty(
+        format!("{BF3_SYSTEM}/Settings"),
+        json!({
+            "Boot": {
+                "BootSourceOverrideTarget": "UefiHttp",
+                "BootSourceOverrideEnabled": "Once",
+                "BootSourceOverrideMode": "UEFI",
+                "HttpBootUri": "http://boot.example/dpu.efi"
+            }
+        }),
+    ));
+    assert_empty(
+        system
+            .set_boot_source_override(
+                BootSource::UefiHttp,
+                BootSourceOverrideEnabled::Once,
+                Some(BootSourceOverrideMode::Uefi),
+                Some("http://boot.example/dpu.efi".into()),
+            )
+            .await?,
+    );
+    Ok(())
+}
+
+// BlueField-3 manager OEM.
+
+#[test]
+async fn bf3_enable_bmc_rshim_patches_linked_resource() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let manager = get_manager(bmc.clone(), BF3_PRODUCT).await?;
+    let oem = manager
+        .oem_nvidia()?
+        .expect("BlueField-3 manager must carry Oem.Nvidia");
+
+    bmc.expect(Expect::update_empty(
+        format!("{BF3_MANAGER}/Oem/Nvidia"),
+        json!({"BmcRShim": {"BmcRShimEnabled": true}}),
+    ));
+    assert_empty(oem.set_bmc_rshim_enabled(true).await?);
+    Ok(())
+}
+
+#[test]
+async fn manager_rshim_is_unavailable_off_dpu() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let manager = get_manager(bmc.clone(), "GB200 NVL").await?;
+    let oem = manager
+        .oem_nvidia()?
+        .expect("manager must carry Oem.Nvidia");
+
+    assert!(matches!(
+        oem.set_bmc_rshim_enabled(true).await,
+        Err(Error::ActionNotAvailable)
+    ));
+    Ok(())
+}
+
+// BlueField-4 network adapter OEM.
+
+#[test]
+async fn bf4_adapter_reports_mode_and_base_mac() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let adapter = bf4_adapter(bmc.clone(), BF4_PRODUCT).await?;
+    let oem = adapter
+        .oem_nvidia()?
+        .expect("BlueField-4 adapter must carry Oem.Nvidia");
+
+    assert_eq!(oem.dpu_operation_mode(), Some(DpuOperationMode::Dpu));
+    assert_eq!(
+        oem.base_mac().map(|mac| mac.to_string()),
+        Some("f4:20:4d:14:aa:e2".into())
+    );
+    Ok(())
+}
+
+#[test]
+async fn adapter_base_mac_is_hidden_off_dpu() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let adapter = bf4_adapter(bmc.clone(), "GB200 NVL").await?;
+    let oem = adapter
+        .oem_nvidia()?
+        .expect("adapter must carry Oem.Nvidia");
+
+    assert!(oem.base_mac().is_none());
+    Ok(())
+}
+
+#[test]
+async fn bf4_dpu_operation_mode_updates_adapter_settings() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let adapter = bf4_adapter(bmc.clone(), BF4_PRODUCT).await?;
+
+    let settings_id = format!("{BF4_ADAPTER}/Settings");
+    bmc.expect(Expect::get(
+        &settings_id,
+        json!({
+            ODATA_ID: &settings_id,
+            ODATA_TYPE: "#NetworkAdapter.v1_11_0.NetworkAdapter",
+            "Id": "Settings",
+            "Name": "BlueField_NIC_0 Pending Settings",
+            "Oem": {
+                "Nvidia": {
+                    ODATA_TYPE: "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter",
+                    "DPUOperationMode": "DPU",
+                    "NumberOfUpstreamSockets": 2,
+                    "PCIeBifurcationLinkCount": 2
+                }
+            }
+        }),
+    ));
+    let settings = adapter
+        .settings()
+        .await?
+        .expect("BlueField-4 adapter must advertise a settings object");
+
+    bmc.expect(Expect::update_empty(
+        &settings_id,
+        json!({"Oem": {"Nvidia": {"DPUOperationMode": "NIC"}}}),
+    ));
+    let update = NetworkAdapterUpdate::builder().build().with_oem_nvidia(
+        NvidiaNetworkAdapterUpdate::builder()
+            .with_dpu_operation_mode(DpuOperationMode::Nic)
+            .build(),
+    )?;
+    assert_empty(settings.update(&update).await?);
+    Ok(())
+}
+
+#[test]
+async fn with_oem_nvidia_keeps_other_oem_members() -> Result<(), Box<dyn StdError>> {
+    let update = NetworkAdapterUpdate::builder()
+        .with_oem(OemUpdate {
+            additional_properties: json!({"Contoso": {"Setting": true}}),
+        })
+        .build()
+        .with_oem_nvidia(
+            NvidiaNetworkAdapterUpdate::builder()
+                .with_dpu_operation_mode(DpuOperationMode::Dpu)
+                .build(),
+        )?;
+
+    assert_eq!(
+        serde_json::to_value(&update)?,
+        json!({
+            "Oem": {
+                "Contoso": {"Setting": true},
+                "Nvidia": {"DPUOperationMode": "DPU"}
+            }
+        })
+    );
+    Ok(())
+}
+
+#[test]
+async fn factory_privileged_preset_switches_to_restricted_preset() -> Result<(), Box<dyn StdError>>
+{
+    // Factory default: the Privileged preset enables every granular
+    // permission, so `HostPrivilegeLevel` alone cannot move to Restricted.
+    let bmc = Arc::new(Bmc::default());
+    let privileged = json!({
+        "PrivilegeMode": "Privileged",
+        "PrivilegeSettings": {
+            "FirmwareUpdate": "Enabled",
+            "FlashAccess": "Enabled",
+            "GlobalParametersAccess": "Enabled",
+            "HostParametersAccess": "Enabled",
+            "HostPrivilegeLevel": "Privileged",
+            "InternalCPUAccess": "Enabled",
+            "ManagementInterfaceEnabled": true,
+            "NicReset": "Enabled",
+            "PccUpdate": "Enabled",
+            "PortAccess": "Enabled",
+            "PortOwnerEnabled": true,
+            "ReadCountersEnabled": true,
+            "TracerEnabled": true
+        }
+    });
+    let config = bf4_host_privilege_config(&bmc, privileged.clone()).await?;
+    assert_eq!(config.privilege_mode(), Some(PrivilegeModeType::Privileged));
+    assert_eq!(
+        config.host_privilege_level(),
+        Some(HostPrivilegeLevelInput::Privileged)
+    );
+
+    let settings_id = format!("{BF4_HOST_PRIVILEGE_CONFIG}/Settings");
+    let mut settings_body = json!({
+        ODATA_ID: &settings_id,
+        ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
+        "Id": "Settings",
+        "Name": "Host Privilege Configuration Settings",
+        "PrivilegeMode@Redfish.AllowableValues": ["Privileged", "Restricted"],
+    });
+    if let (Some(body), Some(fields)) = (settings_body.as_object_mut(), privileged.as_object()) {
+        body.extend(fields.clone());
+    }
+    bmc.expect(Expect::get(&settings_id, settings_body));
+    let settings = config
+        .settings()
+        .await?
+        .expect("host privilege configuration must advertise a settings object");
+
+    bmc.expect(Expect::update_empty(
+        &settings_id,
+        json!({"PrivilegeMode": "Restricted"}),
+    ));
+    assert_empty(
+        settings
+            .set_privilege_mode(PrivilegeModeType::Restricted)
+            .await?,
+    );
+    Ok(())
+}
+
+// Fixtures.
+
+const ROOT: &str = "/redfish/v1";
+const SYSTEMS: &str = "/redfish/v1/Systems";
+const BF3_SYSTEM: &str = "/redfish/v1/Systems/Bluefield";
+const BF3_OEM: &str = "/redfish/v1/Systems/Bluefield/Oem/Nvidia";
+const BF4_SYSTEM: &str = "/redfish/v1/Systems/BlueField_0";
+const MANAGERS: &str = "/redfish/v1/Managers";
+const BF3_MANAGER: &str = "/redfish/v1/Managers/Bluefield_BMC";
+const CHASSIS: &str = "/redfish/v1/Chassis";
+const BF4_CHASSIS: &str = "/redfish/v1/Chassis/BlueField_0";
+const BF4_ADAPTERS: &str = "/redfish/v1/Chassis/BlueField_0/NetworkAdapters";
+const BF4_ADAPTER: &str = "/redfish/v1/Chassis/BlueField_0/NetworkAdapters/BlueField_NIC_0";
+const BF4_HOST_PRIVILEGE_CONFIG: &str =
+    "/redfish/v1/Chassis/BlueField_0/NetworkAdapters/BlueField_NIC_0/Oem/Nvidia/HostPrivilegeConfig";
+
+fn service_root(product: &str, links: Value) -> Value {
+    let mut root = json!({
+        ODATA_ID: ROOT,
+        ODATA_TYPE: SERVICE_ROOT_DATA_TYPE,
+        "Id": "RootService",
+        "Name": "Root Service",
+        "Vendor": "Nvidia",
+        "Product": product,
+        "RedfishVersion": "1.17.0",
+        "ProtocolFeaturesSupported": { "ExpandQuery": { "NoLinks": true } },
+        "Links": { "Sessions": { ODATA_ID: format!("{ROOT}/SessionService/Sessions") } },
+    });
+    if let (Some(root), Some(links)) = (root.as_object_mut(), links.as_object()) {
+        root.extend(links.clone());
+    }
+    root
+}
+
+fn system_payload(id: &str, name: &str, extra: Value) -> Value {
+    let mut system = json!({
+        "@Redfish.Settings": {
+            ODATA_TYPE: "#Settings.v1_3_5.Settings",
+            "SettingsObject": { ODATA_ID: format!("{id}/Settings") }
+        },
+        ODATA_ID: id,
+        ODATA_TYPE: SYSTEM_DATA_TYPE,
+        "Id": name,
+        "Name": "System",
+        "Oem": { "Nvidia": { ODATA_ID: format!("{id}/Oem/Nvidia") } },
+    });
+    if let (Some(system), Some(extra)) = (system.as_object_mut(), extra.as_object()) {
+        system.extend(extra.clone());
+    }
+    system
+}
+
+async fn get_system(
+    bmc: Arc<Bmc>,
+    product: &str,
+    member: Value,
+) -> Result<ComputerSystem<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        ROOT,
+        service_root(product, json!({ "Systems": { ODATA_ID: SYSTEMS } })),
+    ));
+    let root = ServiceRoot::new(bmc.clone()).await?;
+    bmc.expect(Expect::expand(
+        SYSTEMS,
+        json!({
+            ODATA_ID: SYSTEMS,
+            ODATA_TYPE: SYSTEM_COLLECTION_DATA_TYPE,
+            "Name": "Computer System Collection",
+            "Members": [member]
+        }),
+    ));
+    let mut systems = root
+        .systems()
+        .await?
+        .expect("service root must link systems")
+        .members()
+        .await?;
+    Ok(systems.pop().expect("collection must include a system"))
+}
+
+async fn bf3_system(bmc: Arc<Bmc>) -> Result<ComputerSystem<Bmc>, Box<dyn StdError>> {
+    get_system(
+        bmc,
+        BF3_PRODUCT,
+        system_payload(BF3_SYSTEM, "Bluefield", json!({})),
+    )
+    .await
+}
+
+async fn bf3_oem(
+    bmc: &Bmc,
+    system: &ComputerSystem<Bmc>,
+) -> Result<nv_redfish::oem::nvidia::NvidiaComputerSystem<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        BF3_OEM,
+        json!({
+            ODATA_ID: BF3_OEM,
+            ODATA_TYPE: "#NvidiaComputerSystem.v1_0_0.NvidiaComputerSystem",
+            "Actions": {
+                "#HostRshim.Set": {
+                    "Parameters": [{
+                        "AllowableValues": ["Disabled", "Enabled"],
+                        "DataType": "String",
+                        "Name": "HostRshim",
+                        "Required": true
+                    }],
+                    "target": format!("{BF3_OEM}/Actions/HostRshim.Set")
+                },
+                "#Mode.Set": {
+                    "Parameters": [{
+                        "AllowableValues": ["NicMode", "DpuMode"],
+                        "DataType": "String",
+                        "Name": "Mode",
+                        "Required": true
+                    }],
+                    "target": format!("{BF3_OEM}/Actions/Mode.Set")
+                },
+                "#SOC.ForceReset": { "target": format!("{BF3_OEM}/SOC.ForceReset") }
+            },
+            "BaseGUID": "e09d7303007dad6c",
+            "BaseMAC": "e09d737dad6c",
+            "HostRshim": "Disabled",
+            "LFWP": "Disabled",
+            "Mode": "DpuMode"
+        }),
+    ));
+    Ok(system
+        .oem_nvidia()
+        .await?
+        .expect("BlueField-3 system must carry Oem.Nvidia"))
+}
+
+async fn get_manager(bmc: Arc<Bmc>, product: &str) -> Result<Manager<Bmc>, Box<dyn StdError>> {
+    bmc.expect(Expect::get(
+        ROOT,
+        service_root(product, json!({ "Managers": { ODATA_ID: MANAGERS } })),
+    ));
+    let root = ServiceRoot::new(bmc.clone()).await?;
+    bmc.expect(Expect::expand(
+        MANAGERS,
+        json!({
+            ODATA_ID: MANAGERS,
+            ODATA_TYPE: MANAGER_COLLECTION_DATA_TYPE,
+            "Name": "Manager Collection",
+            "Members": [{
+                ODATA_ID: BF3_MANAGER,
+                ODATA_TYPE: MANAGER_DATA_TYPE,
+                "Id": "Bluefield_BMC",
+                "Name": "OpenBmc Manager",
+                "Oem": {
+                    "Nvidia": {
+                        ODATA_ID: format!("{BF3_MANAGER}/Oem/Nvidia"),
+                        ODATA_TYPE: "#NvidiaManager.v1_6_0.NvidiaManager",
+                        "OTPProvisioned": false
+                    }
+                }
+            }]
+        }),
+    ));
+    let mut managers = root
+        .managers()
+        .await?
+        .expect("service root must link managers")
+        .members()
+        .await?;
+    Ok(managers.pop().expect("collection must include a manager"))
+}
+
+async fn bf4_adapter(
+    bmc: Arc<Bmc>,
+    product: &str,
+) -> Result<NetworkAdapter<Bmc>, Box<dyn StdError>> {
+    let mut root = service_root(product, json!({ "Chassis": { ODATA_ID: CHASSIS } }));
+    root["ProtocolFeaturesSupported"] = json!({ "ExpandQuery": { "NoLinks": false } });
+    bmc.expect(Expect::get(ROOT, root));
+    let root = ServiceRoot::new(bmc.clone()).await?;
+
+    bmc.expect(Expect::get(
+        CHASSIS,
+        json!({
+            ODATA_ID: CHASSIS,
+            ODATA_TYPE: CHASSIS_COLLECTION_DATA_TYPE,
+            "Name": "Chassis Collection",
+            "Members": [{ ODATA_ID: BF4_CHASSIS }]
+        }),
+    ));
+    let chassis_collection = root
+        .chassis()
+        .await?
+        .expect("service root must link chassis");
+    bmc.expect(Expect::get(
+        BF4_CHASSIS,
+        json!({
+            ODATA_ID: BF4_CHASSIS,
+            ODATA_TYPE: "#Chassis.v1_23_0.Chassis",
+            "Id": "BlueField_0",
+            "Name": "BlueField_0",
+            "ChassisType": "Card",
+            "NetworkAdapters": { ODATA_ID: BF4_ADAPTERS },
+        }),
+    ));
+    let chassis = chassis_collection
+        .members()
+        .await?
+        .pop()
+        .expect("collection must include a chassis");
+
+    bmc.expect(Expect::get(
+        BF4_ADAPTERS,
+        json!({
+            ODATA_ID: BF4_ADAPTERS,
+            ODATA_TYPE: NETWORK_ADAPTER_COLLECTION_DATA_TYPE,
+            "Name": "Network Adapter Collection",
+            "Members": [{ ODATA_ID: BF4_ADAPTER }]
+        }),
+    ));
+    bmc.expect(Expect::get(
+        BF4_ADAPTER,
+        json!({
+            "@Redfish.Settings": {
+                ODATA_TYPE: "#Settings.v1_3_3.Settings",
+                "SettingsObject": { ODATA_ID: format!("{BF4_ADAPTER}/Settings") }
+            },
+            ODATA_ID: BF4_ADAPTER,
+            ODATA_TYPE: "#NetworkAdapter.v1_11_0.NetworkAdapter",
+            "Id": "BlueField_NIC_0",
+            "Name": "BlueField_NIC_0",
+            "Oem": {
+                "Nvidia": {
+                    ODATA_TYPE: "#NvidiaNetworkAdapter.v1_2_0.NvidiaNetworkAdapter",
+                    "BaseGUID": "f4204d030014aae2",
+                    "BaseMAC": "f4:20:4d:14:aa:e2",
+                    "DPUOperationMode": "DPU",
+                    "EastWestControlEnabled": false,
+                    "HostPrivilegeConfig": {
+                        ODATA_ID: format!("{BF4_ADAPTER}/Oem/Nvidia/HostPrivilegeConfig")
+                    },
+                    "NumberOfUpstreamSockets": 2,
+                    "PCIeBifurcationLinkCount": 2
+                }
+            }
+        }),
+    ));
+    let mut adapters = chassis
+        .network_adapters()
+        .await?
+        .expect("chassis must link network adapters");
+    Ok(adapters.pop().expect("chassis must include an adapter"))
+}
+
+async fn bf4_host_privilege_config(
+    bmc: &Arc<Bmc>,
+    fields: Value,
+) -> Result<nv_redfish::oem::nvidia::NvidiaHostPrivilegeConfig<Bmc>, Box<dyn StdError>> {
+    let adapter = bf4_adapter(bmc.clone(), BF4_PRODUCT).await?;
+    let oem = adapter
+        .oem_nvidia()?
+        .expect("BlueField-4 adapter must carry Oem.Nvidia");
+    let mut config = json!({
+        "@Redfish.Settings": {
+            ODATA_TYPE: "#Settings.v1_3_5.Settings",
+            "SettingsObject": { ODATA_ID: format!("{BF4_HOST_PRIVILEGE_CONFIG}/Settings") }
+        },
+        ODATA_ID: BF4_HOST_PRIVILEGE_CONFIG,
+        ODATA_TYPE: "#NvidiaHostPrivilegeConfig.v1_0_0.NvidiaHostPrivilegeConfig",
+        "Id": "HostPrivilegeConfig",
+        "Name": "Host Privilege Configuration",
+    });
+    if let (Some(config), Some(fields)) = (config.as_object_mut(), fields.as_object()) {
+        config.extend(fields.clone());
+    }
+    bmc.expect(Expect::get(BF4_HOST_PRIVILEGE_CONFIG, config));
+    Ok(oem
+        .host_privilege_config()
+        .await?
+        .expect("BlueField-4 adapter must link its host privilege configuration"))
+}

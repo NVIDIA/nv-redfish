@@ -197,6 +197,20 @@ pub trait Bmc: Send + Sync {
         params: &T,
     ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
 
+    /// GET a URI of an asynchronous operation, such as a Task Monitor.
+    ///
+    /// A pending response is a `Task`; without a new location it keeps
+    /// `uri`. A finished response is read like a modification response, and a
+    /// finished response without a body that names a `Location` is read as
+    /// `{"@odata.id": <Location>}`.
+    ///
+    /// `uri` should be resolved as a Redfish URI reference. Implementations may
+    /// reject references that violate their outbound request policy.
+    fn poll<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
+        &self,
+        uri: &ODataId,
+    ) -> impl Future<Output = Result<ModificationResponse<R>, Self::Error>> + Send;
+
     /// POST a Redfish `UpdateService` multipart upload using a named stream.
     ///
     /// `uri` is the service-provided `MultipartHttpPushUri` and should be

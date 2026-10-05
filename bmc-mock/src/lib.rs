@@ -27,6 +27,7 @@ use std::error::Error as StdError;
 use std::fmt::Display;
 use std::fmt::Formatter;
 use std::fmt::Result as FmtResult;
+use std::future::pending;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::sync::PoisonError;
@@ -35,6 +36,7 @@ use futures_util::TryStreamExt as _;
 use nv_redfish_core::action::ActionTarget;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::ActionError;
+use nv_redfish_core::AsyncTask;
 use nv_redfish_core::Bmc as NvRedfishBmc;
 use nv_redfish_core::BmcErrorClass;
 use nv_redfish_core::EntityTypeRef;
@@ -60,7 +62,9 @@ pub enum Error {
     MutexLock(String),
     NothingIsExpected,
     BadResponseJson(JsonError),
+    HttpStatus(u16),
     UnexpectedGet(ODataId, ExpectedRequest),
+    UnexpectedPoll(ODataId, ExpectedRequest),
     UnexpectedExpand(ODataId, ExpectedRequest),
     UnexpectedUpdate(ODataId, String, ExpectedRequest),
     UnexpectedCreate(ODataId, String, ExpectedRequest),
@@ -83,8 +87,12 @@ impl Display for Error {
                 write!(f, "nothing is expected to happen but something happened")
             }
             Self::BadResponseJson(err) => write!(f, "bad json response: {err}"),
+            Self::HttpStatus(status) => write!(f, "HTTP status {status}"),
             Self::UnexpectedGet(id, expected) => {
                 write!(f, "unexpected get: {id}; expected: {expected:?}")
+            }
+            Self::UnexpectedPoll(id, expected) => {
+                write!(f, "unexpected poll: {id}; expected: {expected:?}")
             }
             Self::UnexpectedExpand(id, expected) => {
                 write!(f, "unexpected expand: {id}; expected: {expected:?}")
@@ -142,6 +150,7 @@ impl nv_redfish_core::BmcError for Error {
     fn error_class(&self) -> BmcErrorClass {
         match self {
             Self::BadResponseJson(_) => BmcErrorClass::ResponseParse,
+            Self::HttpStatus(status) => BmcErrorClass::HttpResponse { status: *status },
             _ => BmcErrorClass::Other,
         }
     }
@@ -268,7 +277,7 @@ where
     >(
         &self,
         in_id: &ODataId,
-        _etag: Option<&ODataETag>,
+        in_etag: Option<&ODataETag>,
         update: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
         let expect = self
@@ -285,6 +294,14 @@ where
                 request: ExpectedRequest::Update { id, request },
                 response,
             } if id == *in_id && request == in_request => {
+                let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
+                let result: R = from_value(response).map_err(Error::BadResponseJson)?;
+                Ok(ModificationResponse::Entity(result))
+            }
+            Expect {
+                request: ExpectedRequest::UpdateWithEtag { id, etag, request },
+                response,
+            } if id == *in_id && etag.as_ref() == in_etag && request == in_request => {
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))
@@ -435,6 +452,23 @@ where
                 let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                 let result: R = from_value(response).map_err(Error::BadResponseJson)?;
                 Ok(ModificationResponse::Entity(result))
+            }
+            Expect {
+                request:
+                    ExpectedRequest::ActionTask {
+                        target,
+                        request,
+                        task,
+                    },
+                ..
+            } if target == action.target && request == in_request => {
+                Ok(ModificationResponse::Task(task))
+            }
+            Expect {
+                request: ExpectedRequest::ActionEmpty { target, request },
+                ..
+            } if target == action.target && request == in_request => {
+                Ok(ModificationResponse::Empty)
             }
             _ => Err(Error::UnexpectedAction(
                 action.target.clone(),
@@ -599,6 +633,53 @@ where
                 };
                 Err(Error::UnexpectedStream(request, expect.request))
             }
+        }
+    }
+
+    async fn poll<T: Send + Sync + Sized + for<'de> serde::Deserialize<'de>>(
+        &self,
+        location: &ODataId,
+    ) -> Result<ModificationResponse<T>, Self::Error> {
+        let expect = self
+            .expect
+            .lock()
+            .map_err(Error::mutex_lock)?
+            .pop_front()
+            .ok_or(Error::NothingIsExpected)?;
+        match expect {
+            Expect {
+                request: ExpectedRequest::PollResult { id },
+                response,
+            } if id == *location => {
+                let response = response.map_err(|err| Error::ErrorResponse(Box::new(err)))?;
+                let result: T = from_value(response).map_err(Error::BadResponseJson)?;
+                Ok(ModificationResponse::Entity(result))
+            }
+            Expect {
+                request:
+                    ExpectedRequest::PollPending {
+                        id,
+                        location: next_location,
+                        retry_after,
+                    },
+                ..
+            } if id == *location => Ok(ModificationResponse::Task(AsyncTask {
+                location: next_location.unwrap_or_else(|| location.clone()).into(),
+                retry_after,
+            })),
+            Expect {
+                request: ExpectedRequest::PollEmpty { id },
+                ..
+            } if id == *location => Ok(ModificationResponse::Empty),
+            Expect {
+                request: ExpectedRequest::PollStatus { id, status },
+                ..
+            } if id == *location => Err(Error::HttpStatus(status)),
+            Expect {
+                request: ExpectedRequest::PollWait { id },
+                ..
+            } if id == *location => pending().await,
+            _ => Err(Error::UnexpectedPoll(location.clone(), expect.request)),
         }
     }
 }

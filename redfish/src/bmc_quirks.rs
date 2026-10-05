@@ -28,8 +28,10 @@ pub struct BmcQuirks {
 enum Platform {
     Hpe,
     Dell,
+    Ami,
     AmiViking,
     AmiGb300,
+    LenovoAmi,
     VeraRubin,
     Nvidia,
     NvidiaDpu,
@@ -47,10 +49,11 @@ impl BmcQuirks {
         // The GB300 host BMC exposes an AMI OEM `RtpVersion` in the service
         // root; use it to distinguish GB300 from other AMI BMCs so the
         // expand workaround is not applied to every AMI platform.
-        let rtp_version = root
+        let ami_oem = root
             .oem
             .as_ref()
-            .and_then(|oem| oem.additional_properties.get("Ami"))
+            .and_then(|oem| oem.additional_properties.get("Ami"));
+        let rtp_version = ami_oem
             .and_then(|ami| ami.get("RtpVersion"))
             .and_then(|v| v.as_str());
         let platform = match vendor_str {
@@ -58,11 +61,21 @@ impl BmcQuirks {
             Some("Dell") => Some(Platform::Dell),
             Some("AMI") if redfish_version_str == Some("1.11.0") => Some(Platform::AmiViking),
             Some("AMI") if rtp_version == Some("13.09.1") => Some(Platform::AmiGb300),
+            Some("AMI") => Some(Platform::Ami),
+            // Lenovo trays running AMI firmware (HS350x class) keep the
+            // Lenovo vendor but expose an AMI OEM object in the service root.
+            Some("Lenovo") if ami_oem.is_some() => Some(Platform::LenovoAmi),
             Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
-            // BF3 service roots use this product name with an `Nvidia` vendor.
-            Some("Nvidia") if matches!(product_str, Some("Nvidia-BMCMezz" | "BlueField-3 DPU")) => {
+            // BlueField DPU service roots use an `Nvidia` vendor with these
+            // product names; BlueField-4 reports `BlueField-4`.
+            Some("Nvidia")
+                if matches!(
+                    product_str,
+                    Some("Nvidia-BMCMezz" | "BlueField-3 DPU" | "BlueField-4")
+                ) =>
+            {
                 Some(Platform::NvidiaDpu)
             }
             // Wiwynn ODM GB200 NVL trays report their own vendor rather than
@@ -84,11 +97,25 @@ impl BmcQuirks {
         self.platform == Some(Platform::Hpe)
     }
 
+    /// NVIDIA DPUs inline an incomplete AccountService certificate collection.
+    #[cfg(feature = "accounts")]
+    pub(crate) fn bug_incomplete_account_service_certificate_collection(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
     // In some implementations BMC ReleaseDate is incorrectly set to
     // 00:00:00Z in FirmwareInventory (which is
     // SoftwareInventoryCollection).
     #[cfg(feature = "update-service")]
     pub(crate) fn fw_inventory_wrong_release_date(&self) -> bool {
+        self.platform == Some(Platform::Dell)
+    }
+
+    // iDRAC answers a Volume create with 200 or 201 and the URI of the
+    // Dell job that will build the volume (in Location or as the body's
+    // `@odata.id`) instead of 202 Accepted.
+    #[cfg(feature = "storages")]
+    pub(crate) fn bug_job_location_in_create_response(&self) -> bool {
         self.platform == Some(Platform::Dell)
     }
 
@@ -151,11 +178,39 @@ impl BmcQuirks {
         self.platform == Some(Platform::NvidiaDpu)
     }
 
+    /// NVIDIA DPU (BlueField-4) puts `BaseMAC` in the network adapter's
+    /// `Oem.Nvidia` object, which the NVIDIA OEM CSDL does not declare.
+    /// Reading it out of the payload is restricted to this platform.
+    #[cfg(all(
+        feature = "chassis",
+        feature = "network-adapters",
+        feature = "oem-nvidia"
+    ))]
+    pub(crate) fn bug_dpu_oem_network_adapter(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
+    /// NVIDIA DPU links a separate resource from the manager's
+    /// `Oem.Nvidia` object and keeps the BMC rshim state (`BmcRShim`) in
+    /// it, which the NVIDIA OEM CSDL does not declare. Patching that
+    /// resource is restricted to this platform.
+    #[cfg(all(feature = "managers", feature = "oem-nvidia"))]
+    pub(crate) fn bug_dpu_oem_manager(&self) -> bool {
+        self.platform == Some(Platform::NvidiaDpu)
+    }
+
     /// Missing Name property in Chassis resource. This property is
     /// required in any resource.
     #[cfg(feature = "update-service")]
     pub(crate) fn bug_missing_update_service_name_field(&self) -> bool {
         self.platform == Some(Platform::AmiViking)
+    }
+
+    /// H100 Viking reports the standard `PEMchain` certificate type as
+    /// `PEMChain`.
+    #[cfg(feature = "component-integrity")]
+    pub(crate) const fn certificate_type_wrong_pem_chain_case(&self) -> bool {
+        matches!(self.platform, Some(Platform::AmiViking))
     }
 
     /// In some implementations BMC ReleaseDate is incorrectly set to
@@ -171,7 +226,16 @@ impl BmcQuirks {
     /// `MemberId`.
     #[cfg(feature = "event-service")]
     pub(crate) const fn event_service_sse_no_member_id(&self) -> bool {
-        matches!(self.platform, Some(Platform::Nvidia | Platform::Wiwynn))
+        matches!(
+            self.platform,
+            Some(Platform::Nvidia | Platform::VeraRubin | Platform::NvSwitch | Platform::Wiwynn)
+        )
+    }
+
+    /// Event records can contain an empty object instead of a `LogEntry` reference.
+    #[cfg(feature = "event-service")]
+    pub(crate) fn event_service_sse_empty_log_entry(&self) -> bool {
+        self.platform == Some(Platform::VeraRubin)
     }
 
     /// In some implementations, Event records in SSE payload use compact
@@ -186,7 +250,7 @@ impl BmcQuirks {
     pub(crate) const fn event_service_sse_missing_event_type(&self) -> bool {
         matches!(
             self.platform,
-            Some(Platform::Nvidia | Platform::VeraRubin | Platform::Wiwynn)
+            Some(Platform::Nvidia | Platform::VeraRubin | Platform::NvSwitch | Platform::Wiwynn)
         )
     }
 
@@ -195,6 +259,12 @@ impl BmcQuirks {
     #[allow(clippy::unused_self)]
     pub(crate) const fn event_service_sse_no_odata_id(&self) -> bool {
         true
+    }
+
+    /// Event envelopes can omit both `Id` and `@odata.id` while carrying an SSE ID.
+    #[cfg(feature = "event-service")]
+    pub(crate) const fn event_service_sse_missing_envelope_ids(&self) -> bool {
+        matches!(self.platform, Some(Platform::VeraRubin))
     }
 
     /// Vera Rubin host BMCs report composite `BootOrder` entries such as
@@ -226,6 +296,23 @@ impl BmcQuirks {
         })
     }
 
+    /// Lite-On power shelves advertise `ResetType` for
+    /// `Manager.ResetToDefaults` but reject it, requiring the parameter
+    /// to be named `ResetToDefaultsType`.
+    ///
+    /// Their service root often omits `Vendor` and is then indistinguishable
+    /// from a Delta shelf, so the manager's own `Manufacturer` is checked too.
+    #[cfg(feature = "managers")]
+    pub(crate) fn bug_reset_to_defaults_type_parameter(
+        &self,
+        manager_manufacturer: Option<&str>,
+    ) -> bool {
+        self.platform == Some(Platform::LiteonPowershelf)
+            || manager_manufacturer.is_some_and(|manufacturer| {
+                manufacturer.eq_ignore_ascii_case("LITE-ON TECHNOLOGY CORP.")
+            })
+    }
+
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
     /// expand api.
@@ -246,5 +333,44 @@ impl BmcQuirks {
     #[cfg(feature = "patch-collection")]
     pub(crate) fn bug_nullable_members(&self) -> bool {
         self.platform == Some(Platform::NvidiaDpu)
+    }
+
+    /// AMI MegaRAC firmware requires `If-Match` on PATCH but rejects the
+    /// ETag it served, accepting only `*`.
+    pub(crate) const fn bug_rejects_own_etag(&self) -> bool {
+        matches!(
+            self.platform,
+            Some(Platform::Ami | Platform::AmiViking | Platform::AmiGb300 | Platform::LenovoAmi)
+        )
+    }
+}
+
+#[cfg(test)]
+#[cfg(feature = "event-service")]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn sse_repairs_are_scoped_to_affected_platforms() {
+        for (platform, missing_member_id, empty_log_entry, missing_envelope_ids) in [
+            (Some(Platform::VeraRubin), true, true, true),
+            (Some(Platform::NvSwitch), true, false, false),
+            (Some(Platform::Nvidia), true, false, false),
+            (Some(Platform::Wiwynn), true, false, false),
+            (Some(Platform::Dell), false, false, false),
+            (Some(Platform::Hpe), false, false, false),
+            (Some(Platform::NvidiaDpu), false, false, false),
+            (None, false, false, false),
+        ] {
+            let quirks = BmcQuirks { platform };
+
+            assert_eq!(quirks.event_service_sse_no_member_id(), missing_member_id);
+            assert_eq!(quirks.event_service_sse_empty_log_entry(), empty_log_entry);
+
+            assert_eq!(
+                quirks.event_service_sse_missing_envelope_ids(),
+                missing_envelope_ids
+            );
+        }
     }
 }

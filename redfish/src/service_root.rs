@@ -32,10 +32,14 @@ use crate::account::{AccountService, AccountServiceConfig};
 use crate::chassis::ChassisCollection;
 #[cfg(feature = "chassis")]
 use crate::chassis::ChassisLink;
+#[cfg(feature = "component-integrity")]
+use crate::component_integrity::ComponentIntegrityCollection;
 #[cfg(feature = "computer-systems")]
 use crate::computer_system::SystemCollection;
 #[cfg(feature = "event-service")]
 use crate::event_service::EventService;
+#[cfg(feature = "fabrics")]
+use crate::fabric::FabricCollection;
 #[cfg(feature = "job-service")]
 use crate::job_service::JobService;
 #[cfg(feature = "managers")]
@@ -199,6 +203,20 @@ impl<B: Bmc> ServiceRoot<B> {
         ChassisCollection::new(&self.bmc, self).await
     }
 
+    /// Get the component-integrity collection advertised by this BMC.
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose ComponentIntegrity.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if retrieving the collection fails.
+    #[cfg(feature = "component-integrity")]
+    pub async fn component_integrity(
+        &self,
+    ) -> Result<Option<ComponentIntegrityCollection<B>>, Error<B>> {
+        ComponentIntegrityCollection::new(&self.bmc, self).await
+    }
+
     /// Get chassis links
     ///
     /// Returns `Ok(None)` when the BMC does not expose Chassis.
@@ -237,6 +255,18 @@ impl<B: Bmc> ServiceRoot<B> {
     #[cfg(feature = "computer-systems")]
     pub async fn systems(&self) -> Result<Option<SystemCollection<B>>, Error<B>> {
         SystemCollection::new(&self.bmc, self).await
+    }
+
+    /// Get fabric collection in BMC
+    ///
+    /// Returns `Ok(None)` when the BMC does not expose Fabrics.
+    ///
+    /// # Errors
+    ///
+    /// Returns error if retrieving fabric collection data fails.
+    #[cfg(feature = "fabrics")]
+    pub async fn fabrics(&self) -> Result<Option<FabricCollection<B>>, Error<B>> {
+        FabricCollection::new(&self.bmc, self).await
     }
 
     /// Get update service in BMC

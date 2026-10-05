@@ -18,6 +18,9 @@ use nv_redfish::computer_system::AttributesUpdate;
 use nv_redfish::computer_system::Bios;
 use nv_redfish::computer_system::BiosUpdate;
 use nv_redfish::computer_system::ComputerSystem;
+use nv_redfish::oem::hpe::schema::hpe_server_boot_settings::HpeServerBootSettingsUpdate;
+use nv_redfish::schema::settings::ApplyTime;
+use nv_redfish::schema::SettingsApplyTimeUpdate;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::EdmPrimitiveType;
 use nv_redfish_core::ModificationResponse;
@@ -35,6 +38,8 @@ use tokio::test;
 const SERVICE_ROOT_DATA_TYPE: &str = "#ServiceRoot.v1_13_0.ServiceRoot";
 const COMPUTER_SYSTEM_DATA_TYPE: &str = "#ComputerSystem.v1_20_1.ComputerSystem";
 const BIOS_DATA_TYPE: &str = "#Bios.v1_2_1.Bios";
+const HPE_BIOS_DATA_TYPE: &str = "#HpeBiosExt.v2_0_1.HpeBiosExt";
+const HPE_BOOT_DATA_TYPE: &str = "#HpeServerBootSettings.v2_0_0.HpeServerBootSettings";
 
 #[test]
 async fn bios_dynamic_attribute_update_serializes_and_redacts_debug() {
@@ -70,6 +75,23 @@ async fn bios_dynamic_attribute_update_serializes_and_redacts_debug() {
     let debug = format!("{update:?}");
     assert!(!debug.contains(SECRET));
     assert!(debug.contains("dynamic_properties: \"<redacted>\""));
+}
+
+#[test]
+async fn bios_update_serializes_settings_apply_time() {
+    let update = bios_update("BootMode", "Uefi").with_settings_apply_time(
+        SettingsApplyTimeUpdate::builder()
+            .with_apply_time(ApplyTime::OnReset)
+            .build(),
+    );
+
+    assert_eq!(
+        serde_json::to_value(&update).expect("BIOS update must serialize"),
+        json!({
+            "Attributes": { "BootMode": "Uefi" },
+            "@Redfish.SettingsApplyTime": { "ApplyTime": "OnReset" }
+        })
+    );
 }
 
 // Test 1: basic BIOS retrieval via bios() and EdmPrimitiveType mapping.
@@ -382,6 +404,111 @@ async fn bios_actions_must_be_advertised() -> Result<(), Box<dyn StdError>> {
     Ok(())
 }
 
+#[test]
+async fn hpe_ilo6_boot_settings_follow_advertised_oem_link() -> Result<(), Box<dyn StdError>> {
+    hpe_boot_settings_follow_advertised_links("oem/hpe/boot").await
+}
+
+#[test]
+async fn hpe_ilo7_boot_settings_follow_advertised_oem_link() -> Result<(), Box<dyn StdError>> {
+    hpe_boot_settings_follow_advertised_links("boot").await
+}
+
+async fn hpe_boot_settings_follow_advertised_links(
+    boot_path: &str,
+) -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = bios_ids();
+    let current_id = format!("{}/{boot_path}", ids.bios_id);
+    let settings_id = format!("{current_id}/settings");
+    let system = get_computer_system(bmc.clone(), &ids, "HPE").await?;
+
+    bmc.expect(Expect::get(
+        &ids.bios_id,
+        bios_payload(
+            &ids.bios_id,
+            json!({
+                "Oem": {
+                    "Hpe": {
+                        ODATA_TYPE: HPE_BIOS_DATA_TYPE,
+                        "Links": {
+                            "Boot": { ODATA_ID: &current_id }
+                        }
+                    }
+                }
+            }),
+        ),
+    ));
+    let bios = system.bios().await?.ok_or("BIOS missing")?;
+    let hpe = bios.oem_hpe()?.ok_or("HPE BIOS extension missing")?;
+
+    let initial_order = vec![
+        "NIC.BootOption.Boot0000".to_string(),
+        "HD.BootOption.Boot0001".to_string(),
+    ];
+    bmc.expect(Expect::get(
+        &current_id,
+        hpe_boot_payload(
+            &current_id,
+            json!({
+                "@Redfish.Settings": {
+                    "SettingsObject": { ODATA_ID: &settings_id }
+                },
+                "PersistentBootConfigOrder": &initial_order
+            }),
+        ),
+    ));
+    let current = hpe.boot_settings().await?.ok_or("HPE boot link missing")?;
+    assert_eq!(
+        current.persistent_boot_config_order(),
+        Some(initial_order.as_slice())
+    );
+
+    bmc.expect(Expect::get(
+        &settings_id,
+        hpe_boot_payload(
+            &settings_id,
+            json!({
+                "@odata.etag": "W/\"hpe-boot-settings\"",
+                "PersistentBootConfigOrder": &initial_order
+            }),
+        ),
+    ));
+    let settings = current
+        .settings()
+        .await?
+        .ok_or("HPE pending boot settings missing")?;
+
+    let updated_order = vec![
+        "HD.BootOption.Boot0001".to_string(),
+        "NIC.BootOption.Boot0000".to_string(),
+    ];
+    let update = HpeServerBootSettingsUpdate::builder()
+        .with_persistent_boot_config_order(updated_order.clone())
+        .build();
+    bmc.expect(Expect::update(
+        &settings_id,
+        json!({ "PersistentBootConfigOrder": &updated_order }),
+        json!({ ODATA_ID: &settings_id }),
+    ));
+    bmc.expect(Expect::get(
+        &settings_id,
+        hpe_boot_payload(
+            &settings_id,
+            json!({ "PersistentBootConfigOrder": &updated_order }),
+        ),
+    ));
+
+    let ModificationResponse::Entity(updated) = settings.update(&update).await? else {
+        return Err("expected HPE boot-settings entity response".into());
+    };
+    assert_eq!(
+        updated.persistent_boot_config_order(),
+        Some(updated_order.as_slice())
+    );
+    Ok(())
+}
+
 fn bios_update(name: &str, value: &str) -> BiosUpdate {
     BiosUpdate::builder()
         .with_attributes(
@@ -402,6 +529,18 @@ fn bios_payload(id: &str, fields: serde_json::Value) -> serde_json::Value {
             ODATA_TYPE: BIOS_DATA_TYPE,
             "Id": "Bios",
             "Name": "BIOS Settings",
+        }),
+        &fields,
+    ])
+}
+
+fn hpe_boot_payload(id: &str, fields: serde_json::Value) -> serde_json::Value {
+    nv_redfish_tests::json_merge([
+        &json!({
+            ODATA_ID: id,
+            ODATA_TYPE: HPE_BOOT_DATA_TYPE,
+            "Id": "boot",
+            "Name": "Boot Settings",
         }),
         &fields,
     ])

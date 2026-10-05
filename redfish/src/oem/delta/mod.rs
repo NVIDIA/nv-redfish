@@ -20,6 +20,10 @@ mod compiled_schema;
 /// Delta Energy Systems OEM Schema.
 pub use compiled_schema::redfish as schema;
 
+/// Vendor key under which Delta nests its OEM extensions.
+#[cfg(any(feature = "power-supplies", feature = "power-equipment"))]
+pub const OEM_KEY: &str = "deltaenergysystems";
+
 /// Support of Delta OEM `PowerSupply` extensions.
 #[cfg(feature = "power-supplies")]
 pub mod power_supply;
@@ -27,6 +31,14 @@ pub mod power_supply;
 #[cfg(feature = "power-supplies")]
 #[doc(inline)]
 pub use power_supply::DeltaPowerSupply;
+
+/// Support of Delta OEM power shelf extensions.
+#[cfg(feature = "power-equipment")]
+pub mod power_shelf;
+
+#[cfg(feature = "power-equipment")]
+#[doc(inline)]
+pub use power_shelf::DeltaPowerShelf;
 
 #[cfg(feature = "chassis")]
 use crate::chassis;

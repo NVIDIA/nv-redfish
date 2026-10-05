@@ -18,9 +18,12 @@ all-std-features = accounts \
                    assembly \
                    bios \
                    boot-options \
+                   certificates \
                    chassis \
+                   component-integrity \
                    computer-systems \
                    ethernet-interfaces \
+                   fabrics \
                    job-service \
                    log-services \
                    managers \
@@ -33,6 +36,7 @@ all-std-features = accounts \
                    power-supplies \
                    processors \
                    secure-boot \
+                   serial-interfaces \
                    sensors \
                    session-service \
                    storages \
@@ -55,6 +59,7 @@ std-not-standalone-features = assembly \
              power-supplies \
              secure-boot \
              sensors \
+             serial-interfaces \
              storages \
              update-service-deprecated
 
@@ -82,8 +87,17 @@ compile-only-feature-sets = computer-systems,processors,controls \
              oem-hpe,accounts \
              oem-hpe \
              oem-nvidia \
+             fabrics,oem-nvidia \
+             fabrics,ports,oem-nvidia \
+             chassis,fabrics \
+             managers,fabrics \
+             std-redfish,oem-nvidia \
+             oem-nvidia-fabrics \
+             fabrics,oem-nvidia-fabrics \
              computer-systems,oem-nvidia \
+             managers,oem-nvidia \
              chassis,oem-nvidia \
+             chassis,network-adapters,oem-nvidia \
              computer-systems,processors,memory,sensors,telemetry-service,oem-nvidia \
              telemetry-service \
              environment-metrics,memory,oem-nvidia \

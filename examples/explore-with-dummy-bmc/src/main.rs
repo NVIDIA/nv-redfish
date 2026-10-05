@@ -598,6 +598,13 @@ impl Bmc for MockBmc {
         Ok(ModificationResponse::Entity(result))
     }
 
+    async fn poll<R: Send + Sync + Sized + for<'de> Deserialize<'de>>(
+        &self,
+        _uri: &ODataId,
+    ) -> Result<ModificationResponse<R>, Self::Error> {
+        Ok(ModificationResponse::Empty)
+    }
+
     async fn multipart_update<U, V, R>(
         &self,
         _uri: &str,

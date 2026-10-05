@@ -18,6 +18,8 @@ use std::sync::Arc;
 
 use nv_redfish_core::{Bmc, EntityTypeRef as _, ModificationResponse, NavProperty};
 
+#[cfg(feature = "oem-hpe")]
+use crate::oem::hpe::HpeManagerNetworkProtocol;
 use crate::schema::manager_network_protocol::ManagerNetworkProtocol as ManagerNetworkProtocolSchema;
 use crate::{Error, NvBmc};
 
@@ -50,6 +52,18 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
         self.data.clone()
     }
 
+    /// Get the HPE OEM extension.
+    ///
+    /// Returns `Ok(None)` when this resource does not include `Oem.Hpe`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if parsing HPE OEM data fails.
+    #[cfg(feature = "oem-hpe")]
+    pub fn oem_hpe(&self) -> Result<Option<HpeManagerNetworkProtocol<B>>, Error<B>> {
+        HpeManagerNetworkProtocol::new(&self.bmc, &self.data)
+    }
+
     /// Update this manager network protocol.
     ///
     /// # Errors
@@ -60,14 +74,12 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
         update: &ManagerNetworkProtocolUpdate,
     ) -> Result<ModificationResponse<Self>, Error<B>> {
         self.bmc
-            .as_ref()
             .update::<_, NavProperty<ManagerNetworkProtocolSchema>>(
                 self.data.odata_id(),
                 self.data.etag(),
                 update,
             )
-            .await
-            .map_err(Error::Bmc)?
+            .await?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
     }

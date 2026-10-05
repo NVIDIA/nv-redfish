@@ -34,13 +34,17 @@ std-redfish = [
     "accounts",
     "assembly",
     "boot-options",
+    "certificates",
     "bios",
     "chassis",
+    "component-integrity",
     "computer-systems",
     "controls",
     "ethernet-interfaces",
     "event-service",
+    "fabrics",
     "host-interfaces",
+    "serial-interfaces",
     "job-service",
     "log-services",
     "managers",
@@ -68,11 +72,14 @@ assembly = []
 accounts = ["patch-payload-get", "patch-payload-update", "patch-collection-create"]
 bios = []
 boot-options = []
+certificates = []
 chassis = ["patch-payload-get", "patch-collection", "impl-nv-bmc-expand", "impl-entity-link"]
+component-integrity = ["certificates", "patch-payload-get", "task-service"]
 computer-systems = ["patch-payload-get", "patch-collection"]
 controls = ["environment-metrics"]
 ethernet-interfaces = []
 environment-metrics = []
+fabrics = ["impl-nv-bmc-expand", "resource-status", "impl-entity-link"]
 host-interfaces = []
 job-service = ["impl-entity-link"]
 network-adapters = []
@@ -90,7 +97,8 @@ power-supplies = []
 ports = []
 processors = ["pcie-devices"]
 resource-status = []
-secure-boot = []
+secure-boot = ["certificates"]
+serial-interfaces = []
 sensors = ["impl-entity-link", "environment-metrics"]
 session-service = ["impl-nv-bmc-expand"]
 storages = []
@@ -119,6 +127,8 @@ oem-delta = ["oem"]
 # resource it extends, so `oem-nvidia` + `chassis` compiles the NVIDIA
 # chassis schemas without a further flag.
 oem-nvidia-cper = ["oem-nvidia"]
+# Additional schemas for ports, port/NVLink metrics, and switch power modes.
+# Fabric/Switch schemas and wrappers use fabrics + oem-nvidia.
 oem-nvidia-fabrics = ["oem-nvidia"]
 oem-nvidia-power-management = ["oem-nvidia"]
 oem-nvidia-profiles = ["oem-nvidia"]
