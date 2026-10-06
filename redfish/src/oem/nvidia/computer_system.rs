@@ -38,12 +38,13 @@ use crate::oem::nvidia::schema::nvidia_computer_system::NvidiaComputerSystem as 
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_value;
 use crate::patch_support::JsonValue;
-use crate::patch_support::Payload;
 use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataId;
+use nv_redfish_quirks::Raw;
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tagged_types::TaggedType;
@@ -111,7 +112,12 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
             let Some(id) = nvidia.get("@odata.id").and_then(JsonValue::as_str) else {
                 return Ok(None);
             };
-            let body = Payload::get_raw(bmc.as_ref(), &ODataId::from(id.to_owned())).await?;
+            let body = NavProperty::<Raw>::new_reference(ODataId::from(id.to_owned()))
+                .get(bmc.as_ref())
+                .await
+                .map_err(Error::from)?
+                .value()
+                .clone();
             let data = serde_json::from_value(body.clone()).map_err(Error::Json)?;
             return Ok(Some(Self {
                 data: Arc::new(data),

@@ -70,7 +70,7 @@ impl<B: Bmc> ManagerCollection<B> {
             .then(move || Arc::new(move |v: &JsonValue| filters.iter().any(|f| f(v))) as FilterFn);
 
         if let Some(collection_ref) = &root.root.managers {
-            Self::expand_collection(bmc, collection_ref, None, filters_fn.as_ref())
+            Self::expand_collection(bmc, collection_ref, filters_fn.as_ref())
                 .await
                 .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {

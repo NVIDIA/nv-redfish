@@ -18,9 +18,6 @@
 
 use serde_json::Value;
 
-use crate::rules;
-use crate::ReadPatchFn;
-
 /// What a service root says about the device: the evidence classification
 /// runs on.
 ///
@@ -114,13 +111,6 @@ impl BmcQuirks {
             _ => None,
         };
         Self { platform }
-    }
-
-    /// The document repairs this platform needs on one `resource_type`,
-    /// composed in table order; `None` when it needs none.
-    #[must_use]
-    pub fn read_patch(&self, resource_type: &str) -> Option<ReadPatchFn> {
-        rules::compose(self, resource_type)
     }
 
     /// `AccountTypes` is required by the schema, but some vendors omit it;
@@ -222,6 +212,15 @@ impl BmcQuirks {
     #[must_use]
     #[allow(clippy::unused_self)]
     pub const fn event_service_sse_no_odata_id(&self) -> bool {
+        true
+    }
+
+    /// `NTP.NTPServers` reports unused server slots as `null`. Seen
+    /// without a platform attached, so every platform takes the repair;
+    /// it only rewrites `null` entries.
+    #[must_use]
+    #[allow(clippy::unused_self)]
+    pub const fn bug_null_ntp_servers(&self) -> bool {
         true
     }
 

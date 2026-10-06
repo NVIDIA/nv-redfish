@@ -21,8 +21,10 @@
 //! - Modular, feature-gated services (enable only what you need)
 //! - OEM extension support (also under feature flags)
 //! - Platform quirks from `nv-redfish-quirks` (re-exported as [`quirks`]):
-//!   classification, document repairs, and a [`Bmc`] layer that applies
-//!   the same repairs to schema types read directly
+//!   every wrapper reads through its [`Bmc`] layer, which applies the
+//!   platform's document repairs and the caller's runtime rules
+//!   ([`ServiceRoot::compat`]); schema types read directly through the
+//!   same layer get the same repairs
 //!
 //! Relationship to other crates
 //! - Depends on `nv-redfish-core` for transport-agnostic traits (`Bmc`) and

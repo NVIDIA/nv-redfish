@@ -16,7 +16,6 @@
 use crate::patch_support::FilterFn;
 use crate::patch_support::JsonValue;
 use crate::patch_support::Payload;
-use crate::patch_support::ReadPatchFn;
 use crate::schema::resource::ItemOrCollection;
 use crate::schema::resource::Oem;
 use crate::schema::resource::ResourceCollection;
@@ -32,19 +31,12 @@ use nv_redfish_core::ODataId;
 use serde::Deserialize;
 use std::sync::Arc;
 
-#[cfg(feature = "patch-collection-create")]
-use nv_redfish_core::Creatable;
-#[cfg(feature = "patch-collection-create")]
-use nv_redfish_core::ModificationResponse;
-#[cfg(feature = "patch-collection-create")]
-use serde::Serialize;
-
-/// Trait that allows patching collection member data before it is
-/// deserialized to the member data structure. This is required when a
-/// BMC implementation produces payloads that are not aligned with the
-/// CSDL schema.
+/// Trait for collections whose members a platform quirk shapes before they
+/// are deserialized: members to leave out, or `Members` sent as `null`.
+/// Member documents themselves are already repaired by the compatibility
+/// layer.
 ///
-/// Example of usage is in `AccountCollection` implementation.
+/// Example of usage is in `ManagerCollection` implementation.
 pub trait CollectionWithPatch<T, M, B>
 where
     T: Expandable + 'static,
@@ -56,18 +48,15 @@ where
     async fn expand_collection(
         bmc: &NvBmc<B>,
         nav: &NavProperty<T>,
-        patch_fn: Option<&ReadPatchFn>,
         filter_fn: Option<&FilterFn>,
     ) -> Result<Arc<T>, Error<B>> {
-        if patch_fn.is_some() || filter_fn.is_some() || bmc.quirks.bug_nullable_members() {
-            // Patches are not free so we keep separate branch for
-            // patched collections only having this cost on systems
-            // that requires to pay the price.
+        if filter_fn.is_some() || bmc.quirks.bug_nullable_members() {
+            // Reading members as payloads is not free, so only the
+            // platforms that need it pay for it.
             let patched_collection_ref = NavProperty::<Collection>::new_reference(nav.id().clone());
             let collection = bmc.expand_property(&patched_collection_ref).await?;
-            let patch_fn = patch_fn.map(AsRef::as_ref);
             let filter_fn = filter_fn.map(AsRef::as_ref);
-            let members = collection.members(patch_fn, filter_fn)?;
+            let members = collection.members(filter_fn)?;
             Ok(Arc::new(Self::convert_patched(collection.base(), members)))
         } else {
             bmc.expand_property(nav).await
@@ -75,40 +64,7 @@ where
     }
 }
 
-/// Trait that allows creating a collection member and patching the
-/// response before it is deserialized to the member data structure.
-///
-/// Example of usage is in `AccountCollection` implementation.
-#[cfg(feature = "patch-collection-create")]
-pub trait CreateWithPatch<T, M, C, B>
-where
-    T: Creatable<C, M>,
-    C: Serialize + Sync + Send,
-    M: for<'de> Deserialize<'de> + Sync + Send,
-    B: Bmc,
-{
-    fn entity_ref(&self) -> &T;
-    fn patch(&self) -> Option<&ReadPatchFn>;
-    fn bmc(&self) -> &B;
-
-    async fn create_with_patch(&self, create: &C) -> Result<ModificationResponse<M>, Error<B>> {
-        if let Some(patch_fn) = &self.patch() {
-            Collection::create(self.entity_ref(), self.bmc(), create, patch_fn.as_ref()).await
-        } else {
-            self.entity_ref()
-                .create(self.bmc(), create)
-                .await
-                .map_err(Error::Bmc)
-        }
-    }
-}
-
-/// Collection of entity types that can apply patches to its members on read.
-///
-/// In some situations, a BMC implementation may miss fields that are
-/// marked as required but have reasonable defaults. This collection
-/// can be used to deserialize the collection and then restore the
-/// original shape by patching member payloads.
+/// A collection read with its members as payloads.
 #[derive(Deserialize)]
 struct Collection {
     #[serde(flatten)]
@@ -118,29 +74,6 @@ struct Collection {
 }
 
 impl Collection {
-    #[cfg(feature = "patch-collection-create")]
-    async fn create<T, F, C, B, V>(
-        orig: &T,
-        bmc: &B,
-        create: &C,
-        f: F,
-    ) -> Result<ModificationResponse<V>, Error<B>>
-    where
-        T: EntityTypeRef,
-        V: for<'de> Deserialize<'de>,
-        B: Bmc,
-        C: Serialize + Sync + Send,
-        F: Fn(JsonValue) -> JsonValue + Sync + Send,
-    {
-        Creator {
-            id: orig.odata_id(),
-        }
-        .create(bmc, create)
-        .await
-        .map_err(Error::Bmc)?
-        .try_map_entity(|payload| payload.to_target::<V, B, _>(&f))
-    }
-
     fn base(&self) -> ResourceCollection {
         ResourceCollection {
             base: ItemOrCollection {
@@ -160,14 +93,9 @@ impl Collection {
         }
     }
 
-    fn members<T, FP, FF, B>(
-        &self,
-        patch_fn: Option<&FP>,
-        filter_fn: Option<&FF>,
-    ) -> Result<Vec<NavProperty<T>>, Error<B>>
+    fn members<T, FF, B>(&self, filter_fn: Option<&FF>) -> Result<Vec<NavProperty<T>>, Error<B>>
     where
         T: EntityTypeRef + for<'de> Deserialize<'de>,
-        FP: Fn(JsonValue) -> JsonValue + ?Sized,
         FF: Fn(&JsonValue) -> bool + ?Sized,
         B: Bmc,
     {
@@ -176,7 +104,7 @@ impl Collection {
             .unwrap_or(&[])
             .iter()
             .filter(|v| filter_fn.is_none_or(|ff| v.filter(ff)))
-            .map(|v| patch_fn.map_or_else(|| v.parse(), |fp| v.to_target(fp)))
+            .map(Payload::parse)
             .collect::<Result<Vec<_>, _>>()
     }
 }
@@ -191,23 +119,3 @@ impl EntityTypeRef for Collection {
 }
 
 impl Expandable for Collection {}
-
-// Helper struct that enables creating a new member of the collection
-// and applying a patch to the payload before creation.
-#[cfg(feature = "patch-collection-create")]
-struct Creator<'a> {
-    id: &'a ODataId,
-}
-
-#[cfg(feature = "patch-collection-create")]
-impl EntityTypeRef for Creator<'_> {
-    fn odata_id(&self) -> &ODataId {
-        self.id
-    }
-    fn etag(&self) -> Option<&ODataETag> {
-        None
-    }
-}
-
-#[cfg(feature = "patch-collection-create")]
-impl<V: Serialize + Send + Sync> Creatable<V, Payload> for Creator<'_> {}

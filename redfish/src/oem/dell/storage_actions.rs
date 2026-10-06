@@ -72,6 +72,6 @@ impl<B: Bmc> DellStorageActions<B> {
                 },
             )
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 }

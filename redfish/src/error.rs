@@ -14,6 +14,8 @@
 // limitations under the License.
 
 use nv_redfish_core::Bmc;
+use nv_redfish_quirks::CompatError;
+use nv_redfish_quirks::DecodeError;
 use serde_json::Error as JsonError;
 use std::error::Error as StdError;
 use std::fmt::Debug;
@@ -58,6 +60,9 @@ pub enum Error<B: Bmc> {
     MetricReportDefinitionsNotAvailable,
     /// JSON parse error.
     Json(JsonError),
+    /// A document, after the platform's and the caller's repairs, did not
+    /// match the schema type it was read as.
+    Decode(DecodeError),
 }
 
 impl<B: Bmc> Display for Error<B> {
@@ -66,6 +71,7 @@ impl<B: Bmc> Display for Error<B> {
         match self {
             Self::Bmc(err) => write!(f, "BMC error: {err}"),
             Self::Json(err) => write!(f, "JSON error: {err}"),
+            Self::Decode(err) => write!(f, "Decode error: {err}"),
             #[cfg(feature = "accounts")]
             Self::AccountSlotNotAvailable => {
                 write!(f, "Free account slot is not found")
@@ -116,3 +122,14 @@ impl<B: Bmc> Debug for Error<B> {
 }
 
 impl<B: Bmc> StdError for Error<B> {}
+
+/// Reads go through the compatibility layer; its transport failures are
+/// the BMC's own.
+impl<B: Bmc> From<CompatError<B::Error>> for Error<B> {
+    fn from(err: CompatError<B::Error>) -> Self {
+        match err {
+            CompatError::Transport(err) => Self::Bmc(err),
+            CompatError::Decode(err) => Self::Decode(err),
+        }
+    }
+}

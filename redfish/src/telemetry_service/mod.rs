@@ -79,7 +79,7 @@ impl<B: Bmc> TelemetryService<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(service_ref) = &root.root.telemetry_service {
-            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::from)?;
             Ok(Some(Self {
                 data,
                 bmc: bmc.clone(),
@@ -120,9 +120,9 @@ impl<B: Bmc> TelemetryService<B> {
                 &update,
             )
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move {
-                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::from)?;
 
                 Ok(Self {
                     data,
@@ -147,7 +147,7 @@ impl<B: Bmc> TelemetryService<B> {
             let collection = collection_ref
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(Error::Bmc)?;
+                .map_err(Error::from)?;
 
             let mut items = Vec::with_capacity(collection.members.len());
             for m in &collection.members {
@@ -242,7 +242,7 @@ impl<B: Bmc> TelemetryService<B> {
             .as_ref()
             .create::<_, NavProperty<MetricDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move { MetricDefinition::new(&self.bmc, &nav).await })
             .await
     }
@@ -276,7 +276,7 @@ impl<B: Bmc> TelemetryService<B> {
             .as_ref()
             .create::<_, NavProperty<MetricReportDefinitionSchema>>(collection_ref.id(), create)
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move {
                 MetricReportDefinition::new(&self.bmc, &nav).await
             })

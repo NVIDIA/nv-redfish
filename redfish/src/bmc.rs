@@ -20,6 +20,7 @@ use crate::protocol_features::ExpandQueryFeatures;
 use crate::ProtocolFeatures;
 use nv_redfish_core::Bmc;
 use nv_redfish_quirks::BmcQuirks;
+use nv_redfish_quirks::CompatBmc;
 use std::sync::Arc;
 
 #[cfg(feature = "impl-nv-bmc-expand")]
@@ -32,23 +33,25 @@ use nv_redfish_core::Expandable;
 use nv_redfish_core::NavProperty;
 
 pub struct NvBmc<B: Bmc> {
-    bmc: Arc<B>,
+    /// Every read goes through the compatibility layer, so the wrappers get
+    /// the platform's and the caller's repairs.
+    bmc: CompatBmc<B>,
     protocol_features: Arc<ProtocolFeatures>,
     pub(crate) quirks: Arc<BmcQuirks>,
 }
 
 impl<B: Bmc> NvBmc<B> {
-    pub(crate) fn new(bmc: Arc<B>, protocol_features: ProtocolFeatures, quirks: BmcQuirks) -> Self {
+    pub(crate) fn new(bmc: CompatBmc<B>, protocol_features: ProtocolFeatures) -> Self {
         Self {
+            quirks: Arc::clone(bmc.quirks()),
             bmc,
             protocol_features: protocol_features.into(),
-            quirks: quirks.into(),
         }
     }
 
     pub(crate) fn replace_bmc(self, bmc: Arc<B>) -> Self {
         Self {
-            bmc,
+            bmc: self.bmc.replace_inner(bmc),
             protocol_features: self.protocol_features,
             quirks: self.quirks,
         }
@@ -69,20 +72,21 @@ impl<B: Bmc> NvBmc<B> {
     }
 
     #[allow(dead_code)] // feature-enabled func
-    pub fn as_ref(&self) -> &B {
-        self.bmc.as_ref()
+    pub const fn as_ref(&self) -> &CompatBmc<B> {
+        &self.bmc
     }
 
-    /// The transport, shared.
-    pub(crate) fn shared(&self) -> Arc<B> {
-        Arc::clone(&self.bmc)
+    /// The compatibility layer, sharing this BMC's rule set.
+    pub(crate) fn compat(&self) -> CompatBmc<B> {
+        self.bmc.clone()
     }
 
     /// Expand navigation property with optimal available method.
     ///
     /// # Errors
     ///
-    /// Returns `Error::Bmc` if failed to send request to the BMC.
+    /// Returns `Error::Bmc` if failed to send request to the BMC, or
+    /// `Error::Decode` if the repaired document did not deserialize.
     ///
     #[cfg(feature = "impl-nv-bmc-expand")]
     pub async fn expand_property<T>(&self, nav: &NavProperty<T>) -> Result<Arc<T>, Error<B>>
@@ -98,15 +102,15 @@ impl<B: Bmc> NvBmc<B> {
             None
         };
         if let Some(optimal_query) = optimal_query {
-            nav.expand(self.bmc.as_ref(), optimal_query)
+            nav.expand(&self.bmc, optimal_query)
                 .await
-                .map_err(Error::Bmc)?
-                .get(self.bmc.as_ref())
+                .map_err(Error::from)?
+                .get(&self.bmc)
                 .await
-                .map_err(Error::Bmc)
+                .map_err(Error::from)
         } else {
             // if query is not suported.
-            nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)
+            nav.get(&self.bmc).await.map_err(Error::from)
         }
     }
 }

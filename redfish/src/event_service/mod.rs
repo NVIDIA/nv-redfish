@@ -94,7 +94,7 @@ impl<B: Bmc> EventService<B> {
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
         if let Some(service_ref) = &root.root.event_service {
-            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
+            let data = service_ref.get(bmc.as_ref()).await.map_err(Error::from)?;
 
             let mut sse_read_patches = Vec::new();
             let mut sse_event_record_patches: Vec<patch::EventRecordPatchFn> = Vec::new();
@@ -191,10 +191,10 @@ impl<B: Bmc> EventService<B> {
             .as_ref()
             .stream_events::<JsonValue>(stream_uri, last_event_id)
             .await
-            .map_err(Error::Bmc)?;
+            .map_err(Error::from)?;
 
         let sse_read_patches = self.sse_read_patches.clone();
-        let stream = stream.map_err(Error::Bmc).and_then(move |event| {
+        let stream = stream.map_err(Error::from).and_then(move |event| {
             let StreamEvent {
                 last_event_id,
                 data,

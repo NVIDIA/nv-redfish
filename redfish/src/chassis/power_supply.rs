@@ -50,7 +50,7 @@ impl<B: Bmc> PowerSupply<B> {
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
             .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
@@ -92,7 +92,7 @@ impl<B: Bmc> PowerSupply<B> {
         actions
             .reset(self.bmc.as_ref(), reset_type)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Get power supply metrics.
@@ -109,7 +109,7 @@ impl<B: Bmc> PowerSupply<B> {
             metrics_ref
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(Error::Bmc)
+                .map_err(Error::from)
                 .map(Some)
         } else {
             Ok(None)
@@ -128,7 +128,7 @@ impl<B: Bmc> PowerSupply<B> {
             metrics_ref
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(Error::Bmc)
+                .map_err(Error::from)
                 .map(|m| {
                     extract_sensor_uris!(m,
                         single: input_voltage,

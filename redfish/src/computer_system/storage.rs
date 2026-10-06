@@ -53,7 +53,7 @@ impl<B: Bmc> Storage<B> {
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
             .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
@@ -182,10 +182,10 @@ impl<B: Bmc> VolumeCollection<B> {
         let collection = NavProperty::<VolumeCollectionSchema>::new_reference(self.id.clone())
             .get(self.bmc.as_ref())
             .await
-            .map_err(Error::Bmc)?;
+            .map_err(Error::from)?;
         let mut volumes = Vec::with_capacity(collection.members.len());
         for member in &collection.members {
-            let data = member.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+            let data = member.get(self.bmc.as_ref()).await.map_err(Error::from)?;
             volumes.push(Volume::from_data(data));
         }
         Ok(volumes)
@@ -208,12 +208,12 @@ impl<B: Bmc> VolumeCollection<B> {
             .as_ref()
             .create::<_, NavProperty<VolumeSchema>>(&self.id, request)
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move {
                 nav.get(self.bmc.as_ref())
                     .await
                     .map(Volume::from_data)
-                    .map_err(Error::Bmc)
+                    .map_err(Error::from)
             })
             .await
     }
@@ -235,7 +235,7 @@ impl<B: Bmc> StorageCollection<B> {
         bmc: &NvBmc<B>,
         nav: &NavProperty<StorageCollectionSchema>,
     ) -> Result<Self, Error<B>> {
-        let collection = Self::expand_collection(bmc, nav, None, None).await?;
+        let collection = Self::expand_collection(bmc, nav, None).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,

@@ -17,14 +17,18 @@
 //! classified platform's document repairs to everything it reads.
 //!
 //! [`CompatBmc`] fetches each document raw, applies the repairs enabled for
-//! the platform to every object carrying an `@odata.type` — members a
-//! device expanded inline included, at any depth — and only then
-//! deserializes into the type the caller asked for. Everything it does not
-//! read it delegates unchanged. It is classified once, from the service
-//! root, with one request; an object without `@odata.type` gets no repair,
-//! and a platform that needs no repair is deserialized without a copy. The
-//! raw document carries the device's `@odata.etag`, so a caching transport
-//! revalidates reads through the layer exactly as it does typed ones.
+//! the platform and then the caller's [`UserRules`] to every document in it
+//! — members a device expanded inline included, at any depth — and only
+//! then deserializes into the type the caller asked for. The entity a
+//! create, update or delete answers with is repaired the same way. Actions,
+//! uploads and event streams are delegated unchanged. It is classified once, from the service
+//! root, with one request.
+//!
+//! The transport underneath caches the raw document, not the repaired one,
+//! so a replaced rule set applies to the next read of a resource whose
+//! `ETag` has not changed. The raw document carries the device's
+//! `@odata.etag`, so a caching transport revalidates reads through the
+//! layer exactly as it does typed ones.
 
 use std::error::Error as StdError;
 use std::fmt;
@@ -33,6 +37,7 @@ use std::sync::Arc;
 use futures_util::TryStreamExt as _;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Action;
+use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::BoxTryStream;
 use nv_redfish_core::EntityTypeRef;
@@ -55,6 +60,11 @@ use crate::rules;
 use crate::BmcQuirks;
 use crate::Raw;
 use crate::RootEvidence;
+use crate::UserRules;
+
+/// A repaired document that still did not deserialize, with the path to
+/// the property that failed.
+pub type DecodeError = serde_path_to_error::Error<serde_json::Error>;
 
 /// What a read through [`CompatBmc`] can fail with.
 #[derive(Debug)]
@@ -63,7 +73,7 @@ pub enum CompatError<E> {
     Transport(E),
     /// The document, repaired, still did not deserialize into the type
     /// asked for.
-    Decode(serde_json::Error),
+    Decode(DecodeError),
 }
 
 impl<E: fmt::Display> fmt::Display for CompatError<E> {
@@ -84,14 +94,21 @@ impl<E: StdError + 'static> StdError for CompatError<E> {
     }
 }
 
-/// A [`Bmc`] that repairs what it reads for the platform it was classified
-/// against, and delegates everything else to the transport underneath.
+impl<E: ActionError> ActionError for CompatError<E> {
+    fn not_supported() -> Self {
+        Self::Transport(E::not_supported())
+    }
+}
+
+/// A [`Bmc`] that repairs what it reads.
+///
+/// Repairs are the classified platform's, then the caller's rules;
+/// everything else is delegated to the transport underneath. Clones share
+/// the caller's rule set.
 pub struct CompatBmc<B: Bmc> {
     inner: Arc<B>,
     quirks: Arc<BmcQuirks>,
-    /// Whether the platform enables any repair; when it does not, documents
-    /// deserialize in place.
-    repairs: bool,
+    user: UserRules,
 }
 
 impl<B: Bmc> CompatBmc<B> {
@@ -113,11 +130,10 @@ impl<B: Bmc> CompatBmc<B> {
     /// The layer over `inner` for an already classified platform.
     #[must_use]
     pub fn new(inner: Arc<B>, quirks: Arc<BmcQuirks>) -> Self {
-        let repairs = rules::any_enabled(&quirks);
         Self {
             inner,
             quirks,
-            repairs,
+            user: UserRules::default(),
         }
     }
 
@@ -128,10 +144,28 @@ impl<B: Bmc> CompatBmc<B> {
         &self.inner
     }
 
+    /// The same layer, rules shared, over another transport for the same
+    /// endpoint.
+    #[must_use]
+    pub fn replace_inner(&self, inner: Arc<B>) -> Self {
+        Self {
+            inner,
+            quirks: Arc::clone(&self.quirks),
+            user: self.user.clone(),
+        }
+    }
+
     /// The platform this layer repairs for.
     #[must_use]
     pub const fn quirks(&self) -> &Arc<BmcQuirks> {
         &self.quirks
+    }
+
+    /// The caller's rules, applied after the platform's. Replacing them
+    /// through this handle affects every clone of the layer.
+    #[must_use]
+    pub const fn user_rules(&self) -> &UserRules {
+        &self.user
     }
 
     fn repaired<T>(&self, raw: Result<Arc<Raw>, B::Error>) -> Result<Arc<T>, CompatError<B::Error>>
@@ -139,14 +173,38 @@ impl<B: Bmc> CompatBmc<B> {
         T: for<'de> Deserialize<'de>,
     {
         let raw = raw.map_err(CompatError::Transport)?;
-        let target = if self.repairs {
-            let mut document = raw.value().clone();
-            rules::repair_in_place(&self.quirks, &mut document);
-            serde_json::from_value(document)
-        } else {
-            T::deserialize(raw.value())
-        };
-        target.map(Arc::new).map_err(CompatError::Decode)
+        // A transport that does not cache hands over the only reference.
+        let document = Arc::try_unwrap(raw).map_or_else(|raw| raw.value().clone(), Raw::into_value);
+        self.decode(document)
+            .map(Arc::new)
+            .map_err(CompatError::Decode)
+    }
+
+    /// Repairs a document obtained some other way and deserializes it into
+    /// `T`, as a read through the layer would.
+    ///
+    /// # Errors
+    ///
+    /// The repaired document does not deserialize into `T`.
+    pub fn decode<T>(&self, mut document: serde_json::Value) -> Result<T, DecodeError>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        rules::repair_in_place(&self.quirks, &self.user.snapshot(), &mut document);
+        serde_path_to_error::deserialize(document)
+    }
+
+    /// The entity a modification answered with, repaired.
+    fn repaired_entity<R>(
+        &self,
+        response: Result<ModificationResponse<Raw>, B::Error>,
+    ) -> Result<ModificationResponse<R>, CompatError<B::Error>>
+    where
+        R: for<'de> Deserialize<'de>,
+    {
+        response
+            .map_err(CompatError::Transport)?
+            .try_map_entity(|raw| self.decode(raw.into_value()).map_err(CompatError::Decode))
     }
 }
 
@@ -157,16 +215,12 @@ impl<B: Bmc> Clone for CompatBmc<B> {
         Self {
             inner: Arc::clone(&self.inner),
             quirks: Arc::clone(&self.quirks),
-            repairs: self.repairs,
+            user: self.user.clone(),
         }
     }
 }
 
-impl<B> Bmc for CompatBmc<B>
-where
-    B: Bmc + 'static,
-    B::Error: 'static,
-{
+impl<B: Bmc> Bmc for CompatBmc<B> {
     type Error = CompatError<B::Error>;
 
     async fn expand<T: Expandable>(
@@ -197,10 +251,7 @@ where
         id: &ODataId,
         query: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        self.inner
-            .create(id, query)
-            .await
-            .map_err(CompatError::Transport)
+        self.repaired_entity(self.inner.create::<V, Raw>(id, query).await)
     }
 
     async fn create_session<
@@ -211,10 +262,18 @@ where
         id: &ODataId,
         query: &V,
     ) -> Result<SessionCreateResponse<R>, Self::Error> {
-        self.inner
-            .create_session(id, query)
+        let response = self
+            .inner
+            .create_session::<V, Raw>(id, query)
             .await
-            .map_err(CompatError::Transport)
+            .map_err(CompatError::Transport)?;
+        Ok(SessionCreateResponse {
+            entity: self
+                .decode(response.entity.into_value())
+                .map_err(CompatError::Decode)?,
+            auth_token: response.auth_token,
+            location: response.location,
+        })
     }
 
     async fn update<
@@ -226,17 +285,14 @@ where
         etag: Option<&ODataETag>,
         update: &V,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        self.inner
-            .update(id, etag, update)
-            .await
-            .map_err(CompatError::Transport)
+        self.repaired_entity(self.inner.update::<V, Raw>(id, etag, update).await)
     }
 
     async fn delete<R: EntityTypeRef + for<'de> Deserialize<'de>>(
         &self,
         id: &ODataId,
     ) -> Result<ModificationResponse<R>, Self::Error> {
-        self.inner.delete(id).await.map_err(CompatError::Transport)
+        self.repaired_entity(self.inner.delete::<Raw>(id).await)
     }
 
     async fn action<

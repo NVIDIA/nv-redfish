@@ -16,18 +16,26 @@
 //! The compatibility layer: a raw schema read through `CompatBmc` carries
 //! the platform's document repairs — the Dell firmware release date here —
 //! at the top level and inside an expanded collection, and a platform
-//! without the quirk gets the document as it came.
+//! without the quirk gets the document as it came. The caller's rules,
+//! replaceable at runtime, reach the high-level wrappers as well as direct
+//! reads, and the entity an update answers with is repaired too.
 
 use std::error::Error as StdError;
 use std::sync::Arc;
 
+use nv_redfish::schema::manager_account::ManagerAccount;
+use nv_redfish::schema::manager_network_protocol::ManagerNetworkProtocol;
 use nv_redfish::schema::software_inventory::SoftwareInventory;
 use nv_redfish::schema::software_inventory_collection::SoftwareInventoryCollection;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::Bmc;
+use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
 use nv_redfish_quirks::CompatBmc;
 use nv_redfish_quirks::CompatError;
+use nv_redfish_quirks::IdPattern;
+use nv_redfish_quirks::Match;
+use nv_redfish_quirks::UserRule;
 use nv_redfish_tests::Bmc as MockBmc;
 use nv_redfish_tests::Expect;
 use nv_redfish_tests::ODATA_ID;
@@ -156,5 +164,164 @@ async fn a_service_root_hands_out_its_layer() -> Result<(), Box<dyn StdError>> {
     bmc.expect(Expect::get(BMC_FIRMWARE, undated_firmware()));
     let firmware = compat.get::<SoftwareInventory>(&firmware_id()).await?;
     assert!(firmware.release_date.is_none());
+    Ok(())
+}
+
+/// A rule that drops the `ReleaseDate` HPE does not otherwise need
+/// dropped.
+fn undate(matches: Match) -> UserRule {
+    UserRule::new("undate", matches, |mut v| {
+        if let Some(document) = v.as_object_mut() {
+            document.remove("ReleaseDate");
+        }
+        v
+    })
+}
+
+/// A root with an update service, so the high-level wrappers have a path
+/// to the firmware inventory.
+fn service_root_with_update_service(vendor: &str) -> Value {
+    let mut root = service_root(vendor);
+    root["UpdateService"] = json!({ ODATA_ID: format!("{ROOT}/UpdateService") });
+    root["ProtocolFeaturesSupported"] = json!({ "ExpandQuery": { "NoLinks": true } });
+    root
+}
+
+fn expect_update_service(bmc: &MockBmc) {
+    bmc.expect(Expect::get(
+        format!("{ROOT}/UpdateService"),
+        json!({
+            ODATA_ID: format!("{ROOT}/UpdateService"),
+            ODATA_TYPE: "#UpdateService.v1_9_0.UpdateService",
+            "Id": "UpdateService",
+            "Name": "Update Service",
+            "FirmwareInventory": { ODATA_ID: INVENTORY },
+        }),
+    ));
+}
+
+fn expect_inventory(bmc: &MockBmc) {
+    bmc.expect(Expect::expand(
+        INVENTORY,
+        json!({
+            ODATA_ID: INVENTORY,
+            ODATA_TYPE: "#SoftwareInventoryCollection.SoftwareInventoryCollection",
+            "Name": "Firmware Inventory",
+            "Members": [undated_firmware()],
+        }),
+    ));
+}
+
+#[test]
+async fn user_rules_reach_the_wrappers_and_can_be_replaced() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(MockBmc::default());
+    bmc.expect(Expect::get(ROOT, service_root_with_update_service("HPE")));
+    let root = ServiceRoot::new(bmc.clone()).await?;
+    expect_update_service(&bmc);
+    let update_service = root.update_service().await?.expect("root links it");
+
+    // HPE has no release-date repair: the wrapper fails as the device
+    // answered.
+    expect_inventory(&bmc);
+    assert!(matches!(
+        update_service.firmware_inventories().await,
+        Err(nv_redfish::Error::Decode(_))
+    ));
+
+    // A rule installed through the root's layer applies to the wrapper
+    // created before it.
+    root.compat()
+        .user_rules()
+        .replace(vec![undate(Match::Type("SoftwareInventory".into()))]);
+    expect_inventory(&bmc);
+    let inventories = update_service
+        .firmware_inventories()
+        .await?
+        .expect("service links it");
+    assert!(inventories[0].raw().release_date.is_none());
+
+    // Cleared, the next read is the device's again.
+    root.compat().user_rules().clear();
+    expect_inventory(&bmc);
+    assert!(matches!(
+        update_service.firmware_inventories().await,
+        Err(nv_redfish::Error::Decode(_))
+    ));
+    Ok(())
+}
+
+#[test]
+async fn a_user_rule_can_match_by_odata_id() -> Result<(), Box<dyn StdError>> {
+    let (bmc, compat) = classified("HPE").await?;
+    compat
+        .user_rules()
+        .replace(vec![undate(Match::Id(IdPattern::new(
+            "/redfish/v1/UpdateService/FirmwareInventory/*",
+        )))]);
+
+    bmc.expect(Expect::get(BMC_FIRMWARE, undated_firmware()));
+    let firmware = compat.get::<SoftwareInventory>(&firmware_id()).await?;
+    assert!(firmware.release_date.is_none());
+    Ok(())
+}
+
+#[test]
+async fn unused_ntp_server_slots_read_as_empty() -> Result<(), Box<dyn StdError>> {
+    let (bmc, compat) = classified("Contoso").await?;
+    let id = "/redfish/v1/Managers/BMC/NetworkProtocol";
+
+    bmc.expect(Expect::get(
+        id,
+        json!({
+            ODATA_ID: id,
+            ODATA_TYPE: "#ManagerNetworkProtocol.v1_9_0.ManagerNetworkProtocol",
+            "Id": "NetworkProtocol",
+            "Name": "Manager Network Protocol",
+            "NTP": { "NTPServers": ["pool.ntp.org", null] },
+        }),
+    ));
+    let protocol = compat
+        .get::<ManagerNetworkProtocol>(&ODataId::from(id.to_owned()))
+        .await?;
+    let servers = protocol
+        .ntp
+        .as_ref()
+        .and_then(|ntp| ntp.ntp_servers.clone())
+        .flatten()
+        .expect("NTP servers are reported");
+    assert_eq!(servers, vec!["pool.ntp.org".to_owned(), String::new()]);
+    Ok(())
+}
+
+#[test]
+async fn the_entity_an_update_answers_with_is_repaired() -> Result<(), Box<dyn StdError>> {
+    let (bmc, compat) = classified("HPE").await?;
+    let id = "/redfish/v1/AccountService/Accounts/1";
+    let update = json!({ "Enabled": false });
+
+    // HPE accounts omit the `AccountTypes` the schema requires.
+    bmc.expect(Expect::update(
+        id,
+        &update,
+        json!({
+            ODATA_ID: id,
+            ODATA_TYPE: "#ManagerAccount.v1_12_0.ManagerAccount",
+            "Id": "1",
+            "Name": "User Account",
+            "UserName": "admin",
+            "RoleId": "Administrator",
+            "Enabled": false,
+        }),
+    ));
+    let response = compat
+        .update::<_, ManagerAccount>(&ODataId::from(id.to_owned()), None, &update)
+        .await?;
+    let ModificationResponse::Entity(account) = response else {
+        panic!("the device answered with the account");
+    };
+    assert!(account
+        .account_types
+        .as_deref()
+        .is_some_and(|types| !types.is_empty()));
     Ok(())
 }

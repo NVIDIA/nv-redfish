@@ -14,8 +14,6 @@
 // limitations under the License.
 
 use crate::patch_support::CollectionWithPatch;
-use crate::patch_support::Payload;
-use crate::patch_support::ReadPatchFn;
 use crate::schema::resource::ResourceCollection;
 use crate::schema::software_inventory::SoftwareInventory as SoftwareInventorySchema;
 use crate::schema::software_inventory_collection::SoftwareInventoryCollection as SoftwareInventoryCollectionSchema;
@@ -64,17 +62,14 @@ impl<B: Bmc> SoftwareInventory<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<SoftwareInventorySchema>,
-        read_patch_fn: Option<&ReadPatchFn>,
     ) -> Result<Self, Error<B>> {
-        if let Some(read_patch_fn) = read_patch_fn {
-            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
-        } else {
-            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
-        }
-        .map(|data| Self {
-            bmc: bmc.clone(),
-            data,
-        })
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::from)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this software inventory item.
@@ -115,7 +110,6 @@ impl<B: Bmc> Resource for SoftwareInventory<B> {
 pub struct SoftwareInventoryCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<SoftwareInventoryCollectionSchema>,
-    read_patch_fn: Option<ReadPatchFn>,
 }
 
 impl<B: Bmc> CollectionWithPatch<SoftwareInventoryCollectionSchema, SoftwareInventorySchema, B>
@@ -133,21 +127,18 @@ impl<B: Bmc> SoftwareInventoryCollection<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         collection_ref: &NavProperty<SoftwareInventoryCollectionSchema>,
-        read_patch_fn: Option<ReadPatchFn>,
     ) -> Result<Self, Error<B>> {
-        let collection =
-            Self::expand_collection(bmc, collection_ref, read_patch_fn.as_ref(), None).await?;
+        let collection = Self::expand_collection(bmc, collection_ref, None).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,
-            read_patch_fn,
         })
     }
 
     pub(crate) async fn members(&self) -> Result<Vec<SoftwareInventory<B>>, Error<B>> {
         let mut items = Vec::new();
         for nav in &self.collection.members {
-            items.push(SoftwareInventory::new(&self.bmc, nav, self.read_patch_fn.as_ref()).await?);
+            items.push(SoftwareInventory::new(&self.bmc, nav).await?);
         }
         Ok(items)
     }

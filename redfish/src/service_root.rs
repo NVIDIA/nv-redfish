@@ -26,6 +26,7 @@ use crate::Resource;
 use crate::ResourceSchema;
 use nv_redfish_quirks::BmcQuirks;
 use nv_redfish_quirks::CompatBmc;
+use nv_redfish_quirks::Raw;
 use nv_redfish_quirks::RootEvidence;
 
 use tagged_types::TaggedType;
@@ -110,44 +111,31 @@ impl<B: Bmc> ServiceRoot<B> {
     ///
     /// Returns error if retrieving the root path via Redfish fails.
     pub async fn new(bmc: Arc<B>) -> Result<Self, Error<B>> {
-        let root = NavProperty::<SchemaServiceRoot>::new_reference(ODataId::service_root())
+        // The root is read once, raw: it decides the platform, and is then
+        // repaired for it like any other document.
+        let raw = NavProperty::<Raw>::new_reference(ODataId::service_root())
             .get(bmc.as_ref())
             .await
             .map_err(Error::Bmc)?;
-        let quirks = BmcQuirks::classify(&RootEvidence {
-            vendor: root
-                .vendor
-                .as_ref()
-                .and_then(Option::as_deref)
-                .map(str::to_owned),
-            product: root
-                .product
-                .as_ref()
-                .and_then(Option::as_deref)
-                .map(str::to_owned),
-            redfish_version: root.redfish_version.clone(),
-            ami_rtp_version: root
-                .base
-                .base
-                .oem
-                .as_ref()
-                .and_then(|oem| oem.additional_properties.get("Ami"))
-                .and_then(|ami| ami.get("RtpVersion"))
-                .and_then(|v| v.as_str())
-                .map(str::to_owned),
-        });
+        let quirks = BmcQuirks::classify(&RootEvidence::from_root(raw.value()));
+        let compat = CompatBmc::new(bmc, Arc::new(quirks));
+        let root = Arc::new(
+            compat
+                .decode::<SchemaServiceRoot>(raw.value().clone())
+                .map_err(Error::Decode)?,
+        );
         let mut protocol_features = root
             .protocol_features_supported
             .as_ref()
             .map(ProtocolFeatures::new)
             .unwrap_or_default();
 
-        if quirks.expand_is_not_working_properly() {
+        if compat.quirks().expand_is_not_working_properly() {
             protocol_features.expand.expand_all = false;
             protocol_features.expand.no_links = false;
         }
 
-        let bmc = NvBmc::new(bmc, protocol_features, quirks);
+        let bmc = NvBmc::new(compat, protocol_features);
         Ok(Self { root, bmc })
     }
 
@@ -159,11 +147,13 @@ impl<B: Bmc> ServiceRoot<B> {
         Self { root, bmc }
     }
 
-    /// The compatibility layer over this root's transport: every document
-    /// read through it carries the repairs this platform needs.
+    /// The compatibility layer every wrapper under this root reads
+    /// through: documents carry the platform's repairs and the caller's.
+    /// Rules replaced through [`CompatBmc::user_rules`] apply to the
+    /// wrappers and to this handle alike.
     #[must_use]
     pub fn compat(&self) -> CompatBmc<B> {
-        CompatBmc::new(self.bmc.shared(), Arc::clone(&self.bmc.quirks))
+        self.bmc.compat()
     }
 
     /// Restrict usage of expand.
@@ -242,7 +232,7 @@ impl<B: Bmc> ServiceRoot<B> {
             let collection = collection
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(Error::Bmc)?;
+                .map_err(Error::from)?;
             Ok(Some(
                 collection
                     .members

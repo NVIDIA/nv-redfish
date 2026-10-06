@@ -24,8 +24,6 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use crate::core::NavProperty;
-use crate::patch_support::Payload;
-use crate::patch_support::ReadPatchFn;
 use crate::schema::update_service::UpdateService as UpdateServiceSchema;
 use crate::schema::update_service::UpdateServiceSimpleUpdateAction;
 use crate::schema::ActionAnnotations;
@@ -68,7 +66,6 @@ pub use software_inventory::VersionRef;
 pub struct UpdateService<B: Bmc> {
     bmc: NvBmc<B>,
     data: Arc<UpdateServiceSchema>,
-    fw_inventory_read_patch_fn: Option<ReadPatchFn>,
 }
 
 impl<B: Bmc> UpdateService<B> {
@@ -77,25 +74,14 @@ impl<B: Bmc> UpdateService<B> {
         bmc: &NvBmc<B>,
         root: &ServiceRoot<B>,
     ) -> Result<Option<Self>, Error<B>> {
-        let service_patch_fn = bmc.quirks.read_patch("UpdateService");
-        let fw_inventory_read_patch_fn = bmc.quirks.read_patch("SoftwareInventory");
-
         if let Some(nav) = &root.root.update_service {
-            if let Some(service_patch_fn) = service_patch_fn {
-                Payload::get(bmc.as_ref(), nav, service_patch_fn.as_ref()).await
-            } else {
-                nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
-            }
-            .map(Some)
+            nav.get(bmc.as_ref()).await.map_err(Error::from).map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {
-            let nav =
-                NavProperty::new_reference(format!("{}/UpdateService", root.odata_id()).into());
-            if let Some(service_patch_fn) = service_patch_fn {
-                Payload::get(bmc.as_ref(), &nav, service_patch_fn.as_ref()).await
-            } else {
-                nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
-            }
-            .map(Some)
+            NavProperty::new_reference(format!("{}/UpdateService", root.odata_id()).into())
+                .get(bmc.as_ref())
+                .await
+                .map_err(Error::from)
+                .map(Some)
         } else {
             Ok(None)
         }
@@ -103,7 +89,6 @@ impl<B: Bmc> UpdateService<B> {
             d.map(|data| Self {
                 bmc: bmc.clone(),
                 data,
-                fw_inventory_read_patch_fn,
             })
         })
     }
@@ -128,15 +113,11 @@ impl<B: Bmc> UpdateService<B> {
         &self,
     ) -> Result<Option<Vec<SoftwareInventory<B>>>, Error<B>> {
         if let Some(collection_ref) = &self.data.firmware_inventory {
-            SoftwareInventoryCollection::new(
-                &self.bmc,
-                collection_ref,
-                self.fw_inventory_read_patch_fn.clone(),
-            )
-            .await?
-            .members()
-            .await
-            .map(Some)
+            SoftwareInventoryCollection::new(&self.bmc, collection_ref)
+                .await?
+                .members()
+                .await
+                .map(Some)
         } else {
             Ok(None)
         }
@@ -156,7 +137,7 @@ impl<B: Bmc> UpdateService<B> {
             let collection = self.bmc.expand_property(collection_ref).await?;
             let mut items = Vec::new();
             for item_ref in &collection.members {
-                items.push(SoftwareInventory::new(&self.bmc, item_ref, None).await?);
+                items.push(SoftwareInventory::new(&self.bmc, item_ref).await?);
             }
             Ok(Some(items))
         } else {
@@ -227,7 +208,7 @@ impl<B: Bmc> UpdateService<B> {
                 },
             )
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Start updates that have been previously invoked with an `OperationApplyTime` of
@@ -251,7 +232,7 @@ impl<B: Bmc> UpdateService<B> {
         actions
             .start_update(self.bmc.as_ref())
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Update this service with deprecated generated `UpdateServiceUpdate` fields.
@@ -275,14 +256,13 @@ impl<B: Bmc> UpdateService<B> {
                 update,
             )
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move {
-                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::from)?;
 
                 Ok(Self {
                     bmc: self.bmc.clone(),
                     data,
-                    fw_inventory_read_patch_fn: self.fw_inventory_read_patch_fn.clone(),
                 })
             })
             .await
@@ -337,7 +317,7 @@ impl<B: Bmc> UpdateService<B> {
             .as_ref()
             .http_push_uri_update(http_push_uri, request)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Upload a named stream using this service's `MultipartHttpPushUri`.
@@ -394,7 +374,7 @@ impl<B: Bmc> UpdateService<B> {
             .as_ref()
             .multipart_update(multipart_uri, request)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 }
 

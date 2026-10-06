@@ -96,7 +96,7 @@ pub use nv_redfish_core::MultipartUpdateRequest;
 /// implements this [`HttpClient`] trait.
 pub trait HttpClient: Send + Sync {
     /// HTTP client error.
-    type Error: Send + StdError;
+    type Error: Send + StdError + 'static;
 
     /// Perform an HTTP GET request with optional conditional headers.
     fn get<T>(

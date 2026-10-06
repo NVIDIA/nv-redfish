@@ -23,8 +23,6 @@ use crate::hardware_id::Manufacturer as HardwareIdManufacturer;
 use crate::hardware_id::Model as HardwareIdModel;
 use crate::hardware_id::PartNumber as HardwareIdPartNumber;
 use crate::hardware_id::SerialNumber as HardwareIdSerialNumber;
-use crate::patch_support::Payload;
-use crate::patch_support::ReadPatchFn;
 use crate::resource::PowerState;
 use crate::resource::ResetType;
 use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
@@ -118,17 +116,14 @@ impl<B: Bmc> ComputerSystem<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<ComputerSystemSchema>,
-        read_patch_fn: Option<&ReadPatchFn>,
     ) -> Result<Self, Error<B>> {
-        if let Some(read_patch_fn) = read_patch_fn {
-            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
-        } else {
-            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
-        }
-        .map(|data| Self {
-            bmc: bmc.clone(),
-            data,
-        })
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::from)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for this computer system.
@@ -214,7 +209,7 @@ impl<B: Bmc> ComputerSystem<B> {
         actions
             .reset(self.bmc.as_ref(), reset_type)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// An array of `BootOptionReference` strings that represent the persistent boot order for with this
@@ -264,9 +259,9 @@ impl<B: Bmc> ComputerSystem<B> {
             .as_ref()
             .update::<_, NavProperty<ComputerSystemSchema>>(update_odata, None, &update)
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move {
-                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
+                let data = nav.get(self.bmc.as_ref()).await.map_err(Error::from)?;
 
                 Ok(Self {
                     bmc: self.bmc.clone(),
@@ -388,7 +383,7 @@ impl<B: Bmc> ComputerSystem<B> {
             let log_services_collection = log_services_ref
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(Error::Bmc)?;
+                .map_err(Error::from)?;
 
             let mut log_services = Vec::new();
             for m in &log_services_collection.members {

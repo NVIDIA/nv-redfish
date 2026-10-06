@@ -80,7 +80,7 @@ use crate::UploadReader;
 /// the Redfish protocol.
 pub trait Bmc: Send + Sync {
     /// BMC Error.
-    type Error: StdError + Send + Sync;
+    type Error: StdError + Send + Sync + 'static;
 
     /// Expand any expandable object (navigation property or entity).
     ///

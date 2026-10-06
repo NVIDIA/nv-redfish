@@ -56,7 +56,7 @@ impl<B: Bmc> BootOptionCollection<B> {
         bmc: &NvBmc<B>,
         nav: &NavProperty<BootOptionCollectionSchema>,
     ) -> Result<Self, Error<B>> {
-        let collection = Self::expand_collection(bmc, nav, None, None).await?;
+        let collection = Self::expand_collection(bmc, nav, None).await?;
         Ok(Self {
             bmc: bmc.clone(),
             collection,
@@ -115,7 +115,7 @@ impl<B: Bmc> BootOption<B> {
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
-            .map_err(crate::Error::Bmc)
+            .map_err(crate::Error::from)
             .map(|data| Self {
                 data,
                 _marker: PhantomData,

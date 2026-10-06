@@ -61,7 +61,7 @@ impl<B: Bmc> Manager<B> {
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
             .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
@@ -121,7 +121,7 @@ impl<B: Bmc> Manager<B> {
         actions
             .reset(self.bmc.as_ref(), reset_type)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Reset this manager's settings to defaults.
@@ -150,7 +150,7 @@ impl<B: Bmc> Manager<B> {
         actions
             .reset_to_defaults(self.bmc.as_ref(), reset_type)
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
     }
 
     /// Get ethernet interfaces for this manager.
@@ -204,7 +204,7 @@ impl<B: Bmc> Manager<B> {
             let log_services_collection = log_services_ref
                 .get(self.bmc.as_ref())
                 .await
-                .map_err(crate::Error::Bmc)?;
+                .map_err(crate::Error::from)?;
 
             let mut log_services = Vec::new();
             for m in &log_services_collection.members {

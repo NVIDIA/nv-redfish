@@ -140,8 +140,19 @@ pub fn append_default_account_type(v: Value) -> Value {
     }
 }
 
+/// Unused `NTPServers` slots reported as `null`, which the schema's
+/// `Collection(Edm.String)` does not admit, become empty strings.
+pub fn replace_null_ntp_servers(mut v: Value) -> Value {
+    if let Some(Value::Array(servers)) = v.pointer_mut("/NTP/NTPServers") {
+        for server in servers.iter_mut().filter(|server| server.is_null()) {
+            *server = Value::String(String::new());
+        }
+    }
+    v
+}
+
 #[cfg(test)]
-mod vera_rubin_boot_order_tests {
+mod tests {
     use serde_json::json;
 
     use super::*;
@@ -179,6 +190,17 @@ mod vera_rubin_boot_order_tests {
                     "BootOrder": ["Boot0019", "Boot0010"]
                 }
             })
+        );
+    }
+
+    #[test]
+    fn replace_null_ntp_servers_fills_unused_slots() {
+        let patched = replace_null_ntp_servers(json!({
+            "NTP": { "NTPServers": ["pool.ntp.org", null, null] }
+        }));
+        assert_eq!(
+            patched,
+            json!({ "NTP": { "NTPServers": ["pool.ntp.org", "", ""] } })
         );
     }
 }

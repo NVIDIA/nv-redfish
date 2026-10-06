@@ -42,7 +42,7 @@ impl<B: Bmc> Session<B> {
     ) -> Result<Self, Error<B>> {
         nav.get(bmc.as_ref())
             .await
-            .map_err(Error::Bmc)
+            .map_err(Error::from)
             .map(|data| Self {
                 bmc: bmc.clone(),
                 data,
@@ -105,7 +105,7 @@ impl<B: Bmc> Session<B> {
                     .unwrap_or_else(|| self.data.odata_id()),
             )
             .await
-            .map_err(Error::Bmc)?
+            .map_err(Error::from)?
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
     }

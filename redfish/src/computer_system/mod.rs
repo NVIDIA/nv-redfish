@@ -42,7 +42,6 @@ pub mod storage;
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::FilterFn;
 use crate::patch_support::JsonValue;
-use crate::patch_support::ReadPatchFn;
 use crate::resource::Resource as _;
 use crate::schema::computer_system::ComputerSystem as ComputerSystemSchema;
 use crate::schema::computer_system_collection::ComputerSystemCollection as ComputerSystemCollectionSchema;
@@ -100,7 +99,6 @@ pub use storage::{Storage, Volume, VolumeCollection};
 pub struct SystemCollection<B: Bmc> {
     bmc: NvBmc<B>,
     collection: Arc<ComputerSystemCollectionSchema>,
-    read_patch_fn: Option<ReadPatchFn>,
 }
 
 impl<B: Bmc> SystemCollection<B> {
@@ -117,19 +115,13 @@ impl<B: Bmc> SystemCollection<B> {
                     .is_some_and(identity)
             }));
         }
-        let read_patch_fn = bmc.quirks.read_patch("ComputerSystem");
         let filters_fn = (!filters.is_empty())
             .then(move || Arc::new(move |v: &JsonValue| filters.iter().any(|f| f(v))) as FilterFn);
 
         if let Some(collection_ref) = &root.root.systems {
-            Self::expand_collection(
-                bmc,
-                collection_ref,
-                read_patch_fn.as_ref(),
-                filters_fn.as_ref(),
-            )
-            .await
-            .map(Some)
+            Self::expand_collection(bmc, collection_ref, filters_fn.as_ref())
+                .await
+                .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {
             bmc.expand_property(&NavProperty::new_reference(
                 format!("{}/Systems", root.odata_id()).into(),
@@ -143,7 +135,6 @@ impl<B: Bmc> SystemCollection<B> {
             c.map(|collection| Self {
                 bmc: bmc.clone(),
                 collection,
-                read_patch_fn,
             })
         })
     }
@@ -156,7 +147,7 @@ impl<B: Bmc> SystemCollection<B> {
     pub async fn members(&self) -> Result<Vec<ComputerSystem<B>>, Error<B>> {
         let mut members = Vec::new();
         for m in &self.collection.members {
-            members.push(ComputerSystem::new(&self.bmc, m, self.read_patch_fn.as_ref()).await?);
+            members.push(ComputerSystem::new(&self.bmc, m).await?);
         }
         Ok(members)
     }

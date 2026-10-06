@@ -34,7 +34,6 @@ mod collection;
 /// Account inside account service.
 mod item;
 
-use crate::patch_support::ReadPatchFn;
 use crate::schema::account_service::AccountService as SchemaAccountService;
 use crate::Error;
 use crate::NvBmc;
@@ -88,18 +87,16 @@ impl AccountServiceConfig {
         }
     }
 
-    fn collection_config(&self, read_patch_fn: Option<ReadPatchFn>) -> collection::Config {
+    fn collection_config(&self) -> collection::Config {
         match &self.behavior {
             AccountServiceBehavior::Standard => collection::Config {
                 account: AccountConfig {
-                    read_patch_fn,
                     deletion_strategy: DeletionStrategy::DeleteResource,
                 },
                 fixed_slots: None,
             },
             AccountServiceBehavior::FixedSlots(slots) => collection::Config {
                 account: AccountConfig {
-                    read_patch_fn,
                     deletion_strategy: DeletionStrategy::DisableSlot,
                 },
                 fixed_slots: Some(FixedSlotConfig {
@@ -113,7 +110,6 @@ impl AccountServiceConfig {
 /// Account service. Provides the ability to manage accounts via Redfish.
 pub struct AccountService<B: Bmc> {
     config: AccountServiceConfig,
-    account_read_patch_fn: Option<ReadPatchFn>,
     service: Arc<SchemaAccountService>,
     bmc: NvBmc<B>,
 }
@@ -129,12 +125,9 @@ impl<B: Bmc> AccountService<B> {
         let Some(service_nav) = root.root.account_service.as_ref() else {
             return Ok(None);
         };
-        let service = service_nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?;
-
-        let account_read_patch_fn = bmc.quirks.read_patch("ManagerAccount");
+        let service = service_nav.get(bmc.as_ref()).await.map_err(Error::from)?;
         Ok(Some(Self {
             config,
-            account_read_patch_fn,
             service,
             bmc: bmc.clone(),
         }))
@@ -161,9 +154,7 @@ impl<B: Bmc> AccountService<B> {
     /// Returns an error if expanding the collection fails.
     pub async fn accounts(&self) -> Result<Option<AccountCollection<B>>, Error<B>> {
         if let Some(collection_ref) = self.service.accounts.as_ref() {
-            let config = self
-                .config
-                .collection_config(self.account_read_patch_fn.clone());
+            let config = self.config.collection_config();
             AccountCollection::new(self.bmc.clone(), collection_ref, config)
                 .await
                 .map(Some)

@@ -13,15 +13,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! The repair table: the document quirks as rewrites, in one place, so the
-//! wrappers and [`CompatBmc`](crate::CompatBmc) apply the same repairs to
-//! the same resource type.
+//! The repair table: the document quirks as rewrites, in one place, applied
+//! by [`CompatBmc`](crate::CompatBmc) to every document it reads.
 //!
 //! A rule names the resource type it applies to — the family of the
 //! document's `@odata.type`, `SoftwareInventory` for
 //! `#SoftwareInventory.v1_4_0.SoftwareInventory` — the quirk that enables
 //! it on the classified platform, and the rewrite. The rules for one type
-//! apply in table order. A wrapper asks for its type by name; the
+//! apply in table order, and the caller's [`UserRule`]s after them. The
 //! compatibility layer reads the type off each document it fetches.
 //!
 //! A rule is scoped by document type, not by the route the document was
@@ -29,13 +28,12 @@
 //! inventory member and a software inventory member alike.
 
 use std::mem;
-use std::sync::Arc;
 
 use serde_json::Value;
 
 use crate::fixes;
 use crate::BmcQuirks;
-use crate::ReadPatchFn;
+use crate::UserRule;
 
 /// One document repair.
 struct Rule {
@@ -93,6 +91,11 @@ const RULES: &[Rule] = &[
         fix: fixes::normalize_vera_rubin_composite_boot_order,
     },
     Rule {
+        resource_type: "ManagerNetworkProtocol",
+        enabled: BmcQuirks::bug_null_ntp_servers,
+        fix: fixes::replace_null_ntp_servers,
+    },
+    Rule {
         resource_type: "ManagerAccount",
         enabled: BmcQuirks::bug_no_account_type_in_accounts,
         fix: fixes::append_default_account_type,
@@ -108,18 +111,6 @@ fn enabled_for<'a>(
         .filter(move |rule| rule.resource_type == resource_type && (rule.enabled)(quirks))
 }
 
-/// The repairs `quirks` enables on a `resource_type` document, composed in
-/// table order; `None` when it enables none, so a caller can keep its
-/// unpatched read path.
-pub fn compose(quirks: &BmcQuirks, resource_type: &str) -> Option<ReadPatchFn> {
-    let fixes: Vec<fn(Value) -> Value> = enabled_for(quirks, resource_type)
-        .map(|rule| rule.fix)
-        .collect();
-    (!fixes.is_empty()).then(|| {
-        Arc::new(move |value| fixes.iter().fold(value, |value, fix| fix(value))) as ReadPatchFn
-    })
-}
-
 /// The resource type family a document's `@odata.type` names:
 /// `#SoftwareInventory.v1_4_0.SoftwareInventory` is `SoftwareInventory`.
 fn resource_type_of(value: &Value) -> Option<&str> {
@@ -132,35 +123,48 @@ fn resource_type_of(value: &Value) -> Option<&str> {
     (!family.is_empty()).then_some(family)
 }
 
-/// Whether `quirks` enables any document repair at all: a platform that
-/// needs none can be read without copying a document to walk it.
-pub fn any_enabled(quirks: &BmcQuirks) -> bool {
-    RULES.iter().any(|rule| (rule.enabled)(quirks))
+/// The document's `@odata.id`, unless the object is a bare reference: a
+/// link names a document, it is not one.
+fn document_id_of(value: &Value) -> Option<&str> {
+    let object = value.as_object()?;
+    let id = object.get("@odata.id")?.as_str()?;
+    (object.len() > 1).then_some(id)
 }
 
-/// Applies the enabled repairs to every object in `value` that carries an
-/// `@odata.type`, the object before its children, so a member a device
-/// expanded inline is repaired at any depth. An object no rule applies to
-/// is left where it is, untouched.
-pub fn repair_in_place(quirks: &BmcQuirks, value: &mut Value) {
+/// Applies the platform's enabled repairs, then `user`'s, to every object
+/// in `value` that is a document, the object before its children, so a
+/// member a device expanded inline is repaired at any depth. An object no
+/// rule applies to is left where it is, untouched.
+pub fn repair_in_place(quirks: &BmcQuirks, user: &[UserRule], value: &mut Value) {
     match value {
         Value::Object(_) => {
-            if let Some(resource_type) = resource_type_of(value).map(str::to_owned) {
-                let mut rules = enabled_for(quirks, &resource_type).peekable();
-                if rules.peek().is_some() {
-                    let taken = mem::take(value);
-                    *value = rules.fold(taken, |value, rule| (rule.fix)(value));
-                }
+            let resource_type = resource_type_of(value).map(str::to_owned);
+            let odata_id = document_id_of(value).map(str::to_owned);
+            let resource_type = resource_type.as_deref();
+            let odata_id = odata_id.as_deref();
+            let platform = resource_type
+                .into_iter()
+                .flat_map(|resource_type| enabled_for(quirks, resource_type))
+                .map(|rule| rule.fix);
+            let mut applying = user
+                .iter()
+                .filter(|rule| rule.applies(resource_type, odata_id))
+                .peekable();
+            let mut platform = platform.peekable();
+            if platform.peek().is_some() || applying.peek().is_some() {
+                let taken = mem::take(value);
+                let taken = platform.fold(taken, |value, fix| fix(value));
+                *value = applying.fold(taken, |value, rule| rule.apply(value));
             }
             if let Value::Object(members) = value {
                 for child in members.values_mut() {
-                    repair_in_place(quirks, child);
+                    repair_in_place(quirks, user, child);
                 }
             }
         }
         Value::Array(items) => {
             for item in items {
-                repair_in_place(quirks, item);
+                repair_in_place(quirks, user, item);
             }
         }
         _ => {}
@@ -172,14 +176,16 @@ mod tests {
     use serde_json::json;
 
     use super::*;
+    use crate::IdPattern;
+    use crate::Match;
     use crate::RootEvidence;
 
     fn quirks_of(root: &Value) -> BmcQuirks {
         BmcQuirks::classify(&RootEvidence::from_root(root))
     }
 
-    fn repaired(quirks: &BmcQuirks, mut value: Value) -> Value {
-        repair_in_place(quirks, &mut value);
+    fn repaired(quirks: &BmcQuirks, user: &[UserRule], mut value: Value) -> Value {
+        repair_in_place(quirks, user, &mut value);
         value
     }
 
@@ -218,32 +224,67 @@ mod tests {
         });
 
         let dell = quirks_of(&json!({ "Vendor": "Dell" }));
-        assert!(any_enabled(&dell));
-        let mended = repaired(&dell, collection.clone());
+        let mended = repaired(&dell, &[], collection.clone());
         assert!(mended["Members"][0].get("ReleaseDate").is_none());
         assert_eq!(mended["Members"][0]["Id"], "BMC");
 
-        // Another platform's documents are left exactly as they came, and
-        // a platform no rule names needs no walk at all.
+        // Another platform's documents are left exactly as they came.
         let contoso = quirks_of(&json!({ "Vendor": "Contoso" }));
-        assert!(!any_enabled(&contoso));
-        assert_eq!(repaired(&contoso, collection.clone()), collection);
+        assert_eq!(repaired(&contoso, &[], collection.clone()), collection);
         assert_eq!(
-            repaired(&quirks_of(&json!({ "Vendor": "HPE" })), collection.clone()),
+            repaired(
+                &quirks_of(&json!({ "Vendor": "HPE" })),
+                &[],
+                collection.clone()
+            ),
             collection
         );
     }
 
     #[test]
-    fn the_repairs_for_one_type_compose_in_table_order() {
+    fn the_repairs_for_one_type_apply_in_table_order() {
         let viking = quirks_of(&json!({ "Vendor": "AMI", "RedfishVersion": "1.11.0" }));
+        let chassis = json!({ "@odata.type": "#Chassis.v1_2_0.Chassis", "Id": "1U" });
 
-        let patch = compose(&viking, "Chassis").expect("Viking chassis need repairs");
-        let patched = patch(json!({ "Id": "1U" }));
+        let patched = repaired(&viking, &[], chassis.clone());
         assert_eq!(patched["ChassisType"], "Other");
         assert_eq!(patched["Name"], "Unnamed chassis");
 
-        assert!(compose(&quirks_of(&json!({ "Vendor": "HPE" })), "Chassis").is_none());
-        assert!(compose(&viking, "ChassisCollection").is_none());
+        let hpe = quirks_of(&json!({ "Vendor": "HPE" }));
+        assert_eq!(repaired(&hpe, &[], chassis.clone()), chassis);
+    }
+
+    #[test]
+    fn user_rules_follow_the_platforms_and_skip_references() {
+        let viking = quirks_of(&json!({ "Vendor": "AMI", "RedfishVersion": "1.11.0" }));
+        let user = [
+            // Runs after the platform rule that names the chassis.
+            UserRule::new("rename", Match::Type("Chassis".into()), |mut v| {
+                v["Name"] = json!(format!("{} (renamed)", v["Name"].as_str().unwrap_or("")));
+                v
+            }),
+            UserRule::new(
+                "tag",
+                Match::Id(IdPattern::new("/redfish/v1/Chassis/*")),
+                |mut v| {
+                    v["Tagged"] = json!(true);
+                    v
+                },
+            ),
+        ];
+        let document = json!({
+            "@odata.id": "/redfish/v1/Chassis/1U",
+            "@odata.type": "#Chassis.v1_2_0.Chassis",
+            "Id": "1U",
+            "Links": { "Contains": [{ "@odata.id": "/redfish/v1/Chassis/2U" }] },
+        });
+
+        let patched = repaired(&viking, &user, document);
+        assert_eq!(patched["Name"], "Unnamed chassis (renamed)");
+        assert_eq!(patched["Tagged"], true);
+        assert_eq!(
+            patched["Links"]["Contains"][0],
+            json!({ "@odata.id": "/redfish/v1/Chassis/2U" })
+        );
     }
 }
