@@ -46,6 +46,7 @@ use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::OemMultipartPart;
+use nv_redfish_core::Repair;
 use nv_redfish_core::SessionCreateResponse;
 use nv_redfish_core::StreamEvent;
 use nv_redfish_core::UploadReader;
@@ -753,7 +754,11 @@ impl Client {
         }
     }
 
-    async fn handle_response<T>(&self, response: reqwest::Response) -> Result<T, BmcError>
+    async fn handle_response<T>(
+        &self,
+        response: reqwest::Response,
+        repair: Option<&dyn Repair>,
+    ) -> Result<T, BmcError>
     where
         T: DeserializeOwned,
     {
@@ -770,6 +775,10 @@ impl Client {
         let etag_header = etag_from_headers(&headers);
 
         let mut value: serde_json::Value = response.json().await.map_err(BmcError::ReqwestError)?;
+
+        if let Some(repair) = repair {
+            repair.repair(&mut value);
+        }
 
         if let Some(etag) = etag_header {
             inject_etag(&etag, &mut value);
@@ -1110,6 +1119,7 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
         custom_headers: &HeaderMap,
+        repair: Option<&dyn Repair>,
     ) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
@@ -1122,7 +1132,7 @@ impl HttpClient for Client {
         }
 
         let response = self.send(request.build()?).await?;
-        self.handle_response(response).await
+        self.handle_response(response, repair).await
     }
 
     async fn post<B, T>(
@@ -1619,6 +1629,7 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
+                None,
             )
             .await;
 
@@ -1661,6 +1672,7 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
+                None,
             )
             .await?;
 
@@ -1795,6 +1807,7 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
+                None,
             )
             .await?;
 
@@ -1856,6 +1869,7 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
+                None,
             )
             .await?;
 
