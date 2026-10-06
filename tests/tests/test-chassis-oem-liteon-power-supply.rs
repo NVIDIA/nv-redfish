@@ -178,6 +178,180 @@ async fn liteon_power_supply_links_empty_collection() -> Result<(), Box<dyn StdE
     Ok(())
 }
 
+#[test]
+async fn liteon_location_indicator_active_is_ignored_on_oem_fetch() -> Result<(), Box<dyn StdError>>
+{
+    for expanded in [false, true] {
+        for (indicator, _) in indicator_cases() {
+            let bmc = Arc::new(Bmc::default());
+            let ids = ids();
+            let chassis =
+                get_liteon_chassis(bmc.clone(), &ids, liteon_chassis_member(&ids, json!({})))
+                    .await?;
+            let psu_id = format!("{}/0", ids.psu_collection_id);
+            let mut payload = psu_payload(&psu_id, "0", true);
+            payload["SerialNumber"] = json!("PSU-123");
+            if let Some(indicator) = indicator {
+                payload["LocationIndicatorActive"] = indicator;
+            }
+
+            expect_power_subsystem(bmc.clone(), &ids);
+            expect_psu_members(
+                &bmc,
+                &ids,
+                vec![if expanded {
+                    payload.clone()
+                } else {
+                    json!({ ODATA_ID: &psu_id })
+                }],
+            );
+            let links = chassis.oem_liteon_power_supply_links().await?.unwrap();
+            assert_eq!(links.len(), 1);
+            assert_eq!(links[0].odata_id().to_string(), psu_id);
+            bmc.expect(Expect::get(&psu_id, payload));
+            let psu = links[0].fetch().await?;
+            assert_eq!(psu.id, "0");
+            assert_eq!(psu.name, "Power Supply 0");
+            assert_eq!(
+                psu.capacity_watts.as_ref().and_then(Option::as_deref),
+                Some("5500")
+            );
+            assert_eq!(psu.power_state, Some(true));
+            assert_eq!(
+                psu.serial_number.as_ref().and_then(Option::as_deref),
+                Some("PSU-123")
+            );
+        }
+    }
+    Ok(())
+}
+
+#[test]
+async fn liteon_location_indicator_active_is_patched_on_standard_fetch(
+) -> Result<(), Box<dyn StdError>> {
+    for expanded in [false, true] {
+        for root_vendor in [false, true] {
+            for (indicator, expected) in indicator_cases() {
+                let bmc = Arc::new(Bmc::default());
+                let ids = ids();
+                // Exercise both service-root detection and the manufacturer fallback.
+                let (member, root_fields) = if root_vendor {
+                    (
+                        chassis_member(
+                            &ids,
+                            json!({
+                                "PowerSubsystem": { ODATA_ID: &ids.power_subsystem_id }
+                            }),
+                        ),
+                        json!({ "Vendor": "LITE-ON TECHNOLOGY CORP." }),
+                    )
+                } else {
+                    (liteon_chassis_member(&ids, json!({})), json!({}))
+                };
+                let chassis = get_chassis(bmc.clone(), &ids, member, root_fields).await?;
+                let psu_id = format!("{}/0", ids.psu_collection_id);
+                let mut payload = json!({
+                    ODATA_ID: &psu_id,
+                    ODATA_TYPE: PSU_DATA_TYPE,
+                    "Id": "0",
+                    "Name": "Power Supply 0",
+                    "SerialNumber": "PSU-123"
+                });
+                if let Some(indicator) = indicator {
+                    payload["LocationIndicatorActive"] = indicator;
+                }
+                expect_power_subsystem(bmc.clone(), &ids);
+                expect_psu_members(
+                    &bmc,
+                    &ids,
+                    vec![if expanded {
+                        payload.clone()
+                    } else {
+                        json!({ ODATA_ID: &psu_id })
+                    }],
+                );
+                if !expanded {
+                    bmc.expect(Expect::get(&psu_id, payload));
+                }
+                let supplies = chassis.power_supplies().await?;
+                assert_eq!(supplies.len(), 1);
+                let psu = supplies[0].raw();
+                assert_eq!(psu.location_indicator_active, expected);
+                assert_eq!(
+                    psu.serial_number.as_ref().and_then(Option::as_deref),
+                    Some("PSU-123")
+                );
+            }
+        }
+    }
+    Ok(())
+}
+
+#[test]
+async fn location_indicator_active_object_is_rejected_on_other_platforms(
+) -> Result<(), Box<dyn StdError>> {
+    for expanded in [false, true] {
+        let bmc = Arc::new(Bmc::default());
+        let ids = ids();
+        let chassis = get_liteon_chassis(
+            bmc.clone(),
+            &ids,
+            chassis_member(
+                &ids,
+                json!({
+                    "Manufacturer": "ACME Corp.",
+                    "PowerSubsystem": { ODATA_ID: &ids.power_subsystem_id }
+                }),
+            ),
+        )
+        .await?;
+        let psu_id = format!("{}/0", ids.psu_collection_id);
+        let payload = json!({
+            ODATA_ID: &psu_id,
+            ODATA_TYPE: PSU_DATA_TYPE,
+            "Id": "0",
+            "Name": "Power Supply 0",
+            "LocationIndicatorActive": { "FaultLed": "OFF", "PowerLed": "Solid" }
+        });
+        expect_power_subsystem(bmc.clone(), &ids);
+        expect_psu_members(
+            &bmc,
+            &ids,
+            vec![if expanded {
+                payload.clone()
+            } else {
+                json!({ ODATA_ID: &psu_id })
+            }],
+        );
+        if !expanded {
+            bmc.expect(Expect::get(&psu_id, payload));
+        }
+        let err = match chassis.power_supplies().await {
+            Ok(_) => panic!("invalid indicator must be rejected on other platforms"),
+            Err(err) => err.to_string(),
+        };
+        assert!(
+            err.contains("expected a boolean"),
+            "unexpected error: {}",
+            err
+        );
+    }
+    Ok(())
+}
+
+fn indicator_cases() -> Vec<(Option<Value>, Option<Option<bool>>)> {
+    vec![
+        (
+            Some(json!({ "FaultLed": "OFF", "PowerLed": "Solid" })),
+            None,
+        ),
+        (Some(json!(true)), Some(Some(true))),
+        (Some(json!(false)), Some(Some(false))),
+        (Some(Value::Null), Some(None)),
+        (None, None),
+    ]
+}
+
 // --- Helpers ---
 
 struct Ids {
@@ -249,7 +423,16 @@ async fn get_liteon_chassis(
     ids: &Ids,
     member: Value,
 ) -> Result<Chassis<Bmc>, Box<dyn StdError>> {
-    let service_root = expect_service_root(bmc.clone(), ids).await?;
+    get_chassis(bmc, ids, member, json!({})).await
+}
+
+async fn get_chassis(
+    bmc: Arc<Bmc>,
+    ids: &Ids,
+    member: Value,
+    root_fields: Value,
+) -> Result<Chassis<Bmc>, Box<dyn StdError>> {
+    let service_root = expect_service_root(bmc.clone(), ids, root_fields).await?;
     bmc.expect(Expect::get(
         &ids.chassis_collection_id,
         json!({
@@ -272,14 +455,18 @@ async fn get_liteon_chassis(
 async fn expect_service_root(
     bmc: Arc<Bmc>,
     ids: &Ids,
+    fields: Value,
 ) -> Result<ServiceRoot<Bmc>, Box<dyn StdError>> {
     bmc.expect(Expect::get(
         &ids.root_id,
         anonymous_1_9_service_root(
             &ids.root_id,
-            json!({
-                "Chassis": { ODATA_ID: &ids.chassis_collection_id }
-            }),
+            json_merge([
+                &json!({
+                    "Chassis": { ODATA_ID: &ids.chassis_collection_id }
+                }),
+                &fields,
+            ]),
         ),
     ));
     ServiceRoot::new(bmc).await.map_err(Into::into)
@@ -300,6 +487,10 @@ fn expect_power_subsystem(bmc: Arc<Bmc>, ids: &Ids) {
 
 fn expect_psu_collection(bmc: Arc<Bmc>, ids: &Ids, psu_ids: Vec<String>) {
     let members: Vec<Value> = psu_ids.iter().map(|id| json!({ ODATA_ID: id })).collect();
+    expect_psu_members(&bmc, ids, members);
+}
+
+fn expect_psu_members(bmc: &Bmc, ids: &Ids, members: Vec<Value>) {
     bmc.expect(Expect::get(
         &ids.psu_collection_id,
         json!({

@@ -33,6 +33,8 @@ use nv_redfish_core::NavProperty;
 use std::future::Future;
 use std::sync::Arc;
 
+#[cfg(feature = "power-supplies")]
+use super::power_supply::remove_invalid_power_supply_location_indicator_active;
 #[cfg(feature = "assembly")]
 use crate::assembly::Assembly;
 #[cfg(feature = "network-adapters")]
@@ -59,6 +61,8 @@ use crate::oem::liteon;
 use crate::oem::nvidia::NvidiaCbcChassis;
 #[cfg(feature = "oem-nvidia")]
 use crate::oem::nvidia::NvidiaChassisActions;
+#[cfg(feature = "power-supplies")]
+use crate::patch_support::CollectionWithPatch as _;
 #[cfg(feature = "pcie-devices")]
 use crate::pcie_device::PcieDeviceCollection;
 #[cfg(feature = "sensors")]
@@ -236,10 +240,29 @@ impl<B: Bmc> Chassis<B> {
         if let Some(ps) = &self.data.power_subsystem {
             let ps = ps.get(self.bmc.as_ref()).await.map_err(Error::Bmc)?;
             if let Some(supplies) = &ps.power_supplies {
-                let supplies = &self.bmc.expand_property(supplies).await?.members;
+                let read_patch_fn = self
+                    .bmc
+                    .quirks
+                    .bug_power_supply_location_indicator_active(
+                        self.data.manufacturer.as_ref().and_then(Option::as_deref),
+                    )
+                    .then(|| {
+                        Arc::new(remove_invalid_power_supply_location_indicator_active)
+                            as ReadPatchFn
+                    });
+                let supplies = &PowerSupply::<B>::expand_collection(
+                    &self.bmc,
+                    supplies,
+                    read_patch_fn.as_ref(),
+                    None,
+                )
+                .await?
+                .members;
                 let mut power_supplies = Vec::with_capacity(supplies.len());
                 for power_supply in supplies {
-                    power_supplies.push(PowerSupply::new(&self.bmc, power_supply).await?);
+                    power_supplies.push(
+                        PowerSupply::new(&self.bmc, power_supply, read_patch_fn.as_ref()).await?,
+                    );
                 }
                 return Ok(power_supplies);
             }

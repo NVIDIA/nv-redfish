@@ -291,6 +291,20 @@ impl BmcQuirks {
             })
     }
 
+    /// Lite-On PMC 2.3.3+ reports an LED-state object instead of a boolean
+    /// in PowerSupply.LocationIndicatorActive. Some shelves omit Vendor in
+    /// the service root, so also check the chassis manufacturer.
+    #[cfg(feature = "power-supplies")]
+    pub(crate) fn bug_power_supply_location_indicator_active(
+        &self,
+        chassis_manufacturer: Option<&str>,
+    ) -> bool {
+        self.platform == Some(Platform::LiteonPowershelf)
+            || chassis_manufacturer.is_some_and(|manufacturer| {
+                manufacturer.eq_ignore_ascii_case("LITE-ON TECHNOLOGY CORP.")
+            })
+    }
+
     /// In some cases we expand is not working according to spec,
     /// if it is the case for specific chassis, we would disable
     /// expand api.

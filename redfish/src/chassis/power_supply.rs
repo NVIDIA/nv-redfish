@@ -13,9 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use crate::patch_support::{CollectionWithPatch, JsonValue, Payload, ReadPatchFn};
 use crate::resource::ResetType;
 use crate::schema::power_supply::PowerSupply as PowerSupplySchema;
+use crate::schema::power_supply_collection::PowerSupplyCollection as PowerSupplyCollectionSchema;
 use crate::schema::power_supply_metrics::PowerSupplyMetrics;
+use crate::schema::resource::ResourceCollection;
 use crate::Error;
 use crate::NvBmc;
 use nv_redfish_core::Bmc;
@@ -45,14 +48,17 @@ impl<B: Bmc> PowerSupply<B> {
     pub(crate) async fn new(
         bmc: &NvBmc<B>,
         nav: &NavProperty<PowerSupplySchema>,
+        read_patch_fn: Option<&ReadPatchFn>,
     ) -> Result<Self, Error<B>> {
-        nav.get(bmc.as_ref())
-            .await
-            .map_err(Error::Bmc)
-            .map(|data| Self {
-                bmc: bmc.clone(),
-                data,
-            })
+        if let Some(read_patch_fn) = read_patch_fn {
+            Payload::get(bmc.as_ref(), nav, read_patch_fn.as_ref()).await
+        } else {
+            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)
+        }
+        .map(|data| Self {
+            bmc: bmc.clone(),
+            data,
+        })
     }
 
     /// Get the raw schema data for this power supply.
@@ -172,5 +178,38 @@ impl<B: Bmc> PowerSupply<B> {
             .map(DeltaPowerSupply::new)
             .transpose()
             .map(|v| v.and_then(identity))
+    }
+}
+
+/// Remove Lite-On's invalid LED object while preserving schema-valid values.
+pub(super) fn remove_invalid_power_supply_location_indicator_active(mut v: JsonValue) -> JsonValue {
+    if let JsonValue::Object(ref mut obj) = v {
+        if obj
+            .get("LocationIndicatorActive")
+            .is_some_and(JsonValue::is_object)
+        {
+            obj.remove("LocationIndicatorActive");
+        }
+    }
+    v
+}
+
+impl<B: Bmc> CollectionWithPatch<PowerSupplyCollectionSchema, PowerSupplySchema, B>
+    for PowerSupply<B>
+{
+    fn convert_patched(
+        base: ResourceCollection,
+        members: Vec<NavProperty<PowerSupplySchema>>,
+    ) -> PowerSupplyCollectionSchema {
+        PowerSupplyCollectionSchema {
+            odata_id: base.odata_id,
+            odata_etag: base.odata_etag,
+            odata_type: base.odata_type,
+            settings_annotations: base.settings_annotations,
+            description: base.description,
+            name: base.name,
+            oem: base.oem,
+            members,
+        }
     }
 }

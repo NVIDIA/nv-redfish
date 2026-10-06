@@ -1179,14 +1179,7 @@ oem_csdl_files = [
     "LiteonPowerSupplyCollection_v1.xml",
     "LiteonPowerSupply_v1.xml",
 ]
-csdl_files = [
-    "PowerSupply_v1.xml",
-    "Circuit_v1.xml",
-    "PhysicalContext_v1.xml",
-]
-patterns = [
-    "PowerSupply.*",
-]
+csdl_files = []
 
 [[oem-features]]
 vendor = "delta"
