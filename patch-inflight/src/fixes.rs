@@ -13,9 +13,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::error::Error;
+
 pub use serde_json::Value;
 
-pub(crate) fn fix_ntp_null_elements(mut json: Value) -> Value {
+pub(crate) fn fix_ntp_null_elements(
+    mut json: Value,
+) -> Result<Value, Box<dyn Error + Send + Sync>> {
     if let Value::Object(ref mut obj) = json {
         if let Some(Value::Object(ref mut ntp)) = obj.get_mut("NTP") {
             if let Some(Value::Array(ref mut ntp_servers)) = ntp.get_mut("NTPServers") {
@@ -27,5 +31,5 @@ pub(crate) fn fix_ntp_null_elements(mut json: Value) -> Value {
             }
         }
     }
-    json
+    Ok(json)
 }

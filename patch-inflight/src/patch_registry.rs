@@ -14,17 +14,19 @@
 // limitations under the License.
 
 use std::collections::HashSet;
+use std::error::Error;
 use std::sync::Arc;
 
 pub use serde_json::Value;
 use wildmatch::WildMatch;
 
 use crate::fixes::fix_ntp_null_elements;
-use crate::InflightPatchError;
+use crate::{InflightPatchError, PatchError};
 
 ///Function to transform JSON to correct RedFish object
 ///right before NavPropery deserialization
-pub type InflightPatchFn = Arc<dyn Fn(Value) -> Value + Sync + Send>;
+pub type InflightPatchFn =
+    Arc<dyn Fn(Value) -> Result<Value, Box<dyn Error + Sync + Send>> + Sync + Send>;
 
 pub struct ODataIdMatcher(WildMatch);
 
@@ -47,8 +49,24 @@ pub struct InflightPatch {
     pub patch: InflightPatchFn,
 }
 
+///Defines how InflightPatchRegistry handle patches error
+#[derive(Default)]
+pub enum ErrorPolicy {
+    ///Return error of first failed patch
+    #[default]
+    FailFast,
+    ///Ignore failed patches, apply non-failed (no error emits)
+    SkipFailed,
+    ///Return original value if any patch fails
+    SkipAll,
+    ///Fails if at least one patch fails
+    ///error contains all failed patches
+    CollectFailed,
+}
+
 pub struct InflightPatchRegistry {
     patches: Vec<InflightPatch>,
+    error_policy: ErrorPolicy,
 }
 
 impl Default for InflightPatchRegistry {
@@ -63,15 +81,21 @@ impl Default for InflightPatchRegistry {
         };
         patches.push(fix_ntp_null);
 
-        match InflightPatchRegistry::new(patches) {
+        match InflightPatchRegistry::new(patches, ErrorPolicy::default()) {
             Ok(r) => r,
-            Err(_) => Self { patches: vec![] },
+            Err(_) => Self {
+                patches: vec![],
+                error_policy: ErrorPolicy::default(),
+            },
         }
     }
 }
 
 impl InflightPatchRegistry {
-    pub fn new(mut patches: Vec<InflightPatch>) -> Result<Self, InflightPatchError> {
+    pub fn new(
+        mut patches: Vec<InflightPatch>,
+        error_policy: ErrorPolicy,
+    ) -> Result<Self, InflightPatchError> {
         let mut names = HashSet::with_capacity(patches.len());
         for patch in &patches {
             if !names.insert(patch.name.as_str()) {
@@ -79,15 +103,63 @@ impl InflightPatchRegistry {
             }
         }
         patches.sort_by_key(|e| e.priority);
-        Ok(Self { patches })
+        Ok(Self {
+            patches,
+            error_policy,
+        })
     }
 
-    fn patch(&self, oid: &str, json: Value) -> Value {
-        self.patches
+    //TODO: Cover with test to see how ErrorPolicy work
+    fn patch(&self, oid: &str, json: Value) -> Result<Value, InflightPatchError> {
+        let matching_patches: Vec<&InflightPatch> = self
+            .patches
             .iter()
             .filter(|p| p.oid_predicate.matches(oid))
-            .map(|p| p.patch.clone())
-            .fold(json, |i, f| f(i))
+            .collect();
+
+        match self.error_policy {
+            ErrorPolicy::FailFast => matching_patches.into_iter().try_fold(json, |value, patch| {
+                (patch.patch)(value).map_err(|e| {
+                    InflightPatchError::ApplyPatchError(PatchError {
+                        patch_name: patch.name.clone(),
+                        error: e,
+                    })
+                })
+            }),
+            ErrorPolicy::SkipFailed => {
+                Ok(matching_patches.into_iter().fold(json, |value, patch| {
+                    (patch.patch)(value.clone()).unwrap_or(value)
+                }))
+            }
+            ErrorPolicy::SkipAll => {
+                let origin_json = json.clone();
+                let result = matching_patches
+                    .into_iter()
+                    .try_fold(json, |value, patch| (patch.patch)(value));
+                result.or_else(|_| Ok(origin_json))
+            }
+            ErrorPolicy::CollectFailed => {
+                let mut errors = vec![];
+                let result = matching_patches
+                    .into_iter()
+                    .fold(json, |value, patch| match (patch.patch)(value.clone()) {
+                        Ok(result_value) => result_value,
+                        Err(e) => {
+                            let error = PatchError {
+                                patch_name: patch.name.clone(),
+                                error: e,
+                            };
+                            errors.push(error);
+                            value
+                        }
+                    });
+                if errors.is_empty() {
+                    Ok(result)
+                } else {
+                    Err(InflightPatchError::ApplyPatchCollectionErrors(errors))
+                }
+            }
+        }
     }
 
     pub fn len(&self) -> usize {
@@ -98,7 +170,7 @@ impl InflightPatchRegistry {
         self.patches.is_empty()
     }
 
-    pub fn patch_inflight(&self, mut v: Value) -> Value {
+    pub fn patch_inflight(&self, mut v: Value) -> Result<Value, InflightPatchError> {
         let oid = v
             .as_object()
             .and_then(|o| o.get("@odata.id"))
@@ -106,9 +178,9 @@ impl InflightPatchRegistry {
             .map(str::to_owned);
 
         if let Some(oid) = oid {
-            v = self.patch(&oid, v);
+            v = self.patch(&oid, v)?;
         }
-        v
+        Ok(v)
     }
 }
 

@@ -21,6 +21,7 @@ use std::future::ready;
 use std::sync::Arc;
 use std::time::Duration;
 
+use crate::patch_inflight::MaybeInflightPatchRegistry;
 use crate::schema::redfish::message::Message;
 use crate::schema::redfish::redfish_error::RedfishError;
 use crate::BmcCredentials;
@@ -54,7 +55,9 @@ use nv_redfish_core::UploadReader;
 #[cfg(feature = "update-service-deprecated")]
 use nv_redfish_core::UploadStream;
 #[cfg(feature = "patch-inflight")]
-use nv_redfish_patch_inflight::{patch_registry::InflightPatchRegistry, INFLIGHT_PATCH_REGISTRY};
+use nv_redfish_patch_inflight::InflightPatchError;
+#[cfg(feature = "patch-inflight")]
+use nv_redfish_patch_inflight::INFLIGHT_PATCH_REGISTRY;
 use reqwest::multipart::Form;
 use reqwest::multipart::Part;
 use reqwest::redirect::Policy as RedirectPolicy;
@@ -108,6 +111,10 @@ pub enum BmcError {
     },
     /// The service does not advertise the requested action.
     ActionNotSupported,
+
+    #[cfg(feature = "patch-inflight")]
+    /// Handle in-flight patch errors
+    InflightPatchesErrors(InflightPatchError),
 }
 
 impl From<reqwest::Error> for BmcError {
@@ -176,6 +183,9 @@ impl fmt::Display for BmcError {
                 write!(f, "SSE stream idle for longer than {idle:?}")
             }
             Self::ActionNotSupported => write!(f, "Action is not supported by the service"),
+
+            #[cfg(feature = "patch-inflight")]
+            Self::InflightPatchesErrors(e) => write!(f, "In-flight patch error: {e}"),
         }
     }
 }
@@ -747,18 +757,6 @@ impl Client {
 }
 
 impl Client {
-    // #[cfg(feature = "patch-inflight")]
-    // fn patch_inflight(&self, mut v: serde_json::Value) -> serde_json::Value {
-    //     v = nv_redfish_patch_inflight::patch_inflight(v);
-    //     v
-    // }
-    //
-    // #[cfg(not(feature = "patch-inflight"))]
-    // #[inline]
-    // fn patch_inflight(&self, v: serde_json::Value) -> serde_json::Value {
-    //     v
-    // }
-
     /// Sends the request, retrying according to the configured [`RetryPolicy`].
     ///
     /// Transport errors are returned immediately. Requests with streaming
@@ -794,7 +792,8 @@ impl Client {
     async fn handle_response<T>(
         &self,
         response: reqwest::Response,
-        #[cfg(feature = "patch-inflight")] patch_registry: Option<Arc<InflightPatchRegistry>>,
+        #[cfg_attr(not(feature = "patch-inflight"), allow(unused_variables))]
+        patch_registry: MaybeInflightPatchRegistry,
     ) -> Result<T, BmcError>
     where
         T: DeserializeOwned,
@@ -818,13 +817,15 @@ impl Client {
 
         #[cfg(feature = "patch-inflight")]
         {
+            if let Some(ref registry) = patch_registry {
+                value = registry
+                    .patch_inflight(value)
+                    .map_err(BmcError::InflightPatchesErrors)?;
+            }
+
             INFLIGHT_PATCH_REGISTRY.with_borrow_mut(|r| {
                 r.clone_from(&patch_registry);
             });
-
-            if let Some(registry) = patch_registry {
-                value = registry.patch_inflight(value);
-            }
         }
 
         if let Some(etag) = etag_header {
@@ -1223,8 +1224,7 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
         custom_headers: &HeaderMap,
-
-        #[cfg(feature = "patch-inflight")] patch_registry: Option<Arc<InflightPatchRegistry>>,
+        patch_registry: MaybeInflightPatchRegistry,
     ) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
@@ -1238,12 +1238,7 @@ impl HttpClient for Client {
 
         let response = self.send(request.build()?).await?;
 
-        self.handle_response(
-            response,
-            #[cfg(feature = "patch-inflight")]
-            patch_registry,
-        )
-        .await
+        self.handle_response(response, patch_registry).await
     }
 
     async fn poll<T>(
@@ -1768,11 +1763,7 @@ mod tests {
         );
 
         let decode_error = client
-            .handle_response::<serde_json::Value>(
-                response,
-                #[cfg(feature = "patch-inflight")]
-                None,
-            )
+            .handle_response::<serde_json::Value>(response, None)
             .await
             .expect_err("invalid JSON must fail to decode");
 
@@ -1812,7 +1803,6 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
-                #[cfg(feature = "patch-inflight")]
                 None,
             )
             .await
@@ -1851,7 +1841,6 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
-                #[cfg(feature = "patch-inflight")]
                 None,
             )
             .await;
@@ -1895,7 +1884,6 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
-                #[cfg(feature = "patch-inflight")]
                 None,
             )
             .await?;
@@ -2031,7 +2019,6 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
-                #[cfg(feature = "patch-inflight")]
                 None,
             )
             .await?;
@@ -2094,7 +2081,6 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
-                #[cfg(feature = "patch-inflight")]
                 None,
             )
             .await?;

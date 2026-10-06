@@ -223,7 +223,9 @@ where
                         *r = patch_registry.clone();
                     });
                     if let Some(registry) = patch_registry {
-                        response = registry.patch_inflight(response)
+                        response = registry
+                            .patch_inflight(response)
+                            .map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                     }
                 }
                 let result: T = from_value(response).map_err(Error::BadResponseJson)?;
@@ -261,7 +263,9 @@ where
                         *r = patch_registry.clone();
                     });
                     if let Some(registry) = patch_registry {
-                        response = registry.patch_inflight(response)
+                        response = registry
+                            .patch_inflight(response)
+                            .map_err(|err| Error::ErrorResponse(Box::new(err)))?;
                     }
                 }
                 let result: T = from_value(response).map_err(Error::BadResponseJson)?;
