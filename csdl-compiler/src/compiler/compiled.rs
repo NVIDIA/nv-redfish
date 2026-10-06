@@ -41,6 +41,7 @@ use crate::compiler::ComplexType;
 use crate::compiler::EntityType;
 use crate::compiler::EnumType;
 use crate::compiler::MustHaveType;
+use crate::compiler::Namespace;
 use crate::compiler::QualifiedName;
 use crate::compiler::TypeDefinition;
 use crate::edmx::ActionName;
@@ -51,8 +52,8 @@ use std::collections::HashSet;
 use std::iter::once as iter_once;
 use tagged_types::TaggedType;
 
-/// Map from action name to compiled action.
-pub type ActionsMap<'a> = HashMap<&'a ActionName, Action<'a>>;
+/// Map from defining namespace and action name to compiled action.
+pub type ActionsMap<'a> = HashMap<(Namespace<'a>, &'a ActionName), Action<'a>>;
 /// All actions that belong to a type, keyed by its qualified name.
 pub type TypeActions<'a> = HashMap<QualifiedName<'a>, ActionsMap<'a>>;
 
@@ -150,9 +151,14 @@ impl<'a> Compiled<'a> {
     #[must_use]
     pub fn new_action(v: Action<'a>) -> Self {
         Self {
-            actions: vec![(v.binding, vec![(v.name, v)].into_iter().collect())]
-                .into_iter()
-                .collect(),
+            actions: vec![(
+                v.binding,
+                vec![((v.defining_namespace, v.name), v)]
+                    .into_iter()
+                    .collect(),
+            )]
+            .into_iter()
+            .collect(),
             ..Default::default()
         }
     }

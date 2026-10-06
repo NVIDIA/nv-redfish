@@ -170,32 +170,10 @@ impl BmcQuirks {
 
     /// NVIDIA DPU serves the computer system `Oem.Nvidia` object as a
     /// separate resource, inlining only a partially expanded stub, and
-    /// puts `BaseMAC` and `Mode` in it -- neither of which the NVIDIA
-    /// OEM CSDL declares. Both the extra fetch and reading the two
-    /// properties out of the raw body are restricted to this platform.
+    /// carries properties and actions described by our local CSDL
+    /// additions. The extra fetch is restricted to this platform.
     #[cfg(all(feature = "computer-systems", feature = "oem-nvidia"))]
     pub(crate) fn bug_dpu_oem_computer_system(&self) -> bool {
-        self.platform == Some(Platform::NvidiaDpu)
-    }
-
-    /// NVIDIA DPU (BlueField-4) puts `BaseMAC` in the network adapter's
-    /// `Oem.Nvidia` object, which the NVIDIA OEM CSDL does not declare.
-    /// Reading it out of the payload is restricted to this platform.
-    #[cfg(all(
-        feature = "chassis",
-        feature = "network-adapters",
-        feature = "oem-nvidia"
-    ))]
-    pub(crate) fn bug_dpu_oem_network_adapter(&self) -> bool {
-        self.platform == Some(Platform::NvidiaDpu)
-    }
-
-    /// NVIDIA DPU links a separate resource from the manager's
-    /// `Oem.Nvidia` object and keeps the BMC rshim state (`BmcRShim`) in
-    /// it, which the NVIDIA OEM CSDL does not declare. Patching that
-    /// resource is restricted to this platform.
-    #[cfg(all(feature = "managers", feature = "oem-nvidia"))]
-    pub(crate) fn bug_dpu_oem_manager(&self) -> bool {
         self.platform == Some(Platform::NvidiaDpu)
     }
 

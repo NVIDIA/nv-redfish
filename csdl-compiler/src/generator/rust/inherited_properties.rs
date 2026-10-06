@@ -67,7 +67,9 @@ impl<'a> InheritedProperties<'a> {
             next = base;
         }
         result.properties.reverse();
-        result.actions.sort_by_key(|a| a.name);
+        result
+            .actions
+            .sort_by_key(|a| (a.defining_namespace, a.name));
         result
     }
 }

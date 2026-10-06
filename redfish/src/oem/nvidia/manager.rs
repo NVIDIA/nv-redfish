@@ -26,11 +26,13 @@
 //! {"BmcRShim": {"BmcRShimEnabled": true}}
 //! ```
 //!
-//! The NVIDIA OEM CSDL does not declare `BmcRShim`, so it is patched as
-//! a platform quirk, only on the platform detected as the DPU.
+//! Local CSDL additions describe `BmcRShim` and its generated update
+//! type. Updates use the linked resource regardless of platform.
 //! BlueField-4 does not publish the resource.
 
 use crate::oem::nvidia::schema::nvidia_manager::v1_9_0::NvidiaManager as NvidiaManagerSchema;
+use crate::oem::nvidia::schema::nvidia_manager::v1_9_0::NvidiaManagerUpdate;
+use crate::oem::nvidia::schema::nvidia_manager::BmcRshimUpdate;
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_value;
 use crate::patch_support::JsonValue;
@@ -40,27 +42,13 @@ use crate::NvBmc;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
-use serde::Serialize;
 use std::sync::Arc;
-
-#[derive(Serialize)]
-struct BmcRshimUpdate {
-    #[serde(rename = "BmcRShim")]
-    bmc_rshim: BmcRshimState,
-}
-
-#[derive(Serialize)]
-struct BmcRshimState {
-    #[serde(rename = "BmcRShimEnabled")]
-    enabled: bool,
-}
 
 /// Represents a NVIDIA extension of manager in the BMC.
 pub struct NvidiaManager<B: Bmc> {
     data: Arc<NvidiaManagerSchema>,
-    /// Resource linked from `Oem.Nvidia`. `None` on every platform other
-    /// than the BlueField DPU; see the module documentation.
-    dpu_resource: Option<ODataId>,
+    /// Resource linked from `Oem.Nvidia`, when the object reports `@odata.id`.
+    oem_resource: Option<ODataId>,
     bmc: NvBmc<B>,
 }
 
@@ -73,15 +61,13 @@ impl<B: Bmc> NvidiaManager<B> {
             return Ok(None);
         };
         let data = serde_json::from_value(nvidia.clone()).map_err(Error::Json)?;
-        let dpu_resource = bmc
-            .quirks
-            .bug_dpu_oem_manager()
-            .then(|| nvidia.get("@odata.id").and_then(JsonValue::as_str))
-            .flatten()
+        let oem_resource = nvidia
+            .get("@odata.id")
+            .and_then(JsonValue::as_str)
             .map(|id| ODataId::from(id.to_owned()));
         Ok(Some(Self {
             data: Arc::new(data),
-            dpu_resource,
+            oem_resource,
             bmc: bmc.clone(),
         }))
     }
@@ -102,20 +88,23 @@ impl<B: Bmc> NvidiaManager<B> {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::ActionNotAvailable`] on any platform other than
-    /// the BlueField DPU or when the DPU links no such resource, or an
-    /// error if the update fails.
+    /// Returns [`Error::ActionNotAvailable`] when the OEM object links no
+    /// resource, or an error if the update fails.
     pub async fn set_bmc_rshim_enabled(
         &self,
         enabled: bool,
     ) -> Result<ModificationResponse<()>, Error<B>> {
         let id = self
-            .dpu_resource
+            .oem_resource
             .as_ref()
             .ok_or(Error::ActionNotAvailable)?;
-        let update = BmcRshimUpdate {
-            bmc_rshim: BmcRshimState { enabled },
-        };
+        let update = NvidiaManagerUpdate::builder()
+            .with_bmc_rshim(
+                BmcRshimUpdate::builder()
+                    .with_bmc_rshim_enabled(enabled)
+                    .build(),
+            )
+            .build();
         self.bmc
             .as_ref()
             .update::<_, JsonValue>(id, None, &update)
