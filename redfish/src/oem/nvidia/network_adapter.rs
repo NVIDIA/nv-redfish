@@ -28,15 +28,13 @@
 //! advertises a settings object for the adapter, so call it on the handle
 //! returned by [`NetworkAdapter::settings`](crate::chassis::NetworkAdapter::settings).
 //!
-//! The BlueField-4 adapter object also carries `BaseMAC`, which the CSDL
-//! does not declare; it is read from the payload only on the platform
-//! detected as the DPU.
+//! Local CSDL additions describe the BlueField-4 `BaseMAC` property,
+//! which is exposed whenever the resource reports it.
 
 use crate::oem::nvidia::schema::nvidia_host_privilege_config::NvidiaHostPrivilegeConfig as NvidiaHostPrivilegeConfigSchema;
 use crate::oem::nvidia::schema::nvidia_network_adapter::NvidiaNetworkAdapter as NvidiaNetworkAdapterSchema;
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_object;
-use crate::oem::oem_value;
 use crate::schema::network_adapter::NetworkAdapter as NetworkAdapterSchema;
 use crate::schema::network_adapter::NetworkAdapterUpdate;
 use crate::schema::resource::OemUpdate;
@@ -99,7 +97,6 @@ impl NvidiaNetworkAdapterUpdateExt for NetworkAdapterUpdate {
 /// NVIDIA OEM extension of a network adapter.
 pub struct NvidiaNetworkAdapter<B: Bmc> {
     bmc: NvBmc<B>,
-    adapter: Arc<NetworkAdapterSchema>,
     data: Arc<NvidiaNetworkAdapterSchema>,
 }
 
@@ -116,7 +113,6 @@ impl<B: Bmc> NvidiaNetworkAdapter<B> {
         };
         Ok(oem_object(oem, OEM_KEY)?.map(|data| Self {
             bmc: bmc.clone(),
-            adapter: adapter.clone(),
             data,
         }))
     }
@@ -135,17 +131,11 @@ impl<B: Bmc> NvidiaNetworkAdapter<B> {
 
     /// Base MAC address of the DPU.
     ///
-    /// Quirk: undeclared by the schema, read from the payload. `None` on
-    /// any platform other than the BlueField DPU.
+    /// Described by local BlueField schema additions. Returns `None`
+    /// when the resource does not report a base MAC address.
     #[must_use]
     pub fn base_mac(&self) -> Option<BaseMac<&str>> {
-        if !self.bmc.quirks.bug_dpu_oem_network_adapter() {
-            return None;
-        }
-        oem_value(self.adapter.oem.as_ref()?, OEM_KEY)?
-            .get("BaseMAC")
-            .and_then(JsonValue::as_str)
-            .map(BaseMac::new)
+        self.data.base_mac.as_ref()?.as_deref().map(BaseMac::new)
     }
 
     /// Fetch the host privilege configuration linked from this adapter.

@@ -640,6 +640,7 @@ csdl_files = []
 patterns = [
     "NvidiaComputerSystem.*.*",
 ]
+action_patterns = ["Mode.Set", "HostRshim.Set", "SOC.ForceReset"]
 
 [[oem-features]]
 # NVIDIA processor and processor metrics.

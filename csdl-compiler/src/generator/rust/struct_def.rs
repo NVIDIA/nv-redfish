@@ -23,8 +23,10 @@ use crate::compiler::Property;
 use crate::compiler::PropertyType;
 use crate::compiler::QualifiedName;
 use crate::compiler::RigidArraySupport;
+use crate::generator::casemungler;
 use crate::generator::rust::doc::format_and_generate as doc_format_and_generate;
 use crate::generator::rust::doc::format_and_generate_with_deprecation as doc_format_deprecated;
+use crate::generator::rust::ident;
 use crate::generator::rust::inherited_properties::InheritedProperties;
 use crate::generator::rust::ActionFullTypeName;
 use crate::generator::rust::ActionName;
@@ -149,7 +151,7 @@ impl<'a> StructDef<'a> {
         if !self.actions.is_empty() {
             let mut content = TokenStream::new();
             for a in &self.actions {
-                Self::generate_action_function(&mut content, a, config);
+                self.generate_action_function(&mut content, a, config);
             }
             tokens.extend(quote! {
                 impl #name { #content }
@@ -172,7 +174,7 @@ impl<'a> StructDef<'a> {
         let action_iter = self
             .actions
             .iter()
-            .map(|a| Self::generate_action_property(a, config));
+            .map(|a| self.generate_action_property(a, config));
 
         once(self.metadata_fields(config))
             .chain(properties_iter)
@@ -784,13 +786,32 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    fn generate_action_property(a: &Action, config: &Config) -> TokenStream {
+    /// Qualify colliding action names with their defining namespace.
+    /// `BlueField` advertises both `#Mode.Set` and `#HostRshim.Set` on one object.
+    fn action_member_name(&self, action: &Action) -> TokenStream {
+        let name = ActionName::new(action.name);
+        if self
+            .actions
+            .iter()
+            .filter(|a| a.name == action.name)
+            .count()
+            > 1
+        {
+            let qualified =
+                casemungler::to_snake(format!("{}_{}", action.defining_namespace, action.name));
+            ident::escaped(&qualified).to_token_stream()
+        } else {
+            name.to_token_stream()
+        }
+    }
+
+    fn generate_action_property(&self, a: &Action, config: &Config) -> TokenStream {
         let top = &config.top_module_alias;
         // Redfish serializes an action under its defining schema's
         // namespace ("#NvidiaChassis.Reset"), which for OEM actions
         // differs from the binding parameter's name.
         let rename = Literal::string(&format!("#{}.{}", a.defining_namespace, a.name));
-        let name = ActionName::new(a.name);
+        let name = self.action_member_name(a);
         let typename =
             ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {
@@ -847,9 +868,9 @@ impl<'a> StructDef<'a> {
         }
     }
 
-    fn generate_action_function(content: &mut TokenStream, a: &Action, config: &Config) {
+    fn generate_action_function(&self, content: &mut TokenStream, a: &Action, config: &Config) {
         let top = &config.top_module_alias;
-        let name = ActionName::new(a.name);
+        let name = self.action_member_name(a);
         let typename =
             ActionFullTypeName::new(a.defining_namespace, a.binding_name, a.name, config);
         let ret_type = match a.return_type {

@@ -15,6 +15,7 @@
 //! Integration tests for NVIDIA ComputerSystem OEM support.
 
 use nv_redfish::computer_system::ComputerSystem;
+use nv_redfish::oem::nvidia::computer_system::HostRshim;
 use nv_redfish::oem::nvidia::computer_system::Mode;
 use nv_redfish::ServiceRoot;
 use nv_redfish_core::ODataId;
@@ -243,13 +244,10 @@ async fn oem_nvidia_dpu_inline_oem_object_shape_supported() -> Result<(), Box<dy
 }
 
 #[test]
-async fn oem_nvidia_quirks_ignored_on_non_dpu_platform() -> Result<(), Box<dyn StdError>> {
-    // Both DPU quirks -- fetching the OEM object out of line and
-    // reading the undeclared `BaseMAC` / `Mode` from it -- apply only
-    // on the platform known to need them. A non-DPU BMC serving the
-    // same properties is parsed as plain schema: the extension is still
-    // available, the undeclared properties are not, and nothing is
-    // fetched.
+async fn oem_nvidia_inline_properties_are_available_on_non_dpu_platform(
+) -> Result<(), Box<dyn StdError>> {
+    // A non-DPU platform exposes the reported schema properties without
+    // the extra GET required by the DPU's partially expanded OEM object.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let system = get_system_on_platform(
@@ -264,6 +262,7 @@ async fn oem_nvidia_quirks_ignored_on_non_dpu_platform() -> Result<(), Box<dyn S
                     "ISTModeEnabled": true,
                     "BaseMAC": "1070fd010203",
                     "Mode": "DpuMode",
+                    "HostRshim": "Enabled",
                 }
             })),
         ),
@@ -280,18 +279,21 @@ async fn oem_nvidia_quirks_ignored_on_non_dpu_platform() -> Result<(), Box<dyn S
         .expect("NVIDIA OEM extension must be available");
 
     assert_eq!(oem.raw().ist_mode_enabled.flatten(), Some(true));
-    assert!(oem.base_mac().is_none());
-    assert!(oem.mode().is_none());
+    assert_eq!(
+        oem.base_mac().map(|mac| mac.to_string()),
+        Some("1070fd010203".into())
+    );
+    assert_eq!(oem.mode(), Some(Mode::DpuMode));
+    assert_eq!(oem.host_rshim(), Some(HostRshim::Enabled));
 
     Ok(())
 }
 
 #[test]
-async fn oem_nvidia_dpu_exposes_schema_and_quirk_together() -> Result<(), Box<dyn StdError>> {
-    // The resource deserializes as the NVIDIA `NvidiaComputerSystem`
-    // schema type, while `BaseMAC` / `Mode` -- which that schema marks
-    // `AdditionalProperties=false` and cannot carry -- stay reachable
-    // as a platform quirk on the same handle.
+async fn oem_nvidia_dpu_exposes_standard_and_local_schema_properties(
+) -> Result<(), Box<dyn StdError>> {
+    // The fetched resource exposes both the published NVIDIA properties
+    // and the local BlueField schema additions on the same handle.
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let system = get_system(

@@ -18,28 +18,16 @@
 //! The resource is the NVIDIA `NvidiaComputerSystem` OEM object and is
 //! returned as the compiled schema type.
 //!
-//! The BlueField DPU diverges from that schema twice, and both
-//! divergences are handled as platform quirks rather than as a schema
-//! of their own:
+//! Local CSDL additions describe the BlueField `BaseMAC`, `Mode`,
+//! `HostRshim` properties and the `#Mode.Set`, `#HostRshim.Set`,
+//! `#SOC.ForceReset` actions omitted by the published NVIDIA schema.
 //!
-//! * it serves the object as a separate resource and inlines only a
-//!   partially expanded stub under `Oem.Nvidia`, so the body has to be
-//!   fetched from `@odata.id`;
-//! * that body carries `BaseMAC`, `Mode`, `HostRshim` and the
-//!   `#Mode.Set`, `#HostRshim.Set` and `#SOC.ForceReset` actions. None
-//!   of them is declared by the CSDL the device publishes, and the
-//!   NVIDIA OEM schema set not only omits them but marks the type
-//!   `OData.AdditionalProperties=false`, so no schema route to them
-//!   exists or should be invented. The actions are typed here instead,
-//!   with their targets taken from the body.
-//!
-//! Both apply only on the platform detected as the DPU. BlueField-4
-//! serves the object without any of these; its DPU mode and host
-//! privileges live on the network adapter instead. BlueField-3 with BMC
-//! firmware 26.04 or later also links a host privilege configuration
-//! from its network adapters, alongside these. Drop the quirk accessors
-//! once firmware either stops sending them or declares them properly.
+//! BlueField inlines a partially expanded stub under `Oem.Nvidia`, so
+//! the resource is fetched from `@odata.id` on the DPU platform.
+//! Properties and actions are available whenever reported by the resource.
+//! BlueField-4 reports its mode on the network adapter instead.
 
+use crate::oem::nvidia::schema::nvidia_computer_system::Actions as NvidiaComputerSystemActions;
 use crate::oem::nvidia::schema::nvidia_computer_system::NvidiaComputerSystem as NvidiaComputerSystemSchema;
 use crate::oem::nvidia::OEM_KEY;
 use crate::oem::oem_value;
@@ -48,79 +36,14 @@ use crate::patch_support::Payload;
 use crate::schema::resource::Oem as ResourceOemSchema;
 use crate::Error;
 use crate::NvBmc;
-use nv_redfish_core::Action;
 use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::ModificationResponse;
 use nv_redfish_core::ODataId;
-use serde::Deserialize;
-use serde::Serialize;
 use std::sync::Arc;
 
-/// Operating mode of a BlueField device.
-///
-/// Undeclared by the NVIDIA OEM schema; see the module documentation.
-#[derive(Debug, PartialEq, Eq, Clone, Copy, Serialize, Deserialize)]
-pub enum Mode {
-    /// This BlueField device works as a regular NIC for the host.
-    NicMode,
-    /// This BlueField device is a 'bump in a wire' that controls packet
-    /// processing.
-    DpuMode,
-    /// Fallback for modes this version of the library does not know.
-    #[serde(other)]
-    UnsupportedValue,
-}
-
-impl Mode {
-    /// Map a reported mode, keeping unknown ones as `UnsupportedValue`.
-    fn parse(v: &str) -> Self {
-        match v {
-            "NicMode" => Self::NicMode,
-            "DpuMode" => Self::DpuMode,
-            _ => Self::UnsupportedValue,
-        }
-    }
-}
-
-/// State of the host-side rshim interface of a BlueField device.
-///
-/// Undeclared by the NVIDIA OEM schema; see the module documentation.
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
-pub enum HostRshim {
-    /// The host can reach the DPU over rshim.
-    Enabled,
-    /// The host cannot reach the DPU over rshim.
-    Disabled,
-    /// Fallback for states this version of the library does not know.
-    UnsupportedValue,
-}
-
-impl HostRshim {
-    /// Map a reported state, keeping unknown ones as `UnsupportedValue`.
-    fn parse(v: &str) -> Self {
-        match v {
-            "Enabled" => Self::Enabled,
-            "Disabled" => Self::Disabled,
-            _ => Self::UnsupportedValue,
-        }
-    }
-}
-
-#[derive(Serialize)]
-struct ModeSetParams {
-    #[serde(rename = "Mode")]
-    mode: Mode,
-}
-
-#[derive(Serialize)]
-struct HostRshimSetParams {
-    #[serde(rename = "HostRshim")]
-    host_rshim: &'static str,
-}
-
-#[derive(Serialize)]
-struct NoParams {}
+pub use crate::oem::nvidia::schema::nvidia_computer_system::HostRshim;
+pub use crate::oem::nvidia::schema::nvidia_computer_system::Mode;
 
 pub use crate::oem::nvidia::BaseMac;
 #[doc(hidden)]
@@ -131,11 +54,6 @@ pub use crate::oem::nvidia::BaseMacTag;
 /// Provides access to system information and sub-resources such as processors.
 pub struct NvidiaComputerSystem<B: Bmc> {
     data: Arc<NvidiaComputerSystemSchema>,
-    /// Response body kept verbatim so the undeclared DPU properties
-    /// stay reachable: the schema type cannot carry them. `None` on
-    /// every other platform, which is what keeps those properties from
-    /// being reported where they are not expected.
-    dpu_body: Option<Arc<JsonValue>>,
     bmc: NvBmc<B>,
 }
 
@@ -157,34 +75,22 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
                 return Ok(None);
             };
             let body = Payload::get_raw(bmc.as_ref(), &ODataId::from(id.to_owned())).await?;
-            let data = serde_json::from_value(body.clone()).map_err(Error::Json)?;
+            let data = serde_json::from_value(body).map_err(Error::Json)?;
             return Ok(Some(Self {
                 data: Arc::new(data),
-                dpu_body: Some(Arc::new(body)),
                 bmc: bmc.clone(),
             }));
         }
         let data = serde_json::from_value(nvidia.clone()).map_err(Error::Json)?;
         Ok(Some(Self {
             data: Arc::new(data),
-            dpu_body: None,
             bmc: bmc.clone(),
         }))
     }
 
-    /// Parse the advertised `Oem.Nvidia` action `name`.
-    ///
-    /// The actions are undeclared, so each is parsed only when invoked; a
-    /// malformed action fails that call instead of the whole extension.
-    fn dpu_action<T>(&self, name: &str) -> Result<Action<T, ()>, Error<B>> {
-        let action = self
-            .dpu_body
-            .as_ref()
-            .and_then(|body| body.get("Actions"))
-            .and_then(|actions| actions.get(name))
-            .filter(|action| !action.is_null())
-            .ok_or(Error::ActionNotAvailable)?;
-        Action::deserialize(action).map_err(Error::Json)
+    /// Get the generated actions advertised by the resource.
+    fn dpu_actions(&self) -> Result<&NvidiaComputerSystemActions, Error<B>> {
+        self.data.actions.as_ref().ok_or(Error::ActionNotAvailable)
     }
 
     /// Get the raw schema data for this NVIDIA computer system.
@@ -198,45 +104,30 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
 
     /// Get base MAC address of the device.
     ///
-    /// Quirk: undeclared by the schema, read from the response body.
-    /// `None` on any platform other than the BlueField DPU; see the
-    /// module documentation.
+    /// Described by the local BlueField schema additions. Returns `None`
+    /// when the resource does not report a base MAC address.
     #[must_use]
     pub fn base_mac(&self) -> Option<BaseMac<&str>> {
-        self.dpu_body
-            .as_ref()?
-            .get("BaseMAC")
-            .and_then(JsonValue::as_str)
-            .map(BaseMac::new)
+        self.data.base_mac.as_ref()?.as_deref().map(BaseMac::new)
     }
 
     /// Get mode of the Bluefield device.
     ///
-    /// Quirk: undeclared by the schema, read from the response body.
-    /// `None` on any platform other than the BlueField DPU; see the
-    /// module documentation. Reporting the mode through the OEM
-    /// extension directly is supported only by Bluefield 3.
+    /// Described by the local BlueField schema additions. Returns `None`
+    /// when the resource does not report a mode. BlueField-4 reports its
+    /// mode on the network adapter instead.
     #[must_use]
     pub fn mode(&self) -> Option<Mode> {
-        self.dpu_body
-            .as_ref()?
-            .get("Mode")
-            .and_then(JsonValue::as_str)
-            .map(Mode::parse)
+        self.data.mode.flatten()
     }
 
     /// Get the state of the host-side rshim interface.
     ///
-    /// Quirk: undeclared by the schema, read from the response body.
-    /// `None` on any platform other than the BlueField DPU and on DPUs
-    /// that do not report it, such as BlueField-4.
+    /// Described by the local BlueField schema additions. Returns `None`
+    /// when the resource does not report a host-side rshim state.
     #[must_use]
     pub fn host_rshim(&self) -> Option<HostRshim> {
-        self.dpu_body
-            .as_ref()?
-            .get("HostRshim")
-            .and_then(JsonValue::as_str)
-            .map(HostRshim::parse)
+        self.data.host_rshim.flatten()
     }
 
     /// Switch the BlueField device between NIC and DPU mode.
@@ -254,9 +145,12 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self.dpu_action("#Mode.Set")?;
-        action
-            .run(self.bmc.as_ref(), &ModeSetParams { mode })
+        let actions = self.dpu_actions()?;
+        if actions.mode_set.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+        actions
+            .mode_set(self.bmc.as_ref(), mode)
             .await
             .map_err(Error::Bmc)
     }
@@ -275,10 +169,17 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self.dpu_action("#HostRshim.Set")?;
-        let host_rshim = if enabled { "Enabled" } else { "Disabled" };
-        action
-            .run(self.bmc.as_ref(), &HostRshimSetParams { host_rshim })
+        let actions = self.dpu_actions()?;
+        if actions.host_rshim_set.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+        let host_rshim = if enabled {
+            HostRshim::Enabled
+        } else {
+            HostRshim::Disabled
+        };
+        actions
+            .host_rshim_set(self.bmc.as_ref(), host_rshim)
             .await
             .map_err(Error::Bmc)
     }
@@ -297,9 +198,12 @@ impl<B: Bmc> NvidiaComputerSystem<B> {
     where
         B::Error: ActionError,
     {
-        let action = self.dpu_action("#SOC.ForceReset")?;
-        action
-            .run(self.bmc.as_ref(), &NoParams {})
+        let actions = self.dpu_actions()?;
+        if actions.force_reset.is_none() {
+            return Err(Error::ActionNotAvailable);
+        }
+        actions
+            .force_reset(self.bmc.as_ref())
             .await
             .map_err(Error::Bmc)
     }
