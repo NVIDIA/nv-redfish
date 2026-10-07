@@ -336,6 +336,69 @@ async fn get_account_service_with_config(
     Ok(service_root.account_service(config).await?.unwrap())
 }
 
+// Lenovo HS350X V3 AMI firmware fills unconfigured LDAP arrays with nulls.
+#[test]
+async fn account_service_accepts_null_entries_in_ldap_arrays() -> TestResult<()> {
+    let bmc = Arc::new(Bmc::default());
+    let root_id = ODataId::service_root();
+    let account_service_id = format!("{root_id}/AccountService");
+    bmc.expect(Expect::get(
+        &root_id,
+        json!({
+            ODATA_ID: &root_id,
+            ODATA_TYPE: "#ServiceRoot.v1_13_0.ServiceRoot",
+            "Id": "RootService",
+            "Name": "RootService",
+            "AccountService": { ODATA_ID: &account_service_id },
+            "Vendor": "Lenovo",
+            "Oem": { "Ami": {} },
+            "Links": {
+                "Sessions": { ODATA_ID: format!("{root_id}/SessionService/Sessions") }
+            },
+        }),
+    ));
+    let service_root = ServiceRoot::new(bmc.clone()).await?;
+    bmc.expect(Expect::get(
+        &account_service_id,
+        json!({
+            ODATA_ID: &account_service_id,
+            ODATA_TYPE: ACCOUNT_SERVICE_DATA_TYPE,
+            "Id": "AccountService",
+            "Name": "AccountService",
+            "Accounts": { ODATA_ID: format!("{account_service_id}/Accounts") },
+            "LDAP": {
+                "LDAPService": {
+                    "SearchSettings": {
+                        "BaseDistinguishedNames": [null],
+                        "UsernameAttribute": null
+                    }
+                },
+                "RemoteRoleMapping": [null, null],
+                "ServiceAddresses": [null],
+                "ServiceEnabled": false
+            },
+        }),
+    ));
+
+    let account_service = service_root
+        .account_service(AccountServiceConfig::standard())
+        .await?
+        .unwrap();
+    let raw = account_service.raw();
+    let ldap = raw.ldap.as_ref().unwrap();
+    assert_eq!(ldap.service_addresses, Some(Some(vec![None])));
+    let search_settings = ldap
+        .ldap_service
+        .as_ref()
+        .and_then(|service| service.search_settings.as_ref())
+        .unwrap();
+    assert_eq!(
+        search_settings.base_distinguished_names,
+        Some(Some(vec![None]))
+    );
+    Ok(())
+}
+
 #[test]
 async fn update_sends_wildcard_if_match_on_ami_firmware() -> TestResult<()> {
     let etag = "\"account-service-1\"";
