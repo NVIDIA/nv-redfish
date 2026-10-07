@@ -452,4 +452,74 @@ mod cache_integration_tests {
         let retrieved = result.unwrap();
         assert_eq!(retrieved.etag.as_ref().unwrap().to_string(), etag_value);
     }
+
+    /// Sets `value`, so a result shows which repair it went through.
+    struct SetValue {
+        generation: u64,
+        value: i32,
+    }
+
+    impl nv_redfish_core::Repair for SetValue {
+        fn repair(&self, document: &mut serde_json::Value) {
+            document["value"] = self.value.into();
+        }
+
+        fn generation(&self) -> u64 {
+            self.generation
+        }
+    }
+
+    #[tokio::test]
+    async fn test_repaired_entities_are_cached_per_generation() -> Result<(), Box<dyn Error>> {
+        let mock_server = MockServer::start().await;
+        let resource_path = paths::CHASSIS_1;
+        let etag_value = "gen123";
+        let test_resource =
+            create_test_resource(resource_path, Some(etag_value), names::TEST_CHASSIS, 0);
+
+        // Only the second read revalidates; the third (new generation)
+        // and the fourth (unrepaired) must fetch the body again.
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .and(header("if-none-match", etag_value))
+            .respond_with(ResponseTemplate::new(304))
+            .with_priority(1)
+            .expect(1)
+            .mount(&mock_server)
+            .await;
+        Mock::given(method("GET"))
+            .and(path(resource_path))
+            .respond_with(
+                ResponseTemplate::new(200)
+                    .set_body_json(&test_resource)
+                    .insert_header("etag", etag_value),
+            )
+            .expect(3)
+            .mount(&mock_server)
+            .await;
+
+        let bmc = create_test_bmc(&mock_server);
+        let id = create_odata_id(resource_path);
+        let first = SetValue {
+            generation: 1,
+            value: 10,
+        };
+        let second = SetValue {
+            generation: 2,
+            value: 20,
+        };
+
+        let read = bmc.get_repaired::<TestResource>(&id, &first).await?;
+        assert_eq!(read.value, 10);
+        let cached = bmc.get_repaired::<TestResource>(&id, &first).await?;
+        assert!(
+            Arc::ptr_eq(&read, &cached),
+            "same generation is served from cache"
+        );
+        let replaced = bmc.get_repaired::<TestResource>(&id, &second).await?;
+        assert_eq!(replaced.value, 20);
+        let plain = bmc.get::<TestResource>(&id).await?;
+        assert_eq!(plain.value, 0);
+        Ok(())
+    }
 }
