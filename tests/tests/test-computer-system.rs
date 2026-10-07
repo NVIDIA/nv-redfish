@@ -270,6 +270,55 @@ async fn set_boot_order_uses_advertised_settings_resource() -> Result<(), Box<dy
     Ok(())
 }
 
+// Lenovo HS350X V3 AMI firmware returns `AliasBootOrder: [null]` from its `SD` settings object.
+#[test]
+async fn settings_object_accepts_null_alias_boot_order_entries() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = computer_system_ids();
+    let settings_id = format!("{}/SD", ids.system_id);
+    let system = get_system(
+        bmc.clone(),
+        &ids,
+        computer_system(
+            &ids,
+            json!({
+                "@Redfish.Settings": {
+                    "SettingsObject": { ODATA_ID: &settings_id }
+                },
+                "Boot": { "BootOrder": ["Boot0001"] }
+            }),
+        ),
+    )
+    .await?;
+
+    bmc.expect(Expect::update(
+        &settings_id,
+        json!({ "Boot": { "BootOrder": ["Boot0002"] } }),
+        json!({ ODATA_ID: &settings_id }),
+    ));
+    bmc.expect(Expect::get(
+        &settings_id,
+        json!({
+            ODATA_ID: &settings_id,
+            ODATA_TYPE: SYSTEM_DATA_TYPE,
+            "Id": "SD",
+            "Name": "System Settings",
+            "Boot": { "AliasBootOrder": [null], "BootOrder": ["Boot0002"] }
+        }),
+    ));
+
+    let ModificationResponse::Entity(settings) = system
+        .set_boot_order(vec![BootOptionReference::new("Boot0002".into())])
+        .await?
+    else {
+        panic!("settings object PATCH answers with the entity");
+    };
+    let raw = settings.raw();
+    let boot = raw.boot.as_ref().unwrap();
+    assert_eq!(boot.alias_boot_order, Some(Some(vec![None])));
+    Ok(())
+}
+
 #[test]
 async fn boot_option_settings_routes_to_advertised_sd_and_preserves_outcomes(
 ) -> Result<(), Box<dyn StdError>> {

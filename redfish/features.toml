@@ -13,7 +13,9 @@ patterns = [
     "ManagerAccount.*",
 ]
 rigid_arrays = [
-    "AccountService.*.ExternalAccountProvider/RemoteRoleMapping"
+    "AccountService.*.ExternalAccountProvider/RemoteRoleMapping",
+    "AccountService.*.ExternalAccountProvider/ServiceAddresses",
+    "AccountService.*.LDAPSearchSettings/BaseDistinguishedNames",
 ]
 
 [[features]]
@@ -233,6 +235,9 @@ patterns = [
     "ComputerSystem.*",
     "ComputerSystemCollection.*",
     "PhysicalContext.*",
+]
+rigid_arrays = [
+    "ComputerSystem.*.Boot/AliasBootOrder",
 ]
 
 [[features]]
