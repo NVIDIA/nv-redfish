@@ -69,15 +69,16 @@
 mod compat;
 mod fixes;
 mod platform;
+mod raw;
 mod rules;
 mod user;
 
 pub use compat::CompatBmc;
 pub use compat::CompatError;
-pub use nv_redfish_core::DecodeError;
-pub use nv_redfish_core::Raw;
+pub use compat::DecodeError;
 pub use platform::BmcQuirks;
 pub use platform::RootEvidence;
+pub use raw::Raw;
 pub use user::IdPattern;
 pub use user::Match;
 pub use user::UserFix;

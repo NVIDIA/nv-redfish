@@ -20,7 +20,6 @@ mod tests {
         MultipartUpdateRequest,
     };
     use nv_redfish_core::query::ExpandQuery;
-    use nv_redfish_core::Repair;
     #[cfg(feature = "update-service-deprecated")]
     use nv_redfish_core::UploadStream;
     use nv_redfish_core::{
@@ -94,7 +93,6 @@ mod tests {
             _credentials: &BmcCredentials,
             _etag: Option<ODataETag>,
             _custom_headers: &HeaderMap,
-            _repair: Option<&dyn Repair>,
         ) -> impl Future<Output = Result<T, Self::Error>> + Send
         where
             T: DeserializeOwned + Send + Sync,

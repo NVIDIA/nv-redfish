@@ -16,20 +16,22 @@
 //! A document read as it came off the wire, before any repair or typed
 //! deserialization.
 
-use crate::EntityTypeRef;
-use crate::Expandable;
-use crate::ODataETag;
-use crate::ODataId;
+use nv_redfish_core::EntityTypeRef;
+use nv_redfish_core::Expandable;
+use nv_redfish_core::ODataETag;
+use nv_redfish_core::ODataId;
 use serde::Deserialize;
 use serde::Deserializer;
 use serde_json::Value;
 
 /// A Redfish document as JSON.
 ///
-/// It satisfies the bounds a [`Bmc`](crate::Bmc) read needs, so any
-/// transport can fetch one where it would fetch a typed resource, and it
-/// reports the document's `@odata.etag`, so a caching transport revalidates
-/// it exactly as it would a typed one.
+/// It satisfies the bounds a [`Bmc`] read needs, so any transport can fetch
+/// one where it would fetch a typed resource, and it reports the document's
+/// `@odata.etag`, so a caching transport revalidates it exactly as it would
+/// a typed one.
+///
+/// [`Bmc`]: nv_redfish_core::Bmc
 #[derive(Debug)]
 pub struct Raw {
     id: ODataId,

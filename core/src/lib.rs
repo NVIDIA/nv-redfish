@@ -83,8 +83,6 @@ pub mod nav_property;
 pub mod odata;
 /// Support of redfish queries
 pub mod query;
-pub mod raw;
-pub mod repair;
 /// Upload data types.
 pub mod upload;
 
@@ -132,14 +130,6 @@ pub use odata::ODataId;
 pub use query::FilterQuery;
 #[doc(inline)]
 pub use query::ToFilterLiteral;
-#[doc(inline)]
-pub use raw::Raw;
-#[doc(inline)]
-pub use repair::DecodeError;
-#[doc(inline)]
-pub use repair::Repair;
-#[doc(inline)]
-pub use repair::RepairError;
 #[doc(inline)]
 pub use serde_json::Value as AdditionalProperties;
 #[doc(inline)]

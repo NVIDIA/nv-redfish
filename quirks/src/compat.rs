@@ -16,28 +16,28 @@
 //! The compatibility layer: a [`Bmc`] over another that applies the
 //! classified platform's document repairs to everything it reads.
 //!
-//! [`CompatBmc`] applies the repairs enabled for the platform and then the
-//! caller's [`UserRules`] to every document it reads — members a device
-//! expanded inline included, at any depth — before the document is
-//! deserialized into the type the caller asked for. It hands the repairs
-//! to the transport through [`Bmc::get_repaired`] and its siblings: a
-//! transport that deserializes documents itself, such as `HttpBmc`,
-//! repairs in the same pass, and any other reads the document raw and
-//! the repair runs on that. The entity a create, update or delete answers
-//! with is repaired the same way. Actions, uploads and event streams are
-//! delegated unchanged. It is classified once, from the service root, with
-//! one request.
+//! [`CompatBmc`] fetches each document raw, applies the repairs enabled for
+//! the platform and then the caller's [`UserRules`] to every document in it
+//! — members a device expanded inline included, at any depth — and only
+//! then deserializes into the type the caller asked for. The entity a
+//! create, update or delete answers with is repaired the same way. Actions,
+//! uploads and event streams are delegated unchanged. It is classified once, from the service
+//! root, with one request.
 //!
-//! Each rule set has its own generation, and a caching transport serves a
-//! repaired result only under the generation it was repaired with, so a
-//! replaced rule set applies to the next read of a resource whose `ETag`
-//! has not changed.
+//! The transport underneath caches the raw document, not the repaired one,
+//! so a replaced rule set applies to the next read of a resource whose
+//! `ETag` has not changed. The raw document carries the device's
+//! `@odata.etag`, so a caching transport revalidates reads through the
+//! layer exactly as it does typed ones.
 
+use std::error::Error as StdError;
+use std::fmt;
 use std::sync::Arc;
 
 use futures_util::TryStreamExt as _;
 use nv_redfish_core::query::ExpandQuery;
 use nv_redfish_core::Action;
+use nv_redfish_core::ActionError;
 use nv_redfish_core::Bmc;
 use nv_redfish_core::BoxTryStream;
 use nv_redfish_core::EntityTypeRef;
@@ -50,9 +50,6 @@ use nv_redfish_core::MultipartUpdateRequest;
 use nv_redfish_core::NavProperty;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
-use nv_redfish_core::Raw;
-use nv_redfish_core::Repair;
-use nv_redfish_core::RepairError;
 use nv_redfish_core::SessionCreateResponse;
 use nv_redfish_core::StreamEvent;
 use nv_redfish_core::UploadReader;
@@ -60,31 +57,46 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::rules;
-use crate::user::Generation;
 use crate::BmcQuirks;
-use crate::DecodeError;
+use crate::Raw;
 use crate::RootEvidence;
 use crate::UserRules;
 
-/// What a read through [`CompatBmc`] can fail with.
-pub type CompatError<E> = RepairError<E>;
+/// A repaired document that still did not deserialize, with the path to
+/// the property that failed.
+pub type DecodeError = serde_path_to_error::Error<serde_json::Error>;
 
-/// One read's repairs: the platform's, then the caller's rules as they
-/// stood when the read began.
-struct Repairs<'a> {
-    quirks: &'a BmcQuirks,
-    user: Generation,
+/// What a read through [`CompatBmc`] can fail with.
+#[derive(Debug)]
+pub enum CompatError<E> {
+    /// The transport underneath failed.
+    Transport(E),
+    /// The document, repaired, still did not deserialize into the type
+    /// asked for.
+    Decode(DecodeError),
 }
 
-impl Repair for Repairs<'_> {
-    fn repair(&self, document: &mut serde_json::Value) {
-        rules::repair_in_place(self.quirks, &self.user.rules, document);
+impl<E: fmt::Display> fmt::Display for CompatError<E> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Transport(error) => write!(f, "BMC error: {error}"),
+            Self::Decode(error) => write!(f, "repaired document did not deserialize: {error}"),
+        }
     }
+}
 
-    // The platform's rules are fixed for the layer, and every layer holds
-    // its own rule set, so the set's generation identifies the repair.
-    fn generation(&self) -> u64 {
-        self.user.id
+impl<E: StdError + 'static> StdError for CompatError<E> {
+    fn source(&self) -> Option<&(dyn StdError + 'static)> {
+        match self {
+            Self::Transport(error) => Some(error),
+            Self::Decode(error) => Some(error),
+        }
+    }
+}
+
+impl<E: ActionError> ActionError for CompatError<E> {
+    fn not_supported() -> Self {
+        Self::Transport(E::not_supported())
     }
 }
 
@@ -156,12 +168,16 @@ impl<B: Bmc> CompatBmc<B> {
         &self.user
     }
 
-    /// The repairs for one read.
-    fn repairs(&self) -> Repairs<'_> {
-        Repairs {
-            quirks: &self.quirks,
-            user: self.user.current(),
-        }
+    fn repaired<T>(&self, raw: Result<Arc<Raw>, B::Error>) -> Result<Arc<T>, CompatError<B::Error>>
+    where
+        T: for<'de> Deserialize<'de>,
+    {
+        let raw = raw.map_err(CompatError::Transport)?;
+        // A transport that does not cache hands over the only reference.
+        let document = Arc::try_unwrap(raw).map_or_else(|raw| raw.value().clone(), Raw::into_value);
+        self.decode(document)
+            .map(Arc::new)
+            .map_err(CompatError::Decode)
     }
 
     /// Repairs a document obtained some other way and deserializes it into
@@ -174,7 +190,7 @@ impl<B: Bmc> CompatBmc<B> {
     where
         T: for<'de> Deserialize<'de>,
     {
-        self.repairs().repair(&mut document);
+        rules::repair_in_place(&self.quirks, &self.user.snapshot(), &mut document);
         serde_path_to_error::deserialize(document)
     }
 
@@ -212,14 +228,14 @@ impl<B: Bmc> Bmc for CompatBmc<B> {
         id: &ODataId,
         query: ExpandQuery,
     ) -> Result<Arc<T>, Self::Error> {
-        self.inner.expand_repaired(id, query, &self.repairs()).await
+        self.repaired::<T>(self.inner.expand::<Raw>(id, query).await)
     }
 
     async fn get<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
-        self.inner.get_repaired(id, &self.repairs()).await
+        self.repaired::<T>(self.inner.get::<Raw>(id).await)
     }
 
     async fn filter<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
@@ -227,7 +243,7 @@ impl<B: Bmc> Bmc for CompatBmc<B> {
         id: &ODataId,
         query: FilterQuery,
     ) -> Result<Arc<T>, Self::Error> {
-        self.inner.filter_repaired(id, query, &self.repairs()).await
+        self.repaired::<T>(self.inner.filter::<Raw>(id, query).await)
     }
 
     async fn create<V: Send + Sync + Serialize, R: Send + Sync + for<'de> Deserialize<'de>>(

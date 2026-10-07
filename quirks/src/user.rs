@@ -17,14 +17,8 @@
 //! platform's own. The set is shared by every clone of the layer that
 //! holds it and can be replaced while reads are in flight: a read takes
 //! the set as it stands when the document arrives.
-//!
-//! Each set carries a generation, unique in the process, so a transport
-//! that caches repaired results can tell a result repaired under a
-//! replaced set from a current one.
 
 use std::fmt;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::PoisonError;
 use std::sync::RwLock;
@@ -128,38 +122,15 @@ impl fmt::Debug for UserRule {
     }
 }
 
-/// A rule set and its generation.
-#[derive(Clone)]
-pub struct Generation {
-    pub id: u64,
-    pub rules: Arc<[UserRule]>,
-}
-
-impl Generation {
-    fn of(rules: Vec<UserRule>) -> Self {
-        static NEXT: AtomicU64 = AtomicU64::new(0);
-        Self {
-            id: NEXT.fetch_add(1, Ordering::Relaxed),
-            rules: rules.into(),
-        }
-    }
-}
-
 /// The caller's rule set, shared by every clone of this handle.
-#[derive(Clone)]
-pub struct UserRules(Arc<RwLock<Generation>>);
-
-impl Default for UserRules {
-    fn default() -> Self {
-        Self(Arc::new(RwLock::new(Generation::of(Vec::new()))))
-    }
-}
+#[derive(Clone, Default)]
+pub struct UserRules(Arc<RwLock<Arc<[UserRule]>>>);
 
 impl UserRules {
     /// Replaces the rule set; rules apply in the order given. Reads already
     /// repairing finish with the set they started with.
     pub fn replace(&self, rules: Vec<UserRule>) {
-        *self.0.write().unwrap_or_else(PoisonError::into_inner) = Generation::of(rules);
+        *self.0.write().unwrap_or_else(PoisonError::into_inner) = rules.into();
     }
 
     /// Removes every rule.
@@ -170,15 +141,7 @@ impl UserRules {
     /// The rule set as it stands.
     #[must_use]
     pub fn snapshot(&self) -> Arc<[UserRule]> {
-        self.current().rules
-    }
-
-    /// The rule set as it stands, with its generation.
-    pub(crate) fn current(&self) -> Generation {
-        self.0
-            .read()
-            .unwrap_or_else(PoisonError::into_inner)
-            .clone()
+        Arc::clone(&self.0.read().unwrap_or_else(PoisonError::into_inner))
     }
 }
 

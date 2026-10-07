@@ -53,7 +53,6 @@ use serde::Deserialize;
 use serde::Serialize;
 
 use crate::query::ExpandQuery;
-use crate::repair;
 use crate::Action;
 use crate::BoxTryStream;
 use crate::EntityTypeRef;
@@ -64,9 +63,6 @@ use crate::HttpPushUriUpdateRequest;
 use crate::ModificationResponse;
 use crate::ODataETag;
 use crate::ODataId;
-use crate::Raw;
-use crate::Repair;
-use crate::RepairError;
 use crate::SessionCreateResponse;
 use std::error::Error as StdError;
 use std::future::Future;
@@ -111,43 +107,6 @@ pub trait Bmc: Send + Sync {
         id: &ODataId,
         query: FilterQuery,
     ) -> impl Future<Output = Result<Arc<T>, Self::Error>> + Send;
-
-    /// [`Self::get`], with `repair` applied to the document before it is
-    /// deserialized.
-    ///
-    /// The default reads the document as [`Raw`], repairs it, and
-    /// deserializes it again. A transport that deserializes documents itself
-    /// should override it to repair in the same pass, and if it caches
-    /// results, key them by [`Repair::generation`].
-    fn get_repaired<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
-        &self,
-        id: &ODataId,
-        repair: &dyn Repair,
-    ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
-        async move { repair::decode_raw(self.get::<Raw>(id).await, repair) }
-    }
-
-    /// [`Self::expand`], with `repair` applied as for
-    /// [`Self::get_repaired`].
-    fn expand_repaired<T: Expandable>(
-        &self,
-        id: &ODataId,
-        query: ExpandQuery,
-        repair: &dyn Repair,
-    ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
-        async move { repair::decode_raw(self.expand::<Raw>(id, query).await, repair) }
-    }
-
-    /// [`Self::filter`], with `repair` applied as for
-    /// [`Self::get_repaired`].
-    fn filter_repaired<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
-        &self,
-        id: &ODataId,
-        query: FilterQuery,
-        repair: &dyn Repair,
-    ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
-        async move { repair::decode_raw(self.filter::<Raw>(id, query).await, repair) }
-    }
 
     /// Creates element of the collection.
     ///
