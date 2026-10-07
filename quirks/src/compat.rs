@@ -91,8 +91,8 @@ impl Repair for Repairs<'_> {
 
     // The platform's rules are fixed for the layer, and every layer holds
     // its own rule set, so the set's generation identifies the repair.
-    fn generation(&self) -> u64 {
-        self.user.id
+    fn generation(&self) -> Option<u64> {
+        Some(self.user.id)
     }
 }
 

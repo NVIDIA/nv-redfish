@@ -148,7 +148,7 @@ impl<B: Bmc> Bmc for ConcurrencyLimitedBmc<B> {
     async fn get_repaired<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let _permit = permit(&self.semaphore).await;
         self.inner.get_repaired(id, repair).await
@@ -158,7 +158,7 @@ impl<B: Bmc> Bmc for ConcurrencyLimitedBmc<B> {
         &self,
         id: &ODataId,
         query: ExpandQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let _permit = permit(&self.semaphore).await;
         self.inner.expand_repaired(id, query, repair).await
@@ -168,7 +168,7 @@ impl<B: Bmc> Bmc for ConcurrencyLimitedBmc<B> {
         &self,
         id: &ODataId,
         query: FilterQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let _permit = permit(&self.semaphore).await;
         self.inner.filter_repaired(id, query, repair).await

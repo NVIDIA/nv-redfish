@@ -67,6 +67,7 @@ use nv_redfish_core::EntityTypeRef;
 use nv_redfish_core::Expandable;
 use nv_redfish_core::FilterQuery;
 use nv_redfish_core::ModificationResponse;
+use nv_redfish_core::NoRepair;
 use nv_redfish_core::ODataETag;
 use nv_redfish_core::ODataId;
 use nv_redfish_core::Repair;
@@ -108,7 +109,7 @@ pub trait HttpClient: Send + Sync {
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
         custom_headers: &HeaderMap,
-        repair: Option<&dyn Repair>,
+        repair: &impl Repair,
     ) -> impl Future<Output = Result<T, Self::Error>> + Send
     where
         T: DeserializeOwned + Send + Sync;
@@ -599,16 +600,16 @@ where
     /// - Sending conditional GET with If-None-Match
     /// - Handling 304 Not Modified responses from cache
     /// - Updating cache and `ETag` storage on success
-    /// - Serving a cached entity only if it was repaired under the same
-    ///   [`Repair::generation`], or unrepaired for an unrepaired read
+    /// - Serving a cached entity only if it was decoded under the same
+    ///   [`Repair::generation`]
     #[allow(clippy::significant_drop_tightening)]
     async fn get_with_cache<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         endpoint_url: Url,
-        repair: Option<&dyn Repair>,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, C::Error> {
         let cache_key = endpoint_url.clone();
-        let generation = repair.map(Repair::generation);
+        let generation = repair.generation();
 
         // The `etag` is always `None` when caching is disabled. Check the flag here so we can save
         // a read lock acquisition and guarantee that disabled caching never sends If-None-Match,
@@ -683,7 +684,7 @@ where
     }
 }
 
-/// A cached entity and the repair generation it was deserialized under.
+/// A cached entity and the repair generation it was decoded under.
 struct Cached<T> {
     generation: Option<u64>,
     entity: Arc<T>,
@@ -700,7 +701,7 @@ where
         id: &ODataId,
     ) -> Result<Arc<T>, Self::Error> {
         let endpoint_url = self.redfish_endpoint.with_odata_id(id);
-        self.get_with_cache(endpoint_url, None).await
+        self.get_with_cache(endpoint_url, &NoRepair).await
     }
 
     async fn expand<T: Expandable + 'static>(
@@ -712,16 +713,16 @@ where
             .redfish_endpoint
             .with_odata_id_and_query(id, &query.to_query_string());
 
-        self.get_with_cache(endpoint_url, None).await
+        self.get_with_cache(endpoint_url, &NoRepair).await
     }
 
     async fn get_repaired<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let endpoint_url = self.redfish_endpoint.with_odata_id(id);
-        self.get_with_cache(endpoint_url, Some(repair))
+        self.get_with_cache(endpoint_url, repair)
             .await
             .map_err(RepairError::Transport)
     }
@@ -730,12 +731,12 @@ where
         &self,
         id: &ODataId,
         query: ExpandQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let endpoint_url = self
             .redfish_endpoint
             .with_odata_id_and_query(id, &query.to_query_string());
-        self.get_with_cache(endpoint_url, Some(repair))
+        self.get_with_cache(endpoint_url, repair)
             .await
             .map_err(RepairError::Transport)
     }
@@ -744,12 +745,12 @@ where
         &self,
         id: &ODataId,
         query: FilterQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> Result<Arc<T>, RepairError<Self::Error>> {
         let endpoint_url = self
             .redfish_endpoint
             .with_odata_id_and_query(id, &query.to_query_string());
-        self.get_with_cache(endpoint_url, Some(repair))
+        self.get_with_cache(endpoint_url, repair)
             .await
             .map_err(RepairError::Transport)
     }
@@ -897,7 +898,7 @@ where
             .redfish_endpoint
             .with_odata_id_and_query(id, &query.to_query_string());
 
-        self.get_with_cache(endpoint_url, None).await
+        self.get_with_cache(endpoint_url, &NoRepair).await
     }
 
     async fn stream<T: Send + Sized + for<'de> Deserialize<'de>>(

@@ -37,10 +37,22 @@ pub trait Repair: Send + Sync {
     fn repair(&self, document: &mut Value);
 
     /// Identifies the rewrite: two repairs with the same generation rewrite
-    /// every document the same way. A transport that caches repaired
-    /// results keys them by it, so a result repaired under another
-    /// generation is not served.
-    fn generation(&self) -> u64;
+    /// every document the same way, and `None` leaves every document as it
+    /// came. A transport that caches results keys them by it, so a result
+    /// repaired under another generation is not served.
+    fn generation(&self) -> Option<u64>;
+}
+
+/// The document as it came: the repair of a read that asks for none.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct NoRepair;
+
+impl Repair for NoRepair {
+    fn repair(&self, _: &mut Value) {}
+
+    fn generation(&self) -> Option<u64> {
+        None
+    }
 }
 
 /// A repaired document that still did not deserialize, with the path to
@@ -87,7 +99,7 @@ impl<E: ActionError> ActionError for RepairError<E> {
 /// transport without its own takes.
 pub(crate) fn decode_raw<T, E>(
     raw: Result<Arc<Raw>, E>,
-    repair: &dyn Repair,
+    repair: &impl Repair,
 ) -> Result<Arc<T>, RepairError<E>>
 where
     T: for<'de> Deserialize<'de>,

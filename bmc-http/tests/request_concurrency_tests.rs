@@ -94,7 +94,7 @@ mod tests {
             _credentials: &BmcCredentials,
             _etag: Option<ODataETag>,
             _custom_headers: &HeaderMap,
-            _repair: Option<&dyn Repair>,
+            _repair: &impl Repair,
         ) -> impl Future<Output = Result<T, Self::Error>> + Send
         where
             T: DeserializeOwned + Send + Sync,

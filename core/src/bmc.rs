@@ -122,7 +122,7 @@ pub trait Bmc: Send + Sync {
     fn get_repaired<T: EntityTypeRef + for<'de> Deserialize<'de> + 'static>(
         &self,
         id: &ODataId,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
         async move { repair::decode_raw(self.get::<Raw>(id).await, repair) }
     }
@@ -133,7 +133,7 @@ pub trait Bmc: Send + Sync {
         &self,
         id: &ODataId,
         query: ExpandQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
         async move { repair::decode_raw(self.expand::<Raw>(id, query).await, repair) }
     }
@@ -144,7 +144,7 @@ pub trait Bmc: Send + Sync {
         &self,
         id: &ODataId,
         query: FilterQuery,
-        repair: &dyn Repair,
+        repair: &impl Repair,
     ) -> impl Future<Output = Result<Arc<T>, RepairError<Self::Error>>> + Send {
         async move { repair::decode_raw(self.filter::<Raw>(id, query).await, repair) }
     }

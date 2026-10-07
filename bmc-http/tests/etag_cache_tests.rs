@@ -464,8 +464,8 @@ mod cache_integration_tests {
             document["value"] = self.value.into();
         }
 
-        fn generation(&self) -> u64 {
-            self.generation
+        fn generation(&self) -> Option<u64> {
+            Some(self.generation)
         }
     }
 

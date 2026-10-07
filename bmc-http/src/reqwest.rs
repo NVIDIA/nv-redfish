@@ -757,7 +757,7 @@ impl Client {
     async fn handle_response<T>(
         &self,
         response: reqwest::Response,
-        repair: Option<&dyn Repair>,
+        repair: &impl Repair,
     ) -> Result<T, BmcError>
     where
         T: DeserializeOwned,
@@ -776,9 +776,7 @@ impl Client {
 
         let mut value: serde_json::Value = response.json().await.map_err(BmcError::ReqwestError)?;
 
-        if let Some(repair) = repair {
-            repair.repair(&mut value);
-        }
+        repair.repair(&mut value);
 
         if let Some(etag) = etag_header {
             inject_etag(&etag, &mut value);
@@ -1119,7 +1117,7 @@ impl HttpClient for Client {
         credentials: &BmcCredentials,
         etag: Option<ODataETag>,
         custom_headers: &HeaderMap,
-        repair: Option<&dyn Repair>,
+        repair: &impl Repair,
     ) -> Result<T, Self::Error>
     where
         T: DeserializeOwned,
@@ -1629,7 +1627,7 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
-                None,
+                &nv_redfish_core::NoRepair,
             )
             .await;
 
@@ -1672,7 +1670,7 @@ mod tests {
                 &credentials,
                 None,
                 &headers,
-                None,
+                &nv_redfish_core::NoRepair,
             )
             .await?;
 
@@ -1807,7 +1805,7 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
-                None,
+                &nv_redfish_core::NoRepair,
             )
             .await?;
 
@@ -1869,7 +1867,7 @@ mod tests {
                 &credentials,
                 None,
                 &HeaderMap::new(),
-                None,
+                &nv_redfish_core::NoRepair,
             )
             .await?;
 

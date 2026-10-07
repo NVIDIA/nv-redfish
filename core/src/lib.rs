@@ -137,6 +137,8 @@ pub use raw::Raw;
 #[doc(inline)]
 pub use repair::DecodeError;
 #[doc(inline)]
+pub use repair::NoRepair;
+#[doc(inline)]
 pub use repair::Repair;
 #[doc(inline)]
 pub use repair::RepairError;
