@@ -68,6 +68,7 @@
 
 mod compat;
 mod fixes;
+mod memo;
 mod platform;
 mod raw;
 mod rules;

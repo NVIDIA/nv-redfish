@@ -131,6 +131,12 @@ fn document_id_of(value: &Value) -> Option<&str> {
     (object.len() > 1).then_some(id)
 }
 
+/// Whether `quirks` enables any document repair at all: a platform that
+/// needs none is read without the repair pass.
+pub fn any_enabled(quirks: &BmcQuirks) -> bool {
+    RULES.iter().any(|rule| (rule.enabled)(quirks))
+}
+
 /// Applies the platform's enabled repairs, then `user`'s, to every object
 /// in `value` that is a document, the object before its children, so a
 /// member a device expanded inline is repaired at any depth. An object no
