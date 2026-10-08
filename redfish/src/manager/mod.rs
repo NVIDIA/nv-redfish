@@ -25,6 +25,7 @@ use crate::core::NavProperty;
 use crate::patch_support::CollectionWithPatch;
 use crate::patch_support::FilterFn;
 use crate::patch_support::JsonValue;
+use crate::patch_support::ReadPatchFn;
 use crate::schema::manager::Manager as ManagerSchema;
 use crate::schema::manager_collection::ManagerCollection as ManagerCollectionSchema;
 use crate::schema::resource::ResourceCollection;
@@ -36,6 +37,8 @@ use std::convert::identity;
 use std::sync::Arc;
 
 pub use item::Manager;
+#[cfg(feature = "manager-network-protocol")]
+use network_protocol::remove_null_ntp_server_entries;
 #[cfg(feature = "manager-network-protocol")]
 pub use network_protocol::ManagerNetworkProtocol;
 #[cfg(feature = "manager-network-protocol")]
@@ -72,8 +75,16 @@ impl<B: Bmc> ManagerCollection<B> {
         let filters_fn = (!filters.is_empty())
             .then(move || Arc::new(move |v: &JsonValue| filters.iter().any(|f| f(v))) as FilterFn);
 
+        #[cfg(feature = "manager-network-protocol")]
+        let patch_fn = bmc
+            .quirks
+            .bug_null_ntp_server_entries()
+            .then(|| Arc::new(remove_null_ntp_server_entries) as ReadPatchFn);
+        #[cfg(not(feature = "manager-network-protocol"))]
+        let patch_fn: Option<ReadPatchFn> = None;
+
         if let Some(collection_ref) = &root.root.managers {
-            Self::expand_collection(bmc, collection_ref, None, filters_fn.as_ref())
+            Self::expand_collection(bmc, collection_ref, patch_fn.as_ref(), filters_fn.as_ref())
                 .await
                 .map(Some)
         } else if bmc.quirks.bug_missing_root_nav_properties() {

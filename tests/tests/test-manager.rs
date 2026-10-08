@@ -163,6 +163,68 @@ async fn lenovo_network_protocol_ignores_null_ntp_servers() -> Result<(), Box<dy
 }
 
 #[test]
+async fn lenovo_manager_ignores_null_ntp_servers_in_expanded_link() -> Result<(), Box<dyn StdError>>
+{
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let root = expect_anonymous_1_9_service_root(
+        bmc.clone(),
+        &ids,
+        json!({
+            "Vendor": "Lenovo",
+            "Managers": { ODATA_ID: &ids.managers_id },
+            "ProtocolFeaturesSupported": { "ExpandQuery": { "NoLinks": true } }
+        }),
+    )
+    .await?;
+
+    bmc.expect(Expect::expand(
+        &ids.managers_id,
+        json!({
+            ODATA_ID: &ids.managers_id,
+            ODATA_TYPE: MANAGER_COLLECTION_DATA_TYPE,
+            "Id": "Managers",
+            "Name": "Manager Collection",
+            "Members": [manager_payload_with_fields(
+                &ids,
+                json!({
+                    "NetworkProtocol": {
+                        ODATA_ID: &ids.manager_network_protocol_id,
+                        ODATA_TYPE: MANAGER_NETWORK_PROTOCOL_DATA_TYPE,
+                        "Id": "NetworkProtocol",
+                        "Name": "Manager Network Protocol",
+                        "NTP": { "NTPServers": [null, "pool.ntp.org"] }
+                    }
+                }),
+            )]
+        }),
+    ));
+
+    let manager = root
+        .managers()
+        .await?
+        .unwrap()
+        .members()
+        .await?
+        .pop()
+        .unwrap();
+    let network = manager.network_protocol().await?.unwrap();
+    let servers = network
+        .raw()
+        .ntp
+        .as_ref()
+        .unwrap()
+        .ntp_servers
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .unwrap()
+        .clone();
+    assert_eq!(servers, ["pool.ntp.org"]);
+    Ok(())
+}
+
+#[test]
 async fn serial_interfaces_read_supermicro_sol_settings() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();

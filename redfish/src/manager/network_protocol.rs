@@ -88,12 +88,12 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
     }
 }
 
-fn remove_null_ntp_server_entries(mut value: JsonValue) -> JsonValue {
-    if let Some(servers) = value
-        .pointer_mut("/NTP/NTPServers")
-        .and_then(JsonValue::as_array_mut)
-    {
-        servers.retain(|server| !server.is_null());
+/// Remove null NTP servers from a network protocol or an expanded manager link.
+pub(super) fn remove_null_ntp_server_entries(mut value: JsonValue) -> JsonValue {
+    for path in ["/NTP/NTPServers", "/NetworkProtocol/NTP/NTPServers"] {
+        if let Some(servers) = value.pointer_mut(path).and_then(JsonValue::as_array_mut) {
+            servers.retain(|server| !server.is_null());
+        }
     }
     value
 }
