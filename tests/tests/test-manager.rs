@@ -120,6 +120,49 @@ async fn network_protocol_fetches_linked_resource() -> Result<(), Box<dyn StdErr
 }
 
 #[test]
+async fn lenovo_network_protocol_ignores_null_ntp_servers() -> Result<(), Box<dyn StdError>> {
+    let bmc = Arc::new(Bmc::default());
+    let ids = ids();
+    let manager = get_manager_with_root_fields(
+        bmc.clone(),
+        &ids,
+        json!({ "Vendor": "Lenovo" }),
+        manager_payload_with_fields(
+            &ids,
+            json!({ "NetworkProtocol": { ODATA_ID: &ids.manager_network_protocol_id } }),
+        ),
+    )
+    .await?;
+
+    bmc.expect(Expect::get(
+        &ids.manager_network_protocol_id,
+        json!({
+            ODATA_ID: &ids.manager_network_protocol_id,
+            ODATA_TYPE: MANAGER_NETWORK_PROTOCOL_DATA_TYPE,
+            "Id": "NetworkProtocol",
+            "Name": "Manager Network Protocol",
+            "NTP": { "NTPServers": [null, "pool.ntp.org"] },
+            "IPMI": { "Port": 623 }
+        }),
+    ));
+
+    let network = manager.network_protocol().await?.unwrap();
+    let raw = network.raw();
+    let servers = raw
+        .ntp
+        .as_ref()
+        .unwrap()
+        .ntp_servers
+        .as_ref()
+        .unwrap()
+        .as_ref()
+        .unwrap();
+    assert_eq!(servers, &["pool.ntp.org"]);
+    assert_eq!(raw.ipmi.as_ref().unwrap().port, Some(Some(623)));
+    Ok(())
+}
+
+#[test]
 async fn serial_interfaces_read_supermicro_sol_settings() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
