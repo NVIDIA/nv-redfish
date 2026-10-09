@@ -31,7 +31,6 @@ enum Platform {
     Ami,
     AmiViking,
     AmiGb300,
-    Lenovo,
     LenovoAmi,
     VeraRubin,
     Nvidia,
@@ -66,7 +65,6 @@ impl BmcQuirks {
             // Lenovo trays running AMI firmware (HS350x class) keep the
             // Lenovo vendor but expose an AMI OEM object in the service root.
             Some("Lenovo") if ami_oem.is_some() => Some(Platform::LenovoAmi),
-            Some("Lenovo") => Some(Platform::Lenovo),
             Some("NVIDIA") if product_str == Some("VR NVL72") => Some(Platform::VeraRubin),
             Some("NVIDIA") if product_str == Some("P3809") => Some(Platform::NvSwitch),
             Some("NVIDIA") => Some(Platform::Nvidia),
@@ -327,12 +325,6 @@ impl BmcQuirks {
     #[cfg(feature = "patch-collection")]
     pub(crate) fn bug_nullable_members(&self) -> bool {
         self.platform == Some(Platform::NvidiaDpu)
-    }
-
-    /// Lenovo XCC can return `null` entries in `NTPServers`.
-    #[cfg(feature = "manager-network-protocol")]
-    pub(crate) fn bug_null_ntp_server_entries(&self) -> bool {
-        self.platform == Some(Platform::Lenovo)
     }
 
     /// AMI MegaRAC firmware requires `If-Match` on PATCH but rejects the

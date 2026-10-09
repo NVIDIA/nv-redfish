@@ -20,7 +20,6 @@ use nv_redfish_core::{Bmc, EntityTypeRef as _, ModificationResponse, NavProperty
 
 #[cfg(feature = "oem-hpe")]
 use crate::oem::hpe::HpeManagerNetworkProtocol;
-use crate::patch_support::{JsonValue, Payload};
 use crate::schema::manager_network_protocol::ManagerNetworkProtocol as ManagerNetworkProtocolSchema;
 use crate::{Error, NvBmc};
 
@@ -38,15 +37,13 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
         bmc: &NvBmc<B>,
         nav: &NavProperty<ManagerNetworkProtocolSchema>,
     ) -> Result<Self, Error<B>> {
-        let data = if bmc.quirks.bug_null_ntp_server_entries() {
-            Payload::get(bmc.as_ref(), nav, remove_null_ntp_server_entries).await?
-        } else {
-            nav.get(bmc.as_ref()).await.map_err(Error::Bmc)?
-        };
-        Ok(Self {
-            bmc: bmc.clone(),
-            data,
-        })
+        nav.get(bmc.as_ref())
+            .await
+            .map_err(Error::Bmc)
+            .map(|data| Self {
+                bmc: bmc.clone(),
+                data,
+            })
     }
 
     /// Get the raw schema data for the manager network protocol resource.
@@ -86,14 +83,4 @@ impl<B: Bmc> ManagerNetworkProtocol<B> {
             .try_map_entity_async(|nav| async move { Self::new(&self.bmc, &nav).await })
             .await
     }
-}
-
-/// Remove null NTP servers from a network protocol or an expanded manager link.
-pub(super) fn remove_null_ntp_server_entries(mut value: JsonValue) -> JsonValue {
-    for path in ["/NTP/NTPServers", "/NetworkProtocol/NTP/NTPServers"] {
-        if let Some(servers) = value.pointer_mut(path).and_then(JsonValue::as_array_mut) {
-            servers.retain(|server| !server.is_null());
-        }
-    }
-    value
 }

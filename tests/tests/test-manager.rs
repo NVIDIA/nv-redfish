@@ -120,7 +120,7 @@ async fn network_protocol_fetches_linked_resource() -> Result<(), Box<dyn StdErr
 }
 
 #[test]
-async fn lenovo_network_protocol_ignores_null_ntp_servers() -> Result<(), Box<dyn StdError>> {
+async fn network_protocol_accepts_null_ntp_server_entries() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let manager = get_manager_with_root_fields(
@@ -157,14 +157,13 @@ async fn lenovo_network_protocol_ignores_null_ntp_servers() -> Result<(), Box<dy
         .unwrap()
         .as_ref()
         .unwrap();
-    assert_eq!(servers, &["pool.ntp.org"]);
+    assert_eq!(servers, &[None, Some("pool.ntp.org".to_string())]);
     assert_eq!(raw.ipmi.as_ref().unwrap().port, Some(Some(623)));
     Ok(())
 }
 
 #[test]
-async fn lenovo_manager_ignores_null_ntp_servers_in_expanded_link() -> Result<(), Box<dyn StdError>>
-{
+async fn manager_accepts_null_ntp_servers_in_expanded_link() -> Result<(), Box<dyn StdError>> {
     let bmc = Arc::new(Bmc::default());
     let ids = ids();
     let root = expect_anonymous_1_9_service_root(
@@ -220,7 +219,7 @@ async fn lenovo_manager_ignores_null_ntp_servers_in_expanded_link() -> Result<()
         .as_ref()
         .unwrap()
         .clone();
-    assert_eq!(servers, ["pool.ntp.org"]);
+    assert_eq!(servers, [None, Some("pool.ntp.org".to_string())]);
     Ok(())
 }
 
